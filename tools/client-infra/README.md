@@ -56,12 +56,12 @@ A half-filled intake is refused with every missing or wrong field named, before 
 | workspace, site row, contract, pages | `omnikom seed workspace` (the CLI's command, called as a program) | the CLI says it changed nothing |
 | business details | `service.seed_version(settings)` when there is no settings row | exists: compared; a difference is a note, never overwritten |
 | owner's team profile | `service.seed_version(team)`, found again by its slug | the same |
-| owner's login | `invite-member` as Omnikom staff (MFA), role owner, linked to the profile: ONE real mail | already a member: nothing, no mail |
+| owner's login | `invite-member` as Omnikom staff (MFA) inside a staff window of 5 minutes that onboard.mjs opens with service.staff_open and closes after (migration 43), role owner, linked to the profile: ONE real mail | already a member: nothing, no mail, no window |
 | site infrastructure | `provision.mjs` (above) | `changed 0` |
 
 On staging the invite goes only to an address in `test-inboxes.json` (owner rulings with an `until` day); anything else is
 refused before any step runs. `--no-invite` (work order 37) makes everything but the login: no invite, no mail, and the owner's
-address need not be a test inbox. Tests: `test/onboard-run.mjs` (in-memory fakes) and `test/onboard-mutate.mjs`, both inside
+address need not be a test inbox. Tests: `test/onboard-run.mjs` (in-memory fakes, which refuse an invite outside a staff window) and `test/onboard-mutate.mjs`, both inside
 `node clients/test/run.mjs`.
 
 ## Offboarding a client (work order 37, product row E14)

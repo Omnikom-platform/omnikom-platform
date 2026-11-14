@@ -82,6 +82,23 @@ t('invite refused by the function: the run fails', async () => {
   return [a.err && /invite-member answered 404/.test(a.err.message), a.err ? a.err.message : a.text];
 });
 
+const WINDOW_REASON = /^tools\/client-infra\/onboard\.mjs invite-member$/;
+t('staff window (migration 43): the invite runs inside one window of 5 minutes named for this tool, closed after', async () => {
+  const w = newWorld();
+  const a = await run(w);
+  return [!a.err && w.mails.length === 1 && w.windows.length === 1 && w.windows[0].minutes === 5 && !w.windows[0].open && WINDOW_REASON.test(w.windows[0].reason), (a.err ? a.err.message : a.text) + '\n' + JSON.stringify(w.windows)];
+});
+t('staff window: an invite that throws still closes its window, and nothing is made', async () => {
+  const w = newWorld(); w.inviteThrow = true;
+  const a = await run(w);
+  return [a.err && /S-TEST: the invite call failed/.test(a.err.message) && w.windows.length === 1 && w.windows.every((x) => !x.open) && w.members.length === 0 && w.mails.length === 0, a.err ? a.err.message : 'ran'];
+});
+t('staff window: no invite, no window (a second run, a dry run and --no-invite open none)', async () => {
+  const w = newWorld(); await run(w); await run(w);
+  const d = newWorld(); await run(d, { dryRun: true });
+  const n = newWorld(); await run(n, { noInvite: true });
+  return [w.windows.length === 1 && d.windows.length === 0 && n.windows.length === 0 && n.members.length === 0, `${w.windows.length} ${d.windows.length} ${n.windows.length}`];
+});
 t('provision failing makes the run fail', async () => {
   const w = newWorld(); w.provisionExit = 1;
   const a = await run(w);

@@ -6,13 +6,14 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 // repo and inboxes are passed in by onboard.mjs (importing it here would be a cycle that deadlocks its top-level await)
 import { resolveTarget } from '../omnikom-cli/lib/target.mjs';
-import { parseIdentity, personToken } from '../omnikom-cli/lib/identity.mjs';
+import { parseIdentity, personToken, claimsFor } from '../omnikom-cli/lib/identity.mjs';
 
 export function onboardDeps({ log, repo: REPO, inboxes }) {
   if (!REPO || !Array.isArray(inboxes)) throw new Error('onboardDeps needs repo and inboxes');
   const dbUrl = process.env.STAGING_DB_URL;
   if (!dbUrl) throw new Error('set STAGING_DB_URL (read by name, never printed)');
   const scrub = (s) => String(s).split(dbUrl).join('[db]');
+  const staff = parseIdentity('staff'), claims = JSON.stringify(claimsFor(staff));   // one identity: its claims open the window, its token makes the call
   const psql = (sql, vars = {}) => {
     const args = [dbUrl, '-v', 'ON_ERROR_STOP=1', '-X', '-q', '-t', '-A'];
     for (const [k, v] of Object.entries(vars)) args.push('-v', `${k}=${v}`);
@@ -53,6 +54,12 @@ export function onboardDeps({ log, repo: REPO, inboxes }) {
       if (!/^[0-9a-f-]{36}$/.test(id)) throw new Error(`seed_version returned no row id for ${collection}`);
       return id;
     },
+    // migration 43: onboard.mjs opens a window of 5 minutes around the invite and closes it after. The call itself is the staff TOKEN calling invite-member; the window is the staff login's own and holds for it
+    async staffOpen(reason, minutes) { return psql(`select service.staff_open(:'claims'::jsonb, :'reason', :'min'::int);`, { claims, reason, min: minutes }); },
+    async staffClose(until) {   // the window this call opened, by its end: exactly 1 row
+      const n = psql(`with c as (update public.staff_access set until = now() where user_id = :'sub'::uuid and until = :'u'::timestamptz returning 1) select count(*) from c;`, { sub: staff.sub, u: until });
+      if (n !== '1') throw new Error(`closing the staff window: ${n || 0} rows changed, expected 1`);   // the landed offboard-live.mjs wording
+    },
     async memberByEmail(ws, email) {
       const t = psql(`select m.role::text from public.members m join auth.users u on u.id = m.user_id where m.workspace_id = :'ws'::uuid and lower(u.email) = lower(:'e');`, { ws, e: email });
       return t ? { role: t.split('\n')[0] } : null;
@@ -63,7 +70,7 @@ export function onboardDeps({ log, repo: REPO, inboxes }) {
   async function invite(body) {
     if (!inboxes.includes(createHash('sha256').update(String(body.email).trim().toLowerCase()).digest('hex'))) throw new Error(`${body.email} is not a test inbox in test-inboxes.json; no mail sent`);
     if (!target.functionsBase) throw new Error('STAGING_SUPABASE_REF is not set (read by name)');
-    const token = await personToken(parseIdentity('staff'), { target, env: process.env });
+    const token = await personToken(staff, { target, env: process.env });
     const headers = { 'content-type': 'application/json', authorization: `Bearer ${token}` };
     const pub = process.env[target.vars.publishableKey];
     if (pub) headers.apikey = pub;

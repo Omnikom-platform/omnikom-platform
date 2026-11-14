@@ -7,6 +7,8 @@
 // writes only what is missing, so a second run changes nothing ("RESULT: changed 0") and sends no second mail. Rows the client may
 // already have edited are never overwritten: a difference is reported as a note. --dry-run reads and prints each write it would make.
 // Exit: 0 done, 1 a step failed, 2 refused (nothing written), 3 done but waiting (the invite mail was not sent, or provision waits).
+// Staff act only inside a window (migration 43): invite-member runs as the staff login, so the invite runs inside a window of 5 minutes that this opens with service.staff_open and closes after,
+// whatever happened (one audit row each); no other step is a staff call (a dry run, --no-invite and an owner who is already a member open none).
 // Staging only. The invite goes only to an address in test-inboxes.json (owner rulings, each with an `until` day), never a person.
 import { readFileSync, existsSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -126,7 +128,11 @@ export async function onboard(o, d) {
   else if (m) log(m.role === 'owner' ? `ok     ${email} is an owner of ${j.workspace.slug} (no mail sent)` : `note   ${email} is a ${m.role} of ${j.workspace.slug}, not an owner: changing a role is the owner's call (no mail sent)`);
   else if (o.dryRun) would(`invite ${email} as owner of ${j.workspace.slug}, linked to team profile ${teamSlug} (ONE real mail, from Auth, to that test inbox)`, 'POST <functions>/invite-member as Omnikom staff');
   else {
-    const r = await d.invite({ workspace: ws.id, email, role: 'owner', team_row: teamRow });
+    // migration 43: every database call of invite-member asks private.is_staff(). Its statements are separate transactions with Auth's calls between them, so the window is 5 minutes, not 1;
+    // it is closed right after, so its real length is the call's own. (No export, no flag, no option, no helper: this is the one staff call.)
+    const until = await d.db.staffOpen('tools/client-infra/onboard.mjs invite-member', 5);
+    let r;
+    try { r = await d.invite({ workspace: ws.id, email, role: 'owner', team_row: teamRow }); } finally { await d.db.staffClose(until); }
     if (r.status !== 200 || !r.json || r.json.invited !== true) throw new Error(`invite-member answered ${r.status} ${String(r.text || '').slice(0, 160)}`);
     did(`invited ${email} as owner (invite-member 200, email_sent ${r.json.email_sent})`);
     if (r.json.email_sent !== true) { out.waiting.push('mail'); log('WAIT   Auth did not send the invite mail: the person is a member and can ask for a sign-in link at /login'); }

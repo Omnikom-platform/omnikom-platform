@@ -26,6 +26,12 @@ const MUTANTS = [
   ['production is accepted', "if (argv[++i] !== 'staging') throw", 'if (++i < 0) throw'],
   ['--no-invite still invites', 'if (o.noInvite && !m) log(', 'if (false) log('],
   ['--no-invite still demands a test inbox', 'if (!o.noInvite && !(o.inboxes', 'if (!(o.inboxes'],
+  ['the invite runs with no window', "const until = await d.db.staffOpen('tools/client-infra/onboard.mjs invite-member', 5);", "const until = 'no-window';"],
+  ['a window is never closed', 'finally { await d.db.staffClose(until); }', 'finally { }'],
+  ['a window is left open when the invite throws', "try { r = await d.invite({ workspace: ws.id, email, role: 'owner', team_row: teamRow }); } finally { await d.db.staffClose(until); }", "r = await d.invite({ workspace: ws.id, email, role: 'owner', team_row: teamRow }); await d.db.staffClose(until);"],
+  ['the window is 240 minutes long', "onboard.mjs invite-member', 5);", "onboard.mjs invite-member', 240);"],
+  ['the reason does not name the tool', "'tools/client-infra/onboard.mjs invite-member'", "'a staff window for the invite'"],
+  ['a window is opened for every run', 'const j = o.intake, email = j.owner.email.toLowerCase();', "const j = o.intake, email = j.owner.email.toLowerCase(); await d.db.staffClose(await d.db.staffOpen('tools/client-infra/onboard.mjs invite-member', 5));"],
 ];
 
 const dir = mkdtempSync(join(tmpdir(), 'onboard-mut-'));

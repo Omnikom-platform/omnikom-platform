@@ -7,7 +7,7 @@ const jsonbOrder = (v) => (Array.isArray(v) ? v.map(jsonbOrder) : v && typeof v 
 const id = () => `${String(++n).padStart(8, '0')}-0000-4000-8000-000000000000`;
 
 export function newWorld() {
-  return { workspaces: [], rows: [], members: [], writes: [], mails: [], provisioned: {}, inviteAnswer: { status: 200, emailSent: true }, provisionExit: 0 };
+  return { workspaces: [], rows: [], members: [], writes: [], mails: [], provisioned: {}, inviteAnswer: { status: 200, emailSent: true }, provisionExit: 0, windows: [], inviteThrow: false };   // migration 43: windows = { until, reason, minutes, open } of each staff window; inviteThrow makes the invite call throw
 }
 
 export function onboardFakeDeps(w, lines = []) {
@@ -27,9 +27,20 @@ export function onboardFakeDeps(w, lines = []) {
       if (coll === 'settings' && w.rows.some((r) => r.ws === ws && r.coll === 'settings')) throw new Error('S-SINGLETON');
       const r = { id: id(), ws, coll, data: jsonbOrder(data) }; w.rows.push(r); write(`seed ${coll}`); return r.id;
     },
+    async staffOpen(reason, minutes) {   // service.staff_open as migration 43 takes it: a reason of 10 to 200 characters, 1 to 240 minutes
+      if (String(reason).length < 10 || String(reason).length > 200) throw new Error('I-ANSWER reason: Give a reason of 10 to 200 characters.');
+      if (!(minutes >= 1 && minutes <= 240)) throw new Error('I-ANSWER minutes: From 1 to 240 minutes.');
+      const until = `window-${w.windows.length + 1}`;
+      w.windows.push({ until, reason, minutes, open: true });
+      return until;
+    },
+    async staffClose(until) { const x = w.windows.find((y) => y.until === until && y.open); if (!x) throw new Error('closing the staff window: 0 rows changed, expected 1'); x.open = false; },
     async memberByEmail(ws, email) { const m = w.members.find((x) => x.ws === ws && x.email === email); return m ? { role: m.role } : null; },
   };
   async function invite(body) {
+    // migration 43: invite-member runs as the staff login and its first database call (service.find_login) asks private.is_staff(): outside a window it answers 404 and nothing is made
+    if (!w.windows.some((x) => x.open)) return { status: 404, text: '', json: null };
+    if (w.inviteThrow) throw new Error('S-TEST: the invite call failed');
     write('invite'); w.mails.push(body.email);
     w.members.push({ ws: body.workspace, email: body.email, role: body.role, teamRow: body.team_row });
     return { status: w.inviteAnswer.status, text: '', json: w.inviteAnswer.status === 200 ? { user: 'u', invited: true, email_sent: w.inviteAnswer.emailSent } : null };
