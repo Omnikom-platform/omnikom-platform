@@ -155,9 +155,10 @@ table.wrong td{font-size:8.6pt;vertical-align:top}
 `;
 
 export function buildPages(ctx) {
-  const { D, S, fmt, w, draft, logoUrl, fontsUrl } = ctx;
+  const { D, S, fmt, w, std, fixes, draft, logoUrl, fontsUrl, client } = ctx;
   const NAME = D.biz.name, home = D.biz.home, MONTH = D.month;
-  const sheet = [];
+  const sheet = [], seenRows = new Set();
+  const add = (row) => { const k = row.join("\u0001"); if (!seenRows.has(k)) { seenRows.add(k); sheet.push(row); } }; // an identical row is one row
   let page = 0;
   const clean = (s) => String(s).replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/[\t\r\n]+/g, " ").trim();
   const plain = (s) => String(s).replace(/[\u2014\u2013]/g, "-"); // text from the run: a dash becomes "-" (R4's gate stops any other)
@@ -169,9 +170,9 @@ export function buildPages(ctx) {
     const recs = [].concat(key).flatMap((k) => S[k] || []).filter((s) => !pick || s.where.includes(pick) || s.value.includes(pick));
     if (!recs.length) throw new Error(`build: no source for ${key}${pick ? ` matching ${pick}` : ""}`);
     const j = (f) => recs.map((s) => clean(s[f])).join(" | ");
-    sheet.push([page, plain(label), clean(printed), j("file"), j("where"), j("value"), j("measured"), j("kind")]);
+    add([page, plain(label), clean(printed), j("file"), j("where"), j("value"), j("measured"), j("kind")]);
   };
-  const calc = (printed, label, how) => sheet.push([page, plain(label), clean(printed), "(computed)", how, clean(printed), "(computed)", "COMPUTED"]);
+  const calc = (printed, label, how) => add([page, plain(label), clean(printed), "(computed)", how, clean(printed), "(computed)", "COMPUTED"]);
   const miss = (v) => v === null || v === undefined || v === "" || (typeof v === "number" && !Number.isFinite(v));
   // P: draw a value read from D[key] (never null) and give it a row; returns the html text
   const P = (key, shown, label, pick) => { if (miss(shown)) stop(`STOP: page ${page}, ${label}: the value is missing`); const t = plain(typeof shown === "number" ? fmt(shown) : shown); cite(key, t, label, pick); return esc(t); };
@@ -344,8 +345,95 @@ export function buildPages(ctx) {
   ${fixesOl(fixes)}`);
   })();
 
+  // ---- helpers of pages 5 and 6
+  const numberWord = (n) => { const W9 = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]; if (!(n >= 0 && n <= 10)) stop(`STOP: page ${page}, a count of ${n} has no word (zero to ten)`); return W9[n]; };
+  const ordinal = ["first", "second", "third", "fourth", "fifth"];
+  // one square per Maps spot (3 by 3): the state of each spot as the data layer's tile holds it
+  const tile = (v, product, city) => {
+    const cls = { "top three": "t3", listed: "tl", absent: "ta" };
+    const cells = [];
+    for (let r = 0; r < 3; r++) for (let cc = 0; cc < 3; cc++) cells.push(`<rect class="${cls[v.tile[r][cc]]}" x="${cc * 10 + 0.6}" y="${r * 10 + 0.6}" width="8.8" height="8.8"/>`);
+    const t3 = v.counts["top three"], li = v.counts.listed, ab = v.counts.absent;
+    return `<svg viewBox="0 0 30 30" width="24" height="24" role="img" aria-label="${esc(plain(product))}, ${esc(plain(city))}: ${t3} in the top three, ${li} listed lower, ${ab} not listed">${cells.join("")}</svg>`;
+  };
+  const keyHtml = `<div class="key"><svg viewBox="0 0 10 10" width="9" height="9"><rect class="t3" x=".6" y=".6" width="8.8" height="8.8"/></svg> Top three <svg viewBox="0 0 10 10" width="9" height="9"><rect class="tl" x=".6" y=".6" width="8.8" height="8.8"/></svg> Listed <svg viewBox="0 0 10 10" width="9" height="9"><rect class="ta" x=".6" y=".6" width="8.8" height="8.8"/></svg> Absent</div>`;
+
+  // =============================================================== page 5: Maps and reputation
+  page = 5;
+  const p5 = (() => {
+    const T = D.mapTiles, MS = D.mapShown, rr = D.rivalReviews, per = T.per, topP = D.topDemand;
+    const away = T.cities.slice(1), bing = D.directories.find((r) => /bing/i.test(r.directory)), notListed = D.directories.filter((r) => r.status === "not listed");
+    // page 2 has stopped the build already when there is no away city, the business is in the top three at every away spot, or the Bing directory is not listed
+    if (MS.clientAt < 0 || MS.clientAt > 4) stop(`STOP: page 5, you are in this list: the business is not among the first five businesses Maps shows in its top three for "${MS.query}"`);
+    const you = MS.rows[MS.clientAt];
+    if (you.reviews !== D.rating.reviews) stop(`STOP: page 5, your reviews: the pack rows show ${you.reviews}, the profile shows ${D.rating.reviews}`);
+    if (MS.points !== per) stop(`STOP: page 5, who Maps shows: ${MS.points} points for "${MS.query}", the tile has ${per}`);
+    if (D.addresses.length < 2) stop("STOP: page 5, one business with several addresses: the run holds one address");
+    if (!notListed.length || notListed.length > 10) stop(`STOP: page 5, the directories to claim: ${notListed.length} are not listed (1 to 10 are written out)`);
+    if (!(rr.more > 0)) stop("STOP: page 5, the fix asks for reviews: no business in Maps' top three shows more reviews than yours");
+    const trs = T.rows.map((r) => `<tr><td class="pl">${rt(r.product)}</td>${r.cells.map((c) => `<td class="tc">${tile(c, r.product, c.city)}<span>${P("mapTiles", `${c.counts["top three"]} of ${c.points}`, `${r.product}, ${c.city}: top three`, `query=${c.query}`)}</span></td>`).join("")}</tr>`).join("");
+    const homeTop = sum(`${home} spots in the top three`, T.rows.map((r) => [r.product, r.cells[0].counts["top three"], "mapTiles", `query=${r.cells[0].query}`]));
+    const homeOf = sum(`${home} spots read`, T.rows.map((r) => [r.product, r.cells[0].points, "mapTiles", `query=${r.cells[0].query}`]));
+    const awayTop = sum("away-city spots in the top three", T.rows.flatMap((r) => r.cells.slice(1).map((c) => [`${r.product}, ${c.city}`, c.counts["top three"], "mapTiles", `query=${c.query}`])));
+    const awayOf = sum("away-city spots read", T.rows.flatMap((r) => r.cells.slice(1).map((c) => [`${r.product}, ${c.city}`, c.points, "mapTiles", `query=${c.query}`])));
+    const h = `On Google Maps you are in the top three at ${PC(`${homeTop} of ${homeOf}`, `${home} spots in the top three`, "sum, see the rows of this page")} ${rt(home)} spots, and at ${PC(`${awayTop} of ${fmt(awayOf)}`, "away spots in the top three", "sum, see the rows of this page")} in ${rt(andList(away))}.`;
+    const tableRows = MS.rows.slice(0, 5).map((r) => {
+      const meter = Array.from({ length: per }, (_, i) => `<i${i < r.inThree ? ' class="on"' : ""}></i>`).join("");
+      const rev = r.reviews === null ? `<span class="q">no count shown</span>` : `${P("mapShown", r.reviews, `reviews, ${r.name}`)} reviews`;
+      return `<tr${r.isTheClient ? ' class="you"' : ""}><td>${rt(r.name)}${r.isTheClient ? " <u>you</u>" : ""}</td><td class="mt2">${meter}</td><td class="r">${P("mapShown", `${r.inThree} of ${per}`, `spots in the top three, ${r.name}`)}</td><td class="r rv">${rev}</td></tr>`;
+    }).join("");
+    const youLine = `You are in this list: ${ordinal[MS.clientAt]} most often, at ${P("mapShown", `${you.inThree} of ${per}`, `your spots in the top three, ${topP.product}`)} spots, with ${P("mapShown", you.reviews, "your reviews")} reviews.`;
+    const addrHtml = D.addresses.map((a) => `<div><span class="al">${rt(andList(a.where))}</span> <b>${P("addresses", a.address, `address shown, ${andList(a.where)}`, a.address)}</b></div>`).join("");
+    cite("directories", String(notListed.length), "directories where you are not listed", "not listed");
+    cite("directories", "Listed", "Bing Places: listed or not", `directory=${bing.directory}`);
+    const rvLine = `${P("rivalReviews", rr.more, `businesses in Maps' top three around ${home} with more reviews`)} of the ${P("rivalReviews", rr.of, `businesses in Maps' top three around ${home}`)} businesses in Maps' top three around ${rt(home)} show more reviews than your ${P("rivalReviews", rr.ours, "your reviews")}.`;
+    const fixes = [
+      ["Show one address everywhere.", "Tell us which one is right. The site we draft shows it."],
+      [`Fill in your Google profile and claim ${andList(notListed.map((r) => rt(r.name)))}.`, `You are listed on Bing Places and on none of those ${numberWord(notListed.length)}.`],
+      [`Ask every ${w.pastCustomer} for a review, and reply to each one.`, rvLine],
+    ];
+    return sheetPage(5, `${head("Local and reputation", h, `Google Maps was read at ${P("mapTiles", per, "spots around each city", `query=${T.rows[0].cells[0].query}`)} spots around each city, for each ${w.product}. One square is one spot.`)}
+  <div class="two cols2">
+    <div><table class="maps"><tr><th></th>${T.cities.map((c) => `<th class="tc">${rt(c)}</th>`).join("")}</tr>${trs}</table>${keyHtml}</div>
+    <div>
+      <h3 class="m0">${rt(topP.product)} in ${rt(home)}: who Maps shows in its top three</h3>
+      <table class="sbaT">${tableRows}</table>
+      <p class="note">${youLine}</p>
+    </div>
+  </div>
+  <h3 class="mt">${P("addresses", D.addresses.length, "addresses for one business")} addresses for one business</h3>
+  <div class="addr3">${addrHtml}</div>
+  <p class="note">Check it: compare the address on your site with the one on Google Maps.</p>
+  ${fixesOl(fixes)}`);
+  })();
+
+  // =============================================================== page 6: competitors
+  page = 6;
+  const p6 = (() => {
+    const RV = D.rivals, local = RV.filter((r) => r.group === "local"), lnk = (r) => (r.links === null ? "none found" : r.links), LP = D.linkPlaces;
+    // page 3 has stopped the build already when the home page sends words
+    if (!client.rivalsLede) stop("STOP: page 6, the lede: the client file has no rivalsLede");
+    if (local.length !== 2) stop(`STOP: page 6, the headline names two ${home} rivals: the client file marks ${local.length} rivals as group local`);
+    if (local.some((r) => r.words === 0)) stop("STOP: page 6, the headline says your rivals send words and you send none: a local rival sends none");
+    if (!D.ads.length || new Set(D.ads.map((a) => a.days)).size !== 1) stop("STOP: page 6, Google's ad library line: no rival has an ad count with its window, or the windows differ");
+    if (!(client.linkPlace && LP.metro > 0 && !D.ourLinks && LP.pursue > 0)) stop("STOP: page 6, the chambers fix: the client file names no linkPlace, it links to no rival, it links to you, or no place is worth asking");
+    const pk = (r, kind) => (kind === "sites" ? `sites[domain=${r.domain}]` : `results[domain=${r.domain}]`);
+    const h = `Your ${PC(numberWord(local.length), `${home} rivals`, "count of the rivals of group local")} ${rt(home)} rivals send ${P("rivals", local[0].words, "words, first local rival", pk(local[0], "sites"))} and ${P("rivals", local[1].words, "words, second local rival", pk(local[1], "sites"))} words and have ${P("rivals", local[0].links, "sites linking, first local rival", pk(local[0], "links"))} and ${P("rivals", local[1].links, "sites linking, second local rival", pk(local[1], "links"))} sites linking to them. You send ${P("wordsSent", D.wordsSent, "your words")}.`;
+    const maxW = Math.max(...RV.map((r) => r.words));
+    const youRow = `<tr class="you"><td>${rt(NAME)}<small>you</small></td><td class="bc">${bar(D.wordsSent, maxW, "me")}</td><td class="r">${P("wordsSent", D.wordsSent, "your words")}</td><td class="r">${P("sitemapPages", D.sitemapPages, "your pages in the sitemap")}</td><td class="r">${P("usLinks", D.usLinks === null ? "none found" : D.usLinks, "sites linking to you")}</td></tr>`;
+    const rows = RV.map((r) => `<tr><td>${rt(r.printName)}<small>${rt(r.type)}</small></td><td class="bc">${bar(r.words, maxW)}</td><td class="r">${P("rivals", r.words, `words, ${r.printName}`, pk(r, "sites"))}</td><td class="r">${P("rivals", r.sitemap, `pages, ${r.printName}`, pk(r, "sites"))}</td><td class="r">${P("rivals", lnk(r), `sites linking, ${r.printName}`, pk(r, "links"))}</td></tr>`).join("");
+    const nameOf = (a) => { const r = RV.find((x) => x.domain === a.domain); return r ? r.printName : a.domain; };
+    const adPart = (a) => { const n = P("ads", a.count, `ads, ${nameOf(a)}`, `advertiser=${a.domain}`); return a.count === 0 ? `none for ${rt(nameOf(a))}` : `${n} ${a.count === 1 ? "ad" : "ads"} for ${rt(nameOf(a))}`; };
+    const adLine = `Google's ad library shows ${andList(D.ads.map(adPart))} in the last ${P("ads", D.ads[0].days, "days of the ad library window", `advertiser=${D.ads[0].domain}`)} days.`;
+    const fixes = [[`Join the ${rt(home)} chambers and ask for listings.`, `We found ${P("linkPlaces", LP.pursue, "places worth asking for a listing", "summary.PURSUE")} places worth asking, ${P("linkPlaces", LP.chambers, "of them chambers of commerce", "chamber-local")} of them chambers of commerce. ${rt(client.linkPlace)} links to ${P("linkPlaces", LP.metro, `rivals linked from ${client.linkPlace}`, "opportunities[")} of the businesses you compete with, and not to you. You and Omnikom ask together.`]];
+    return sheetPage(6, `${head("Competitors", h, rt(client.rivalsLede))}
+  <table class="comp"><tr><th>Business</th><th colspan="2">Words in the first response</th><th class="r">Pages in the list it gives Google</th><th class="r">Other sites pointing to it</th></tr>${youRow}${rows}</table>
+  <p class="note">${adLine}</p>
+  ${fixesOl(fixes)}`);
+  })();
+
   // @@PAGES
-  const all = [p1, p2, p3, p4]; // @@ALL
+  const all = [p1, p2, p3, p4, p5, p6]; // @@ALL
   const spaced = all.join("\n").replace(/>(?=<(?!\/?(?:i|svg|rect|br)\b))/g, ">\n"); // a space between neighbours, so no label runs into its number when read as text
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(NAME)}: SEO, AI search and local audit, ${esc(MONTH)}${draft ? " (draft)" : ""}</title>
 <link href="${fontsUrl}" rel="stylesheet"><style>${CSS}</style></head><body>

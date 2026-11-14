@@ -8,7 +8,7 @@
 // are null here and nothing about it is printed.
 import fs from "node:fs";
 import path from "node:path";
-import { isAdName, mapsTile, excludedRivals, nameToPrint, namesByFirstMention } from "./client-copy-rules.mjs";
+import { isAdName, mapsTile, mapsFirstThree, excludedRivals, nameToPrint, namesByFirstMention } from "./client-copy-rules.mjs";
 
 export const stop = (line) => { const e = new Error(line); e.isStop = true; throw e; };
 export const fmt = (n) => (typeof n === "number" ? n.toLocaleString("en-US") : n);
@@ -537,6 +537,15 @@ export function collect(cfg) {
     }
     for (const x of qs) for (const e of ["chatgpt", "perplexity"]) if (!x[e]) stop(`STOP: ${label(defs.ai)} has no ok row for the question "${x.question}" on ${e}`);
     put("aiGrid", { rows: qs }, src("ai", "rows[status=ok, engine=chatgpt|perplexity].question, .type, .named, .competitorsNamed (ordered by the first mention in captures/ai/<file>.answerText)", `${qs.length} questions`));
+    // ---- page 5: who Maps shows in its first three (top demand product, home city): the pack rows at position 1 to 3, never top3
+    const msAt = solv.findIndex((s) => s.key === demand[0].key && s.cityName === home), msQ = qOf[msAt];
+    const msIdx = gp.map((p, i) => (p.query === msQ && p.city === solv[msAt].city ? i : -1)).filter((i) => i >= 0);
+    const msPts = msIdx.map((i) => ({ query: msQ, city: gp[i].city, pack: get("grid", `points[${i}].pack`, "array").map((_, k) => ({ position: get("grid", `points[${i}].pack[${k}].position`, "count"), name: get("grid", `points[${i}].pack[${k}].name`, "text"), reviews: getMaybe("grid", `points[${i}].pack[${k}].reviews`, "count") })) }));
+    // the client's name is the data layer's own `ourName` (profile name, read above): 127 of 162 real points have `ours` null, so a point's `ours.name` is never read
+    let ms; try { ms = mapsFirstThree(msPts, msQ, ourName); } catch (e) { stop(`STOP: ${label(defs.grid)}: ${e.message}`); }
+    put("mapShown", { query: msQ, points: ms.points, rows: ms.rows, clientAt: ms.rows.findIndex((r) => r.isTheClient) }, src("grid", `points[query=${msQ}].pack[position<=3] (name, reviews); the client is profile name`, `${ms.rows.length} businesses over ${ms.points} points`));
+    const usN = ourGraph ? get("auth", `results[domain=${domain}].linkingDomains`, "count") : null;
+    put("usLinks", usN, src("auth", `results[domain=${domain}].linkingDomains`, usN === null ? "not in graph" : usN));
     // @@KEYS (job R2b adds its keys above this line; keep it verbatim)
   }
   return { D, S, fmt, labelOf };
