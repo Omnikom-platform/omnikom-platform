@@ -1,13 +1,15 @@
 // Validator for the contract in schemas/targets.md: targets.json, business.json, ranking rows, AI-citation rows.
-// Usage: node targets-validate.mjs <targets.json | pewp dir> [--business <file>] [--measure <dir>]...
+// Usage: node targets-validate.mjs <targets.json | pewp dir> [--business <file>] [--measure <dir>]... [--record <file>]
 // Output (check style): first line `PASS targets-valid <what>` or `FAIL targets-valid <n> error(s)`, then one line per error
 // `  <rule> <json path>: <message>`. Exit 0 pass, 1 fail, 2 cannot judge (file missing or not JSON).
+// --record <file> (opt in): a PASS writes a JSON record of files read (name, bytes, sha256); a FAIL or "cannot judge" removes it.
 // Library: validate(obj), validateBusiness(obj), validateRankingRow(row, path), validateCitationRow(row, path),
 //          validateMeasureDir(dir), compareMeasure(dirA, dirB), measureKey(row)
 // Rules: T-001 shape · T-002 id · T-003 primaryQuery unique (cannibalisation) · T-004 sourced number · T-005 market ·
 //        T-006 location on local intent · T-007 intent · T-008 targetPage · T-009 lists · T-010 priority · T-011 wordRange
 //        B-001 business shape · R-001..R-005 ranking rows · C-001..C-005 AI-citation rows · M-001 measure folder
 import fs from "node:fs";
+import crypto from "node:crypto";
 import { isMain } from "./lib-main.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -235,24 +237,46 @@ export function compareMeasure(dirA, dirB) {
 function main() {
   const a = process.argv.slice(2);
   const optAll = (k) => a.flatMap((x, i) => (x === k ? [a[i + 1]] : []));
-  const pos = a.filter((x, i) => !x.startsWith("--") && !["--business", "--measure"].includes(a[i - 1]));
-  if (!pos.length && !optAll("--measure").length && !optAll("--business").length) { console.error("usage: node targets-validate.mjs <targets.json | pewp dir> [--business <file>] [--measure <dir>]..."); process.exit(2); }
-  const errors = [], what = [];
-  const load = (f) => { try { return readJson(f); } catch (e) { console.log(`ERROR targets-valid cannot judge: ${f}: ${e.code === "ENOENT" ? "file not found" : e.message}`); process.exit(2); } };
+  const pos = a.filter((x, i) => !x.startsWith("--") && !["--business", "--measure", "--record"].includes(a[i - 1]));
+  const recArg = optAll("--record")[0]; // --record <file>: opt in
+  const recFile = a.includes("--record") && recArg && !recArg.startsWith("--") ? path.resolve(recArg) : null;
+  const dropRecord = () => { if (recFile) fs.rmSync(recFile, { force: true }); }; // never vouches for a failing file
+  const noArgs = !pos.length && !optAll("--measure").length && !optAll("--business").length;
+  const USAGE = "usage: node targets-validate.mjs <targets.json | pewp dir> [--business <file>] [--measure <dir>]..."
+    + " [--record <file>]";
+  if (noArgs || (a.includes("--record") && (!recFile || !pos.length))) { console.error(USAGE); process.exit(2); }
+  const errors = [], what = [], seen = []; let nClusters = 0;
+  const writeRecord = () => { // name next to the record, bytes, sha256 of the very bytes judged
+    const rel = (f) => path.relative(path.dirname(recFile), f).split(path.sep).join("/");
+    const sha = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
+    const files = seen.map(({ f, buf }) => ({ file: rel(f), bytes: buf.length, sha256: sha(buf) }));
+    const head = { version: 1, step: "targets-validate", checkedAt: new Date().toISOString(), result: "pass" };
+    fs.mkdirSync(path.dirname(recFile), { recursive: true });
+    fs.writeFileSync(recFile, JSON.stringify({ ...head, clusters: nClusters, files }, null, 1) + "\n");
+  };
+  const load = (f) => {
+    try { const buf = fs.readFileSync(f), j = JSON.parse(noBom(buf.toString("utf8"))); seen.push({ f, buf }); return j; }
+    catch (e) { dropRecord(); // cannot judge: the old record goes
+      console.log(`ERROR targets-valid cannot judge: ${f}: ${e.code === "ENOENT" ? "file not found" : e.message}`); process.exit(2); } };
   if (pos[0]) {
     let f = path.resolve(pos[0]);
     if (fs.existsSync(f) && fs.statSync(f).isDirectory()) f = path.join(f, "targets.json");
+    const bf0 = optAll("--business")[0] || path.join(path.dirname(f), "business.json");
+    const same = (x) => path.resolve(x).toLowerCase() === recFile.toLowerCase();
+    if (recFile && [f, bf0].some(same)) { console.error(USAGE); process.exit(2); } // the record is never a file it reads
     const t = load(f); const r = validate(t);
-    errors.push(...r.errors); what.push(`${t?.clusters?.length ?? 0} clusters`);
+    nClusters = t?.clusters?.length ?? 0; errors.push(...r.errors); what.push(`${nClusters} clusters`);
     const bf = optAll("--business")[0] || path.join(path.dirname(f), "business.json");
     if (optAll("--business")[0] || fs.existsSync(bf)) { errors.push(...validateBusiness(load(bf)).errors.map((e) => ({ ...e, path: "business." + e.path }))); what.push("business.json"); }
   } else for (const bf of optAll("--business")) { errors.push(...validateBusiness(load(bf)).errors); what.push("business.json"); }
   for (const d of optAll("--measure")) { errors.push(...validateMeasureDir(path.resolve(d)).map((e) => ({ ...e, path: `${path.basename(d)}/${e.path}` }))); what.push(`measure ${path.basename(d)}`); }
   if (errors.length) {
+    dropRecord(); // FAIL: the old record goes
     console.log(`FAIL targets-valid ${errors.length} error(s)`);
     for (const e of errors) console.log(`  ${e.rule} ${e.path}: ${e.message}`);
     process.exit(1);
   }
+  if (recFile) writeRecord(); // PASS: the record is written
   console.log(`PASS targets-valid ${what.join(", ")}`);
 }
 if (isMain(import.meta.url)) main(); // lib-main.mjs: real paths, junction/symlink safe

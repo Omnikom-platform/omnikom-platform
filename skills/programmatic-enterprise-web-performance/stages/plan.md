@@ -17,7 +17,7 @@ read `plan/summary.md` and the briefs, tell the owner in plain words, and fix wh
 `<pewp>` is `site-checks/<host>/.pewp/` for a URL target or `<repo>/.pewp/` for a repo (see `state.mjs`).
 
 ## Run it
-1. Validate first: `node scripts/targets-validate.mjs <pewp>` (add `--business`, `--measure <dir>`). Exit 1 prints the rule id, the path and the fix; do not plan on invalid research.
+1. Validate first: `node scripts/targets-validate.mjs <pewp>` (add `--business`, `--measure <dir>`; `--record <file>` leaves a record of the files read: the pipeline step passes it). Exit 1 prints the rule id, the path and the fix; do not plan on invalid research.
 2. Plan: `node scripts/plan-site.mjs <pewp> [--authority <authority.json>] [--citations <file>] [--data-source "<text>"]`.
    Gate numbers for programmatic pages default to the project's own floor (CODE-NEEDS-SEO §6: about 1,000 words of non-template
    text, at most about 40% shared with a sibling): `--prog-min-words 1000 --prog-min-unique 600 --prog-min-facts 5 --prog-max-similarity 0.4`.

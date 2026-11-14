@@ -860,12 +860,17 @@
    "args": [
     "{pewp}",
     "--business",
-    "{pewp}/business.json"
+    "{pewp}/business.json",
+    "--record",
+    "{pewp}/targets-validate.json"
    ],
    "inputs": [
-    "{pewp}/targets.json"
+    "{pewp}/targets.json",
+    "{pewp}/business.json"
    ],
-   "outputs": [],
+   "outputs": [
+    "{pewp}/targets-validate.json"
+   ],
    "dependsOn": [
     "research"
    ],
@@ -878,7 +883,7 @@
    "pace": null,
    "timeoutMinutes": 5,
    "evidence": [
-    "{pewp}/targets.json"
+    "{pewp}/targets-validate.json"
    ],
    "kind": "derived",
    "maxAgeDays": null

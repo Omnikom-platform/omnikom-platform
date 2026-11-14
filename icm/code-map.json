@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 935,
+    "sources": 936,
     "unowned": 0
   },
   "files": [
@@ -365,6 +365,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-snapshot.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-start.mjs","owner":"seo-and-audits","exports":["runScenarios"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-step-contracts.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-targets-record.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-topic-filter.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-vantage.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-writing-gate.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
