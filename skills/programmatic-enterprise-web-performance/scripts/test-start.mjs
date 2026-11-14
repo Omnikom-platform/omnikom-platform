@@ -351,6 +351,16 @@ async function runScenariosInner(sdir, only, results) {
     check("A: an explicit --adopt of a stage recorded partial is refused: exit 3, ADOPT REFUSED with the reason, nothing starts, the record stays partial", r.code === 3 && /ADOPT REFUSED authority-classify: its last run ended PARTIAL \(read 10 of 25\)/.test(r.out) && Wq.calls().length === 0 && stq()?.partial === "read 10 of 25", `${r.code} ${names(Wq.calls())} ${r.out.slice(-300)}`);
     Wq.uncontrol("authority-classify.mjs.partial"); Wq.clear(); r = Wq.start("audit-live", [URL1], Pq);
     check("A: a stage recorded partial is not adopted on the next --go: it is run again and, ended whole, recorded done (not adopted, no partial)", names(Wq.calls()).includes("authority-classify") && !/authority-classify: adopted/.test(r.out) && !!stq()?.doneAt && !stq().adopted && !stq().partial, `${names(Wq.calls())} ${JSON.stringify(stq())} ${r.out.slice(-300)}`);
+    // A8d: a stage whose last run ended BLOCKED or FAILED is never adopted, even with evidence lying there: an explicit --adopt is refused, the next --go runs it again
+    for (const [kind, ctl] of [["blocked", null], ["failed", "authority.mjs.silent"]]) {
+      const Wb = mkWorld(sdir), PLb = mkFix(Wb), Pb = ["--pipeline", PLb, "--go"], pewpB = path.join(Wb.cwd, "site-checks", "fixture.test", ".pewp"), stb = () => rj(path.join(pewpB, "state.json")).stages.authority;
+      Wb.start("audit-live", [URL1], [...Pb, "--stage", "doctor"]); if (ctl) Wb.control(ctl); Wb.start("audit-live", [URL1], [...Pb, "--stage", "authority"]); if (ctl) Wb.uncontrol(ctl);
+      w(path.join(pewpB, "authority.json"), "{}");
+      Wb.clear(); r = Wb.start("audit-live", [URL1], [...Pb, "--adopt", "authority"]);
+      check(`A: an explicit --adopt of a stage recorded ${kind} is refused: exit 3, ADOPT REFUSED with the reason, nothing starts, the record stays ${kind}`, r.code === 3 && new RegExp(`ADOPT REFUSED authority: its last run ended ${kind.toUpperCase()} \\(`).test(r.out) && Wb.calls().length === 0 && !!stb()?.[kind], `${r.code} ${names(Wb.calls())} ${JSON.stringify(stb())} ${r.out.slice(-300)}`);
+      Wb.control("authority.mjs.ok"); Wb.clear(); r = Wb.start("audit-live", [URL1], Pb);
+      check(`A: a stage recorded ${kind} is not adopted on the next --go: it is run again and, ended whole, recorded done (not adopted, no ${kind})`, names(Wb.calls()).includes("authority") && !/authority: adopted/.test(r.out) && !!stb()?.doneAt && !stb().adopted && !stb()[kind], `${names(Wb.calls())} ${JSON.stringify(stb())} ${r.out.slice(-300)}`);
+    }
     // A9: --no-authority, --stage before its dependency, the owner's plan ack
     const W4 = mkWorld(sdir); const PL4 = mkFix(W4); const P4 = ["--pipeline", PL4];
     r = W4.start("audit-live", [URL1], ["--go", "--stage", "report-live", ...P4]);
@@ -759,8 +769,10 @@ const MUTANTS = [
   { name: "G1: children get --env-file (Node 24 pre-scans it) instead of --dotenv", file: "start.mjs", from: "const envArgs = () => (envInfo.file ? [\"--dotenv\", envInfo.file] : []);", to: "const envArgs = () => (envInfo.file ? [\"--env-file\", envInfo.file] : []);", sc: "G", expect: [/^G: --env-file is loaded by start/] },
   { name: "partialSettles ignored", file: "start.mjs", from: ' || (res.get(d) === "partial" && byName.get(d)?.manifest?.partialSettles === true)', to: "", sc: "A", expect: [/^A: a PARTIAL step with partialSettles/] },
   { name: "every partial settles", file: "start.mjs", from: "byName.get(d)?.manifest?.partialSettles === true", to: "true", sc: "A", expect: [/^A: the same PARTIAL step without the key still holds/] },
-  { name: "a stage recorded partial is adopted on the next run", file: "start.mjs", from: "  const pr = partialRefusal(s); if (pr) return pr;", to: "", sc: "A", expect: [/^A: a stage recorded partial is not adopted/] },
-  { name: "an explicit --adopt of a partial stage is not refused", file: "start.mjs", from: "const a = partialRefusal(s) || adoptStep(", to: "const a = adoptStep(", sc: "A", expect: [/^A: an explicit --adopt of a stage recorded partial is refused/] },
+  { name: "a stage recorded partial is adopted on the next run", file: "start.mjs", from: "  const pr = lastRunRefusal(s); if (pr) return pr;", to: "", sc: "A", expect: [/^A: a stage recorded partial is not adopted/] },
+  { name: "an explicit --adopt of a partial stage is not refused", file: "start.mjs", from: "const a = lastRunRefusal(s) || adoptStep(", to: "const a = adoptStep(", sc: "A", expect: [/^A: an explicit --adopt of a stage recorded partial is refused/] },
+  { name: "a stage recorded blocked or failed is adopted", file: "start.mjs", from: 'const k = ["partial", "blocked", "failed"].find(', to: 'const k = ["partial"].find(', sc: "A", expect: [/^A: an explicit --adopt of a stage recorded blocked/, /^A: a stage recorded blocked is not adopted/, /^A: an explicit --adopt of a stage recorded failed/, /^A: a stage recorded failed is not adopted/] },
+  { name: "a FAILED stage leaves no record", file: "start.mjs", from: "persist((x) => { x.stages[s.name] = { failed: String(v.message).slice(0, 300), at: new Date().toISOString() }; }); ", to: "", sc: "A", expect: [/^A: an explicit --adopt of a stage recorded failed/, /^A: a stage recorded failed is not adopted/] },
 ];
 
 if (isMain(import.meta.url)) { // lib-main.mjs: real paths (started through a junction this used to skip the whole suite)
