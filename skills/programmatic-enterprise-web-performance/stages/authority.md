@@ -1,8 +1,8 @@
 # Stage: authority (off-site: earning links, mentions and citations, for any line of business)
 
 Load this file when the question is "who vouches for this business, and how do we get more of the right people to?" It is
-the off-site half of the work (shipgate 06 TR-218 authority and TR-233 off-site plan). It works for any business: a realtor, a
-cash buyer, a plumber, a lawyer, a dentist, a restaurant, a software company, an online shop. What changes between them is the
+the off-site half of the work (shipgate 06 TR-218 authority and TR-233 off-site plan). It works for any business.
+What changes between them is the
 **industry pack** (`rules/link-sources/`), not the method.
 
 Free sources only. We build the tools. A part whose source is missing says BLOCKED with the step that unblocks it.
@@ -32,8 +32,8 @@ counts distinct linking **domains**, so use it to compare us with competitors an
 ## 2. The run
 | Step | Command | Reads | Writes | Notes |
 |---|---|---|---|---|
-| 1 Who links to us and to competitors | `node scripts/authority.mjs <pewp>/authority.json --target <domain> --competitor <d>... --top 500` | Common Crawl cache | `authority.json` (+ `.md`), including the link gap | 15 to 30 minutes the first time, then cached per release (`<release>-asked.json`, `--rescan`): UNPROVEN at real scale. `--top` = linking domains kept per site (default 30); use 500 |
-| 1b How they link (anchors, follow or nofollow) | `node scripts/authority-anchors.mjs <pewp> [--keyword "<money term>"]...` | `authority.json`, Common Crawl data host (at most 600 requests, 3 s apart) | `authority/anchors.json` + `anchors.md` | optional, after step 1; see 2b. When Common Crawl stops us (24 h stop file) the run still ends exit 0 with what it read written, and its last line is `PARTIAL: <why>; what was read is kept, run again to continue`; a stop already in force when it starts is exit 3 |
+| 1 Who links to us and to competitors | `node scripts/authority.mjs <pewp>/authority.json --target <domain> --competitor <d>... --top 500` | Common Crawl cache | `authority.json` (+ `.md`), including the link gap | 15 to 30 minutes the first time, then cached per release (`<release>-asked.json`, `--rescan`): UNPROVEN at real scale. `--top` = linking domains kept per site (default 30) |
+| 1b How they link (anchors, follow or nofollow) | `node scripts/authority-anchors.mjs <pewp> [--keyword "<money term>"]...` | `authority.json`, Common Crawl data host (limits in 2b) | `authority/anchors.json` + `anchors.md` | optional, after step 1; see 2b. When Common Crawl stops us (24 h stop file) the run still ends exit 0 with what it read written, and its last line is `PARTIAL: <why>; what was read is kept, run again to continue` |
 | 2 Classify and rank | `node scripts/authority-classify.mjs <target> [--industry slug] [--fetch]` | `authority.json`, `research/citations.json`, `research/ai-citations.json`, `business.json`, the pack | `authority/opportunities.json` + `.md` | no network unless `--fetch`; exit 3 = no `authority.json` yet |
 | 3 Vet before spending | `node scripts/authority-vet.mjs <target> [--domain d]... [--limit 25] [--exclude "<regex>"]` | `opportunities.json` | `authority/vetting.json` + `howto.md` | polite read-only visits, about 12 s a site; when a time or request cap stops it the run still ends exit 0 and its last line is `PARTIAL: <why>; what was read is kept, run again to continue` |
 | 4 Hand the client the how-to | `authority/howto.md` | `vetting.json` | the plain-words list | the client never sees internal notes |
@@ -49,11 +49,11 @@ The ordered list in `opportunities.md` is: (1) the **link gap**, sites that link
 (2) sites the AI engines **cited instead of us** in the answers we captured *to questions that belong to this business* (below); (3) sites that link to one competitor; (4)
 directories that fill the captured search results; (5) the pack's usual places that no data pointed at. Inside a group the
 order is the source type's value times how easy it is (`value * (6 - effort)`), then the number of competitors, then the
-strength of the domain in the link graph. A domain no rule recognises is **unclassified**; the tools never guess. An unclassified site counts as an opportunity only when a competitor links from it (that proves it links out); one found only through AI answers or searches waits in the `unclassified` list until `--fetch` or a person classifies it. Run
+strength of the domain in the link graph. A domain no rule recognises is **unclassified**; the tools never guess. It counts as an opportunity only when a competitor links from it (that proves it links out); one found only through AI answers or searches waits in the `unclassified` list until `--fetch` or a person classifies it. Run
 with `--fetch` to read an unclassified site's home page once (title and description go through the text rules); if those do
 not decide either, it stays unclassified and a person looks.
 
-Three filters keep the list about places that can link to the client (added after a real run listed cash-buyer companies on a realtor's list):
+Three filters keep the list about places that can link to the client:
 1. **Scope of the AI answers.** `research/ai-citations.json` can hold answers to questions of a second business. Only rows whose question matches a cluster of `targets.json` (record-only clusters excluded; word overlap 0.6 or more) or shares a word with the business's offer, industry or pack aliases are counted. With neither targets nor offer nothing can be judged: all rows are kept and `aiFilter.mode` says `unfiltered`. If `targets.json` itself holds a second business's clusters, this filter keeps them; filter 2 is what removes the companies.
 2. **Provider businesses are not opportunities.** A domain whose name (pack `providerPatterns`, tested on the main label) or home page (pack `providerText`: first-person wording such as "we buy houses", "get a cash offer") shows it sells the same or a neighbouring service is `provider-business`. Names the pack knows (a Zillow, an escrow company named as a partner) win over this rule. Directory wording ("find the best agents") never counts. `authority-vet.mjs` applies the wording test to unclassified sites and returns `NOT AN OPPORTUNITY`.
 3. **Only kinds that link out are ranked**, and a partner type the pack names (lender, escrow, stager, inspector) found only through AI answers or searches ranks below the directories (tier `partner`).
@@ -124,14 +124,14 @@ profile. How: log in, add the website link, matching contact details and a short
 quarter (an award, a talk, a new office). Claim only memberships and credentials the business actually holds.
 
 **`parent-roster`: the parent brokerage, franchise, hospital or employer** page that lists agents, locations, doctors or
-members. The easiest followed link there is. How: ask the parent for the page or use its portal; fill the website field; link
+members. How: ask the parent for the page or use its portal; fill the website field; link
 back from the business's own site. The pack lists other brokerages' rosters only as "another brokerage's roster": they matter
 only if that brokerage is the client's own (`business.json` `credentials.brokerage`). Watch: the page belongs to the parent and
 can vanish; keep the address in the tracker.
 
 **`platform-profile`: profiles with a website field** (Zillow and Realtor.com for agents, Avvo and Justia for lawyers,
 Healthgrades and Vitals for doctors, G2 and Capterra for software, Houzz for remodelers, Trustpilot, Tripadvisor). The link is
-usually nofollow; the value is the citation, the reviews, the visitors and the fact that engines quote these pages. How: claim
+usually nofollow; engines quote these pages. How: claim
 with the business email, fill every field, add the website, ask real customers for reviews (section 6). Watch: paid
 advertising on the same platform is a separate decision; a nofollow link is normal here and `authority-vet.mjs` says so
 instead of rejecting it.
@@ -147,7 +147,7 @@ journalist requests in the field the same day. Never a press-release blast. Neve
 sponsored.
 
 **`press-release`: distribution sites.** Worth sending only for real news (an opening, an award, a study). Do not expect
-ranking credit. Google lists optimized anchor text in press releases distributed on other sites as link spam, so the link text
+ranking credit. Optimized anchor text in press releases is link spam (section 7), so the link text
 is the plain business name. The mention and a pickup by a real outlet are the prize.
 
 **`sponsorship-charity`: sponsors, teams, charities, schools, service clubs.** Support a cause the owner cares about in the area
@@ -156,8 +156,8 @@ link scheme in spirit; keep the cause and the gift real.
 
 **`partner-supplier`: partner and supplier businesses** (lender, title and escrow, inspector, stager, mover, manufacturer,
 distributor, integration partner). Ask each real partner for a resources or partners page entry; give them a reason (a joint
-guide, referrals, a quotable testimonial); link to them only where a customer would use it. Google lists "excessive link
-exchanges" and pages made only for cross-linking as link spam: genuine partners, a few of them.
+guide, referrals, a quotable testimonial); link to them only where a customer would use it. Excessive link
+exchanges are link spam (section 7): genuine partners, a few of them.
 
 **`podcast-guest`: podcasts, newsletters, guest articles.** List ten shows or blogs the customers actually follow; pitch one
 topic and two things the audience will learn; ask for the show notes or author box to carry the website with the business name
@@ -180,8 +180,8 @@ a resource list for residents). "Scholarship" and "discount for students" campai
 `taxonomy.json` holds the types and the rules that work for any business. One pack per line of business adds its own named
 hosts (`domainTypes`), name patterns, `providerPatterns` and `providerText` (what a competing business looks like), the angles that work there, what to avoid, and the review sites that matter. The pack
 comes from `business.json` `industry` (or `kind`), by slug or alias, or from `--industry`. A business with no matching pack
-uses `local-generic` and the output says so. Every local pack extends `local-generic` (yelp, BBB, Apple Business Connect, Bing
-Places, the chamber and service-club patterns).
+uses `local-generic` and the output says so. Every local pack extends `local-generic`,
+the base row below.
 
 | Pack | Typical sources | Careful about |
 |---|---|---|
@@ -196,14 +196,14 @@ Places, the chamber and service-club patterns).
 | `ecommerce` | stockists and "where to buy" pages, gift guides, Trustpilot, unlinked brand mentions | free product for a link without `rel="sponsored"` (named in Google's list); coupon and affiliate sites |
 | `local-generic` | the base: directories, chamber, service clubs, local news, partners | everything in section 7 |
 
-The pack hosts are **recalled general knowledge, not re-fetched (UNVERIFIED)**, the same standard as the other rulesets here;
-that is why step 3 (vet) exists. The value and effort numbers are judgements. To add a line of business: copy the closest pack,
+The pack hosts are **recalled general knowledge, not re-fetched (UNVERIFIED)**;
+that is why step 3 (vet) exists. To add a line of business: copy the closest pack,
 set `slug`, `aliases`, `extends`, list only hosts you are confident exist, keep the `basis` line honest, and run
 `node scripts/test-authority.mjs` (it validates every pack).
 
 ## 5. NAP and local citations (the map pack)
-NAP is name, address, phone. Google's map ranking uses relevance, distance and prominence; citations and consistency are
-part of how a business looks real and prominent. The rule: **one canonical record** (`business.json`, confirmed by the owner once)
+NAP is name, address, phone. Citations and consistency are part of how a business
+looks real and prominent in the map pack (section 1). The rule: **one canonical record** (`business.json`, confirmed by the owner once)
 and every place matches it exactly after normalisation (case, punctuation, "St" and "Street" are normalised; a different suite
 number, a tracking phone or a keyword in the name is a mismatch). `scripts/local-nap.mjs` (stages/local.md) does the comparison
 for the site and for captured listings.
@@ -256,8 +256,8 @@ pages, pages that link out to dozens of sites, and `noindex`; those become AVOID
 AI answer products (ChatGPT search, Perplexity, Google's AI Overviews and AI Mode, Gemini, Copilot) answer from a web search
 step and show the sources. What we see in our own captures for the Francine and Eli research: the sources named were
 **lists, portals, directories and profile pages**, not the realtors' own sites, and **0% of 109 captured answers cited
-her site** (SOP precedent, `runs/2026-10-22-*.md`). This is an observation from our captures, not a law about every engine, and
-engines change; re-capture monthly (stages/measure.md) and trust the capture over this paragraph.
+her site** (SOP precedent, `runs/2026-10-22-*.md`). This is an observation, not a law about every engine;
+re-capture monthly (stages/measure.md) and trust the capture over this paragraph.
 
 What follows for the work:
 1. **Be on the lists they cite.** `research-ai.mjs` writes `research/ai-citations.json`; its `citedInstead` list (domains cited in
@@ -272,7 +272,7 @@ What follows for the work:
    quote. That is page work (stages/plan.md); off-site it becomes the "digital PR" angle: one piece of local data a year, sent to the
    reporters and associations that cover the area.
 4. **Measure the right thing.** The proof is the next capture: is the business cited, named, or listed on the sources that
-   engines used? A listing raises the chance of a mention; it is not a promise. The tracker's `listed` rows and the next
+   engines used? The tracker's `listed` rows and the next
    `research-ai` capture are read together.
 
 ## 9. The first months (what a client sees)
@@ -293,13 +293,13 @@ competitors had 7 to 9 from expertise.com, activerain.com, a chamber of commerce
   user agent; `--gap-ms` (default 4000) between requests to one site; a 403 or 429 stops that site, no retry, no disguise;
   `--exclude` (path regexes) and `--skip-domain` cover every request, robots.txt and redirect hops included; no login, register,
   checkout or account path is ever opened; each request has a time limit (`--timeout-s`), the run a deadline (`--max-minutes`)
-  and a request budget (`--max-requests`); a run either one stops ends exit 0 with the last line `PARTIAL: <why>; what was read
-  is kept, run again to continue`. Results younger than 30 days are reused; `--refresh` re-reads (200 answers
+  and a request budget (`--max-requests`); a run stopped by either ends as the step 3 row says (section 2).
+  Results younger than 30 days are reused; `--refresh` re-reads (200 answers
   come from the cache). Git Bash rewrites a leading `/` in `--exclude`: run from PowerShell or the tool refuses.
 - **Never** scrape Google, Bing, ChatGPT or Perplexity result pages, submit a form, register, or log in. Those captures are the
   owner's, at human pace.
-- Files (under `<pewp>/authority/`): `anchors.json` and `.md` (2b), `opportunities.json` and `.md`, `vetting.json`, `howto.md`, `outreach.json` and
-  `outreach.md`. `outreach.json` rows: domain, type, owner, status (`planned`, `asked`, `listed`, `refused`), date,
+- Files (under `<pewp>/authority/`): the ones the Writes column of section 2 puts there.
+  `outreach.json` rows: domain, type, owner, status (`planned`, `asked`, `listed`, `refused`), date,
   `evidenceUrl`, history. **A row is `listed` only with an evidence address on that site**; an owner is needed before a site is
   asked; a site appears once; dates are real. `explain` (and `explainReferringDomains` for `measure.mjs`) separates the
   referring-domain gains we earned (with proof) from "asked, not confirmed" and from gains nobody here caused. Asked more than 21

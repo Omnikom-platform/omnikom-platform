@@ -16,5 +16,6 @@
   { "file": "test-social-words.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-client-copy-pdf.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-copy-steps.mjs", "plain": [], "mutants": ["--mutants"] },
-  { "file": "test-main.mjs", "plain": [], "mutants": [] }
+  { "file": "test-main.mjs", "plain": [], "mutants": [] },
+  { "file": "test-authority.mjs", "plain": ["--quiet"], "mutants": [] }
 ]
