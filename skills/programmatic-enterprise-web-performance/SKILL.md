@@ -104,6 +104,7 @@ In audit-live the checker step's root is `{work}/checker` (a copy of the newest 
   `test-client-copy.mjs` (`client-copy.mjs`, the client's 8-page copy from a finished run; + `--mutants`),
   `test-ci-tests.mjs` (`ci-tests.mjs`: the tests of `scripts/ci-tests.json`, the only ones GitHub runs, in the `audit` job; + `--mutants`),
   `test-grid-text.mjs` (`grid-text-to-capture.mjs`: a saved Google Maps page text, a results list or one place's card, becomes one grid capture; + `--mutants`),
+  `test-profile-notread.mjs` (`local-profile.mjs`: a primary category or website of a manual capture that was not read is a BLOCKED check, never a finding; + `--mutants`),
   `test-writing-gate.mjs` (the writing gate on a good fixture site and one mutant per rule, each watched red for the right reason; needs the render-gate Chromium),
   `test-browser-leftovers.mjs [cdp-measure.mjs]` (`launchBrowser()` leaves no browser process and no pewp-chrome-* folder after close, process.exit and an uncaught error; run it through `node ~/.claude/scripts/heavy.mjs --`; BLOCKED, exit 1, with no Chrome or Edge).
 - Refresh the checklist after shipgate spec changes: `node "<skill>/scripts/build-checklist.mjs"` (reads the shipgate
