@@ -17,6 +17,7 @@ import { seedGroup } from './commands/seed.mjs';
 import { keyGroup } from './commands/key.mjs';
 import { contractGroup } from './commands/contract.mjs';
 import { leadGroup } from './commands/lead.mjs';
+import { privacyGroup } from './commands/privacy.mjs';
 import { contentGroup } from './commands/content.mjs';
 import { publish, jobGroup } from './commands/publish.mjs';
 import { verify } from './commands/verify.mjs';
@@ -36,7 +37,7 @@ import { helperGroup } from './commands/helper.mjs';
 import { loadRegistry, findRow, runWrapped, helpText } from './lib/wrap.mjs';
 
 // both tables are looked up by a word the user typed, so they inherit nothing: constructor, toString or __proto__ is an unknown command, not a hit
-const COMMANDS = { __proto__: null, status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup, seo: seoGroup, usage: usageGroup, skill: skillGroup, session: sessionGroup, helper: helperGroup };
+const COMMANDS = { __proto__: null, status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, privacy: privacyGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup, seo: seoGroup, usage: usageGroup, skill: skillGroup, session: sessionGroup, helper: helperGroup };
 export const COMMAND_NAMES = Object.keys(COMMANDS);
 // the commands that print text lines by default (with --json: the result object), and the ones that talk to no target
 const TEXT = { __proto__: null, impact: impactText, land: landText, hooks: hooksText, seo: seoText };
@@ -47,6 +48,7 @@ export const USAGE = [
   'key mint --site <slug> | key list [--site <slug>] | key revoke --id <uuid>',
   'contract validate --file <f> | contract place --file <f> --rows <f>',
   'lead send --site <slug> [--form contact] [--fixture <f>] [--retry] [--key <uuid>] | lead list|get|update|add|delete --as <person> ...',
+  'privacy open --as <person> --workspace <uuid> --kind <access|delete|correct|opt-out> --subject <email or number> [--note <t>] | privacy list --as <person> [--workspace <uuid>] [--state <s>] | privacy move --as <person> --request <uuid> --to <state> [--note <t>]',
   'content save|get|history --as <person> ... | publish --as <person> --site <slug> --rows <ids> | job get|wait|set --job <id>',
   'audit --dir <built site folder> [--only <rule ids>] [--target preview|production] | gate --dir <built site folder> [--target preview|production]   (text lines by default; --target is the build\'s target, not a database; exit 0 pass, 1 FAIL, 2 usage or crash)',
   'tools ensure [--only a,b] | tools list   (the binaries the checks need, from tools.json, into the git-ignored .tools/; no target)',

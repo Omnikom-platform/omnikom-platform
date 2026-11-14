@@ -19,6 +19,7 @@ Secrets never leave the program: stdout and stderr pass `lib/redact.mjs`; psql g
 | `contract validate --file f` / `contract place --file f --rows r` | `contracts/validate.mjs`, `place.mjs` |
 | `lead send --site s [--form f] [--fixture f] [--retry] [--key uuid]` | a signed lead to `capture-lead`; `--retry` resends the same key and counts rows |
 | `lead list/get/update/add/delete --as person` | reads as `authenticated` with the person's claims (RLS), writes through `service.*` |
+| `privacy open/list/move` | a person's privacy request |
 | `content save/get/history --as person` | contract_for + validator + `service.save_as`; reads through RLS |
 | `publish --as person --site s --rows ids`, `job get/wait/set` | `service.start_publish`; `job set` stands in for the runner on the SQL path |
 | `verify --only lead` | 16 checks of `capture-lead` over HTTP, one PASS/FAIL line each on stderr, exit 1 on any FAIL. Includes the ledgers of migration 7, counted read-only before and after: each refused signature adds one `security_events` row (`bad-signature`), a paused site answers 409 and adds one `suspended` row, an accepted lead has exactly one `consent_ledger` row and a retry of the same key adds none. Both ledgers are append-only, so a run leaves its rows behind |

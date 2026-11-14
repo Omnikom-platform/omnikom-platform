@@ -320,6 +320,48 @@ async function units() {
   r = await cli(['lead', 'send', '--site', UUID_X, '--as', 'site:test-demo-a', '--target', 'staging', '--fixture', join(tmpdir(), 'x.json')], envSend, { fetch: answer(202) });
   check('lead send: a fixture outside the fixtures folder is refused without --real (exit 2)', r.exit === 2);
 
+  // ---- privacy open | list | move over a spy: the staff window, the person's claims, the SQL text (C11-b)
+  const PW = 'aaaaaaaa-0000-0000-0000-000000000000', PS = '00000000-0000-0000-0000-00000000005f';
+  const PSTC = `'{"sub":"${PS}","aal":"aal2","role":"authenticated"}'::jsonb`;
+  const psent = [];
+  const pspy = bad => (cmd, args, o) => {
+    const text = String(o.input);
+    psent.push(text);
+    if (bad !== null && text.includes(bad)) return { status: 1, stdout: '', stderr: 'psql: ERROR:  S-NOT-FOUND: not found\n' };
+    const out = text.includes('staff_open') ? '[{"v":"2030-01-01T00:05:00+00:00"}]' : text.includes('open_privacy') ? UUID_X : '[]';
+    return { status: 0, stdout: out + '\n', stderr: '' };
+  };
+  const pcall = async (pa, bad = null) => { psent.length = 0; return cli(['privacy', ...pa, '--target', 'local'], { LOCAL_DB_URL: 'postgres://postgres@127.0.0.1:1/x' }, { spawn: pspy(bad) }); };
+  r = await pcall(['open', '--as', 'staff', '--workspace', PW, '--kind', 'access', '--subject', 'p@example.test', '--note', 'n1']);
+  check('privacy open: staff open a 5 minute window, act with their claims and close it after',
+    r.exit === 0 && r.json.data.request === UUID_X && psent.length === 3 && psent[0].includes("'omnikom privacy open', 5)")
+    && psent[1].includes(`service.open_privacy_request(${PSTC}, '${PW}'::uuid, 'access'::public.privacy_request_kind, 'p@example.test', 'n1');`)
+    && psent[2].includes('set until = now() where') && psent[2].includes("until = '2030-01-01T00:05:00+00:00'::timestamptz"), `exit ${r.exit} ${psent.length} ${r.all.slice(0, 300)}`);
+  r = await pcall(['open', '--as', 'owner-a', '--workspace', PW, '--kind', 'opt-out', '--subject', 'p@example.test']);
+  const pown = [...psent];
+  const rPb = await pcall(['open', '--as', 'staff', '--workspace', PW, '--kind', 'access', '--subject', 'p@example.test'], 'staff_open');
+  check('privacy open: an owner opens no window; a refused window stops a staff call (exit 1, S-NOT-FOUND, nothing else sent)',
+    r.exit === 0 && pown.length === 1 && !pown[0].includes('staff_open') && pown[0].includes("'opt-out'::public.privacy_request_kind")
+    && rPb.exit === 1 && rPb.json.code === 'S-NOT-FOUND' && psent.length === 1, `${r.exit} ${rPb.exit} ${psent.length}`);
+  r = await pcall(['list', '--as', 'staff']);
+  check('privacy list: staff list inside a window, with their claims, not done and not refused, window closed after',
+    r.exit === 0 && psent.length === 3 && psent[1].includes('set local role authenticated') && psent[1].includes(PS)
+    && psent[1].includes("from public.privacy_requests where state not in ('done', 'refused')") && psent[2].includes('set until = now()'), `exit ${r.exit} ${psent.length}`);
+  r = await pcall(['list', '--as', 'owner-b', '--workspace', PW, '--state', 'done']);
+  check('privacy list: --state and --workspace narrow it, no window for an owner',
+    r.exit === 0 && psent.length === 1 && psent[0].includes(`where state = 'done'::public.privacy_request_state and workspace_id = '${PW}'::uuid order by`) && !psent[0].includes('not in'), `exit ${r.exit} ${psent.length}`);
+  r = await pcall(['move', '--as', 'staff', '--request', UUID_X, '--to', 'in-progress', '--note', 'n2']);
+  const rPm = await pcall(['move', '--as', 'owner-a', '--request', UUID_X, '--to', 'done']);
+  check('privacy move: the state and note go to service.set_privacy_request_state; no note is null::text',
+    r.exit === 0 && rPm.exit === 0 && psent.length === 1 && psent[0].includes(", 'done'::public.privacy_request_state, null::text);")
+    && (await pcall(['move', '--as', 'staff', '--request', UUID_X, '--to', 'in-progress', '--note', 'n2'])) && psent.length === 3
+    && psent[1].includes(`service.set_privacy_request_state(${PSTC}, '${UUID_X}'::uuid, 'in-progress'::public.privacy_request_state, 'n2');`), `exit ${r.exit} ${rPm.exit} ${psent.length}`);
+  const pbad = [['open', '--as', 'staff', '--kind', 'access', '--subject', 'p@example.test'], ['open', '--as', 'staff', '--workspace', 'nope', '--kind', 'access', '--subject', 'p@example.test'],
+    ['open', '--as', 'runner', '--workspace', PW, '--kind', 'access', '--subject', 'p@example.test'], ['move', '--as', 'staff', '--request', UUID_X], ['list']];
+  let pusage = true;
+  for (const pa of pbad) { const x = await pcall(pa); if (!(x.exit === 2 && psent.length === 0)) { pusage = false; console.log('  privacy usage not refused: ' + pa.join(' ') + ` exit ${x.exit} calls ${psent.length}`); } }
+  check('privacy: a missing workspace, a bad workspace, a machine, a missing --to, a missing --as are usage errors (exit 2, nothing sent)', pusage);
+
   // ---- rule 1 hygiene: feed fake secrets, make every part of the program echo them, grep the output
   const KEY = rand(), DBPW = rand(), SK = rand();
   const dbUrl = `postgres://postgres:${DBPW}@db.example.test:5432/postgres`;
@@ -347,7 +389,7 @@ async function units() {
   const refused = [
     ['seed', 'test'], ['seed', 'workspace', '--slug', 'x'], ['verify', '--only', 'lead'], ['key', 'mint', '--site', 'test-demo-a'], ['key', 'list'],
     ['lead', 'send', '--site', UUID_X, '--as', 'site:test-demo-a'], ['lead', 'list', '--as', 'owner-a'], ['lead', 'update', '--as', 'staff', '--lead', UUID_X],
-    ['content', 'save', '--as', 'member-a1'], ['content', 'get', '--as', 'owner-a'], ['publish', '--as', 'owner-a'], ['job', 'get', '--job', UUID_X], ['test', 'walls'],
+    ['content', 'save', '--as', 'member-a1'], ['content', 'get', '--as', 'owner-a'], ['publish', '--as', 'owner-a'], ['job', 'get', '--job', UUID_X], ['test', 'walls'], ['privacy', 'list', '--as', 'staff'],
   ];
   let allRefused = true, detail = '';
   for (const argv of refused) {
@@ -1362,6 +1404,45 @@ commit;`;
     check('lead delete: the owner deletes; the audit row survives', r.exit === 0 && db.query(`select count(*) from leads where id = '${added}'`) === '0' && db.query(`select count(*) from audit_log where action = 'lead-delete' and target = '${added}'`) === '1');
     r = await run(['lead', 'list', ...T, '--as', 'runner']);
     check('lead list: a machine identity has no login (exit 2)', r.exit === 2);
+
+    // ---- privacy open | list | move as people (C11-b): the database decides, audits, and the window closes
+    const inList = (x, id) => x.exit === 0 && x.json.data.requests.some(q => q.id === id);
+    const pwin = "select count(*) from audit_log where action = 'staff-access-open' and detail ->> 'reason' = 'omnikom privacy open'";
+    const popen = "select count(*) from staff_access where reason like 'omnikom privacy %' and until > now()";
+    r = await run(['privacy', 'open', ...T, '--as', 'staff', '--workspace', WS_A, '--kind', 'access', '--subject', 'priv-b-1@example.test']);
+    const req = r.exit === 0 ? r.json.data.request : '';
+    check('privacy open: staff file a request for a person: row, audit row, one window row, no window left open',
+      r.exit === 0 && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(req)
+      && db.query(`select state::text || '|' || kind::text || '|' || subject || '|' || cardinality(lead_ids) from public.privacy_requests where id = '${req}'`) === 'received|access|priv-b-1@example.test|0'
+      && db.query(`select count(*) from audit_log where action = 'privacy-request-open' and target = '${req}'`) === '1'
+      && db.query(pwin) === '1' && db.query(popen) === '0', r.all.slice(0, 300));
+    r = await run(['privacy', 'list', ...T, '--as', 'staff', '--workspace', WS_A]);
+    const lStaff = inList(r, req);
+    r = await run(['privacy', 'list', ...T, '--as', 'owner-b', '--workspace', WS_A]);
+    const lB = r.exit === 0 && r.json.data.count === 0;
+    r = await run(['privacy', 'move', ...T, '--as', 'owner-b', '--request', req, '--to', 'refused', '--expect', 'S-NOT-FOUND']);
+    const mB = r.exit === 0;
+    r = await run(['privacy', 'move', ...T, '--as', 'staff', '--request', req, '--to', 'done', '--expect', 'P-STATE']);
+    const mBad = r.exit === 0 && db.query(`select state::text from public.privacy_requests where id = '${req}'`) === 'received';
+    r = await run(['privacy', 'move', ...T, '--as', 'staff', '--request', req, '--to', 'in-progress', '--note', 'c11b move']);
+    const mIn = r.exit === 0;
+    const lOwner = inList(await run(['privacy', 'list', ...T, '--as', 'owner-a', '--workspace', WS_A]), req);
+    r = await run(['privacy', 'move', ...T, '--as', 'staff', '--request', req, '--to', 'done']);
+    const mDone = r.exit === 0;
+    const lGone = (x => x.exit === 0 && !x.json.data.requests.some(q => q.id === req))(await run(['privacy', 'list', ...T, '--as', 'staff', '--workspace', WS_A]));
+    check('privacy list, move: staff and the owner see it, another workspace does not, an illegal or foreign move changes nothing, the legal moves are audited and done leaves the list',
+      lStaff && lB && mB && mBad && mIn && lOwner && mDone && lGone
+      && db.query(`select count(*) from audit_log where action = 'privacy-request-in-progress' and target = '${req}'`) === '1'
+      && db.query(`select count(*) from audit_log where action = 'privacy-request-done' and target = '${req}'`) === '1'
+      && db.query(`select done_at is not null from public.privacy_requests where id = '${req}'`) === 't'
+      && db.query(`select handled_by::text || '|' || notes from public.privacy_requests where id = '${req}'`) === `${PERSONS.staff.sub}|c11b move`,
+      `${[lStaff, lB, mB, mBad, mIn, lOwner, mDone, lGone]}`);
+    r = await run(['privacy', 'open', ...T, '--as', 'owner-a', '--workspace', WS_A, '--kind', 'opt-out', '--subject', 'priv-b-2@example.test']);
+    const oOwner = r.exit === 0, wStill = db.query(pwin) === '1';
+    r = await run(['privacy', 'open', ...T, '--as', 'staff', '--workspace', WS_A, '--kind', 'bogus', '--subject', 'priv-b-3@example.test']);
+    check('privacy open: an owner opens no window (still 1 window row); a bogus kind is refused by the database (exit 1); no window stays open',
+      oOwner && wStill && r.exit === 1 && db.query("select count(*) from public.privacy_requests where subject like 'priv-b-%@example.test'") === '2' && db.query(popen) === '0', r.all.slice(0, 300));
+    db.query("delete from public.privacy_requests where subject like 'priv-b-%@example.test'");
 
     // ---- content save / get / history
     const wsA = ['--workspace', 'test-demo-a'];

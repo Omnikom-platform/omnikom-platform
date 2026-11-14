@@ -51,6 +51,7 @@ and `apply --i-mean-production`. Identities: `owner-a`, `owner-b`, `member-a1`, 
 | `key mint|list|revoke` | a site's signing key into Vault and the registry |
 | `contract validate|place`, `content save|get|history`, `publish`, `job get|wait|set` | contract, content and publish by hand |
 | `lead send|list|get|update|add|delete` | leads; `send --retry` sends one idempotency key twice and counts rows |
+| `privacy open|list|move` | a person's privacy request |
 | `audit --dir`, `gate --dir` | the audit and the publish gate over a built folder |
 | `tools ensure|list` | pinned binaries (actionlint, shellcheck, gitleaks, deno) from `tools.json` into the git-ignored `.tools/`, sha256 checked |
 | `ci [--job]` | every `ci.yml` job locally with the pinned tools, to reproduce a GitHub failure |

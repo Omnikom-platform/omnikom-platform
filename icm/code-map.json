@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 938,
+    "sources": 939,
     "unowned": 0
   },
   "files": [
@@ -803,6 +803,7 @@
     {"path":"tools/omnikom-cli/commands/land.mjs","owner":"cli-and-testing","exports":["CI_UNKNOWN_LIMIT_MS","DEFAULT_LOCK_WAIT_MINUTES","DEFAULT_REMOTE","DEFAULT_WAIT_MINUTES","LOCK_BRANCH","LOCK_REF","MAX_LOCK_WAIT_MINUTES","NONE_LIMIT_MS","POLL_MS","READ_WAITS_MS","RELEASE_WAITS_MS","STALE_LOCK_MINUTES","charterOf","departmentsOf","dirtyPaths","land","landText","looksLikeNetworkFailure","withNetworkRetry"],"tests":["tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/mutate.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/commands/lead.mjs","owner":"cli-and-testing","exports":["leadGroup"],"tests":["tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/mutate.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/commands/mfa.mjs","owner":"cli-and-testing","exports":["mfaGroup"],"tests":["tools/omnikom-cli/test/mutate.mjs"],"feature":""},
+    {"path":"tools/omnikom-cli/commands/privacy.mjs","owner":"cli-and-testing","exports":["privacyGroup"],"tests":["tools/omnikom-cli/test/mutate.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/commands/publish.mjs","owner":"cli-and-testing","exports":["jobGroup","publish"],"tests":["factory/runner/test/lib/fake-wrangler.mjs","factory/runner/test/mutate.mjs","factory/runner/test/run.mjs","supabase/tests/e2e-site-audit.mjs","tools/omnikom-cli/test/mutate.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/commands/seed.mjs","owner":"cli-and-testing","exports":["LOGINS","PREVIEW_HOST_A","SITE_A","SITE_B","TEST_CONTRACT","WS_A","WS_B","loadTestSite","loginsSql","resolveContract","seedCleanSql","seedGroup","seedTestSql"],"tests":["apps/dashboard/tests/support/staging.ts","factory/test/make-export.mjs","factory/test/run.mjs","supabase/functions/test/harness.mjs","tools/omnikom-cli/test/ci-functions.mjs","tools/omnikom-cli/test/ci-heavy.mjs","tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/journey.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/commands/seo.mjs","owner":"cli-and-testing","exports":["SKILL","seoGroup","seoText","skillDirOf"],"tests":["tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
