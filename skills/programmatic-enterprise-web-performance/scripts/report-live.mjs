@@ -365,7 +365,7 @@ function computeQ5() {
   if (portals.size && totalCites && portalCites / totalCites >= 0.3) why.push(`${Math.round((portalCites / totalCites) * 100)}% of the sources the engines cite are big portals and directories (${[...portals].slice(0, 4).join(", ")}); a local site is cited when it is the clearest local source`);
   if (!ourCited) why.push("no answer cites this site: it has too few other sites linking to or mentioning it for the engines to treat it as a source" + (q4.status !== "answered" ? "" : inGraphQ4 ? ` (${q4.facts.referringDomains.value} referring domain${s(q4.facts.referringDomains.value)} in Common Crawl)` : ` (the site is ${NOT_IN_GRAPH}, in Common Crawl)`));
   if (lowRuns) why.push(`${lowRuns} of ${rows.length} rows were asked fewer than 3 times, so read the shares as hints, not rates`);
-  const blockedParts = [citationsM?.blocked && `${citationsM.blocked.source}: ${citationsM.blocked.reason} (unblock: ${citationsM.blocked.unblock})`, aiR?.gemini?.status === "blocked" && `gemini: ${aiR.gemini.blocked || "blocked"}`].filter(Boolean);
+  const blockedParts = [citationsM?.blocked && `${citationsM.blocked.source}: ${citationsM.blocked.reason} (unblock: ${citationsM.blocked.unblock})`, aiR?.gemini?.status === "blocked" && `gemini: ${aiR.gemini.blocked || "blocked"}`, ...(aiR?.owner?.blocked || []).map((b) => `${b.engine}: not read (${b.reason})`)].filter(Boolean);
   return {
     status: "answered",
     facts: {

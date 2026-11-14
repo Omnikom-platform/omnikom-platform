@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 939,
+    "sources": 940,
     "unowned": 0
   },
   "files": [
@@ -321,6 +321,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/state.mjs","owner":"seo-and-audits","exports":["init","isUrl","load","locate","markStage","save"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/targets-validate.mjs","owner":"seo-and-audits","exports":["GOALS","INTENTS","PAGE_TYPES","checkSourced","compareMeasure","measureKey","validate","validateBusiness","validateCitationRow","validateMeasureDir","validateRankingRow"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-ads-untied.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-ai-capture-form.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-ai-notread.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-approve.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-authority-anchors.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},

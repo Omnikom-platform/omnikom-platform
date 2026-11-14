@@ -6,7 +6,9 @@
 //      stored or cached: the project's 2026-10-18 terms reading (icm/work/seo-analyst/TRACKER-PROPOSAL.md, row T1b) found Gemini's terms
 //      forbid caching/storing grounded results; whether storing parsed domains is allowed is UNVERIFIED, so we keep only those.
 //   2. Owner-captured ChatGPT / Perplexity / Gemini / Copilot answers (the main session reads them in the owner's browser at human pace,
-//      stop at the first robot check, never signs in): <pewp>/captures/ai/*.json (research's `sources` or measure's `citedDomains`),
+//      stop at the first robot check, never signs in): <pewp>/captures/ai/*.json (the sources are the first list found of `citedDomains`, `sources`,
+//      `citedSources` (import-ai.mjs); the answer text is `answer` or `answerText`; a `blocked` text is no answer and no run: its engine is listed in
+//      `owner.blocked` when the folder holds no answer of it),
 //      or the project's AI-<ID>.<engine>.md files.
 //   Gemini runs only with GEMINI_API_KEY AND PEWP_GEMINI_TERMS_ACK=1 (the owner's written confirmation; the same gate as measure.mjs),
 //   and sends the samples of a question at least 60 s apart (06 section 9.6).
@@ -90,16 +92,17 @@ export function parseOwnerMarkdown(text, file) {
 export function importOwner(ctx, dir) {
   const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /\.json$|\.(chatgpt|gemini|perplexity|copilot)\.md$/i.test(f)).sort() : [];
   const own = ctx.business.domain, nameRe = new RegExp(ctx.business.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-  const runs = [], rejected = [];
+  const runs = [], rejected = [], blockedCaps = [];
   for (const f of files) {
     const file = path.join(dir, f);
     let c; try { c = /\.json$/i.test(f) ? { ...J(file), file } : parseOwnerMarkdown(fs.readFileSync(file, "utf8"), file); } catch (e) { rejected.push({ file, reason: e.message }); continue; }
+    if (typeof c.blocked === "string" && c.blocked.trim() && c.engine) { blockedCaps.push({ engine: String(c.engine).toLowerCase(), reason: c.blocked.trim(), file }); continue; } // not an answer: no run, not a fault
     const why = [];
     if (!c.question) why.push("no question"); if (!c.engine) why.push("no engine"); if (!c.capturedAt || Number.isNaN(Date.parse(c.capturedAt))) why.push("no capture date");
     if (why.length) { rejected.push({ file, reason: why.join("; ") }); continue; }
-    // two capture formats, one folder: research's `sources` (domains or {url|domain}) and measure's `citedDomains` (domains)
-    const srcs = (Array.isArray(c.citedDomains) ? c.citedDomains : c.sources || []).map((s) => domainOf(typeof s === "string" ? s : s.url || s.domain || "")).filter(Boolean);
-    runs.push({ question: c.question, engine: String(c.engine).toLowerCase(), model: c.model || null, prompt: c.prompt || c.question, at: c.capturedAt, location: c.location || "unspecified (consumer app in the owner's browser; the assistant's own location guess is not recorded)", citedSources: [...new Set(srcs)], ourDomainCited: hit(srcs, own), nameMentioned: nameRe.test(c.answer || ""), file, browser: c.browser || null });
+    // three capture forms, one folder: the first of `citedDomains`, `sources` (research), `citedSources` (import-ai.mjs) that is a list; items texts or {url|domain}
+    const srcs = (["citedDomains", "sources", "citedSources"].map((k) => c[k]).find(Array.isArray) || []).map((s) => domainOf(typeof s === "string" ? s : s.url || s.domain || "")).filter(Boolean);
+    runs.push({ question: c.question, engine: String(c.engine).toLowerCase(), model: c.model || null, prompt: c.prompt || c.question, at: c.capturedAt, location: c.location || "unspecified (consumer app in the owner's browser; the assistant's own location guess is not recorded)", citedSources: [...new Set(srcs)], ourDomainCited: hit(srcs, own), nameMentioned: nameRe.test(c.answer || c.answerText || ""), file, browser: c.browser || null });
   }
   const groups = new Map();
   for (const r of runs) { const k = `${r.engine}|${normQuery(r.question)}`; (groups.get(k) || groups.set(k, { question: r.question, engine: r.engine, model: r.model, prompt: r.prompt, location: r.location, runs: [] }).get(k)).runs.push(r); }
@@ -108,7 +111,9 @@ export function importOwner(ctx, dir) {
     const last = g.runs.map((r) => r.at).sort().at(-1);
     rows.push(...rowsFromRuns(ctx, g.engine, g.model, [g], `${g.engine} answer captured in the owner's browser (${g.runs.length} capture(s))`, `${String(last).slice(0, 10)}T00:00:00.000Z`, g.runs[0].file, { capturedBy: "owner-supervised browser capture" }));
   }
-  return { rows, rejected, files: files.length };
+  const answered = new Set(runs.map((r) => r.engine)), blocked = [];
+  for (const b of blockedCaps) if (!answered.has(b.engine) && !blocked.some((x) => x.engine === b.engine)) blocked.push(b);
+  return { rows, rejected, blocked, files: files.length };
 }
 
 // ---------- 3. Google AI Overviews inside the SERP captures ----------
@@ -126,7 +131,7 @@ export function fromSerp(ctx) {
 
 export async function run(ctx, { questions = [], gemini = false, runs = 3, maxCalls = 30, model, dir = null, maxAgeDays = 7 } = {}) {
   const b = needBusiness(ctx);
-  const out = { rows: [], gemini: { status: "not-run" }, owner: { files: 0, rejected: [] }, serpOverviews: 0 };
+  const out = { rows: [], gemini: { status: "not-run" }, owner: { files: 0, rejected: [], blocked: [] }, serpOverviews: 0 };
   if (gemini) {
     try {
       const qs = [...new Set(questions.map((q) => q.trim()).filter(Boolean))];
@@ -140,7 +145,7 @@ export async function run(ctx, { questions = [], gemini = false, runs = 3, maxCa
     } catch (e) { if (!(e instanceof Blocked)) throw e; out.gemini = { status: "blocked", unblock: e.unblock }; }
   }
   const owner = importOwner(ctx, dir || path.join(ctx.pewp, "captures", "ai"));
-  out.rows.push(...owner.rows); out.owner = { files: owner.files, rejected: owner.rejected };
+  out.rows.push(...owner.rows); out.owner = { files: owner.files, rejected: owner.rejected, blocked: owner.blocked };
   const ov = fromSerp(ctx); out.rows.push(...ov); out.serpOverviews = ov.length;
   if (!out.rows.length) { const m = `${out.gemini.unblock || "Gemini not run (pass --gemini with GEMINI_API_KEY set)"}; or the main session captures ChatGPT/Perplexity answers in the owner's browser (human pace, no sign-in by agents) into <pewp>/captures/ai/*.json (format in stages/research.md)`; writeBlocked(ctx, "ai-citations", m); throw new Blocked(m); }
   const instead = new Map();

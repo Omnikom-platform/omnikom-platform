@@ -76,7 +76,7 @@ const M = [
   ["ai: paid runs asked again", "research-ai.mjs", "ageDays(r.at) < maxAgeDays)) continue;", "ageDays(r.at) < -1)) continue;", "ai: runs already paid for are not asked again"],
   ["ai: Gemini runs without the owner's terms acknowledgement", "research-ai.mjs", "if (process.env.PEWP_GEMINI_TERMS_ACK !== \"1\") throw new Blocked(UNBLOCK_TERMS);", "", "ai: Gemini is BLOCKED until the owner acknowledges its terms"],
   ["ai: samples 13 s apart (06 9.6 wants 60)", "research-ai.mjs", "export const GEMINI_GAP_MS = 60000;", "export const GEMINI_GAP_MS = 13000;", "ai: Gemini samples are spaced at least 60 s apart"],
-  ["ai: measure's citedDomains captures read as zero citations", "research-ai.mjs", "(Array.isArray(c.citedDomains) ? c.citedDomains : c.sources || [])", "(c.sources || [])", "ai: an owner capture in measure's citedDomains form"],
+  ["ai: measure's citedDomains captures read as zero citations", "research-ai.mjs", "([\"citedDomains\", \"sources\", \"citedSources\"].map((k) => c[k]).find(Array.isArray) || [])", "(c.sources || [])", "ai: an owner capture in measure's citedDomains form"],
   ["gsc: an expired token (expiry form) is sent as is", "lib-google-auth.mjs", "const exp = t.expiry_date ?? t.expiry;", "const exp = t.expiry_date;", "gsc: an expired token (measure's `expiry` form) is refreshed"],
   ["ai: an owner capture without a date is accepted", "research-ai.mjs", "if (!c.capturedAt || Number.isNaN(Date.parse(c.capturedAt))) why.push(\"no capture date\");", "", "ai: a capture without a date is rejected"],
   ["existing: nothing is ever stale", "research-existing.mjs", "stale: ageDays(updated) > maxAgeDays", "stale: false", "existing: keyword map imported with its date; stale flagged"],
