@@ -1,6 +1,6 @@
 // capture-lead: the one platform call a client website makes (docs/blueprint/14-LEAD-PATH.md section 3; sops/site-endpoints.md 2).
 // Called by the site's own /api/lead endpoint (factory/worker/lead-endpoint.mjs) with ?site=<site id> and X-Site-Signature.
-// No user login: verify_jwt = false (supabase/config.toml); the signature is checked here first, against the site's active
+// No user login: verify_jwt = false (supabase/config.toml); first what needs no key (header form, 300 s window, 16 KiB body cap: signatureLooksValid, readCapped), then the signature, checked against the site's active
 // signing keys from the api_keys registry (service.active_key) read out of Vault. Then the body is checked against LeadRequest
 // (specs/openapi.json), stored through service.capture_lead (workspace from the site, consent required, idempotent by key),
 // and the new-lead alert is queued in mail_outbox, one row per address of sites.lead_alert_to (service.queue_lead_alert; never fails the
@@ -16,7 +16,7 @@
 // Tests: supabase/functions/test/capture.test.ts. This file keeps its own `refusal` (visitor wording and the 'SITE' code differ from _shared/db.ts).
 import { verify } from '../_shared/signature.ts';
 import { answerProblem, connect, type Sql } from '../_shared/db.ts';
-import { serve } from '../_shared/http.ts';
+import { readCapped, serve } from '../_shared/http.ts';
 
 const MAX_BODY = 16 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -90,13 +90,24 @@ async function sha256Hex(s: string): Promise<string> {
   return Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
 }
 
+// Rule 35: what needs no key is judged before anything costs a connection. A signature header that is missing, not t=<digits>,v1=<64 lower-case hex> (the form of _shared/signature.ts verify)
+// or more than 300 s from now can never verify. A forged one of the right form still needs the site's key, read through the database: that costs one lookup, as before.
+// The pattern and the window are COPIES of verify's (signature.ts:35, :38); capture.test.ts T5 holds the two equal for every header a site signs.
+const SIGNATURE_SHAPE = /^t=(\d{1,12}),v1=[0-9a-f]{64}$/;
+export function signatureLooksValid(header: string | null, now: number = Math.floor(Date.now() / 1000)): boolean {
+  const m = SIGNATURE_SHAPE.exec((header ?? '').trim());
+  return m !== null && Math.abs(now - Number(m[1])) <= 300;
+}
+
 export async function handle(req: Request): Promise<Response> {
   if (req.method !== 'POST') return problem(405, [{ code: 'METHOD', path: '', msg: 'POST only.' }]);
   const url = new URL(req.url);
   const site = url.searchParams.get('site') ?? '';
   if (!UUID.test(site)) return problem(404, [{ code: 'SITE', path: '', msg: 'Not found.' }]);
-  const body = await req.text();
-  if (body.length > MAX_BODY) return problem(413, [{ code: 'SIZE', path: '', msg: 'Too large.' }]);
+  const header = req.headers.get('x-site-signature');
+  if (!signatureLooksValid(header)) return problem(401, [{ code: 'SIGNATURE', path: '', msg: 'Not accepted.' }]);   // no database work, no event: it cost nothing and says nothing
+  const body = await readCapped(req.body, MAX_BODY);   // bytes: reading stops at the chunk that crosses MAX_BODY
+  if (body === null) return problem(413, [{ code: 'SIZE', path: '', msg: 'Too large.' }]);
   let sql: Sql;   // E6: the transaction pooler (DB_POOLER_URL), each statement stepped down in its own transaction
   try { sql = await connect(); } catch { return problem(500, [{ code: 'CONFIG', path: '', msg: 'Not configured.' }]); }
   // a hash with the site id, never the address itself (Cloudflare's header first; X-Forwarded-For is a fallback for the first test)
@@ -112,7 +123,6 @@ export async function handle(req: Request): Promise<Response> {
   try {
     // the site's live signing keys (never revoked or expired), read from Vault by the registry's name
     const keys = await sql`select id, secret from service.site_signing_secrets(${site}::uuid)`;
-    const header = req.headers.get('x-site-signature');
     let keyId: string | null = null;
     for (const k of keys) { if (await verify(header, k.secret, 'POST', pathForSignature(url), body)) { keyId = k.id; break; } }
     if (!keyId) { await event('bad-signature', 'SIGNATURE'); return problem(401, [{ code: 'SIGNATURE', path: '', msg: 'Not accepted.' }]); }

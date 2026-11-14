@@ -138,3 +138,27 @@ export async function sha256Hex(s: string): Promise<string> {
   const b = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
   return Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
 }
+
+/** The first `max` bytes of a body as text, and whether more followed (`cut`). Reading stops at the chunk that crosses `max`: no further chunk is asked for (that chunk, already read, is cut to `max` bytes); no body is `''`. Bytes, not characters. Rule 35: a cap comes before anything that costs. */
+export async function readUpTo(body: ReadableStream<Uint8Array> | null, max: number): Promise<{ text: string; cut: boolean }> {
+  if (!body) return { text: '', cut: false };
+  const reader = body.getReader(), dec = new TextDecoder();
+  let n = 0, text = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return { text: text + dec.decode(), cut: false };
+    if (n + value.length > max) {
+      const cut = text + dec.decode(value.subarray(0, max - n));
+      await reader.cancel().catch(() => {});   // tell the source to stop; a cancel that rejects must not turn a refusal into a crash
+      return { text: cut, cut: true };
+    }
+    n += value.length;
+    text += dec.decode(value, { stream: true });
+  }
+}
+
+/** The body as text when it is at most `max` bytes (exactly `max` is allowed), null when it is longer (the rest is never asked for); '' when there is no body. */
+export async function readCapped(body: ReadableStream<Uint8Array> | null, max: number): Promise<string | null> {
+  const r = await readUpTo(body, max);
+  return r.cut ? null : r.text;
+}

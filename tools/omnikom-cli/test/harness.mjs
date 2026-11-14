@@ -187,6 +187,9 @@ export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIde
     if (init.method !== 'POST') return reply(405, { problems: [{ code: 'METHOD' }] });
     const site = u.searchParams.get('site') || '';
     if (!UUID.test(site)) return reply(404, { problems: [{ code: 'SITE' }] });
+    // as the function (signatureLooksValid in capture-lead/index.ts): a header that cannot verify is refused before the database is asked, no event
+    const shape = /^t=(\d{1,12}),v1=[0-9a-f]{64}$/.exec(String((init.headers || {})['x-site-signature'] || '').trim());
+    if (!naive && !(shape && Math.abs(Math.floor(Date.now() / 1000) - Number(shape[1])) <= 300)) return reply(401, { problems: [{ code: 'SIGNATURE' }] });
     const body = init.body || '';
     const path = u.pathname.replace(/^\/functions\/v1/, '') + u.search;
     const event = (kind, code) => { if (!noSecurityLog) sql.exec(`select service.record_security_event(${lit(kind)}, ${lit(code)}, null, ${lit(site)}::uuid, null, null, ${lit(JSON.stringify({ path: u.pathname }))}::jsonb);`); };

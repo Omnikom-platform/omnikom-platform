@@ -152,7 +152,8 @@ const MUTANTS = [
   ['key mint reads the Vault even when there is none (a database without the Vault)', 'commands/key.mjs', 'if (vaultThere.value === true) parts.push(', 'if (true) parts.push(', 'db'],
   ['key mint env: a new key goes at the end with no blank line before it', 'commands/key.mjs', "if (out.length && bodyOf(out[out.length - 1]) !== '') out.push(eol);", '', 'unit'],
   // ---- verify --only lead asserts the ledgers of migration 7 (security_events, consent_ledger) and the 409 of a paused site
-  ['verify does not check the security_events delta of the refused signatures', 'commands/verify.mjs', 'deltas.length === 4 && deltas.every(d => d === 1)', 'true', 'db'],
+  ['verify does not check the security_events delta of the refused signatures', 'commands/verify.mjs', "deltas.join(',') === '1,0,0,0'", 'true', 'db'],
+  ['the model refuses a header that cannot verify only after asking the database', 'test/harness.mjs', 'if (!naive && !(shape && ', 'if (false && !(shape && ', 'db'],
   ['verify does not check that a paused refusal is recorded as suspended', 'commands/verify.mjs', 'events(\'suspended\') - suspended === 1,', 'true,', 'db'],
   ['verify does not check the consent_ledger count of an accepted lead', 'commands/verify.mjs', '\'1 row\', r.status, consents(L.idem) === 1,', '\'1 row\', r.status, true,', 'db'],
   ['verify does not check that a retry adds no consent_ledger row', 'commands/verify.mjs', '\'still 1 row\', r.status, consents(L.idem) === 1,', '\'still 1 row\', r.status, true,', 'db'],

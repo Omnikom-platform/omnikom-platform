@@ -11,8 +11,8 @@ Every function is wrapped in one frame (`supabase/functions/_shared/dashboard.ts
   workspace against membership.
 - **Machine calls** (runner, site, cron) run with `verify_jwt = false` and verify their own signature first: header
   `t=<unix>,v1=<hex>`, HMAC-SHA256 over `t \n METHOD \n path?query \n body`, accepted for 300 s
-  (`_shared/signature.ts`). Method, path and query are signed, so a signature for one job is useless for another.
-- CORS answers only a fixed list of dashboard origins. Every refusal writes a `security_events` row. Errors come back as a
+  (`_shared/signature.ts`). Method, path and query are signed, so a signature for one job is useless for another. `capture-lead` refuses, before any database work, a header that is missing or malformed, a time outside the 300 s and a body over 16 KiB (counted in bytes); only a well-formed signature costs the key lookup.
+- CORS answers only a fixed list of dashboard origins. Every refusal that reaches the database writes a `security_events` row (the refusals of `capture-lead` above write none). Errors come back as a
   code plus plain words (`_shared/problems`); the dashboard shows the words.
 - Shared validation imports `contracts/validate.mjs`, so the browser, the functions and the build run the same rules.
 

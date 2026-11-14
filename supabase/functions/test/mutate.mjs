@@ -418,6 +418,19 @@ const MUTANTS = [
   ['E13-d publish: nothing is asked before the rows are checked', F + 'publish/index.ts', "  await validator.prefetch(pinned, 'publish');\n", '', 'publish-batch.test.ts'],
   ['E13-d publish: a problem names the next row', F + 'publish/index.ts', 'row: rows[v.i - 1] }', 'row: rows[v.i] }', 'publish-batch.test.ts'],
   ['E13-d validate: the cap is below a full publish', F + '_shared/validate.ts', 'const MAX_LOOKUPS = 2000;', 'const MAX_LOOKUPS = 199;', 'publish-batch.test.ts'],
+  // ---- SEC-LEAD-ORDER: what needs no key is judged before the database (each must turn capture.test.ts red). Run only these: --only "SEC-LEAD" ----
+  ['SEC-LEAD: the form of the header is not judged first', F + 'capture-lead/index.ts', 'if (!signatureLooksValid(header)) return problem(401,', 'if (false) return problem(401,', 'capture.test.ts'],
+  ['SEC-LEAD: the 300 s window is not judged first', F + 'capture-lead/index.ts', 'return m !== null && Math.abs(now - Number(m[1])) <= 300;', 'return m !== null;', 'capture.test.ts'],
+  ['SEC-LEAD: the hex of the header is not judged first', F + 'capture-lead/index.ts', 'const SIGNATURE_SHAPE = /^t=(\\d{1,12}),v1=[0-9a-f]{64}$/;', 'const SIGNATURE_SHAPE = /^t=(\\d{1,12}),v1=.*$/;', 'capture.test.ts'],
+  ['SEC-LEAD: the whole body is read before anything', F + 'capture-lead/index.ts', 'const body = await readCapped(req.body, MAX_BODY);', 'const body = await req.text();', 'capture.test.ts'],
+  ['SEC-LEAD: a body over the cap is not refused', F + 'capture-lead/index.ts', 'if (body === null) return problem(413,', 'if (false) return problem(413,', 'capture.test.ts'],
+  ['SEC-LEAD: the cap is one byte too many', F + '_shared/http.ts', 'if (n + value.length > max)', 'if (n + value.length >= max)', 'capture.test.ts'],
+  ['SEC-LEAD: the window is one second short at its edge', F + 'capture-lead/index.ts', 'Number(m[1])) <= 300;', 'Number(m[1])) < 300;', 'capture.test.ts'],
+  ['SEC-LEAD: the body is read before the header is judged', F + 'capture-lead/index.ts', "const header = req.headers.get('x-site-signature');", "const header = req.headers.get('x-site-signature'); await req.clone().text();", 'capture.test.ts'],
+  ['SEC-LEAD: a character split between two chunks is broken', F + '_shared/http.ts', 'text += dec.decode(value, { stream: true });', 'text += dec.decode(value);', 'capture.test.ts'],
+  ['SEC-LEAD: the crossing chunk is not cut at the cap', F + '_shared/http.ts', 'dec.decode(value.subarray(0, max - n))', 'dec.decode(value)', 'capture.test.ts'],
+  ['SEC-LEAD: the header is not trimmed as verify trims it', F + 'capture-lead/index.ts', "SIGNATURE_SHAPE.exec((header ?? '').trim())", "SIGNATURE_SHAPE.exec((header ?? ''))", 'capture.test.ts'],
+  ['SEC-LEAD: the stream is not cancelled when the body is cut', F + '_shared/http.ts', 'await reader.cancel().catch(() => {});', '', 'capture.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

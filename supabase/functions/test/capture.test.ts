@@ -4,7 +4,7 @@
 // and look at the stored types. The site's signing key is seeded the way staging has it (a Vault secret and an api_keys row); the throwaway
 // cluster has no Vault, so the test makes the one table the key lookup reads.
 import { handle } from '../capture-lead/index.ts';
-import { sign } from '../_shared/signature.ts';
+import { sign, verify } from '../_shared/signature.ts';
 import { assert, crmForms, eq, SITE_A, t, WS_A, withSql } from './util.ts';
 
 const KEY = 'test-site-signing-key-not-a-secret';
@@ -169,4 +169,107 @@ t('capture-lead [E5]: a visitor that is not 64 lower-case hex is no visitor: nev
     }
     eq((await sql`select count(*)::int as n from public.visitor_counts where ip_hash = 'ABC' or ip_hash = ${'A'.repeat(64)}`)[0].n, 0, 'neither value was counted');
   });
+});
+
+// SEC-LEAD-ORDER (rule 35). DB_POOLER_URL is unset in these posts: connect() then throws, so a post that reaches the database door answers 500 CONFIG and one that does not is seen by its own answer.
+const doorShut = async <T>(fn: () => Promise<T>): Promise<T> => {
+  const old = Deno.env.get('DB_POOLER_URL'); Deno.env.delete('DB_POOLER_URL');
+  try { return await fn(); } finally { if (old !== undefined) Deno.env.set('DB_POOLER_URL', old); }
+};
+const nowS = () => Math.floor(Date.now() / 1000), HEX = 'a'.repeat(64), plausible = () => `t=${nowS() - 290},v1=${HEX}`;
+const chunked = (n: number, size: number) => {   // n chunks of `size` bytes; `pulled` counts what the reader asked for
+  const o = { pulled: 0 }; let i = 0;
+  return { o, body: new ReadableStream<Uint8Array>({ pull(c) { o.pulled++; if (i++ < n) c.enqueue(new Uint8Array(size).fill(120)); else c.close(); } }) };
+};
+const lead = async (header: string | null, body: BodyInit = '{}'): Promise<string> => {
+  const r = await handle(new Request(`http://localhost/capture-lead?site=${SITE_A}`, { method: 'POST', headers: header === null ? {} : { 'x-site-signature': header }, body, ...(typeof body === 'string' ? {} : { duplex: 'half' }) } as RequestInit));
+  return `${r.status} ${JSON.parse(await r.text()).problems?.[0]?.code ?? ''}`;
+};
+// the two new names, loaded at run time (T5, T6): a missing one is "is not a function" inside its own test, not a compile error for the folder
+type Reader = (b: ReadableStream<Uint8Array> | null, max: number) => Promise<unknown>;
+const mod = async () => ({
+  http: await import('../_shared/http.ts') as unknown as { readCapped: Reader; readUpTo: Reader },
+  fn: await import('../capture-lead/index.ts') as unknown as { signatureLooksValid: (h: string | null, now?: number) => boolean },
+});
+const bytesStream = (...parts: number[][]) => new ReadableStream<Uint8Array>({ start(c) { for (const p of parts) c.enqueue(new Uint8Array(p)); c.close(); } });
+
+t('capture-lead [SEC] a plausible header with a body of exactly 16384 bytes reaches the database door', async () => {
+  await doorShut(async () => eq(await lead(plausible(), 'x'.repeat(16384)), '500 CONFIG', 'a good post reaches the door'));
+});
+
+t('capture-lead [SEC] a header that cannot verify is refused 401 before the database door', async () => {
+  const now = nowS();
+  const cases: [string, string | null][] = [
+    ['no header', null], ['garbled', 't=1,v1=00'], ['upper-case hex', `t=${now},v1=${'A'.repeat(64)}`],
+    ['310 s old', `t=${now - 310},v1=${HEX}`], ['310 s ahead', `t=${now + 310},v1=${HEX}`],
+  ];
+  await doorShut(async () => { for (const [name, h] of cases) eq(await lead(h), '401 SIGNATURE', name); });
+});
+
+t('capture-lead [SEC] no body is read for a header that cannot verify', async () => {
+  await doorShut(async () => {
+    const c = chunked(100, 8192);
+    eq(await lead(null, c.body), '401 SIGNATURE', 'answer');
+    assert(c.o.pulled <= 2, `pulled ${c.o.pulled}`);
+  });
+});
+
+t('capture-lead [SEC] a body over 16 KiB is refused 413 after 16 KiB, not after all of it', async () => {
+  await doorShut(async () => {
+    const c = chunked(100, 8192);
+    eq(await lead(plausible(), c.body), '413 SIZE', 'answer');
+    assert(c.o.pulled <= 5, `pulled ${c.o.pulled}`);
+  });
+});
+
+t('capture-lead [SEC] the cap counts bytes: 16385 bytes and 5462 euro signs are 413, not the door', async () => {
+  await doorShut(async () => {
+    eq(await lead(plausible(), 'x'.repeat(16385)), '413 SIZE', '16385 bytes');
+    eq(await lead(plausible(), '€'.repeat(5462)), '413 SIZE', '5462 euro signs (16386 bytes)');
+  });
+});
+
+t('capture-lead [SEC] signatureLooksValid agrees with verify for every header a site signs, at each edge of the 300 s window', async () => {
+  const { fn } = await mod();
+  const now = 1_800_000_000, path = '/capture-lead?site=' + SITE_A + '&visitor=' + HEX;
+  for (const off of [-3600, -301, -300, -299, -1, 0, 1, 299, 300, 301, 3600]) {
+    const h = await sign(KEY, 'POST', path, '{"a":1}', now + off);
+    for (const hh of [h, ` ${h} `]) {
+      const want = await verify(hh, KEY, 'POST', path, '{"a":1}', now);
+      eq(want, Math.abs(off) <= 300, `verify itself at off ${off}`);
+      eq(fn.signatureLooksValid(hh, now), want, `signatureLooksValid at off ${off}`);
+    }
+  }
+  eq(fn.signatureLooksValid(null, now), false, 'null');
+  eq(fn.signatureLooksValid('', now), false, 'empty');
+});
+
+t('capture-lead [SEC] readCapped and readUpTo: whole at the cap, cut one byte over, empty for no body, a split character whole', async () => {
+  const { http } = await mod();
+  const X = [120, 120, 120, 120];
+  eq(await http.readCapped(bytesStream(X), 4), 'xxxx', 'at the cap');
+  eq(await http.readCapped(bytesStream(X), 3), null, 'one over');
+  eq(await http.readCapped(bytesStream([120, 120], [120, 120]), 3), null, 'a chunk that crosses the cap');
+  eq(await http.readCapped(null, 4), '', 'no body');
+  eq(await http.readCapped(bytesStream(), 4), '', 'empty body');
+  eq(await http.readCapped(bytesStream([0xe2, 0x82], [0xac]), 3), '€', 'split euro sign, at the cap');
+  eq(await http.readCapped(bytesStream([0xe2, 0x82], [0xac]), 2), null, 'split euro sign, over');
+  eq(JSON.stringify(await http.readUpTo(bytesStream([120, 120], [120, 120, 120]), 3)), '{"text":"xxx","cut":true}', 'readUpTo cut');
+  eq(JSON.stringify(await http.readUpTo(bytesStream(X), 4)), '{"text":"xxxx","cut":false}', 'readUpTo whole');
+  eq(JSON.stringify(await http.readUpTo(null, 4)), '{"text":"","cut":false}', 'readUpTo none');
+});
+
+t('capture-lead [SEC] readUpTo cancels the stream on the cut path and only there', async () => {
+  const { http } = await mod();
+  const watched = (...parts: number[][]) => {
+    const o = { cancels: 0, ended: false }; let i = 0;
+    return { o, body: new ReadableStream<Uint8Array>({ pull(c) { if (i < parts.length) c.enqueue(new Uint8Array(parts[i++])); else { o.ended = true; c.close(); } }, cancel() { o.cancels++; } }) };
+  };
+  const cut = watched([120, 120], [120, 120, 120], [120]);
+  eq(JSON.stringify(await http.readUpTo(cut.body, 3)), '{"text":"xxx","cut":true}', 'cut');
+  eq(cut.o.cancels, 1, 'a body longer than max: cancel called exactly once');
+  const whole = watched([120, 120], [120, 120]);
+  eq(JSON.stringify(await http.readUpTo(whole.body, 4)), '{"text":"xxxx","cut":false}', 'whole');
+  eq(whole.o.cancels, 0, 'a body of at most max bytes: cancel not called');
+  eq(whole.o.ended, true, 'the stream ended by itself');
 });

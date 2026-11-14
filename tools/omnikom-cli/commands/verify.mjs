@@ -9,7 +9,7 @@
 //   9 a lead to a paused site is refused (409) and not stored   10 GET is refused (405)
 // The ledgers migration 7 added are counted before and after (read-only). Security events are counted as sum(n) of security_event_counts
 // (migration 20: one bucket per source and minute, n counts every event of it, the first included; a bucket writes one security_events row):
-// each refused signature adds one event (kind bad-signature, the site), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
+// a refused signature that needs the key adds one event (kind bad-signature, the site; one that cannot verify adds none), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
 // row and a retry of the same key adds none. Both ledgers are append-only: a run leaves its rows behind, by design.
 import { Usage, Blocked } from '../lib/errors.mjs';
 import { uuidLit, lit, jsonLit } from '../lib/sql.mjs';
@@ -77,7 +77,7 @@ export async function verify(ctx) {
   r = await post({ ...L, headers: { 'x-site-signature': 't=1,v1=00' } });
   recorded();
   add('a garbled signature is refused', '401', r.status, r.status === 401 && rows(L.idem) === 0);
-  add('each refused signature is recorded once in security_events', '4 rows (1 each)', deltas.reduce((x, y) => x + y, 0), deltas.length === 4 && deltas.every(d => d === 1), `deltas=${deltas.join(',')}`);
+  add('a refused signature that needs the key is recorded once, one that cannot verify costs no database work', '1 row (1,0,0,0)', deltas.reduce((x, y) => x + y, 0), deltas.join(',') === '1,0,0,0', `deltas=${deltas.join(',')}`);
   L = lead();
   const stranger = ctx.randomUUID();
   r = await post({ ...L, siteId: stranger, t: ctx.now() });

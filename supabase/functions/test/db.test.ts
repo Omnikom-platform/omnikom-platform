@@ -65,7 +65,7 @@ t('db [E6]: 8 parallel calls and a post to the lead function open no connection 
       const answers = await Promise.all(Array.from({ length: 8 }, () => call(drafts, 'drafts', { site: SITE_A }, 'owner-a')));
       for (const a of answers) eq(a.status, 200, `drafts (connections to the direct address so far: ${opened}): ${a.text}`);
       const res = await leadFn(new Request(`http://localhost/capture-lead?site=${SITE_A}`, {
-        method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': 't=1,v1=00' }, body: '{}' }));
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': `t=${Math.floor(Date.now() / 1000)},v1=${'0'.repeat(64)}` }, body: '{}' }));
       const text = await res.text();
       eq(res.status, 401, `capture-lead (connections to the direct address so far: ${opened}): ${text}`);
       eq(JSON.parse(text).problems?.[0]?.code, 'SIGNATURE', 'the keys were read from the database');
