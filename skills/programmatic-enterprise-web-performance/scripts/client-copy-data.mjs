@@ -472,8 +472,8 @@ export function collect(cfg) {
     const works = states.every((s) => s.state === "WORKS");
     put(`v2_${k}`, works, src("backing", k, ids), ...states.map((s) => src("book", `the row "| ${s.id} ... |" state`, s.state)));
   }
-  // ---- the approved design (cfg.newCopy): keys of the new pages
-  if (cfg.newCopy) {
+  // ---- the approved design: keys of the new pages
+  {
     const gLen = (id, field) => get(id, field, "array").length;
     put("nPages", gLen("serp", "captures"), src("serp", "captures (length)", gLen("serp", "captures")));
     put("nPoints", gLen("grid", "points"), src("grid", "points (length)", gLen("grid", "points")));

@@ -1,6 +1,6 @@
 // Usage: node test-copy-design.mjs [--scripts <dir>] [--quiet] [--mutants] [--only <id>]
 // Test of client-copy-design.mjs (the approved design of the client copy: frame, cover, pages 2 to 8) and of what it reads, on two INVENTED
-// businesses built in a temporary folder: the new data keys of client-copy-data.mjs behind cfg.newCopy, the two new client-file keys of
+// businesses built in a temporary folder: the new data keys of client-copy-data.mjs, the two new client-file keys of
 // client-copy.mjs, the pages in process. No network, no browser, no repository file is read except the skill's own client-copy/ folder.
 // --mutants: watched-fail. Copies the skill, breaks one thing at a time, runs this test against the copy and requires the named
 //   case to go red (green = the case measures nothing, or the patch never applied; a `from` that occurs other than once is refused).
@@ -38,7 +38,6 @@ if (args.includes("--mutants")) {
     { id: "f16-plan-n-unchecked", file: "client-copy-data.mjs", from: "if (n !== 3) stop(", to: "if (false) stop(", red: "case 4:" },
     { id: "f17-top-three-unchecked", file: "client-copy-data.mjs", from: 'if (t.counts["top three"] !== s.in3) stop(', to: "if (false) stop(", red: "case 4:" },
     { id: "f18-in-list-unchecked", file: "client-copy-data.mjs", from: 'if (t.counts["top three"] + t.counts.listed !== s.inPack) stop(', to: "if (false) stop(", red: "case 4:" },
-    { id: "f19-flag-always-on", file: "client-copy-data.mjs", from: "if (cfg.newCopy) {", to: "if (true) {", red: "case 2:" },
     { id: "f20-client-key-not-accepted", file: "client-copy.mjs", from: '"handReads", "unconfirmedNames"];', to: '"handReads"];', red: "case 1:" },
     { id: "f21-other-kind-word-not-accepted", file: "client-copy.mjs", from: ', otherKind: "another business", applying: "getting in touch" };', to: ', applying: "getting in touch" };', red: "case 1:" },
     { id: "f22-unconfirmed-names-unchecked", file: "client-copy.mjs", from: '"adsFor", "unconfirmedNames"]) if', to: '"adsFor"]) if', red: "case 1:" },
@@ -384,7 +383,7 @@ const sheetRows = (tsv) => tsv.split("\n").slice(1).filter(Boolean).map((l) => l
 const W0 = { buyer: "buyer", buyers: "buyers", applicant: "enquirer", application: "enquiry form", apply: "get in touch", applies: "gets in touch", pastCustomer: "past customer", outcome: "customers", offers: "messages", product: "service", products: "services", localRivals: "businesses", optionalNote: "with or without its optional part", otherKind: "another business", applying: "getting in touch" };
 // R3b: the hand reads the client file names, resolved as the command does (cfgOf's 4th argument); without it the run has no hand reads
 const handOf = (run, client) => { const hr = client.handReads || {}; const one = (k) => { if (!hr[k] || (k === "trust" && !hr.trustKey)) return null; const i = hr[k].indexOf(":"), kind = hr[k].slice(0, i), rel = hr[k].slice(i + 1); return kind === "pewp" ? { abs: path.join(run.pewp, rel), label: `.pewp/${rel}` } : { abs: path.join(run.client, rel), label: path.basename(rel) }; }; return { leadPath: one("leadPath"), mail: one("mail"), domain: one("domain"), trust: one("trust"), filing: one("filing") }; };
-const cfgOf = (run, client, newCopy, hands = false) => ({ pewp: run.pewp, snapAbs: path.join(path.dirname(run.pewp), "snapshots", "2026-11-10-2"), snapRel: "snapshots/2026-11-10-2", client, hand: hands ? handOf(run, client) : { leadPath: null, mail: null, domain: null, trust: null, filing: null }, bookAbs: run.book, backingAbs: path.join(skill, "client-copy", "backing.json"), dirNames: JSON.parse(fs.readFileSync(path.join(skill, "client-copy", "directories.json"), "utf8")), newCopy });
+const cfgOf = (run, client, hands = false) => ({ pewp: run.pewp, snapAbs: path.join(path.dirname(run.pewp), "snapshots", "2026-11-10-2"), snapRel: "snapshots/2026-11-10-2", client, hand: hands ? handOf(run, client) : { leadPath: null, mail: null, domain: null, trust: null, filing: null }, bookAbs: run.book, backingAbs: path.join(skill, "client-copy", "backing.json"), dirNames: JSON.parse(fs.readFileSync(path.join(skill, "client-copy", "directories.json"), "utf8")) });
 // R3b: the wording files of pages 7 and 8 (null when absent, so the test says so in case 24 and does not stop)
 const readW = (f) => { try { return JSON.parse(fs.readFileSync(path.join(skill, "client-copy", f), "utf8")); } catch { return null; } };
 const std = readW("how-we-work.json") || {}, plan = readW("plan.json") || [];
@@ -400,11 +399,11 @@ const runA = makeRun(A()), sA = runA.spec, clientA = clientFor(sA);
 const runB = makeRun(B()), sB = runB.spec;
 const clientB = clientFor(sB, { rivals: [{ domain: sB.rivals[0].domain, name: null, type: "dental clinic", group: "local" }, { domain: sB.rivals[1].domain, name: null, type: "dentist group", group: "local" }], adsFor: [sB.rivals[0].domain, sB.rivals[1].domain], linkPlace: "pinehollow-chamber.test", linkCompare: undefined, rivalsLede: "Two local practices, then the rest.", promisePattern: undefined, handReads: undefined, alsoSearchedAs: undefined, nameWord: "northgate family dental", labels: undefined });
 let colA = null, colB = null;
-try { colA = collect(cfgOf(runA, clientA, true)); colB = collect(cfgOf(runB, clientB, true)); } catch (e) { console.log("SETUP: " + e.message); }
+try { colA = collect(cfgOf(runA, clientA)); colB = collect(cfgOf(runB, clientB)); } catch (e) { console.log("SETUP: " + e.message); }
 // R3b: run A with its hand reads (pages 7 and 8 name the application, the mail records, the domain and the licence wording)
 let colH = null;
-try { colH = collect(cfgOf(runA, clientA, true, true)); } catch (e) { console.log("SETUP (hand reads): " + e.message); }
-const withH = (r, client) => collect(cfgOf(r, client, true, true));
+try { colH = collect(cfgOf(runA, clientA, true)); } catch (e) { console.log("SETUP (hand reads): " + e.message); }
+const withH = (r, client) => collect(cfgOf(r, client, true));
 const bA = built(colA, clientA), bB = built(colB, clientB), bH = colH ? built(colH, clientA) : { err: "no hand-read collection" };
 const WA = clientA.words;
 const lowerFirst = (s) => s.replace(/^[A-Z](?=[a-z])/, (c) => c.toLowerCase());
@@ -450,16 +449,14 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 }); check("case 1: THE COMMAND takes words.otherKind and unconfirmedNames (a text and a list of texts), refuses an empty one, a text and a list of numbers", ok, detail); }
 
 { const [ok, detail] = T(() => {
-  const off = collect(cfgOf(runA, clientA, false)), bad = [];
-  for (const k of ["nPages", "nPoints", "aiAsked", "mapTiles"]) if (k in off.D) bad.push(`flag off: D.${k} is there`);
-  const on = collect(cfgOf(runA, clientA, true));
+  const on = collect(cfgOf(runA, clientA)), bad = [];
   if (on.D.nPages !== sA.serpTotal) bad.push(`nPages ${on.D.nPages}`);
   if (on.D.nPoints !== 81) bad.push(`nPoints ${on.D.nPoints}`);
   if (on.D.aiAsked !== 2) bad.push(`aiAsked ${on.D.aiAsked}`);
   const ends = { nPages: ".pewp/research/serp.json", nPoints: ".pewp/local/2026-11-13/grid.json", aiAsked: ".pewp/research/ai-answers.json", mapTiles: ".pewp/local/2026-11-13/grid.json" };
   for (const [k, e] of Object.entries(ends)) if (!(on.S[k] || []).some((x) => x.file.endsWith(e))) bad.push(`S.${k} has no source ending ${e}`);
   return [bad.length === 0, bad.join(" | ")];
-}); check("case 2: THE FLAG: cfg.newCopy false adds no new key; true adds nPages, nPoints, aiAsked and mapTiles, each with a source in its file", ok, detail); }
+}); check("case 2: the data layer adds nPages, nPoints, aiAsked and mapTiles, each with a source in its file", ok, detail); }
 
 { const [ok, detail] = T(() => {
   const bad = [], M = colA.D.mapTiles, ord = order(sA, clientA).map((x) => x.p);
@@ -473,7 +470,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 { const [ok, detail] = T(() => {
   const bad = [];
-  const stopRun = (patch) => { const r = makeRun({ ...A(), patch: { "local/2026-11-13/grid.json": patch } }); return stopOf(() => collect(cfgOf(r, clientFor(r.spec), true))); };
+  const stopRun = (patch) => { const r = makeRun({ ...A(), patch: { "local/2026-11-13/grid.json": patch } }); return stopOf(() => collect(cfgOf(r, clientFor(r.spec)))); };
   const want = (name, got, text) => { if (!got.startsWith("STOP: ") || !got.includes(text)) bad.push(`${name}: ${got || "(built)"}`); };
   want("plan.n 4", stopRun((j) => { j.plan.n = 4; j.solv.forEach((x) => { x.points = 16; }); }), "has plan.n 4");
   want("pointsIn3Pack", stopRun((j) => { j.solv[0].pointsIn3Pack += 1; }), "pointsIn3Pack is");
@@ -481,7 +478,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   want("no position", stopRun((j) => { delete j.points[3].position; }), "STOP: .pewp/local/2026-11-13/grid.json has no points[3].position");
   want("row 4", stopRun((j) => { j.points[3].row = 4; }), "row and column");
   const r = makeRun({ ...A(), patch: { "research/ai-answers.json": (j) => { j.summary.engines[1].status = "blocked"; } } });
-  want("perplexity not ok", stopOf(() => collect(cfgOf(r, clientFor(r.spec), true))), "has no summary.engines with status ok for both chatgpt and perplexity");
+  want("perplexity not ok", stopOf(() => collect(cfgOf(r, clientFor(r.spec)))), "has no summary.engines with status ok for both chatgpt and perplexity");
   return [bad.length === 0, bad.join(" | ")];
 }); check("case 4: THE DATA STOPS: plan.n 4, a solv count that its points do not show (top three, in the list), a point without position, a point outside the 3 by 3, an assistant not ok", ok, detail); }
 
@@ -567,7 +564,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 }); check("case 9: THE GUARDS: each sentence that states a finding STOPs the build with its line when the finding does not hold (12 edits: 10 guards, a missing value, a missing addend), and the unedited run builds", ok, detail); }
 // ---------------------------------------------------------------- R2b: the data of pages 3 and 4, the two pages
 const topA = order(sA, clientA)[0], queryA = `${topA.p} ${sA.home}`;
-const withCol = (r, client) => collect(cfgOf(r, client, true));
+const withCol = (r, client) => collect(cfgOf(r, client));
 const wantStop = (bad, name, got, text) => { if (!got.startsWith("STOP: ") || !got.includes(text)) bad.push(`${name}: ${got || "(built)"}`); };
 
 { const [ok, detail] = T(() => {

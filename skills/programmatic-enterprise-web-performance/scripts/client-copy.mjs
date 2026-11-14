@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { collect, stop } from "./client-copy-data.mjs";
-import { buildPages } from "./client-copy-pages.mjs";
+import { buildPages } from "./client-copy-design.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const skillDir = path.resolve(here, "..");
@@ -93,12 +93,13 @@ try {
     if (!fs.existsSync(p) || !fs.statSync(p).isFile()) stop(`STOP: ${label} is missing`);
     try { return JSON.parse(fs.readFileSync(p, "utf8").replace(/^﻿/, "")); } catch { return stop(`STOP: ${label} is not JSON`); }
   };
-  const std = readJson("standard-copy.json", "standard-copy.json");
-  for (const k of ["goAhead", "noOwnStatistics", "promise"]) if (!isText(std[k])) stop(`STOP: standard-copy.json has no ${k}`);
-  if (!Array.isArray(std.nextSteps) || !std.nextSteps.length || !std.nextSteps.every((s) => Array.isArray(s) && s.length === 3 && s.every(isText))) stop("STOP: standard-copy.json has no nextSteps as a list of [label, title, text]");
-  const fixes = readJson("fixes.json", "fixes.json");
-  if (!Array.isArray(fixes)) stop("STOP: fixes.json has no list of rows");
-  fixes.forEach((f, i) => { for (const k of ["id", "when", "fix", "why", "time", "who"]) if (!f || !isText(f[k])) stop(`STOP: fixes.json row ${i + 1} has no ${k}`); });
+  const std = readJson("how-we-work.json", "how-we-work.json");
+  for (const k of ["goAhead", "promise"]) if (!isText(std[k])) stop(`STOP: how-we-work.json has no ${k}`);
+  if (!isTexts(std.draftContains) || std.draftContains.length !== 3) stop("STOP: how-we-work.json has no draftContains as a list of 3 texts");
+  if (!Array.isArray(std.nextSteps) || !std.nextSteps.length || !std.nextSteps.every((s) => Array.isArray(s) && s.length === 3 && s.every(isText))) stop("STOP: how-we-work.json has no nextSteps as a list of [label, title, text]");
+  const fixes = readJson("plan.json", "plan.json");
+  if (!Array.isArray(fixes)) stop("STOP: plan.json has no list of rows");
+  fixes.forEach((f, i) => { for (const k of ["id", "when", "fix", "gets", "who", "see"]) if (!f || !isText(f[k])) stop(`STOP: plan.json row ${i + 1} has no ${k}`); });
   const dirNames = readJson("directories.json", "directories.json");
   if (!fs.existsSync(path.join(wordsDir, "backing.json"))) stop("STOP: backing.json is missing");
 
@@ -121,7 +122,7 @@ try {
   const { D, S, fmt } = collect({ pewp, snapAbs, snapRel, client, hand, bookAbs, backingAbs: path.join(wordsDir, "backing.json"), dirNames });
   const date = client.date || D.fileDate;
   const stem = `${D.biz.shortName}-website-review-${date}${draft ? "-draft" : ""}`;
-  const { html, tsv } = buildPages({ D, S, fmt, w: words, std, fixes, contact, draft, notRead, client, logoUrl: pathToFileURL(path.join(assetsDir, "omnikom-logo-full.png")).href, fontsUrl: pathToFileURL(cssFile).href });
+  const { html, tsv, pages } = buildPages({ D, S, fmt, w: words, std, fixes, contact, draft, notRead, client, logoUrl: pathToFileURL(path.join(assetsDir, "omnikom-logo-full.png")).href, fontsUrl: pathToFileURL(cssFile).href });
 
   // ---- nothing is written before every number has been read and every page built
   fs.mkdirSync(outDir, { recursive: true });
@@ -130,7 +131,7 @@ try {
   fs.writeFileSync(path.join(outDir, tsvName), tsv);
   console.log(`wrote ${path.join(opt["--out"], htmlName)}`);
   console.log(`wrote ${path.join(opt["--out"], tsvName)}`);
-  console.log("sections: 8");
+  console.log(`sections: ${pages}`);
 } catch (e) {
   if (e && e.isStop) { console.error(e.message); process.exit(1); }
   throw e;

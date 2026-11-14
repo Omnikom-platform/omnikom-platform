@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 963,
+    "sources": 962,
     "unowned": 0
   },
   "files": [
@@ -209,7 +209,6 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/classify-business.mjs","owner":"seo-and-audits","exports":["OWNER_FIELDS","classify","industryPack"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy-data.mjs","owner":"seo-and-audits","exports":["collect","fmt","stop"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy-design.mjs","owner":"seo-and-audits","exports":["buildPages"],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy-pages.mjs","owner":"seo-and-audits","exports":["buildPages"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy-pdf.mjs","owner":"seo-and-audits","exports":["PROFILE_DIR","checkPdf","countSections","newestHtml","printCopy"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy-rules.mjs","owner":"seo-and-audits","exports":["DIRECT_KIND","OTHER_WORD","PLAIN_KIND","excludedRivals","hostOf","isAdName","isGovernment","mapsFirstThree","mapsTile","nameToPrint","namesByFirstMention","tagOf"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/client-copy.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},

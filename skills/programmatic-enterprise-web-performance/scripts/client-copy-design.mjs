@@ -1,9 +1,9 @@
 // client-copy-design.mjs: the approved design of the client copy, built in memory from the data of client-copy-data.mjs.
 // Jobs R2a to R3b build the frame (head, footer, style), page 1 (the cover) and pages 2 to 8 (summary, SEO, AI search, Maps, rivals, the plan,
-// how Omnikom works); the two anchor comments below (PAGES, ALL) stay. Pages 7 and 8 take their words from plan.json and how-we-work.json. Every drawn value goes through P/PC/sum and gets ONE sheet row (8 columns, as the old pages' sheet);
+// how Omnikom works); the two anchor comments below (PAGES, ALL) stay. Pages 7 and 8 take their words from plan.json and how-we-work.json. Every drawn value goes through P/PC/sum and gets ONE sheet row (8 columns);
 // a sentence that states a finding is printed only when the finding holds, else the build STOPs with one line naming page, sentence
 // and condition. No client word is typed here: names, products and cities come from the data and the client file.
-// Nothing is written here: the caller writes the html and the sheet. Not called by client-copy.mjs yet (the command keeps the old pages).
+// Nothing is written here: the caller writes the html and the sheet. client-copy.mjs calls it and writes the files.
 import { stop } from "./client-copy-data.mjs";
 import { tagOf as ruleTag } from "./client-copy-rules.mjs";
 
