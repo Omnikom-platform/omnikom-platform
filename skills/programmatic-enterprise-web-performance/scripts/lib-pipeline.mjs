@@ -38,7 +38,7 @@
 //   [hits] none | client | third-party:<host-or-name>
 //   [engines] optional: a non-empty list of engine names known to lib-stops.mjs (google, bing, commoncrawl, ...): while a stop is in force for one of them the runner marks the step
 //             BLOCKED with the stop's until and reason and never starts it (psi and crux are keyed APIs outside the search stop and carry none)
-//   [partialSettles] optional true or false (default false): read by omnikom seo run only. A dependent of a PARTIAL step whose partialSettles is true may run (the step stays PARTIAL in the table and the log); start.mjs audit-live ignores the key and still holds the dependents of a partial step (start.mjs:360, :393).
+//   [partialSettles] optional true or false (default false): read by omnikom seo run and by start.mjs audit-live. A dependent of a PARTIAL step whose partialSettles is true may run (the step stays PARTIAL in the table, the log and the stage's own record).
 // Run order: file order, except that a step never comes before a step it depends on (the first step in file order whose dependencies are all placed goes next).
 // Outcome of a step that ran (stepOutcome): exit 0 = done (then its evidence must be done, else fail), or partial when its last line is `PARTIAL: <what is missing>` (then run again to continue);
 // 3 = blocked, and its last line must be `BLOCKED: <what> | unblocks: <what would>` (else fail: a broken contract), or needs-input when the output holds a NEEDS-INPUT line; 4 = skipped with a

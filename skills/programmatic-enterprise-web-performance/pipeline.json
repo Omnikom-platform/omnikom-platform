@@ -1249,6 +1249,7 @@
   },
   {
    "id": "local",
+   "partialSettles": true,
    "module": "local",
    "what": "the local suite: Business Profile, map-pack positions, NAP consistency, review gap",
    "script": "scripts/local-run.mjs",

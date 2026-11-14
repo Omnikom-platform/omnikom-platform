@@ -359,6 +359,7 @@ function tryAdopt(s) {
 async function runManifestLoop() {
   const settled = new Set(["done", "skipped"]);
   const res = new Map(); // id -> done | skipped | blocked | partial | waiting | held
+  const settles = (d) => settled.has(res.get(d)) || (res.get(d) === "partial" && byName.get(d)?.manifest?.partialSettles === true); // a partial step whose manifest says partialSettles settles for its dependents; it stays partial in its own output
   const heldBy = new Map(), waiting = [], blockedNotes = [];
   const forced = val("--stage");
   const unknown = [...idList(val("--adopt")), ...freshIds].filter((x) => !byName.has(x));
@@ -390,7 +391,7 @@ async function runManifestLoop() {
   for (const s of queue) {
     const skip = s.skipIf?.();
     if (skip) { console.log(`${s.name}: skipped (${skip})`); res.set(s.name, "skipped"); continue; }
-    const unmet = forced ? [] : s.dependsOn.filter((d) => !settled.has(res.get(d)));
+    const unmet = forced ? [] : s.dependsOn.filter((d) => !settles(d));
     if (unmet.length) { res.set(s.name, "held"); heldBy.set(s.name, unmet); continue; }
     const isFresh = freshAll || freshIds.has(s.name);
     const status = forced || isFresh ? { status: "pending" } : statusOf(s);

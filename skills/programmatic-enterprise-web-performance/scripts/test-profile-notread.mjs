@@ -7,12 +7,12 @@
 // No network, no browser, no file is read except local-profile.mjs, local-run.mjs and their imports; the competitor and report cases write small files to a temporary folder and remove it.
 // --mutants: watched-fail. Copies the skill, breaks one thing at a time, runs this test against the copy and requires the named
 //   case to go red (green = the case measures nothing, or the patch never applied; a `from` that occurs twice is refused).
-// Cases 11 to 17 run local-run.mjs on invented captures in a temporary folder and read the report.md it writes.
+// Cases 11 to 20 run local-run.mjs on invented captures in a temporary folder; 18 and 19 run it as a process and read its stdout and exit.
 // Exit 0 = all pass, exit 1 = a case failed.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const args = process.argv.slice(2);
@@ -47,6 +47,12 @@ if (args.includes("--mutants")) {
     { id: "line-printed-for-a-check-that-was-judged", file: "local-run.mjs", from: "? out.profile.blocked : [];", to: "? [...out.profile.blocked, ...out.profile.findings] : [];", red: "case 11:" },
     { id: "no-unblock-prints-undefined", file: "local-run.mjs", from: '(b.unblock ? " To fix: " + b.unblock : "")', to: '" To fix: " + b.unblock', red: "case 16:" },
     { id: "reviews-unblock-from-the-profile-list-again", file: "local-run.mjs", from: '(out.profile.status !== "ok" ? out.profile.blocked : out.pack.blocked)?.unblock', to: "(out.profile.blocked || out.pack.blocked)?.unblock", red: "case 17:" },
+    { id: "partial-line-dropped", file: "local-run.mjs", from: "if (pl) console.log(pl);", to: "", red: "case 18:" },
+    { id: "partial-line-when-every-part-is-ok", file: "local-run.mjs", from: "return bad.length ? ", to: "return true ? ", red: "case 20:" },
+    { id: "partial-line-not-last", file: "local-run.mjs", from: "if (pl) console.log(pl);", to: 'if (pl) console.log(pl); console.log("end");', red: "case 18:" },
+    { id: "partial-exit-changed", file: "local-run.mjs", from: "if (pl) console.log(pl);", to: "if (pl) { console.log(pl); process.exitCode = 3; }", red: "case 18:" },
+    { id: "partial-names-only-the-first-part", file: "local-run.mjs", from: ".map(([k]) => k)", to: ".map(([k]) => k).slice(0, 1)", red: "case 19:" },
+    { id: "partial-names-the-ok-parts", file: "local-run.mjs", from: '.filter(([, v]) => v !== "ok")', to: '.filter(([, v]) => v === "ok")', red: "case 18:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "profnr-mut-"));
   let ok = 0;
@@ -218,6 +224,28 @@ const nline = (b) => "- NOT READ, " + b.id + ": " + b.reason.replace(/\.$/, "") 
   const line = W2.lines.find((l) => l.startsWith("- NOT MEASURED, reviews:")) || "", un = J(path.join(W2.od, "reviews.json")).blocked?.unblock;
   check("case 17: an ok profile with no map pack capture: the reviews line and reviews.json carry the pack's own way to unblock, never undefined",
     line === REV && un === PACKFIX && !/undefined/.test(W2.text), line + " | " + un);
+}
+const cli = (w) => { const r = spawnSync(process.execPath, ["--max-old-space-size=256", path.join(dir, "local-run.mjs"), w.root, "--cwd", w.root, "--today", TODAY], { encoding: "utf8", timeout: 60000 });
+  const lines = String(r.stdout || "").split("\n").filter((l) => l.trim()), od = path.join(w.root, ".pewp", "local", TODAY);
+  return { r, lines, od, last: lines[lines.length - 1] || "", first: lines[0] || "", summary: fs.existsSync(path.join(od, "summary.json")) }; };
+const OUT = "local 2026-10-22: ";
+{
+  const c = cli(world(5, BASE)), want = "PARTIAL: pack, nap, reviews, grid not measured (BLOCKED); see " + path.join(c.od, "report.md");
+  check("case 18: run as a process, a profile that was read with the other parts BLOCKED: exit 0, today's line first byte for byte, the PARTIAL: line last and alone, summary.json written",
+    c.r.status === 0 && c.lines.length === 2 && c.first === OUT + "profile=ok pack=BLOCKED nap=BLOCKED reviews=BLOCKED grid=BLOCKED; wrote " + c.od && c.last === want && c.summary,
+    "status " + c.r.status + " | " + JSON.stringify(c.lines) + " | " + String(c.r.stderr || "").slice(0, 200));
+}
+{
+  const c = cli(world(6, { ...BASE, capturedAt: undefined })), want = "PARTIAL: profile, pack, nap, reviews, grid not measured (BLOCKED); see " + path.join(c.od, "report.md");
+  check("case 19: run as a process with EVERY part BLOCKED (undated capture): exit 0, today's line first, the PARTIAL: line naming all five parts last",
+    c.r.status === 0 && c.lines.length === 2 && c.first === OUT + "profile=BLOCKED pack=BLOCKED nap=BLOCKED reviews=BLOCKED grid=BLOCKED; wrote " + c.od && c.last === want && c.summary,
+    "status " + c.r.status + " | " + JSON.stringify(c.lines));
+}
+{
+  const ok = { profile: "ok", pack: "ok", nap: "ok", reviews: "ok", grid: "ok" }; let a = "x", b = "", err = "";
+  try { a = LR.partialLine(ok, "d"); b = LR.partialLine({ ...ok, profile: "BLOCKED", reviews: "BLOCKED" }, "d"); } catch (e) { err = String(e); }
+  check("case 20: with every part ok partialLine is empty (no PARTIAL: line); with two BLOCKED it names exactly those two, in order",
+    !err && a === "" && b === "PARTIAL: profile, reviews not measured (BLOCKED); see " + path.join("d", "report.md"), err || JSON.stringify([a, b]));
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 
