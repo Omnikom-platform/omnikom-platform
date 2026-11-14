@@ -8,7 +8,7 @@
 // are null here and nothing about it is printed.
 import fs from "node:fs";
 import path from "node:path";
-import { isAdName, mapsTile } from "./client-copy-rules.mjs";
+import { isAdName, mapsTile, excludedRivals, nameToPrint, namesByFirstMention } from "./client-copy-rules.mjs";
 
 export const stop = (line) => { const e = new Error(line); e.isStop = true; throw e; };
 export const fmt = (n) => (typeof n === "number" ? n.toLocaleString("en-US") : n);
@@ -495,6 +495,48 @@ export function collect(cfg) {
       return { city: c, query: qOf[i], points: t.points, tile: t.tile, counts: t.counts, inPack: s.inPack };
     }) }));
     put("mapTiles", { per: 9, cities, rows: tileRows }, ...tileRows.flatMap((r) => r.cells.map((c) => src("grid", `points[query=${c.query}].position.value (the tile); solv[query=${c.query}].pointsIn3Pack, .pointsInPack`, `${c.counts["top three"]} of ${c.points} in the top three, ${c.inPack} in the list`))));
+    // ---- page 3: the results lists of the top demand product in the home city (desktop; read from outside the area)
+    const wantQ = `${demand[0].key} ${home}`.toLowerCase();
+    const sc = get("serp", "captures", "array").map((_, i) => ({ i, q: get("serp", `captures[${i}].query`, "text"), e: get("serp", `captures[${i}].engine`, "text"), d: get("serp", `captures[${i}].device`, "text") }));
+    const listOf = (eng) => {
+      const c = sc.find((x) => x.q.toLowerCase() === wantQ && x.e === eng && x.d === "desktop");
+      if (!c) stop(`STOP: ${label(defs.serp)} has no desktop capture of "${wantQ}" on ${eng}`);
+      const org = get("serp", `captures[${c.i}].organic`, "array").map((_, k) => ({ position: get("serp", `captures[${c.i}].organic[${k}].position`, "count"), domain: get("serp", `captures[${c.i}].organic[${k}].domain`, "text"), title: get("serp", `captures[${c.i}].organic[${k}].title`, "string") }));
+      return { query: c.q, read: org.length, first5: org.filter((o) => o.position <= 5).sort((a, b) => a.position - b.position), localized: get("serp", `captures[${c.i}].location.localized`, "boolean"), ours: getMaybe("serp", `captures[${c.i}].ourPosition.value`, "number") };
+    };
+    const lg = listOf("google"), lb = listOf("bing");
+    put("serpLists", { query: lg.query, google: lg, bing: lb }, ...[["google", lg], ["bing", lb]].map(([e, l]) => src("serp", `captures[query=${l.query}&engine=${e}&device=desktop].organic[position<=5] (position, domain, title), .organic (length), .location.localized, .ourPosition.value`, `${l.first5.length} shown of ${l.read} read; localized ${l.localized}; ours ${l.ours}`)));
+    // the approved competitors (kind, excluded list) and the names to print
+    const aRows = get("approved", "rows", "array").map((_, i) => ({ name: get("approved", `rows[${i}].name`, "text"), domain: getMaybe("approved", `rows[${i}].domain`, "text"), kind: get("approved", `rows[${i}].kind`, "text") }));
+    const aEx = (getMaybe("approved", "excluded", "array") || []).map((_, i) => ({ domain: getMaybe("approved", `excluded[${i}].domain`, "text") }));
+    put("approvedSet", { rows: aRows, excluded: aEx }, src("approved", "rows[*].name, .domain, .kind; excluded[*].domain", `${aRows.length} rows, ${aEx.length} excluded`));
+    const unconf = client.unconfirmedNames || [], exRiv = excludedRivals(client.rivals || [], { excluded: aEx });
+    if (exRiv.length) stop(`STOP: the client file names the rival ${exRiv[0]}, which stands on the excluded list of ${label(defs.approved)}`);
+    for (const r of rivals) r.printName = nameToPrint(r.domain, r.name, unconf);
+    const smType = get("sitemaps", "fetched[0].contentType", "text");
+    put("sitemapType", smType, src("sitemaps", "fetched[0].contentType", smType));
+    const strat = get("psi", "pages[strategy=mobile].strategy", "text");
+    put("lcpStrategy", strat, src("psi", "pages[strategy=mobile].strategy", strat));
+    // ---- page 4: one row per question, per assistant: named, or the businesses named instead in the order of their first mention in the answer
+    const aiR = get("ai", "rows", "array").map((_, i) => ({ i, engine: get("ai", `rows[${i}].engine`, "text"), status: get("ai", `rows[${i}].status`, "text") })).filter((r) => r.status === "ok" && (r.engine === "chatgpt" || r.engine === "perplexity"));
+    const qs = [];
+    for (const r of aiR) {
+      const qt = get("ai", `rows[${r.i}].question`, "text"), named = get("ai", `rows[${r.i}].named`, "boolean");
+      let row = qs.find((x) => x.question === qt);
+      if (!row) qs.push(row = { question: qt, type: get("ai", `rows[${r.i}].type`, "text") });
+      if (row[r.engine]) stop(`STOP: ${label(defs.ai)} has two ok rows for the question "${qt}" on ${r.engine}`);
+      let instead = [];
+      if (!named) {
+        const file = get("ai", `rows[${r.i}].file`, "text");
+        const names = get("ai", `rows[${r.i}].competitorsNamed`, "array").map((_, k) => get("ai", `rows[${r.i}].competitorsNamed[${k}]`, "text"));
+        const o = namesByFirstMention(get(aicap(file), "answerText", "text"), names);
+        if (o.unfound.length) stop(`STOP: ${label(defs[aicap(file)])} does not hold the name ${o.unfound[0]} that ${label(defs.ai)} rows[${r.i}] lists`);
+        instead = o.names;
+      }
+      row[r.engine] = { named, instead };
+    }
+    for (const x of qs) for (const e of ["chatgpt", "perplexity"]) if (!x[e]) stop(`STOP: ${label(defs.ai)} has no ok row for the question "${x.question}" on ${e}`);
+    put("aiGrid", { rows: qs }, src("ai", "rows[status=ok, engine=chatgpt|perplexity].question, .type, .named, .competitorsNamed (ordered by the first mention in captures/ai/<file>.answerText)", `${qs.length} questions`));
     // @@KEYS (job R2b adds its keys above this line; keep it verbatim)
   }
   return { D, S, fmt, labelOf };

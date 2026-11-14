@@ -1,10 +1,11 @@
 // client-copy-design.mjs: the approved design of the client copy, built in memory from the data of client-copy-data.mjs.
-// Job R2a builds the frame (head, footer, style), page 1 (the cover) and page 2 (the summary); later jobs add pages 3 to 8 at the
-// two anchor comments below (PAGES, ALL). Every drawn value goes through P/PC/sum and gets ONE sheet row (8 columns, as the old pages' sheet);
+// Jobs R2a and R2b build the frame (head, footer, style), page 1 (the cover) and pages 2 to 4 (summary, SEO, AI search); later jobs add
+// pages 5 to 8 at the two anchor comments below (PAGES, ALL). Every drawn value goes through P/PC/sum and gets ONE sheet row (8 columns, as the old pages' sheet);
 // a sentence that states a finding is printed only when the finding holds, else the build STOPs with one line naming page, sentence
 // and condition. No client word is typed here: names, products and cities come from the data and the client file.
 // Nothing is written here: the caller writes the html and the sheet. Not called by client-copy.mjs yet (the command keeps the old pages).
 import { stop } from "./client-copy-data.mjs";
+import { tagOf as ruleTag } from "./client-copy-rules.mjs";
 
 const steps = [];
 for (let w = 800; w >= 320; w -= 20) steps.push(`@media screen and (max-width:${w}px){section{zoom:${(w / 816).toFixed(4)}}}`);
@@ -165,12 +166,12 @@ export function buildPages(ctx) {
   const upperFirst = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   // cite: ONE sheet row for one drawn value: the sources of D[key] that `pick` keeps, joined with " | " in the five source columns; the label is not cut
   const cite = (key, printed, label, pick) => {
-    const recs = (S[key] || []).filter((s) => !pick || s.where.includes(pick) || s.value.includes(pick));
+    const recs = [].concat(key).flatMap((k) => S[k] || []).filter((s) => !pick || s.where.includes(pick) || s.value.includes(pick));
     if (!recs.length) throw new Error(`build: no source for ${key}${pick ? ` matching ${pick}` : ""}`);
     const j = (f) => recs.map((s) => clean(s[f])).join(" | ");
-    sheet.push([page, label, clean(printed), j("file"), j("where"), j("value"), j("measured"), j("kind")]);
+    sheet.push([page, plain(label), clean(printed), j("file"), j("where"), j("value"), j("measured"), j("kind")]);
   };
-  const calc = (printed, label, how) => sheet.push([page, label, clean(printed), "(computed)", how, clean(printed), "(computed)", "COMPUTED"]);
+  const calc = (printed, label, how) => sheet.push([page, plain(label), clean(printed), "(computed)", how, clean(printed), "(computed)", "COMPUTED"]);
   const miss = (v) => v === null || v === undefined || v === "" || (typeof v === "number" && !Number.isFinite(v));
   // P: draw a value read from D[key] (never null) and give it a row; returns the html text
   const P = (key, shown, label, pick) => { if (miss(shown)) stop(`STOP: page ${page}, ${label}: the value is missing`); const t = plain(typeof shown === "number" ? fmt(shown) : shown); cite(key, t, label, pick); return esc(t); };
@@ -255,8 +256,96 @@ export function buildPages(ctx) {
   <p class="note">${P("topDemand", `${topP.share}%`, `share of demand, ${topP.product}`)} of the demand for your ${pp.of} ${w.products} is for ${esc(topP.product)}. Bing's own figure for ${esc(D.demandWhere)}: how often it showed results for each search.</p>`);
   })();
 
+  const rt = (s) => esc(plain(s)); // text from the run
+  const fixesOl = (items) => `<h3>What to do</h3><ol class="fixes">${items.map(([b, s]) => `<li><div><b>${b}</b><span>${s}</span></div></li>`).join("")}</ol>`;
+
+  // =============================================================== page 3: SEO
+  page = 3;
+  const p3 = (() => {
+    const SL = D.serpLists, topP = D.topDemand;
+    if (D.wordsSent !== 0) stop("STOP: page 3, the first thing your site sends is a blank page: the home page's first response holds words");
+    if (!D.sitesRead.allSend) stop("STOP: page 3, every rival site we read sends its words at once: one of them sends none");
+    if (!D.sitemapIsHome || D.sitemapPages !== 0) stop("STOP: page 3, your list of pages is a copy of the home page: the list the site gives Google is not one");
+    if (D.notFoundStatus !== 200) stop(`STOP: page 3, a wrong address does not say page not found: it answers ${D.notFoundStatus}`);
+    const tagOf = (...a) => { try { return ruleTag(...a); } catch (e) { stop(`STOP: page 3, the tag of a result: ${e.message}`); } };
+    let tagged = 0, total = 0;
+    const listHtml = (eng) => {
+      const L = SL[eng];
+      if (L.localized) stop(`STOP: page 3, ${eng} results read from outside your area: the capture of "${SL.query}" is localized`);
+      if (L.ours !== null) stop(`STOP: page 3, none of the results is the business: ${eng} lists it at position ${L.ours}`);
+      const rows = L.first5.map((r) => {
+        const tag = tagOf(r.domain, D.approvedSet, w.otherKind);
+        if (tag !== null && tag !== "government" && tag !== "your rival" && tag !== w.otherKind) stop(`STOP: page 3, ${eng} position ${r.position}, ${r.domain}: its tag is "${tag}", the headline counts only the government, "your rival" and "${w.otherKind}"`);
+        if (tag !== null) tagged++;
+        total++;
+        const main = r.title ? rt(r.title) : rt(r.domain);
+        return `<li><span class="pos">${P("serpLists", r.position, `${eng} position`, `engine=${eng}&`)}</span><div class="rt"><b>${main}</b><small>${rt(r.domain)}${tag !== null ? ` <u>${esc(tag)}</u>` : ""}</small></div></li>`;
+      }).join("");
+      return `<div class="serp"><div class="serp-h">${upperFirst(eng)}, read from outside your area</div><ol>${rows}<li class="me"><span class="pos"></span><div class="rt"><b>${esc(NAME)}</b><small>not among the ${P("serpLists", L.read, `results read on ${eng}`, `engine=${eng}&`)} results read</small></div></li></ol></div>`;
+    };
+    const gHtml = listHtml("google"), bHtml = listHtml("bing");
+    const h = `For "${rt(SL.query)}", ${PC(tagged, `results that are the government or ${w.otherKind}`, "count of the results above that carry a tag")} of the ${PC(total, "results shown", "count of the results above")} results below are the government or ${esc(w.otherKind)}. None is you.`;
+    const lede = `${P("topDemand", `${topP.share}%`, `share of demand, ${topP.product}`)} of the demand for your ${w.products} is for ${esc(topP.product)} (page 2). First five results, read on a computer.`;
+    const you = D.wordsSent, riv3 = D.rivals.slice(0, 3);
+    const maxW = Math.max(...riv3.map((r) => r.words), you);
+    const wbars = [`<tr class="you"><td>Your site</td><td class="bc">${bar(you, maxW, "me")}</td><td class="r">${P("wordsSent", you, "words, your site")}</td></tr>`]
+      .concat(riv3.map((r) => `<tr><td>${rt(r.printName)}</td><td class="bc">${bar(r.words, maxW)}</td><td class="r">${P("rivals", r.words, `words, ${r.printName}`, `sites[domain=${r.domain}]`)}</td></tr>`)).join("");
+    const lcp = Number(D.lcpS), good = Number(D.goodLcpS);
+    const sbars = [`<tr class="you"><td>Your site on a phone</td><td class="bc">${bar(lcp, Math.max(lcp, good), "me")}</td><td class="r">${P("lcpS", D.lcpS, "seconds, main picture on a phone")} s</td></tr>`, `<tr><td>Google's good mark</td><td class="bc">${bar(good, Math.max(lcp, good))}</td><td class="r">${P("goodLcpS", D.goodLcpS, "seconds, Google's good mark")} s</td></tr>`].join("");
+    cite(["sitemapType", "sitemapPages"], `${D.sitemapType}, ${D.sitemapPages} urls`, "your list of pages is a copy of the home page");
+    cite("notFoundStatus", `status ${D.notFoundStatus}`, "a wrong address on your site does not say 'page not found'");
+    const fixes = [
+      ["Send every page with its words in it.", "Part of the site we draft: the first response carries the words of every page."],
+      ["Give Google a list of your pages, and a real \"page not found\".", "Today the list is a copy of your home page, and a wrong address does not say \"page not found\". The site we draft has both."],
+    ];
+    return sheetPage(3, `${head("SEO \u00b7 Found on Google and Bing", h, lede)}
+  <div class="serps">${gHtml}${bHtml}</div>
+  <div class="first">
+    <p class="big1">The first thing your site sends Google, Bing and ChatGPT is a blank page.</p>
+    <p class="sm1">Its words only appear after a program runs in a browser. Every one of the ${P("sitesRead", D.sitesRead.read, "rival sites that send words")} rival sites we read sends its words at once.</p>
+  </div>
+  <div class="two cols2">
+    <div><h3>Words in the first response</h3><table class="bars">${wbars}</table></div>
+    <div><h3>Seconds until your main picture shows</h3><table class="bars">${sbars}</table><p class="note">Measured with ${P("lcpStrategy", "PageSpeed Insights, on a phone", "source of the seconds until the main picture shows")}.</p></div>
+  </div>
+  ${fixesOl(fixes)}`);
+  })();
+
+  // =============================================================== page 4: AI search
+  page = 4;
+  const p4 = (() => {
+    const G = D.aiGrid, pr = D.profiles, pp = D.productPages;
+    for (const [e, k, E] of [["chatgpt", "chat", "ChatGPT"], ["perplexity", "perp", "Perplexity"]]) { const nm = G.rows.filter((x) => x[e].named).length; if (nm !== D.ai[k].named || G.rows.length !== D.ai[k].questions) stop(`STOP: page 4, ${E}: the answers read (${nm} of ${G.rows.length}) differ from the summary of ai-answers.json (${D.ai[k].named} of ${D.ai[k].questions})`); }
+    if (D.faq === null) stop("STOP: page 4, FAQ answers marked: the home page has no FAQ heading");
+    if (!(pr.inCard < pr.total)) stop("STOP: page 4, the fix Link your profiles: every profile is already linked");
+    if (!D.aiInstead.length) stop("STOP: page 4, named instead: the run lists no business the assistants name instead");
+    const chN = G.rows.filter((x) => x.chatgpt.named).length, peN = G.rows.filter((x) => x.perplexity.named).length;
+    const cell = (x, qi, e, E) => {
+      if (x[e].named) return `<td><i class="dot on"></i><span class="nm2">names you</span></td>`;
+      const ns = x[e].instead;
+      if (!ns.length) stop(`STOP: page 4, "${x.question}" on ${E}: the answer does not name the business and no business is named instead`);
+      const shown = ns.slice(0, 2).map(rt).join(", ");
+      const more = ns.length > 2 ? ` and ${P("aiGrid", ns.length - 2, `more businesses named, question ${qi + 1}, ${E}`)} more` : "";
+      return `<td><i class="dot"></i><span class="nm2">${shown}${more}</span></td>`;
+    };
+    const rows = G.rows.map((x, qi) => `<tr><td class="qq">${rt(x.question)}${x.type === "brand" ? " <u>asks for you by name</u>" : ""}</td>${cell(x, qi, "chatgpt", "ChatGPT")}${cell(x, qi, "perplexity", "Perplexity")}</tr>`).join("");
+    const insHtml = D.aiInstead.map((a) => `<tr><td>${rt(a.name)}</td><td class="r">${P("aiInstead", a.count, `answers naming ${a.name}`, `${a.name} ${a.count}`)}</td></tr>`).join("");
+    const prodStat = `${P("productPages", pp.listed, `${w.products} with a page`)} of ${P("productPages", pp.of, w.products)}`;
+    const faqStat = `${P("faq", D.faq.marked, "FAQ answers marked", "FAQPage")} of ${P("faq", D.faq.of, "FAQ answers", "headings")}`;
+    const profStat = `${P("profiles", pr.inCard, "profiles linked", "sameAs")} of ${P("profiles", pr.total, "profiles", "rows (length)")}`;
+    const h = `ChatGPT names you on ${P("ai", `${chN} of ${G.rows.length}`, "ChatGPT", "summary.engines[engine=chatgpt]")} questions. Perplexity names you on ${P("ai", `${peN} of ${G.rows.length}`, "Perplexity", "summary.engines[engine=perplexity]")}, and Google's AI answers on ${P("googleAi", `${D.googleAi.named} of ${D.googleAi.total}`, "Google AI answers that name you")} pages.`;
+    const fixes = [[`Link your ${P("profiles", pr.total, "profiles to link", "rows (length)")} profiles in the company details your site gives Google.`, `Included in the site we draft. Today ${profStat} are linked.`]];
+    return sheetPage(4, `${head("AI search \u00b7 GEO and AEO", h, `${P("aiGrid", G.rows.length, "questions asked")} questions a buyer would ask, put to ChatGPT and to Perplexity. A filled dot means the answer names you; a ring means it names other businesses.`)}<p class="sm1" style="margin-bottom:13px">GEO: being named by AI assistants. AEO: a page built to be the answer.</p>
+  <table class="grid"><tr><th>The question</th><th>ChatGPT</th><th>Perplexity</th></tr>${rows}</table>
+  <div class="two cols2 mt">
+    <div><h3>Named instead, across ${P("ai", D.ai.answers, "answers from both assistants", "summary.questions")} answers</h3><table class="bars">${insHtml}</table></div>
+    <div><h3>Is a page built to be the answer?</h3><table class="bars"><tr><td>A page for each ${w.product}</td><td class="r state">${prodStat}</td></tr><tr><td>FAQ answers marked so Google can quote them</td><td class="r state">${faqStat}</td></tr><tr><td>Profiles linked in the company details Google reads</td><td class="r state">${profStat}</td></tr></table><p class="note">Today the first response holds no words for an AI answer to use (page 3).</p></div>
+  </div>
+  ${fixesOl(fixes)}`);
+  })();
+
   // @@PAGES
-  const all = [p1, p2]; // @@ALL
+  const all = [p1, p2, p3, p4]; // @@ALL
   const spaced = all.join("\n").replace(/>(?=<(?!\/?(?:i|svg|rect|br)\b))/g, ">\n"); // a space between neighbours, so no label runs into its number when read as text
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(NAME)}: SEO, AI search and local audit, ${esc(MONTH)}${draft ? " (draft)" : ""}</title>
 <link href="${fontsUrl}" rel="stylesheet"><style>${CSS}</style></head><body>

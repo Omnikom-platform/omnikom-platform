@@ -1,5 +1,5 @@
 // Usage: node test-copy-design.mjs [--scripts <dir>] [--quiet] [--mutants] [--only <id>]
-// Test of client-copy-design.mjs (the approved design of the client copy: frame, cover, page 2) and of what it reads, on two INVENTED
+// Test of client-copy-design.mjs (the approved design of the client copy: frame, cover, pages 2 to 4) and of what it reads, on two INVENTED
 // businesses built in a temporary folder: the new data keys of client-copy-data.mjs behind cfg.newCopy, the two new client-file keys of
 // client-copy.mjs, the pages in process. No network, no browser, no repository file is read except the skill's own client-copy/ folder.
 // --mutants: watched-fail. Copies the skill, breaks one thing at a time, runs this test against the copy and requires the named
@@ -45,6 +45,39 @@ if (args.includes("--mutants")) {
     { id: "f23-missing-value-printed", file: "client-copy-design.mjs", from: "const P = (key, shown, label, pick) => { if (miss(shown)) stop(", to: "const P = (key, shown, label, pick) => { if (false) stop(", red: "case 9:" },
     { id: "f24-missing-addend-summed", file: "client-copy-design.mjs", from: "if (miss(v)) stop(", to: "if (false) stop(", red: "case 9:" },
     { id: "f25-assistant-not-ok-unchecked", file: "client-copy-data.mjs", from: 'if (!["chatgpt", "perplexity"].every(', to: 'if (false && !["chatgpt", "perplexity"].every(', red: "case 4:" },
+    { id: "f26-localized-guard-off", file: "client-copy-design.mjs", from: "if (L.localized) stop(", to: "if (false) stop(", red: "case 14:" },
+    { id: "f27-ours-guard-off", file: "client-copy-design.mjs", from: "if (L.ours !== null) stop(", to: "if (false) stop(", red: "case 14:" },
+    { id: "f28-tag-guard-off", file: "client-copy-design.mjs", from: 'if (tag !== null && tag !== "government" && tag !== "your rival" && tag !== w.otherKind) stop(', to: "if (false) stop(", red: "case 14:" },
+    { id: "f29-words-sent-guard-off", file: "client-copy-design.mjs", from: "if (D.wordsSent !== 0) stop(", to: "if (false) stop(", red: "case 14:" },
+    { id: "f30-rival-sites-send-guard-off", file: "client-copy-design.mjs", from: "if (!D.sitesRead.allSend) stop(", to: "if (false) stop(", red: "case 14:" },
+    { id: "f31-sitemap-guard-off", file: "client-copy-design.mjs", from: "if (!D.sitemapIsHome || D.sitemapPages !== 0) stop(", to: "if (false) stop(", red: "case 14:" },
+    { id: "f32-not-found-guard-off", file: "client-copy-design.mjs", from: "if (D.notFoundStatus !== 200) stop(", to: "if (false) stop(", red: "case 14:" },
+    { id: "f33-answers-differ-guard-off", file: "client-copy-design.mjs", from: "if (nm !== D.ai[k].named || G.rows.length !== D.ai[k].questions) stop(", to: "if (false) stop(", red: "case 16:" },
+    { id: "f34-nobody-instead-guard-off", file: "client-copy-design.mjs", from: "if (!ns.length) stop(", to: "if (false) stop(", red: "case 16:" },
+    { id: "f35-shows-three-names", file: "client-copy-design.mjs", from: "const shown = ns.slice(0, 2)", to: "const shown = ns.slice(0, 3)", red: "case 15:" },
+    { id: "f36-more-counts-wrong", file: "client-copy-design.mjs", from: "ns.length - 2", to: "ns.length - 1", red: "case 15:" },
+    { id: "f37-tag-without-the-client-word", file: "client-copy-design.mjs", from: "const tag = tagOf(r.domain, D.approvedSet, w.otherKind);", to: "const tag = tagOf(r.domain, D.approvedSet);", red: "case 13:" },
+    { id: "f38-tag-ignores-excluded-list", file: "client-copy-design.mjs", from: "const tag = tagOf(r.domain, D.approvedSet, w.otherKind);", to: "const tag = tagOf(r.domain, { rows: D.approvedSet.rows }, w.otherKind);", red: "case 13:" },
+    { id: "f39-cite-takes-only-the-first-key", file: "client-copy-design.mjs", from: "const recs = [].concat(key).flatMap((k) => S[k] || []).filter(", to: "const recs = (S[Array.isArray(key) ? key[0] : key] || []).filter(", red: "case 13:" },
+    { id: "f40-desktop-capture-not-required", file: "client-copy-data.mjs", from: 'x.d === "desktop"', to: 'x.d === "mobile"', red: "case 10:" },
+    { id: "f41-first-five-is-first-six", file: "client-copy-data.mjs", from: "org.filter((o) => o.position <= 5)", to: "org.filter((o) => o.position <= 6)", red: "case 10:" },
+    { id: "f42-excluded-rival-allowed", file: "client-copy-data.mjs", from: "if (exRiv.length) stop(", to: "if (false) stop(", red: "case 11:" },
+    { id: "f43-print-name-is-the-name", file: "client-copy-data.mjs", from: "r.printName = nameToPrint(r.domain, r.name, unconf)", to: "r.printName = r.name", red: "case 11:" },
+    { id: "f44-instead-in-file-order", file: "client-copy-data.mjs", from: "instead = o.names;", to: "instead = names;", red: "case 12:" },
+    { id: "f45-name-not-in-text-allowed", file: "client-copy-data.mjs", from: "if (o.unfound.length) stop(", to: "if (false) stop(", red: "case 12:" },
+    { id: "f46-all-profiles-linked-allowed", file: "client-copy-design.mjs", from: "if (!(pr.inCard < pr.total)) stop(", to: "if (false) stop(", red: "case 16:" },
+    { id: "f47-no-faq-allowed", file: "client-copy-design.mjs", from: "if (D.faq === null) stop(", to: "if (false) stop(", red: "case 16:" },
+    { id: "f48-tag-error-not-a-stop", file: "client-copy-design.mjs", from: "} catch (e) { stop(`STOP: page 3, the tag of a result: ", to: "} catch (e) { throw e; stop(`STOP: page 3, the tag of a result: ", red: "case 14:" },
+    { id: "f49-run-text-keeps-its-dash", file: "client-copy-design.mjs", from: "const rt = (s) => esc(plain(s));", to: "const rt = (s) => esc(String(s));", red: "case 13:" },
+    { id: "f50-tag-count-leaves-out-your-rival", file: "client-copy-design.mjs", from: "if (tag !== null) tagged++;", to: 'if (tag !== null && tag !== "your rival") tagged++;', red: "case 13:" },
+    { id: "f51-two-rival-bars", file: "client-copy-design.mjs", from: "D.rivals.slice(0, 3)", to: "D.rivals.slice(0, 2)", red: "case 13:" },
+    { id: "f52-missing-desktop-capture-allowed", file: "client-copy-data.mjs", from: "if (!c) stop(", to: "if (false) stop(", red: "case 10:" },
+    { id: "f53-two-ok-rows-allowed", file: "client-copy-data.mjs", from: "if (row[r.engine]) stop(", to: "if (false) stop(", red: "case 12:" },
+    { id: "f54-question-without-an-answer-allowed", file: "client-copy-data.mjs", from: "if (!x[e]) stop(", to: "if (false) stop(", red: "case 12:" },
+    { id: "f55-other-product-query", file: "client-copy-data.mjs", from: "const wantQ = `${demand[0].key} ${home}`", to: "const wantQ = `${demand[1].key} ${home}`", red: "case 10:" },
+    { id: "f56-more-label-off-by-one", file: "client-copy-design.mjs", from: "question ${qi + 1}, ${E}", to: "question ${qi}, ${E}", red: "case 15:" },
+    { id: "f57-sheet-label-keeps-its-dash", file: "client-copy-design.mjs", from: "sheet.push([page, plain(label), clean(printed), j(", to: "sheet.push([page, label, clean(printed), j(", red: "case 17:" },
+    { id: "f58-nobody-named-instead-at-all-allowed", file: "client-copy-design.mjs", from: "if (!D.aiInstead.length) stop(", to: "if (false) stop(", red: "case 16:" },
     // @@MUT (job R2b adds its seeded faults above this line; keep it verbatim)
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ccopy-mut-"));
@@ -119,12 +152,12 @@ const B = () => mk({
   seed: 5210, key: "B", name: "Northgate Family Dental", short: "Northgate", domain: "northgate-family-dental.test", sdType: "Dentist",
   products: ["teeth cleaning", "dental implants"], cities: ["Northgate, OH", "Elm Ridge, OH"], extraArea: [], rating: 4.6, phone: 3640, desk: 1180,
   rivals: [{ domain: "brightsmile-clinic.test", name: "Bright Smile Clinic", note: "dental clinic; mid size", status: 200 }, { domain: "oakvale-dentists.test", name: "Oakvale Dentists", note: "dentist group", status: 200 }, { domain: "quiet-molar.test", name: "Quiet Molar", note: "dentist; closed site", status: 404 }],
-  rivalInGraph: [true, true, false], ourInGraph: true, body: "<html><body><h1>Smile care for the whole family</h1><p>Book a visit today and meet our friendly team</p></body></html>",
+  rivalInGraph: [true, true, false], ourInGraph: true, body: '<html><head><script>var spoken = "book a visit";</script></head><body><div id="root"></div></body></html>',
   siteAddr: "7 Birch Court, Northgate, OH", gAddr: "7 Birch Court, Northgate, OH", bAddr: "7 Birch Court, Northgate, OH", fAddr: "", hasFiling: false,
-  sitemapUrls: 12, sitemapType: "application/xml", notFound: 404, rangeFrom: "2026-10-01", rangeTo: "2026-10-31", seedsN: 4, rowsN: 19,
+  sitemapUrls: 0, sitemapType: "text/html", notFound: 200, rangeFrom: "2026-10-01", rangeTo: "2026-10-31", seedsN: 4, rowsN: 19,
   serpProduct: [3, null, null, null], serpName: [1], serpSite: [1], serpNick: [], nick: "", nameQ: "northgate family dental",
-  missing: ["dental implants"], desc: "A family practice.", services: [], broken: false, social: ["facebook"], sameAs: 1,
-  faqHeading: false, cites: [["bing.com (Bing Places)", "listed", true], ["yelp.com", "listed"]],
+  missing: ["dental implants"], desc: "A family practice.", services: [], broken: false, social: ["facebook"], sameAs: 0,
+  faqHeading: true, cites: [["bing.com (Bing Places)", "listed", true], ["yelp.com", "listed"]],
   hands: false, mailProblem: false, qNames: ["who is northgate family dental", "best dentist near me", "dental implants cost", "northgate family dental reviews"], shares: [0, 0, 0, 0],
 });
 const AREA = (s) => [...s.cities, ...s.extraArea];
@@ -169,14 +202,20 @@ function makeRun(s) {
   s.serpName.forEach((v) => caps.push(cap(s.nameQ, "google", "mobile", v)));
   s.serpSite.forEach((v) => caps.push(cap(`site:${s.domain}`, "google", "desktop", v)));
   s.serpNick.forEach((v) => caps.push(cap(s.nick, "bing", "mobile", v)));
+  // the results lists of page 3: every product in the home city, on Google and on Bing, desktop, read from outside the area
+  const rd = (i) => s.rivals[i].domain, ent = (n, domain, title) => ({ position: n, url: `https://${domain}/r${n}`, domain, title: title || `Result ${n}` });
+  const gList = [ent(1, "county.agency.gov", "Roof help \u2013 County Agency"), ent(2, rd(0)), ent(3, rd(1)), ent(4, "bigdirectory.test"), ent(5, "random-blog.test"), ent(6, "extra-six.test"), ent(7, "extra-seven.test")];
+  const bList = [ent(1, "legacy.county.agency.gov"), ent(2, "random-blog.test"), ent(3, rd(1)), ent(4, rd(0)), ent(5, "bigdirectory.test"), ent(6, "extra-six.test")];
+  P.forEach((p) => ["google", "bing"].forEach((engine) => caps.push({ query: `${p} ${s.home}`, engine, device: "desktop", location: { requested: C[0], localized: false }, ourPosition: { value: null }, organic: engine === "google" ? gList : bList })));
   s.serpTotal = caps.length;
-  s.serpProductN = P.length * 2; s.serpProductWithUs = caps.slice(0, P.length * 2).filter((c) => c.ourPosition.value !== null).length;
+  s.serpProductN = P.length * 4; s.serpProductWithUs = caps.slice(0, P.length * 2).filter((c) => c.ourPosition.value !== null).length;
   wp("research/serp.json", { generatedAt: "2026-11-13T07:02:00.000Z", captures: caps, counts: { captures: caps.length, notLocalized: caps.length } });
   wp("research/autocomplete.json", { generatedAt: "2026-11-13T07:03:00.000Z", seeds: Array.from({ length: s.seedsN }, (_, i) => `seed ${i}`), rows: Array.from({ length: s.rowsN }, (_, i) => ({ i })) });
   const aiRows = [], q = ["buyer one", "buyer two", "about the business"];
   s.aiQuestions = 3;
   const named = { chatgpt: [true, false, true], perplexity: [false, false, true] };
-  for (const e of ["chatgpt", "perplexity"]) q.forEach((qq, i) => { const f = `${e}-${i}.json`; aiRows.push({ engine: e, status: "ok", file: f, type: i < 2 ? "buyer" : "brand", named: named[e][i], question: qq }); wp(`captures/ai/${f}`, { capturedAt: "2026-11-12T10:00:00.000Z", signedIn: true }); });
+  const inst = { "chatgpt-1": [["Cedar Roofs", "Birch Roofs"], "Try Birch Roofs first, then Cedar Roofs."], "perplexity-0": [["Maple Roofs", "Zinc Roofs", "Birch Roofs", "Cedar Roofs"], "Zinc Roofs is first; Birch Roofs and Cedar Roofs follow; Maple Roofs is last."], "perplexity-1": [["Cedar Roofs"], "Cedar Roofs."] };
+  for (const e of ["chatgpt", "perplexity"]) q.forEach((qq, i) => { const f = `${e}-${i}.json`, ins = inst[`${e}-${i}`] || [[], "Nothing."]; aiRows.push({ engine: e, status: "ok", file: f, type: i < 2 ? "buyer" : "brand", named: named[e][i], question: qq, competitorsNamed: ins[0] }); wp(`captures/ai/${f}`, { capturedAt: "2026-11-12T10:00:00.000Z", signedIn: true, answerText: ins[1] }); });
   for (const e of ["copilot", "gemini"]) aiRows.push({ engine: e, status: "blocked", file: `${e}.json` });
   wp("research/ai-answers.json", { generatedAt: "2026-11-13T07:04:00.000Z", summary: { engines: [{ engine: "chatgpt", status: "ok", questions: 3, named: 2 }, { engine: "perplexity", status: "ok", questions: 3, named: 1 }, { engine: "copilot", status: "blocked", questions: 0, named: 0 }, { engine: "gemini", status: "blocked", questions: 0, named: 0 }], blockedEngines: [{ engine: "copilot", reason: "asks for a sign in" }, { engine: "gemini", reason: "asks for a sign in" }], questions: 6, competitors: [{ name: s.rivals[0].name, count: 9 }, { name: s.rivals[1].name, count: 6 }, { name: s.rivals[2].name, count: 3 }] }, rows: aiRows });
   wp("research/ai-citations.json", { generatedAt: "2026-11-13T07:05:00.000Z", rows: s.qNames.map((question, i) => ({ engine: "google-ai-overview", question, ourNameMentionedShare: { value: s.shares[i] } })) });
@@ -197,7 +236,7 @@ function makeRun(s) {
   wp("research/social.json", { generatedAt: "2026-11-13T07:06:00.000Z", rows: s.social.map((p, i) => ({ platform: p, profileUrl: url(p, i) })), summary: { linksBroken: s.broken ? [url("instagram", 0), url("youtube", 1)] : [] } });
   wp("research/ads.json", { generatedAt: "2026-11-13T07:07:00.000Z", rows: s.rivals.slice(0, 2).map((r, i) => ({ advertiser: r.domain, library: "google-transparency", url: `https://ads.test/?preset-date=Last+30+days&d=${i}`, adCount: s.adCounts[i] })) });
   wp("research/competitors.json", { generatedAt: "2026-11-13T07:08:00.000Z", approvedRows: s.rivals.length, sites: s.rivals.map((r, i) => (r.status === 200 ? { domain: r.domain, status: 200, page: { words: s.rivalStats[i].words }, sitemap: { pages: s.rivalStats[i].sitemap } } : { domain: r.domain, status: r.status })) });
-  wp("approved/competitors.json", { generatedAt: "2026-11-13T07:09:00.000Z", rows: s.rivals.map((r) => ({ domain: r.domain, name: r.name, note: r.note })) });
+  wp("approved/competitors.json", { generatedAt: "2026-11-13T07:09:00.000Z", rows: [...s.rivals.map((r, i) => ({ domain: r.domain, name: r.name, note: r.note, kind: ["direct", "other", "publisher"][i] })), { name: "Big Directory", domain: "bigdirectory.test", kind: "publisher" }], excluded: [{ name: "Big Directory", domain: "bigdirectory.test", reason: "a directory" }, { name: "Tools", domain: "tools.example.gov", reason: "x" }] });
   wp("authority.json", { fetchedAt: "2026-11-13T07:10:00.000Z", results: [{ domain: s.domain, inGraph: s.ourInGraph, ...(s.ourInGraph ? { linkingDomains: 3 } : {}) }, ...s.rivals.map((r, i) => ({ domain: r.domain, inGraph: s.rivalInGraph[i], ...(s.rivalInGraph[i] ? { linkingDomains: s.rivalStats[i].links } : {}) }))] });
   wp("authority/vetting.json", { generatedAt: "2026-11-13T07:11:00.000Z", summary: { PURSUE: s.pursue }, results: [...Array.from({ length: s.chambers }, (_, i) => ({ verdict: "PURSUE", type: "chamber-local", domain: `chamber${i}.test` })), { verdict: "SKIP", type: "chamber-local", domain: "skip.test" }, { verdict: "PURSUE", type: "directory", domain: "dir.test" }] });
   wp("authority/opportunities.json", { generatedAt: "2026-11-13T07:12:00.000Z", opportunities: [{ domain: "pinehollow-chamber.test", linksToCompetitors: s.metro }] });
@@ -222,8 +261,8 @@ function makeRun(s) {
 
 const clientFor = (s, over = {}) => {
   const c = {
-    contact: "none", alsoSearchedAs: [s.nick], nameWord: "alder bay", labels: { "roof repair": "Roof repair and patching" },
-    words: { buyer: "homeowner", buyers: "homeowners", applicant: "caller", application: "quote form", apply: "ask for a quote", applies: "asks for a quote", pastCustomer: "happy customer", outcome: "jobs", offers: "emails", product: "job type", products: "job types", localRivals: "roofers", optionalNote: "with or without a second contact" },
+    contact: "none", alsoSearchedAs: [s.nick], nameWord: "alder bay roofing", labels: { "roof repair": "Roof repair and patching" }, unconfirmedNames: ["summit-shingle.test"],
+    words: { buyer: "homeowner", buyers: "homeowners", applicant: "caller", application: "quote form", apply: "ask for a quote", applies: "asks for a quote", pastCustomer: "happy customer", outcome: "jobs", offers: "emails", product: "job type", products: "job types", localRivals: "roofers", optionalNote: "with or without a second contact", otherKind: "another roofer" },
     rivals: [{ domain: s.rivals[0].domain, name: null, type: "local roofer", group: "local" }, { domain: s.rivals[1].domain, name: "Harbor", type: "local gutter shop", group: "local" }, { domain: s.rivals[2].domain, name: null, type: "national roofer", group: "nat" }],
     adsFor: [s.rivals[0].domain, s.rivals[1].domain], linkPlace: "pinehollow-chamber.test", linkCompare: { group: "nat", label: "national roofers" },
     rivalsLede: "Alder Bay roofers and one national chain, then the rest.", promisePattern: "Quotes in \\d+ days?",
@@ -356,11 +395,11 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const n = (re) => (html.match(re) || []).length;
   if (n(/<section class="cover" id="p1">/g) !== 1) bad.push("cover");
   if (n(/<section class="pg" id="p2">/g) !== 1) bad.push("page 2");
-  if (n(/<section class="(?:cover|pg)"/g) !== 2 || pages !== 2) bad.push(`count ${n(/<section class="(?:cover|pg)"/g)} / ${pages}`);
+  if (n(/<section class="(?:cover|pg)"/g) !== pages) bad.push(`count ${n(/<section class="(?:cover|pg)"/g)} / ${pages}`);
   if (html.includes('class="cover sheet"')) bad.push("cover sheet");
   if (html.includes("@@")) bad.push("an anchor in the html");
   if (n(/<img/g) !== 1 || !html.includes('<img class="logo"')) bad.push("images");
-  for (const t of ['<link href="file:///fonts.css"', "Prepared by Omnikom", "2 / 2", "SEO, AI search and local audit, November 2026", "section.cover{"]) if (!html.includes(t)) bad.push(`no ${t}`);
+  for (const t of ['<link href="file:///fonts.css"', "Prepared by Omnikom", `2 / ${pages}`, "SEO, AI search and local audit, November 2026", "section.cover{"]) if (!html.includes(t)) bad.push(`no ${t}`);
   if (/[\u2014\u2013]/.test(html)) bad.push("a dash");
   if (/\.sheet\b/.test(css)) bad.push(".sheet in the css");
   return [bad.length === 0, bad.join(" | ")];
@@ -430,6 +469,140 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   if (clean !== "") bad.push(`the unedited run: ${clean}`);
   return [bad.length === 0, bad.join(" | ")];
 }); check("case 9: THE GUARDS: each sentence that states a finding STOPs the build with its line when the finding does not hold (12 edits: 10 guards, a missing value, a missing addend), and the unedited run builds", ok, detail); }
+// ---------------------------------------------------------------- R2b: the data of pages 3 and 4, the two pages
+const topA = order(sA, clientA)[0], queryA = `${topA.p} ${sA.home}`;
+const withCol = (r, client) => collect(cfgOf(r, client, true));
+const wantStop = (bad, name, got, text) => { if (!got.startsWith("STOP: ") || !got.includes(text)) bad.push(`${name}: ${got || "(built)"}`); };
+
+{ const [ok, detail] = T(() => {
+  const bad = [], SL = colA.D.serpLists;
+  if (SL.query !== queryA) bad.push(`query ${SL.query}`);
+  for (const [e, n] of [["google", 7], ["bing", 6]]) { const L = SL[e]; if (L.read !== n || L.first5.length !== 5 || L.localized !== false || L.ours !== null || L.first5.map((x) => x.position).join() !== "1,2,3,4,5") bad.push(`${e}: ${L.read} / ${L.first5.length} / ${L.localized} / ${L.ours}`); }
+  if (SL.google.first5[0].title !== "Roof help \u2013 County Agency") bad.push(`title ${SL.google.first5[0].title}`);
+  if ((colA.S.serpLists || []).length !== 2) bad.push(`sources ${(colA.S.serpLists || []).length}`);
+  const r = makeRun({ ...A(), patch: { "research/serp.json": (j) => { j.captures = j.captures.filter((c) => !(c.engine === "bing" && c.device === "desktop" && c.query.toLowerCase() === queryA.toLowerCase())); } } });
+  wantStop(bad, "no bing capture", stopOf(() => withCol(r, clientFor(r.spec))), "has no desktop capture");
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 10: DATA serpLists: the query of the top product in the home city, the two desktop lists (read, first five, not localized, no position of ours), the title as read, two sources; a missing desktop capture STOPs", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  const bad = [], D = colA.D;
+  if (D.approvedSet.rows.map((r) => r.kind).join() !== "direct,other,publisher,publisher" || D.approvedSet.excluded.length !== 2) bad.push(`approvedSet ${JSON.stringify(D.approvedSet)}`);
+  const pn = D.rivals.map((r) => r.printName).join("|");
+  if (pn !== `${sA.rivals[0].name}|Harbor|summit-shingle.test`) bad.push(`printName ${pn}`);
+  if (D.sitemapType !== "text/html" || D.lcpStrategy !== "mobile") bad.push(`sitemapType ${D.sitemapType} lcpStrategy ${D.lcpStrategy}`);
+  const r = makeRun({ ...A(), patch: { "approved/competitors.json": (j) => { j.excluded.push({ name: "x", domain: sA.rivals[0].domain, reason: "x" }); } } });
+  wantStop(bad, "excluded rival", stopOf(() => withCol(r, clientFor(r.spec))), "the client file names the rival");
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 11: DATA approvedSet, printName, sitemapType, lcpStrategy: the approved rows with their kinds and the excluded list, the name to print (an unconfirmed one is its domain), a client rival on the excluded list STOPs", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  const bad = [], G = colA.D.aiGrid;
+  if (G.rows.map((r) => r.question).join("|") !== "buyer one|buyer two|about the business" || G.rows.map((r) => r.type).join() !== "buyer,buyer,brand") bad.push("questions or types");
+  if (G.rows.map((r) => r.chatgpt.named).join() !== "true,false,true" || G.rows.map((r) => r.perplexity.named).join() !== "false,false,true") bad.push("named flags");
+  const ins = (e) => G.rows.map((r) => r[e].instead.join("/")).join(" | ");
+  if (ins("chatgpt") !== " | Birch Roofs/Cedar Roofs | ") bad.push(`chatgpt ${ins("chatgpt")}`);
+  if (ins("perplexity") !== "Zinc Roofs/Birch Roofs/Cedar Roofs/Maple Roofs | Cedar Roofs | ") bad.push(`perplexity ${ins("perplexity")}`);
+  const r1 = makeRun({ ...A(), patch: { "captures/ai/perplexity-0.json": (j) => { j.answerText = "Nothing."; } } });
+  wantStop(bad, "name not in the text", stopOf(() => withCol(r1, clientFor(r1.spec))), "does not hold the name");
+  const r2 = makeRun({ ...A(), patch: { "research/ai-answers.json": (j) => { j.rows.find((x) => x.file === "perplexity-2.json").status = "blocked"; } } });
+  wantStop(bad, "no ok row", stopOf(() => withCol(r2, clientFor(r2.spec))), "has no ok row for the question");
+  const r3 = makeRun({ ...A(), patch: { "research/ai-answers.json": (j) => { j.rows.push({ ...j.rows.find((x) => x.file === "chatgpt-0.json") }); } } });
+  wantStop(bad, "two ok rows", stopOf(() => withCol(r3, clientFor(r3.spec))), "has two ok rows");
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 12: DATA aiGrid: 3 questions in order with type and named flags per assistant, the businesses named instead in the order of their first mention; a name not in its answer, a question without an ok row, two ok rows STOP", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  if (bA.err) return [false, bA.err];
+  const { html, tsv } = bA.r, bad = [], p = html.split('<section class="pg" id="p3">')[1];
+  if (!p) return [false, "no page 3"];
+  const h3 = p.split("</section>")[0], cnt = (re) => (h3.match(re) || []).length;
+  for (const [t, n] of [["government", 2], ["your rival", 2], [WA.otherKind, 2]]) if (cnt(new RegExp(`<u>${t}</u>`, "g")) !== n) bad.push(`tag ${t} ${cnt(new RegExp(`<u>${t}</u>`, "g"))}`);
+  if (cnt(/<u>/g) !== 6 || cnt(/bigdirectory\.test<\/small>/g) !== 2 || cnt(/random-blog\.test<\/small>/g) !== 2) bad.push("tags beside the untagged domains");
+  if (!h3.includes("Roof help - County Agency") || /[\u2013\u2014]/.test(html + tsv)) bad.push("the en dash of the title");
+  const rows = pageRows(tsv, 3), got = rows.map((r) => [r[1], r[2]]), want = [];
+  for (const [e, n] of [["google", 7], ["bing", 6]]) { for (let i = 1; i <= 5; i++) want.push([`${e} position`, String(i)]); want.push([`results read on ${e}`, String(n)]); }
+  want.push([`results that are the government or ${WA.otherKind}`, "6"], ["results shown", "10"], [`share of demand, ${topA.lab}`, `${Math.round((100 * Math.max(...sA.vol)) / sA.vol.reduce((a, b) => a + b, 0))}%`], ["words, your site", "0"]);
+  [sA.rivals[0].name, "Harbor", "summit-shingle.test"].forEach((n, i) => want.push([`words, ${n}`, fmt(sA.rivalStats[i].words)]));
+  want.push(["seconds, main picture on a phone", (sA.phone / 1000).toFixed(1)], ["seconds, Google's good mark", "2.5"], ["your list of pages is a copy of the home page", "text/html, 0 urls"], ["a wrong address on your site does not say 'page not found'", "status 200"], ["rival sites that send words", "3"], ["source of the seconds until the main picture shows", "PageSpeed Insights, on a phone"]);
+  if (!same(got, want)) bad.push(`rows ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
+  if (rows.some((r) => r.length !== 8 || r.some((c) => c === ""))) bad.push("a row has an empty cell");
+  const find = (l) => rows.find((r) => r[1] === l) || [];
+  if (!(find("google position")[4] || "").includes("engine=google&") || (find("google position")[4] || "").includes("engine=bing")) bad.push("pick of the engine");
+  const pm = find("your list of pages is a copy of the home page");
+  if (!(pm[4] || "").includes("contentType") || !(pm[4] || "").includes("urlCount")) bad.push(`where of the list of pages: ${pm[4]}`);
+  const sp = find("source of the seconds until the main picture shows");
+  if (sp[4] !== "pages[strategy=mobile].strategy" || sp[5] !== "mobile") bad.push(`psi row: ${sp[4]} / ${sp[5]}`);
+  if (!cleanText(h3).includes(`For "${queryA}", 6 of the 10 results below are the government or ${WA.otherKind}. None is you.`)) bad.push("the headline");
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 13: PAGE 3 BUILDS: the two lists with their tags (2 government, 2 your rival, 2 of the client's word, none beside the untagged), the title's dash a hyphen, the headline 6 of 10, the rows in the order of the calls, one source per row", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  if (bA.err) return [false, bA.err];
+  const bad = [];
+  const g = (name, edit, text) => { const D2 = structuredClone(colA.D); edit(D2); wantStop(bad, name, stopOf(() => bp({ ...colA, D: D2 }, clientA)), text); };
+  g("localized", (D) => { D.serpLists.google.localized = true; }, "from outside your area");
+  g("ours", (D) => { D.serpLists.bing.ours = 3; }, "none of the results is the business");
+  g("words", (D) => { D.wordsSent = 5; }, "a blank page");
+  g("sites", (D) => { D.sitesRead.allSend = false; }, "sends its words at once");
+  g("sitemap", (D) => { D.sitemapIsHome = false; }, "a copy of the home page");
+  g("not found", (D) => { D.notFoundStatus = 404; }, "does not say page not found");
+  g("tag", (D) => { D.serpLists.google.first5[3].domain = "summit-shingle.test"; }, 'its tag is "a publisher"');
+  g("kind", (D) => { D.approvedSet.rows[1].kind = "weird"; }, "has no plain word");
+  const clean = stopOf(() => bp(colA, clientA));
+  if (clean !== "") bad.push(`the unedited run: ${clean}`);
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 14: PAGE 3 GUARDS: each sentence that states a finding STOPs with its line (a localized list, our own position, words sent, rival sites, the list of pages, the not-found status, a tag outside the headline's words, a kind with no plain word)", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  if (bA.err) return [false, bA.err];
+  const { html, tsv } = bA.r, bad = [], p = html.split('<section class="pg" id="p4">')[1];
+  if (!p) return [false, "no page 4"];
+  const h4 = p.split("</section>")[0], cnt = (re) => (h4.match(re) || []).length, t4 = cleanText(h4);
+  if (cnt(/<td class="qq">/g) !== 3 || cnt(/class="dot on"/g) !== 3 || cnt(/names you<\/span>/g) !== 3 || cnt(/asks for you by name/g) !== 1) bad.push("the grid");
+  for (const t of ["Zinc Roofs, Birch Roofs and 2 more", "Birch Roofs, Cedar Roofs</span>", "Cedar Roofs</span>", "Link your 3 profiles in the company details your site gives Google.", "Today 1 of 3 are linked.", "Named instead, across 6 answers", "Today the first response holds no words for an AI answer to use (page 3)."]) if (!h4.includes(t) && !t4.includes(t)) bad.push(`no ${t}`);
+  const rows = pageRows(tsv, 4), got = rows.map((r) => [r[1], r[2]]);
+  const want = [["more businesses named, question 1, Perplexity", "2"], [`answers naming ${sA.rivals[0].name}`, "9"], [`answers naming ${sA.rivals[1].name}`, "6"], [`answers naming ${sA.rivals[2].name}`, "3"], [`${WA.products} with a page`, "0"], [WA.products, "3"], ["FAQ answers marked", "0"], ["FAQ answers", "2"], ["profiles linked", "1"], ["profiles", "3"], ["ChatGPT", "2 of 3"], ["Perplexity", "1 of 3"], ["Google AI answers that name you", "2 of 4"], ["profiles to link", "3"], ["questions asked", "3"], ["answers from both assistants", "6"]];
+  if (!same(got, want)) bad.push(`rows ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
+  if (rows.some((r) => r.length !== 8 || r.some((c) => c === ""))) bad.push("a row has an empty cell");
+  const find = (l) => rows.find((r) => r[1] === l) || [];
+  if (!(find("FAQ answers marked")[4] || "").includes("FAQPage") || !(find("FAQ answers")[4] || "").includes("headings") || !(find("profiles linked")[4] || "").includes("sameAs") || !(find("profiles")[4] || "").includes("rows (length)")) bad.push("picks of the stats");
+  if (!(find("ChatGPT")[4] || "").includes("engine=chatgpt") || (find("ChatGPT")[4] || "").includes("engine=perplexity")) bad.push("pick of ChatGPT");
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 15: PAGE 4 BUILDS: 3 question rows, the dots, the first two names and 'and 2 more', the by-name mark once, the rows in the order of the calls (the label of the 'more' row names question and assistant)", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  if (bA.err) return [false, bA.err];
+  const bad = [];
+  const g = (name, edit, text) => { const D2 = structuredClone(colA.D); edit(D2); wantStop(bad, name, stopOf(() => bp({ ...colA, D: D2 }, clientA)), text); };
+  g("summary differs", (D) => { D.aiGrid.rows[0].chatgpt.named = false; }, "differ from the summary");
+  g("nobody instead", (D) => { D.aiGrid.rows[1].chatgpt.instead = []; }, "no business is named instead");
+  g("no faq", (D) => { D.faq = null; }, "has no FAQ heading");
+  g("all linked", (D) => { D.profiles.inCard = D.profiles.total; }, "already linked");
+  g("nobody named instead at all", (D) => { D.aiInstead = []; }, "no business the assistants name instead");
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 16: PAGE 4 GUARDS: the answers read differ from the summary, a not-named answer with no business named instead, no FAQ heading, every profile already linked: each STOPs with its line", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  if (bA.err) return [false, bA.err];
+  if (bB.err) return [false, bB.err];
+  const { html, tsv, pages } = bA.r, bad = [], n = (re) => (html.match(re) || []).length, t = cleanText(html);
+  if (pages !== 4 || n(/<section class="(?:cover|pg)"/g) !== 4) bad.push(`sections ${n(/<section class="(?:cover|pg)"/g)} / ${pages}`);
+  for (let i = 1; i <= 4; i++) if (i > 1 && !html.includes(`<b>${i} / 4</b>`)) bad.push(`footer ${i}`);
+  if (/[\u2013\u2014]/.test(html + tsv) || html.includes("@@")) bad.push("a dash or an anchor");
+  if (/product/i.test(t) || !t.includes("job types")) bad.push("the client's words");
+  const rows = sheetRows(tsv);
+  if (rows.some((r) => r.length !== 8 || r.some((c) => c === ""))) bad.push("a row has an empty cell");
+  const keys = rows.map((r) => [r[0], r[1], r[2], r[4]].join("|"));
+  if (new Set(keys).size !== keys.length) bad.push("two rows alike");
+  const ex = rows2(sA, clientA), got2 = pageRows(tsv, 2).map((r) => [r[1], r[2]]);
+  if (!same(got2, ex)) bad.push("page 2 rows changed");
+  if (pageRows(tsv, 1).length !== 8) bad.push("page 1 rows changed");
+  const D2 = structuredClone(colA.D); D2.rivals[0].printName = "Ridge \u2013 Roofs"; D2.serpLists.google.first5[1].title = "A \u2014 B";
+  const dash = built({ ...colA, D: D2 }, clientA);
+  if (dash.err || /[\u2013\u2014]/.test(dash.r.html + dash.r.tsv) || !dash.r.html.includes("A - B")) bad.push(`a dash in a name or title from the run: ${dash.err || "still there"}`);
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 17: THE WHOLE: 4 sections, footers n / 4, no dash and no anchor, the client's words, 8 filled cells in every row, no two rows alike, page 1 and 2 rows as before, a dash in a name or title from the run printed as a hyphen", ok, detail); }
 // @@CASES (job R2b adds its cases above this line; keep it verbatim)
 const failed = results.filter((r) => !r.ok);
 console.log(`${results.length - failed.length}/${results.length} passed${failed.length ? "; FAILED: " + failed.map((r) => r.name.split(":")[0] + ": " + r.name.slice(r.name.indexOf(":") + 2, 60)).join(" | ") : ""}`);
