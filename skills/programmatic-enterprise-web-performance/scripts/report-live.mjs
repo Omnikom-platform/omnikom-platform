@@ -543,9 +543,10 @@ const EXTRA_IMPORTERS = [
     return [`- ${y.services ?? 0} services compared (${y.scale || "scale not stated"}); strongest: ${y.bestRank?.service ?? "n/a"} (rank ${y.bestRank?.stateRank ?? "n/a"}), weakest: ${y.worstRank?.service ?? "n/a"} (rank ${y.worstRank?.stateRank ?? "n/a"}); rank 1 = most interest`];
   } },
   { id: "ai", title: "AI answers", file: "ai-answers.json", script: "import-ai.mjs", dir: "ai", what: "what AI engines answer to the buyer and brand questions", lines: (d) => {
-    const y = d.summary || {}, L = [`- ${y.namedAnswers ?? 0} of ${y.questions ?? 0} answers name the business (${pctTxt(y.shareNamed ?? 0)})`];
-    for (const e of y.engines || []) L.push(`- ${e.engine}: named in ${e.named} of ${e.questions} answers (${pctTxt(e.shareNamed ?? 0)})`);
+    const y = d.summary || {}, L = [y.questions > 0 ? `- ${y.namedAnswers ?? 0} of ${y.questions} answers name the business (${pctTxt(y.shareNamed ?? 0)})` : "- No AI answer was read"];
+    for (const e of (y.engines || []).filter((x) => x.questions > 0)) L.push(`- ${e.engine}: named in ${e.named} of ${e.questions} answers (${pctTxt(e.shareNamed ?? 0)})`);
     if ((y.blockedEngines || []).length) L.push(`- Not read: ${y.blockedEngines.map((e) => `${e.engine} (${e.reason})`).join(", ")}`);
+    if (!(y.questions > 0)) return L;
     if ((y.competitors || []).length) L.push(`- Named most often instead: ${y.competitors.slice(0, 5).map((c) => `${c.name} (${c.count})`).join(", ")}`);
     L.push(`- The business's own domain is ${y.ownDomainCited ? "" : "not "}among the sources the answers cite`);
     return L;
