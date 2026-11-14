@@ -5,7 +5,7 @@
 //   node tools/audit/metrics/cli.mjs crux --origin O
 //   node tools/audit/metrics/cli.mjs bing --workspace ID --day YYYY-MM-DD [--site URL] [--sites-only true] [--out FILE]
 //   node tools/audit/metrics/cli.mjs ai-answers --workspace ID --day YYYY-MM-DD --captures FILE [--out FILE]   (no model is called: DECISIONS 38)
-//   node tools/audit/metrics/cli.mjs search-console --workspace ID --day YYYY-MM-DD [--property P]      (token: GSC_ACCESS_TOKEN)
+//   node tools/audit/metrics/cli.mjs search-console --workspace ID --day YYYY-MM-DD [--domain D]      (credential: GOOGLE_SERVICE_ACCOUNT_JSON)
 //   node tools/audit/metrics/cli.mjs report --rows FILE --month YYYY-MM --name N [--domain D]
 // Live calls are small: at most 5 pages. Exit 0 = a row (or a BLOCKED row) was produced, 2 = bad usage, 1 = an error.
 import fs from "node:fs";
@@ -16,7 +16,7 @@ import { collectSearchConsole } from "./search-console.mjs";
 import { monthlyReport } from "./report-monthly.mjs";
 import { isDay } from "./util.mjs";
 
-const KEY_NAMES = ["PSI_API_KEY", "CRUX_API_KEY", "BING_WEBMASTER_KEY", "GSC_ACCESS_TOKEN"];
+const KEY_NAMES = ["PSI_API_KEY", "CRUX_API_KEY", "BING_WEBMASTER_KEY", "GOOGLE_SERVICE_ACCOUNT_JSON"];
 const keys = Object.fromEntries(KEY_NAMES.filter((n) => process.env[n]).map((n) => [n, process.env[n]]));
 const USAGE = "usage: cli.mjs <pagespeed|crux|bing|ai-answers|search-console|report> [options] (see the header of this file)";
 const die = (msg, code = 2) => { console.error(msg); process.exit(code); };
@@ -62,7 +62,7 @@ if (cmd === "pagespeed") {
   emit(await collectAiAnswers({ workspaceId: opt.workspace, day: opt.day, captures }));
 } else if (cmd === "search-console") {
   needRow();
-  emit(await collectSearchConsole({ fetch, token: keys.GSC_ACCESS_TOKEN, workspaceId: opt.workspace, day: opt.day, property: opt.property }));
+  emit(await collectSearchConsole({ fetch, keys, workspaceId: opt.workspace, day: opt.day, domain: opt.domain }));
 } else if (cmd === "report") {
   need("rows", "month", "name");
   const rows = JSON.parse(fs.readFileSync(opt.rows, "utf8"));

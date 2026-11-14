@@ -1,6 +1,6 @@
 // Work order 44 (C16): metrics-pull, sitemap-submit and job-callback's sitemap step. The walls of the database side (service.metrics_*, the source check)
 // are proven in tenancy.test.sql T34; these tests prove the functions: the cron signature, the rows they write, that a key never reaches a row, that a source
-// with no key or no verified property is a BLOCKED row and sends no request, the weekly PageSpeed rule, and the IndexNow list. Every outside host is a fake
+// with no key or no domain of the account is a BLOCKED row and sends no request, the weekly PageSpeed rule, and the IndexNow list. Every outside host is a fake
 // fetch (`deps.fetch`); the collectors' own parsing is proven by tools/audit/test/run.mjs. Names start with "metrics:" (FN_TEST_FILTER=metrics runs only these).
 import { handle as metricsPull } from '../metrics-pull/index.ts';
 import { handle as sitemapSubmit } from '../sitemap-submit/index.ts';
@@ -25,7 +25,7 @@ function fakeFetch(answer: (url: string, body: string) => unknown) {
     const url = String(u), body = typeof init?.body === 'string' ? init.body : '';
     seen.push({ url, method: init?.method ?? 'GET', body });
     const a = answer(url, body);
-    if (typeof a === 'number') return new Response('{}', { status: a });
+    if (typeof a === 'number') return new Response(a === 204 ? null : '{}', { status: a });
     return new Response(typeof a === 'string' ? a : JSON.stringify(a), { status: 200 });
   }) as typeof fetch;
   return { f, seen };
@@ -135,7 +135,7 @@ t('metrics: with no keys the quick pull writes two BLOCKED rows that say what un
     const fake = fakeFetch(() => 500);
     const a = await pullC(s.ws, { fetch: fake.f, now: () => DAY });
     eq(a.status, 200, a.text);
-    eq(fake.seen.length, 0, 'no key and no verified property: nothing is asked of Google or Bing');
+    eq(fake.seen.length, 0, 'no key and no connected account: nothing is asked of Google or Bing');
     const r = await rows(s.ws);
     eq(r.map((x: { source: string }) => x.source).join(), 'bing,search-console', 'one row per source');
     for (const x of r) {
@@ -143,7 +143,7 @@ t('metrics: with no keys the quick pull writes two BLOCKED rows that say what un
       eq(x.day, '2026-11-03', 'the day is the run day');
     }
     assert(/BING_WEBMASTER_KEY/.test(r.find((x: { source: string }) => x.source === 'bing').data.blocked.reason), 'the Bing row names the missing key');
-    assert(/verif/i.test(r.find((x: { source: string }) => x.source === 'search-console').data.blocked.reason + r.find((x: { source: string }) => x.source === 'search-console').data.blocked.unblock), 'the Search Console row says a property must be verified');
+    eq(r.find((x: { source: string }) => x.source === 'search-console').data.blocked.reason, 'the Omnikom Search Console account is not connected', 'the Search Console row says the account is not connected');
     eq(JSON.stringify(a.json?.written), JSON.stringify([{ source: 'search-console', blocked: true }, { source: 'bing', blocked: true }]), 'the answer lists both as blocked');
   });
 });
@@ -181,6 +181,48 @@ t('metrics: a preview site is measured by Bing as nothing (no verified site), an
       eq(fake.seen.length, 0, 'a preview site has no verified Bing site: no request');
       const [r] = await rows(s.ws, 'bing');
       assert(r.data.blocked, 'blocked'); eq(JSON.stringify(r.data.indexnow), JSON.stringify([ping]), 'the ping is still in the day\'s row');
+    });
+  });
+});
+
+// ---------- Search Console with the one Omnikom account's key ----------
+// a key made here at run time (never a real one); the PEM header is built from pieces so no literal of it is in this file
+const TOKEN_URL = 'https://oauth2.googleapis.com/token', SC_TOKEN = fakeValue('sc-token');
+async function makeCred() {
+  const kp = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
+  const body = btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.exportKey('pkcs8', kp.privateKey))));
+  const pem = [['-----BEGIN', 'PRIVATE', 'KEY-----'].join(' '), body.match(/.{1,64}/g)!.join('\n'), ['-----END', 'PRIVATE', 'KEY-----'].join(' ')].join('\n');
+  return { cred: btoa(JSON.stringify({ client_email: 'sa@example-property.test', private_key: pem })), body };
+}
+const scLeaks = (x: unknown, c: { cred: string; body: string }) => [c.cred, c.body.slice(0, 64), SC_TOKEN].filter(v => JSON.stringify(x).includes(v));
+
+t('metrics: a live site with the account key: one token request, one query; a 403 is the BLOCKED row "this domain is not verified in our account"; the key is in no row, note or answer', async () => {
+  const c = await makeCred();
+  await withKeys({ GOOGLE_SERVICE_ACCOUNT_JSON: c.cred }, async () => {
+    await withSite({ state: 'live', domain: 'client.test' }, async s => {
+      const fake = fakeFetch(u => u === TOKEN_URL ? { access_token: SC_TOKEN } : /searchAnalytics/.test(u) ? 403 : 500);
+      const a = await pullC(s.ws, { fetch: fake.f, now: () => DAY });
+      eq(a.status, 200, a.text);
+      eq(fake.seen.filter(x => x.url === TOKEN_URL).length, 1, 'one token request');
+      eq(fake.seen.filter(x => /searchAnalytics/.test(x.url)).length, 1, 'one query, then it stops');
+      eq(fake.seen.length, 2, 'nothing else is asked');
+      const [r] = await rows(s.ws, 'search-console');
+      eq(r.data.blocked.reason, 'this domain is not verified in our account', 'the row says so');
+      eq(JSON.stringify(scLeaks([await rows(s.ws), a.json], c)), '[]', 'the key and the token are in no row and no answer');
+    });
+  });
+});
+
+t('metrics: a preview site that has a domain is not measured by Search Console: the same BLOCKED row and no request to Google', async () => {
+  const c = await makeCred();
+  await withKeys({ GOOGLE_SERVICE_ACCOUNT_JSON: c.cred }, async () => {
+    await withSite({ state: 'preview', domain: 'client.test' }, async s => {
+      const fake = fakeFetch(() => 500);
+      const a = await pullC(s.ws, { fetch: fake.f, now: () => DAY });
+      eq(a.status, 200, a.text);
+      eq(fake.seen.length, 0, 'no request to Google');
+      const [r] = await rows(s.ws, 'search-console');
+      eq(r.data.blocked.reason, 'this domain is not verified in our account', 'the row says so');
     });
   });
 });
@@ -250,7 +292,7 @@ t('metrics: sitemap-submit: an unknown job is 404; a job of a preview site submi
   });
 });
 
-t('metrics: sitemap-submit for a live site: Search Console is BLOCKED (no verified property), IndexNow is not sent while no site hosts a key file, no request goes out', async () => {
+t('metrics: sitemap-submit for a live site: Search Console is BLOCKED (the account is not connected), IndexNow is not sent while no site hosts a key file, no request goes out', async () => {
   await withSite({ state: 'live', domain: 'client.test' }, async s => {
     const fake = fakeFetch(() => 500);
     const a = await submitC(s.job, { fetch: fake.f, now: () => DAY });
@@ -258,9 +300,26 @@ t('metrics: sitemap-submit for a live site: Search Console is BLOCKED (no verifi
     eq(fake.seen.length, 0, 'nothing is posted');
     const j = a.json as { sitemap: string; searchConsole: { ok: boolean; blocked?: { reason: string } }; indexnow: { sent: boolean; reason: string } };
     eq(j.sitemap, `https://${s.domain}/sitemap.xml`, 'the sitemap address');
-    eq(j.searchConsole.ok, false, 'not submitted'); assert(/verified property|no Search Console access/.test(j.searchConsole.blocked?.reason ?? ''), 'blocked, says why: ' + a.text);
+    eq(j.searchConsole.ok, false, 'not submitted'); eq(j.searchConsole.blocked?.reason, 'the Omnikom Search Console account is not connected', 'blocked, says why: ' + a.text);
     eq(j.indexnow.sent, false, 'IndexNow not sent'); assert(/key file/.test(j.indexnow.reason), 'says why');
     eq((await rows(s.ws)).length, 0, 'no row is written for a ping that was not sent');
+  });
+});
+
+t('metrics: sitemap-submit for a live site with the account key: token, then a PUT under sc-domain:<domain> that answers 204: searchConsole.ok', async () => {
+  const c = await makeCred();
+  await withKeys({ GOOGLE_SERVICE_ACCOUNT_JSON: c.cred }, async () => {
+    await withSite({ state: 'live', domain: 'client.test' }, async s => {
+      const fake = fakeFetch(u => u === TOKEN_URL ? { access_token: SC_TOKEN } : /webmasters\/v3\/sites/.test(u) ? 204 : 500);
+      const a = await submitC(s.job, { fetch: fake.f, now: () => DAY });
+      eq(a.status, 200, a.text);
+      const j = a.json as { searchConsole: { ok: boolean } };
+      eq(j.searchConsole.ok, true, 'submitted: ' + a.text);
+      eq(fake.seen.filter(x => x.url === TOKEN_URL).length, 1, 'one token request');
+      const put = fake.seen.filter(x => x.method === 'PUT');
+      eq(put.length, 1, 'one PUT'); assert(put[0].url.includes(`sites/sc-domain%3A${s.domain}/sitemaps/`), 'under the domain property: ' + put[0].url);
+      eq(JSON.stringify(scLeaks(a.json, c)), '[]', 'the key and the token are not in the answer');
+    });
   });
 });
 

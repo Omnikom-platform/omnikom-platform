@@ -4,6 +4,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { generateKeyPairSync, createVerify } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
 export async function metricsChecks({ check, AUDIT, SKILL }) {
@@ -17,6 +18,13 @@ export async function metricsChecks({ check, AUDIT, SKILL }) {
   const DAY = "2026-11-03";
   const K = { PSI: "PSIKEY-test-secret-1", CRUX: "CRUXKEY-test-secret-2", BING: "BINGKEY-test-secret-7", TOKEN: "TOKEN-test-secret-9", INDEXNOW: "INDEXNOWKEY-test-secret-5" };
   const KEYS = { PSI_API_KEY: K.PSI, CRUX_API_KEY: K.CRUX, BING_WEBMASTER_KEY: K.BING };
+  // the one Omnikom Search Console credential of these checks: an RSA key made at run time (never a real key), as the base64 of a service-account style JSON
+  const kp = generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
+  const credOf = (private_key) => Buffer.from(JSON.stringify({ client_email: "sa@example-property.test", private_key })).toString("base64");
+  const CRED = credOf(kp.privateKey);
+  K.CRED = CRED; K.PEM = kp.privateKey.split("\n")[1];
+  const TOKEN_URL = "https://oauth2.googleapis.com/token", SCOPE_READ = "https://www.googleapis.com/auth/webmasters.readonly", SCOPE_WRITE = "https://www.googleapis.com/auth/webmasters";
+  const NOT_CONNECTED = "the Omnikom Search Console account is not connected", NOT_VERIFIED = "this domain is not verified in our account", REFUSED = "Google did not accept the Omnikom Search Console credential";
   const leaks = (x) => Object.values(K).filter((v) => JSON.stringify(x).includes(v));
 
   // a fake fetch: the first route whose `when(url, init)` is true answers; body may be a function; a route may throw
@@ -52,44 +60,86 @@ export async function metricsChecks({ check, AUDIT, SKILL }) {
   check("metrics: the fixtures hold no key, token or secret (gitleaks would refuse them too)", !/AIza[0-9A-Za-z_-]{20,}|ya29\.|Bearer |apikey=[^&"\s]|api[_-]?key"?\s*:\s*"[^"]{8,}|-----BEGIN/i.test(fxAll), "a key-like string is in a fixture");
 
   // ---------- search-console ----------
-  const GSC_ROUTES = (over = []) => [...over, { when: (u, i) => u.includes("searchAnalytics") && !JSON.parse(i.body).dimensions, body: fx("search-console.json").totals },
+  // the token route: reads the form body, splits the assertion, VERIFIES its RS256 signature with the public key, records what it said, answers a token (or the status given)
+  const tokenRoute = (status = 200, rec = []) => ({ when: (u) => u === TOKEN_URL, status, body: (u, i) => {
+    const p = new URLSearchParams(i.body), a = String(p.get("assertion") || "").split("."), dec = (s) => JSON.parse(Buffer.from(s, "base64url").toString("utf8"));
+    const claims = dec(a[1]), v = createVerify("RSA-SHA256"); v.update(`${a[0]}.${a[1]}`);
+    rec.push({ method: i.method, grant: p.get("grant_type"), alg: dec(a[0]).alg, iss: claims.iss, scope: claims.scope, aud: claims.aud, span: claims.exp - claims.iat, verified: v.verify(kp.publicKey, Buffer.from(a[2] || "", "base64url")) });
+    return status === 200 ? { access_token: K.TOKEN } : { error: "invalid_grant" };
+  } });
+  const GSC_ROUTES = (over = [], rec = []) => [...over, tokenRoute(200, rec), { when: (u, i) => u.includes("searchAnalytics") && !JSON.parse(i.body).dimensions, body: fx("search-console.json").totals },
     { when: (u, i) => u.includes("searchAnalytics") && JSON.parse(i.body).dimensions?.[0] === "query", body: fx("search-console.json").queries },
     { when: (u, i) => u.includes("searchAnalytics") && JSON.parse(i.body).dimensions?.[0] === "page", body: fx("search-console.json").pages },
     { when: (u) => u.endsWith("/sitemaps"), body: fx("search-console.json").sitemaps }];
-  const scArgs = (f, o = {}) => ({ fetch: f, token: K.TOKEN, workspaceId: W, day: DAY, property: "sc-domain:example-property.test", ...o });
-  const f1 = fake(GSC_ROUTES());
+  const DOM = "example-property.test", SITEMAP = "https://example-property.test/sitemap.xml";
+  const scArgs = (f, o = {}) => ({ fetch: f, keys: { GOOGLE_SERVICE_ACCOUNT_JSON: CRED }, workspaceId: W, day: DAY, domain: DOM, ...o });
+  const subArgs = (f, o = {}) => ({ fetch: f, keys: { GOOGLE_SERVICE_ACCOUNT_JSON: CRED }, domain: DOM, sitemapUrl: SITEMAP, ...o });
+  const rec1 = [], f1 = fake(GSC_ROUTES([], rec1));
   const scGood = await attempt(() => sc.collectSearchConsole(scArgs(f1)));
   const d1 = scGood.v?.row.data;
-  check("metrics search-console: the good fixtures give a valid row: window two days back, totals, top queries and pages, the sitemap list (errors as numbers)",
-    !!d1 && scGood.v.row.workspace_id === W && scGood.v.row.source === "search-console" && scGood.v.row.day === DAY && eq(d1.window, { start: "2026-11-01", end: "2026-11-01" })
+  check("metrics search-console: C1 the good fixtures give a valid row for sc-domain:<domain>: window two days back, totals, top queries and pages, the sitemap list (errors as numbers)",
+    !!d1 && scGood.v.row.workspace_id === W && scGood.v.row.source === "search-console" && scGood.v.row.day === DAY && d1.property === `sc-domain:${DOM}` && eq(d1.window, { start: "2026-11-01", end: "2026-11-01" })
     && eq(d1.totals, { clicks: 12, impressions: 340, ctr: 0.0353, position: 14.24 }) && d1.queries.length === 3 && eq(d1.queries[0], { key: "homes in alpha", clicks: 7, impressions: 120, ctr: 0.0583, position: 9.4 })
     && d1.pages.length === 2 && d1.pages[0].key === "https://example-property.test/homes-in-alpha/" && eq(d1.sitemaps, [{ path: "https://example-property.test/sitemap.xml", lastSubmitted: "2026-10-30T09:15:00.000Z", isPending: false, errors: 2, warnings: 0 }]), scGood.err || JSON.stringify(d1));
-  check("metrics search-console: four requests, the token travels only in the Authorization header and is nowhere in the row, the calls or the notes",
-    scGood.v?.calls.length === 4 && f1.seen.every((c) => c.init.headers.authorization === `Bearer ${K.TOKEN}`) && leaks(scGood.v) .length === 0 && Array.isArray(scGood.v.notes) && scGood.v.calls.every((c) => typeof c.what === "string" && Number.isInteger(c.status)), JSON.stringify(scGood.v?.calls));
+  check("metrics search-console: C2 five requests: the first is the token request (a signed assertion that verifies, the account as issuer, the read scope only, one hour), the other four carry the token in the Authorization header only and name the domain property; the credential, its key and the token are nowhere in the row, calls or notes",
+    scGood.v?.calls.length === 5 && f1.seen[0].url === TOKEN_URL && f1.seen[0].init.method === "POST" && rec1.length === 1
+    && eq(rec1[0], { method: "POST", grant: "urn:ietf:params:oauth:grant-type:jwt-bearer", alg: "RS256", iss: "sa@example-property.test", scope: SCOPE_READ, aud: TOKEN_URL, span: 3600, verified: true })
+    && f1.seen.slice(1).every((c) => c.init.headers.authorization === `Bearer ${K.TOKEN}` && c.url.includes("sites/sc-domain%3Aexample-property.test/"))
+    && leaks(scGood.v).length === 0 && Array.isArray(scGood.v.notes) && scGood.v.calls.every((c) => typeof c.what === "string" && Number.isInteger(c.status)), JSON.stringify([scGood.v?.calls, rec1]));
   const fE = fake(GSC_ROUTES([{ when: (u, i) => u.includes("searchAnalytics") && !JSON.parse(i.body).dimensions, body: fx("search-console.json").totalsEmpty }]));
   const scEmpty = await attempt(() => sc.collectSearchConsole(scArgs(fE)));
-  check("metrics search-console: no rows for the window means zero clicks and impressions and no position (null), not a guess", eq(scEmpty.v?.row.data.totals, { clicks: 0, impressions: 0, ctr: 0, position: null }), scEmpty.err || JSON.stringify(scEmpty.v?.row.data.totals));
+  check("metrics search-console: C3 no rows for the window means zero clicks and impressions and no position (null), not a guess", eq(scEmpty.v?.row.data.totals, { clicks: 0, impressions: 0, ctr: 0, position: null }), scEmpty.err || JSON.stringify(scEmpty.v?.row.data.totals));
   const fN = fake([]);
-  const scNoTok = await attempt(() => sc.collectSearchConsole(scArgs(fN, { token: undefined })));
-  const scNoProp = await attempt(() => sc.collectSearchConsole(scArgs(fN, { property: undefined })));
-  check("metrics search-console: no token or no property gives a BLOCKED row saying what unblocks it and makes no request",
-    [scNoTok, scNoProp].every((r) => /verif/i.test(r.v?.row.data.blocked?.unblock || "") && r.v.calls.length === 0) && fN.seen.length === 0 && validateOk(scNoTok.v?.row), scNoTok.err || scNoProp.err);
-  const f403 = fake([on("searchAnalytics", 403, fx("search-console.json").error403)]);
+  const scNoKey = await attempt(() => sc.collectSearchConsole(scArgs(fN, { keys: {} })));
+  const scNoDom = await attempt(() => sc.collectSearchConsole(scArgs(fN, { domain: undefined })));
+  check("metrics search-console: C4 no key says the Omnikom Search Console account is not connected; a key with no domain says the domain is not verified in our account; neither makes a request",
+    scNoKey.v?.row.data.blocked?.reason === NOT_CONNECTED && scNoDom.v?.row.data.blocked?.reason === NOT_VERIFIED && scNoKey.v.calls.length === 0 && scNoDom.v.calls.length === 0 && fN.seen.length === 0 && validateOk(scNoKey.v.row) && validateOk(scNoDom.v.row), scNoKey.err || scNoDom.err || JSON.stringify([scNoKey.v?.row.data.blocked, scNoDom.v?.row.data.blocked]));
+  const f403 = fake(GSC_ROUTES([on("searchAnalytics", 403, fx("search-console.json").error403)]));
   const sc403 = await attempt(() => sc.collectSearchConsole(scArgs(f403)));
-  check("metrics search-console: a 403 stops the source after the first request: BLOCKED with the 403 and who must add our account", /403/.test(sc403.v?.row.data.blocked?.reason || "") && /user/i.test(sc403.v?.row.data.blocked?.unblock || "") && sc403.v.calls.length === 1, sc403.err || JSON.stringify(sc403.v?.calls));
-  const f429 = fake([on("searchAnalytics", 429, { error: { code: 429 } })]);
+  const fS404 = fake(GSC_ROUTES([on("searchAnalytics", 404, { error: { code: 404 } })]));
+  const sc404 = await attempt(() => sc.collectSearchConsole(scArgs(fS404)));
+  check("metrics search-console: C5 a 403 or a 404 on the property stops the source after the token and the first query: BLOCKED, this domain is not verified in our account", [sc403, sc404].every((r) => r.v?.row.data.blocked?.reason === NOT_VERIFIED && r.v.calls.length === 2), sc403.err || sc404.err || JSON.stringify([sc403.v?.calls, sc404.v?.calls]));
+  const fBadTok = fake([tokenRoute(400)]);
+  const scBadTok = await attempt(() => sc.collectSearchConsole(scArgs(fBadTok)));
+  const fB64 = fake(GSC_ROUTES());
+  const scBadB64 = await attempt(() => sc.collectSearchConsole(scArgs(fB64, { keys: { GOOGLE_SERVICE_ACCOUNT_JSON: "not-base64!" } })));
+  const fX = fake(GSC_ROUTES());
+  const scBadKey = await attempt(() => sc.collectSearchConsole(scArgs(fX, { keys: { GOOGLE_SERVICE_ACCOUNT_JSON: credOf("x") } })));
+  check("metrics search-console: C6 a credential Google will not take (the token endpoint answers 400, not base64 JSON, a key that cannot sign) is one BLOCKED row 'Google did not accept ...' and never reaches a query",
+    [scBadTok, scBadB64, scBadKey].every((r) => (r.v?.row.data.blocked?.reason || "").startsWith(REFUSED) && validateOk(r.v.row)) && fBadTok.seen.length === 1 && fB64.seen.length === 0 && fX.seen.length === 0 && [fBadTok, fB64, fX].every((f) => !f.seen.some((c) => c.url.includes("searchAnalytics"))),
+    scBadTok.err || scBadB64.err || scBadKey.err || JSON.stringify([scBadTok.v?.row.data.blocked, scBadB64.v?.row.data.blocked, scBadKey.v?.row.data.blocked]));
+  const f429 = fake(GSC_ROUTES([on("searchAnalytics", 429, { error: { code: 429 } })]));
   const sc429 = await attempt(() => sc.collectSearchConsole(scArgs(f429)));
-  check("metrics search-console: a 429 stops the source after the first request (BLOCKED, not retried)", /rate limit \(429\)/.test(sc429.v?.row.data.blocked?.reason || "") && sc429.v.calls.length === 1 && f429.seen.length === 1, sc429.err || String(f429.seen.length));
+  check("metrics search-console: C7 a 429 stops the source after the first query (BLOCKED, not retried): the token and one query", /rate limit \(429\)/.test(sc429.v?.row.data.blocked?.reason || "") && sc429.v.calls.length === 2 && f429.seen.length === 2, sc429.err || String(f429.seen.length));
   const fM = fake(GSC_ROUTES([on("searchAnalytics", 200, fxText("malformed.txt"))]));
   const scMal = await attempt(() => sc.collectSearchConsole(scArgs(fM)));
-  check("metrics search-console: an answer that is not JSON is BLOCKED (never a row from it)", /not JSON/.test(scMal.v?.row.data.blocked?.reason || ""), scMal.err || JSON.stringify(scMal.v?.row.data));
-  const fSub = fake([{ when: () => true, status: 204, body: "" }]);
-  const sub = await attempt(() => sc.submitSitemap({ fetch: fSub, token: K.TOKEN, property: "sc-domain:example-property.test", sitemapUrl: "https://example-property.test/sitemap.xml" }));
-  check("metrics search-console: submitSitemap PUTs the sitemap under the property (both encoded) and 204 is ok", sub.v?.ok === true && fSub.seen[0].init.method === "PUT" && fSub.seen[0].url.endsWith(`/sites/${encodeURIComponent("sc-domain:example-property.test")}/sitemaps/${encodeURIComponent("https://example-property.test/sitemap.xml")}`) && leaks(sub.v).length === 0, sub.err || JSON.stringify(sub.v));
-  const subNo = await attempt(() => sc.submitSitemap({ fetch: fN, token: "", property: "p", sitemapUrl: "https://example-property.test/sitemap.xml" }));
-  const sub403 = await attempt(() => sc.submitSitemap({ fetch: fake([{ when: () => true, status: 403, body: fx("search-console.json").error403 }]), token: K.TOKEN, property: "p", sitemapUrl: "https://example-property.test/sitemap.xml" }));
-  const subBad = await attempt(() => sc.submitSitemap({ fetch: fN, token: K.TOKEN, property: "p", sitemapUrl: "sitemap.xml" }));
-  check("metrics search-console: submitSitemap with no token is BLOCKED without a request, a 403 is not ok, a sitemapUrl that is not an address throws", subNo.v?.ok === false && !!subNo.v.blocked && fN.seen.length === 0 && sub403.v?.ok === false && /403/.test(sub403.v.blocked.reason) && /sitemapUrl/.test(subBad.err || ""), `${subNo.err} ${sub403.err} ${subBad.err}`);
+  check("metrics search-console: C8 an answer that is not JSON is BLOCKED (never a row from it)", /not JSON/.test(scMal.v?.row.data.blocked?.reason || ""), scMal.err || JSON.stringify(scMal.v?.row.data));
+  const recS = [], fSub = fake([tokenRoute(200, recS), { when: () => true, status: 204, body: "" }]);
+  const sub = await attempt(() => sc.submitSitemap(subArgs(fSub)));
+  check("metrics search-console: C9 submitSitemap asks for the write scope, then PUTs the sitemap under sc-domain:<domain> (both encoded) and 204 is ok", sub.v?.ok === true && recS.length === 1 && recS[0].scope === SCOPE_WRITE && fSub.seen.length === 2 && fSub.seen[1].init.method === "PUT" && fSub.seen[1].init.headers.authorization === `Bearer ${K.TOKEN}` && fSub.seen[1].url.endsWith(`/sites/${encodeURIComponent("sc-domain:example-property.test")}/sitemaps/${encodeURIComponent(SITEMAP)}`) && leaks(sub.v).length === 0, sub.err || JSON.stringify([sub.v, recS]));
+  const fSubN = fake([]);
+  const subNo = await attempt(() => sc.submitSitemap(subArgs(fSubN, { keys: {} })));
+  const fSub403 = fake([tokenRoute(), { when: () => true, status: 403, body: fx("search-console.json").error403 }]);
+  const sub403 = await attempt(() => sc.submitSitemap(subArgs(fSub403)));
+  const fSub400 = fake([tokenRoute(400), { when: () => true, status: 204, body: "" }]);
+  const sub400 = await attempt(() => sc.submitSitemap(subArgs(fSub400)));
+  const subNoDom = await attempt(() => sc.submitSitemap(subArgs(fSubN, { domain: undefined })));
+  const subBad = await attempt(() => sc.submitSitemap(subArgs(fSubN, { sitemapUrl: "sitemap.xml" })));
+  check("metrics search-console: C10 submitSitemap with no key is BLOCKED (not connected) without a request, a 403 is not ok (domain not verified), a refused credential stops before the PUT, a missing domain or a sitemapUrl that is not an address throws",
+    subNo.v?.ok === false && subNo.v.blocked?.reason === NOT_CONNECTED && fSubN.seen.length === 0 && sub403.v?.ok === false && sub403.v.blocked?.reason === NOT_VERIFIED && sub400.v?.ok === false && (sub400.v.blocked?.reason || "").startsWith(REFUSED) && fSub400.seen.length === 1
+    && /domain/.test(subNoDom.err || "") && /sitemapUrl/.test(subBad.err || ""), `${subNo.err} ${sub403.err} ${sub400.err} ${subNoDom.err} ${subBad.err}`);
+  const metricsFiles = [...files, "README.md"].filter((f) => /GSC_ACCESS_TOKEN|OAuth|[Cc]lient adds|[Oo]wner adds|[Oo]wner verifies/.test(readFileSync(join(M, f), "utf8")));
+  check("metrics search-console: C11 no file of the folder holds a per-client token name, OAuth, 'client adds', 'owner adds' or 'owner verifies' (the ruling as a test)", metricsFiles.length === 0, metricsFiles.join(", "));
+  const only = (r) => eq(r.v?.calls, [{ what: "token", status: 400 }]);
+  const c14a = await attempt(() => sc.collectSearchConsole(scArgs(fake([tokenRoute(400)])))), c14b = await attempt(() => sc.submitSitemap(subArgs(fake([tokenRoute(400)]))));
+  const c14c = [await attempt(() => sc.collectSearchConsole(scArgs(fake([]), { keys: {} }))), await attempt(() => sc.collectSearchConsole(scArgs(fake([]), { keys: { GOOGLE_SERVICE_ACCOUNT_JSON: "not-base64!" } }))), await attempt(() => sc.submitSitemap(subArgs(fake([]), { keys: {} }))), await attempt(() => sc.submitSitemap(subArgs(fake([]), { keys: { GOOGLE_SERVICE_ACCOUNT_JSON: "not-base64!" } })))];
+  check("metrics search-console: C14 a refused credential still lists the token request it made (calls = the one token 400), and a call that made none lists none", only(c14a) && only(c14b) && c14c.every((r) => eq(r.v?.calls, [])), JSON.stringify([c14a.v?.calls, c14b.v?.calls, c14c.map((r) => r.v?.calls)]));
+  const boom = (v) => new Error(`connection broke near ${v}`);
+  const c15a = await attempt(() => sc.collectSearchConsole(scArgs(fake([{ when: (u) => u === TOKEN_URL, throws: boom(K.CRED) }]))));
+  const c15b = await attempt(() => sc.collectSearchConsole(scArgs(fake([{ when: (u) => u === TOKEN_URL, throws: boom(K.PEM) }]))));
+  const c15c = await attempt(() => sc.collectSearchConsole(scArgs(fake(GSC_ROUTES([{ when: (u) => u.includes("searchAnalytics"), throws: boom(K.TOKEN) }])))));
+  check("metrics search-console: C15 an error text that names the credential, the private key or the access token leaves no trace of it: the reason holds [key removed] and the row is valid",
+    [c15a, c15b, c15c].every((r) => !!r.v && leaks(r.v).length === 0 && (r.v.row.data.blocked?.reason || "").includes("[key removed]") && validateOk(r.v.row)), c15a.err || c15b.err || c15c.err || JSON.stringify([c15a.v?.row.data.blocked, c15b.v?.row.data.blocked, c15c.v?.row.data.blocked]));
 
   // ---------- pagespeed + crux ----------
   const PAGES = ["", "contact/", "homes-in-alpha/", "homes-in-beta/", "listings/12-alpha-lane/"].map((p) => `https://example-property.test/${p}`);
@@ -277,7 +327,8 @@ export async function metricsChecks({ check, AUDIT, SKILL }) {
   const sentence = R([{ ...blockedSc, data: { blocked: { reason: "r", unblock: "The owner connects the account." } } }]);
   check("metrics report: an unblock sentence reads as a condition after the colon (no capital first letter, one full stop at the end)", sentence.includes("not connected yet: the owner connects the account.\n") && !sentence.includes(".."), sentence);
   const emptyT = R([]);
-  check("metrics report: a month with no rows at all says 'not connected yet:' for each of the four parts, with the default way in", (emptyT.match(/not connected yet: /g) || []).length === 4 && emptyT.includes("not connected yet: the site's domain is verified"), emptyT);
+  check("metrics report: a month with no rows at all says 'not connected yet:' for each of the four parts, with the default way in", (emptyT.match(/not connected yet: /g) || []).length === 4 && emptyT.includes("not connected yet: our Search Console account holds the site's domain"), emptyT);
+  check("metrics report: C13 the default way in names our Search Console account, not the Google account", emptyT.includes("our Search Console account") && !emptyT.includes("Google account"), emptyT);
   const cruxB = R(rowsFx.map((r) => (r.source === "pagespeed" && r.day === "2026-10-27" ? { ...r, data: { ...r.data, crux: { origin: "https://example-shop.test", blocked: { reason: "r", unblock: "UNBLOCK-CRUX" } } } } : r)));
   const noneT = R(rowsFx.filter((r) => r.day !== "2026-10-27"));
   check("metrics report: the real-visitor line says 'not connected yet' for a blocked crux and 'no data from real visitors yet' for crux.none", cruxB.includes("real-visitor numbers are not connected yet: UNBLOCK-CRUX") && noneT.includes("no data from real visitors on phones yet"), noneT);
@@ -290,13 +341,13 @@ export async function metricsChecks({ check, AUDIT, SKILL }) {
   check("metrics report: January looks back to December of the year before", rep.prevMonth("2027-01") === "2026-12" && rep.prevMonth("2026-10") === "2026-09" && rep.monthName("2026-10") === "October 2026");
 
   // ---------- the command line ----------
-  const cliRun = (args, env = {}) => { const e = { ...process.env, ...env }; for (const k of ["PSI_API_KEY", "CRUX_API_KEY", "BING_WEBMASTER_KEY", "GSC_ACCESS_TOKEN"]) if (!(k in env)) delete e[k]; const r = spawnSync(process.execPath, [join(M, "cli.mjs"), ...args], { encoding: "utf8", timeout: 30000, env: e }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
+  const cliRun = (args, env = {}) => { const e = { ...process.env, ...env }; for (const k of ["PSI_API_KEY", "CRUX_API_KEY", "BING_WEBMASTER_KEY", "GOOGLE_SERVICE_ACCOUNT_JSON"]) if (!(k in env)) delete e[k]; const r = spawnSync(process.execPath, [join(M, "cli.mjs"), ...args], { encoding: "utf8", timeout: 30000, env: e }); return { status: r.status, out: r.stdout || "", err: r.stderr || "" }; };
   const cliReport = cliRun(["report", "--rows", join(M, "fixtures", "report-rows.json"), "--month", "2026-10", "--name", "Example Shop", "--domain", "example-shop.test"]);
   check("metrics cli: report reads a rows file and prints exactly what monthlyReport returns, exit 0", cliReport.status === 0 && cliReport.out === text, `${cliReport.status} ${cliReport.err}`);
   const cliBlocked = cliRun(["pagespeed", "--workspace", W, "--day", DAY, "--urls", PAGES[0]]);
   check("metrics cli: pagespeed with no key prints a BLOCKED row naming PSI_API_KEY and exits 0 with no request", cliBlocked.status === 0 && /BLOCKED: no PSI_API_KEY/.test(cliBlocked.out) && /0 request\(s\)/.test(cliBlocked.out), cliBlocked.out + cliBlocked.err);
-  const cliSc = cliRun(["search-console", "--workspace", W, "--day", DAY]);
-  check("metrics cli: search-console with no token prints the BLOCKED row (verify a property first) and exits 0", cliSc.status === 0 && /BLOCKED: no Search Console access/.test(cliSc.out), cliSc.out + cliSc.err);
+  const cliSc = cliRun(["search-console", "--workspace", W, "--day", DAY, "--domain", "example-property.test"]);
+  check("metrics cli: C12 search-console with no key prints the BLOCKED row (the account is not connected) and exits 0 with no request", cliSc.status === 0 && cliSc.out.includes(`BLOCKED: ${NOT_CONNECTED}`) && /0 request\(s\)/.test(cliSc.out), cliSc.out + cliSc.err);
   const cliUse = [cliRun(["nonsense"]), cliRun(["pagespeed", "--day", DAY]), cliRun(["pagespeed", "--workspace", W, "--day", "2026-13-40", "--urls", PAGES[0]]), cliRun(["ai-answers", "--workspace", W, "--day", DAY]), cliRun(["ai-answers", "--workspace", W, "--day", DAY, "--captures", join(M, "fixtures", "ai-answers.json")])];
   check("metrics cli: an unknown command, a missing option, a day that is not a date, ai-answers with no captures file and a captures file that is not a list all exit 2 with a message on stderr", cliUse.every((r) => r.status === 2 && r.err.trim() !== "" && r.out === ""), cliUse.map((r) => r.status).join(","));
   const cliLeak = cliRun(["report", "--rows", join(M, "fixtures", "report-rows.json"), "--month", "2026-10", "--name", K.PSI], { PSI_API_KEY: K.PSI });

@@ -34,12 +34,12 @@ const HEAD1 = 'c0ffee'.padEnd(40, '1'), HEAD2 = 'beef'.padEnd(40, '2');
 const PROD_DASH = 'https://app.omnikom.ai';
 // the function secrets the code reads at this commit (case 10 pins the list)
 const FN_SECRETS = ['BING_WEBMASTER_KEY', 'CRON_KEY', 'CRUX_API_KEY', 'DASHBOARD_ORIGINS', 'DASHBOARD_URL', 'DB_POOLER_URL', 'GITHUB_DISPATCH_TOKEN',
-  'GITHUB_DISPATCH_TOKEN_V2', 'GITHUB_REPO', 'LEAD_ALERT_FROM', 'MAIL_OUTBOX_KEY', 'PSI_API_KEY', 'RESEND_API_KEY', 'RESEND_WEBHOOK_SECRET', 'RUNNER_KEY'];
-const SHARED = ['RESEND_API_KEY', 'PSI_API_KEY', 'CRUX_API_KEY', 'BING_WEBMASTER_KEY'];
+  'GITHUB_DISPATCH_TOKEN_V2', 'GITHUB_REPO', 'GOOGLE_SERVICE_ACCOUNT_JSON', 'LEAD_ALERT_FROM', 'MAIL_OUTBOX_KEY', 'PSI_API_KEY', 'RESEND_API_KEY', 'RESEND_WEBHOOK_SECRET', 'RUNNER_KEY'];
+const SHARED = ['RESEND_API_KEY', 'PSI_API_KEY', 'CRUX_API_KEY', 'BING_WEBMASTER_KEY', 'GOOGLE_SERVICE_ACCOUNT_JSON'];
 // production: every variable bring-up needs (each must be named when missing); PROD_DB_URL_DIRECT and PROD_ALERTS_TO are optional
 const PROD_NEEDED = ['PROD_SUPABASE_REF', 'PROD_DB_URL', 'PROD_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_ACCESS_TOKEN', 'CLOUDFLARE_PAGES_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
   'RESEND_API_KEY', 'BING_WEBMASTER_KEY', 'PROD_CRON_KEY', 'CRUX_API_KEY', 'PROD_DB_POOLER_URL', 'PROD_GITHUB_DISPATCH_TOKEN', 'PROD_GITHUB_DISPATCH_TOKEN_V2',
-  'PROD_GITHUB_REPO', 'PROD_MAIL_FROM', 'PROD_MAIL_OUTBOX_KEY', 'PSI_API_KEY', 'PROD_RESEND_WEBHOOK_SECRET', 'PROD_RUNNER_KEY',
+  'GOOGLE_SERVICE_ACCOUNT_JSON', 'PROD_GITHUB_REPO', 'PROD_MAIL_FROM', 'PROD_MAIL_OUTBOX_KEY', 'PSI_API_KEY', 'PROD_RESEND_WEBHOOK_SECRET', 'PROD_RUNNER_KEY',
   'STAGING_DB_URL', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET', 'BACKUP2_ENDPOINT', 'BACKUP2_ACCESS_KEY_ID', 'BACKUP2_SECRET_ACCESS_KEY', 'BACKUP2_BUCKET',
   'PROD_SUPABASE_SECRET_KEY'];
 const STAGING_NEEDED = ['STAGING_SUPABASE_REF', 'STAGING_DB_URL', 'STAGING_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_ACCESS_TOKEN', 'CLOUDFLARE_PAGES_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
@@ -273,7 +273,7 @@ async function suite() {
         && k.exit === 1 && k.last === 'BRING-UP FAILED: auth read back: site_url still differ' && !v.st.requests.some(q => /secrets|accounts/.test(q)), `${show(r)}\nafter the PATCH: ${after.join(', ')}\n--\n${show(k)}`];
     });
 
-    await check('10 secretNames: a temp folder gives exactly NEW_ONE; the real supabase/functions gives the 15 names, no SUPABASE_ name', async () => {
+    await check('10 secretNames: a temp folder gives exactly NEW_ONE; the real supabase/functions gives the 16 names, no SUPABASE_ name', async () => {
       const mod = await import(`${pathToFileURL(script).href}?x=${Math.random()}`);
       const dir = join(work, `fns-${Math.random().toString(36).slice(2)}`);
       for (const [f, text] of [['a/index.ts', "Deno.env.get('NEW_ONE');"], ['_shared/x.ts', "Deno.env.get('SUPABASE_URL'); Deno.env.get('JWKS_URL');"], ['test/t.ts', "Deno.env.get('IN_TEST');"]]) {

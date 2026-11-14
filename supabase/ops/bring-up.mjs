@@ -6,7 +6,7 @@
 // Variables, by name (P = STAGING_ or PROD_, supabase/ops/environments.json): <P>SUPABASE_REF, <P>DB_URL (<P>DB_URL_DIRECT when set),
 // <P>SUPABASE_PUBLISHABLE_KEY, SUPABASE_ACCESS_TOKEN, CLOUDFLARE_PAGES_TOKEN, CLOUDFLARE_ACCOUNT_ID, RESEND_API_KEY; the source of every
 // function secret (staging: the same name; production: PROD_<NAME>, except the shared RESEND_API_KEY, PSI_API_KEY, CRUX_API_KEY and
-// BING_WEBMASTER_KEY, LEAD_ALERT_FROM from PROD_MAIL_FROM; DASHBOARD_URL and DASHBOARD_ORIGINS come from environments.json); for
+// BING_WEBMASTER_KEY and GOOGLE_SERVICE_ACCOUNT_JSON, LEAD_ALERT_FROM from PROD_MAIL_FROM; DASHBOARD_URL and DASHBOARD_ORIGINS come from environments.json); for
 // production also PROD_MAIL_FROM, PROD_GITHUB_REPO and the source of every secret the production workflows name (PROD_ALERTS_TO is
 // optional). SUPABASE_API_BASE and CLOUDFLARE_API_BASE exist for the tests' local fake server only.
 // It prints names, counts and short states, never a value: every line passes backup.mjs's scrubber, fed with every value read.
@@ -26,7 +26,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const USAGE = 'usage: bring-up.mjs --env staging|production [--apply] [--i-mean-production]';
 const EXTENSIONS = ['pg_cron', 'pg_net', 'pgmq', 'pg_stat_statements'];
 const SEAMS = ['JWKS_URL', 'GITHUB_API_BASE'];   // test seams of the functions (dashboard.ts, dispatch.ts), never a secret
-const SHARED = ['RESEND_API_KEY', 'PSI_API_KEY', 'CRUX_API_KEY', 'BING_WEBMASTER_KEY'];   // one key for staging and production
+const SHARED = ['RESEND_API_KEY', 'PSI_API_KEY', 'CRUX_API_KEY', 'BING_WEBMASTER_KEY', 'GOOGLE_SERVICE_ACCOUNT_JSON'];   // one key for staging and production
 const WRANGLER_VERSION = '4.152.0';   // the pin of tools/pages-project.mjs
 const sha256hex = s => createHash('sha256').update(s).digest('hex');
 class Stop extends Error { constructor(code, message) { super(message); this.code = code; } }

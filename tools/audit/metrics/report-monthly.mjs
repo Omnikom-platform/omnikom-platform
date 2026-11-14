@@ -6,7 +6,7 @@ import { isObj } from "./util.mjs";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const DEFAULT_UNBLOCK = {
-  "search-console": "the site's domain is verified in Search Console and the Google account is connected",
+  "search-console": "our Search Console account holds the site's domain and is connected",
   pagespeed: "the PageSpeed key is set and the site is live",
   bing: "the site is verified in Bing Webmaster Tools and the Bing key is set",
   "ai-answers": "the AI-answer check of our research skill is run for this site, or answers captured from ChatGPT or Perplexity are added",

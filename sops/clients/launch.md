@@ -102,9 +102,9 @@ Where a platform has no user seat, the client makes the change from our exact st
 |---|---|---|---|
 | registrar-dns | Registrar and DNS | Point the domain at the site. Keep MX, SPF, DKIM and DMARC exactly as they are. | DNS editor for this one domain (delegate access limited to DNS, or a DNS-only member). Never account owner. Never transfer rights. |
 | cloudflare | Cloudflare (Pages + DNS) | Attach the custom domain to the Pages project. HTTPS, redirects, headers. | An API token with Account > Cloudflare Pages: Edit (one account) and Zone > DNS: Edit plus Zone: Read (one zone). Never the Global API Key. |
-| search-console | Google Search Console | Verify the Domain property, submit the sitemap, inspect URLs, read search data. | Full user. Owner only if we verify the Domain property through a DNS TXT record. |
+| search-console | Google Search Console | Verify the Domain property, submit the sitemap, inspect URLs, read search data. | None from the client: we verify the Domain property in our own account with a DNS TXT record or a file on the site we host. A client who already owns a property keeps it. |
 | business-profile | Google Business Profile | Verify, match name/address/phone, link the site, bring reviews in. | Manager. Never Primary owner. |
-| bing-webmaster | Bing Webmaster Tools | The site in Bing and in the AI answers that read Bing. | Import from Search Console, or a Read/Write user. |
+| bing-webmaster | Bing Webmaster Tools | The site in Bing and in the AI answers that read Bing. | None from the client: we add the site to our own Bing Webmaster account and verify it there with a DNS record or a file on the site we host. |
 | analytics | Analytics (platform or GA4) | Page views and a conversion on every lead form. | Editor on the one property, not the account. None if the platform's own analytics is used. |
 | listing-profiles | Listing profiles (Zillow and the industry's equivalents) | One identical name, address and phone, each linking to the new site. | A team or user seat where one exists. Otherwise the client edits from our exact text. |
 | partner-sites | Broker and partner websites | Links from pages that already list the business. | None. Their web admin makes the change. We send the exact URL and link text. |

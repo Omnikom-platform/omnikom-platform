@@ -4,7 +4,7 @@
 // ?source=pagespeed it runs the slow one, weekly (PageSpeed on five pages and CrUX; a call on a day it is not due answers `skipped`).
 // The site measured is service.metrics_targets()'s one per workspace: the live site, else the oldest preview one; a workspace that is not trial or active is
 // not found. Rows go in through service.metrics_put by (workspace, source, day), so a rerun overwrites. A source that cannot be read is a BLOCKED row
-// (data.blocked), never a number from a guess; search-console is always BLOCKED until the owner verifies a property (fixtures only, UNPROVEN live).
+// (data.blocked), never a number from a guess; search-console is BLOCKED until the Omnikom Search Console account is connected and holds the site's domain (UNPROVEN live).
 // Each source is its own step: one that throws is listed under `failed` and writes no row; the others still run. 200 { workspace, day, site, written,
 // skipped, failed, notes } (502 when nothing was written and something failed). Keys by variable name only (keysFromEnv); none is in a row, a note or an answer.
 import { runner } from '../_shared/runner.ts';
@@ -36,8 +36,8 @@ export async function handle(req: Request, deps: Deps = {}): Promise<Response> {
     };
 
     if (only === null) {
-      // Search Console needs a verified property and an OAuth token; the owner has verified none, so this is the BLOCKED row that says what unblocks it
-      await step('search-console', () => collectSearchConsole({ fetch: doFetch, workspaceId: ws, day }));
+      // Search Console reads the live site's domain with the Omnikom account's key; no key, or a domain the account does not hold, is the BLOCKED row that says what unblocks it
+      await step('search-console', () => collectSearchConsole({ fetch: doFetch, keys, workspaceId: ws, day, domain: t.site_state === 'live' && t.domain ? t.domain : undefined }));
       await step('bing', async () => {
         const [{ d }] = await c.sql`select service.metrics_get(${ws}::uuid, 'bing', ${day}::date) as d`;   // the day's IndexNow list rides into the rebuilt row
         const indexnow = Array.isArray(d?.indexnow) ? d.indexnow : [];

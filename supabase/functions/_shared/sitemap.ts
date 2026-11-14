@@ -1,11 +1,11 @@
 // What happens after a live publish (work order 44, C16), shared by the sitemap-submit function and job-callback (which calls it on `done` of a production
 // job, best effort). For the site of a publish job:
-//   * Search Console: submitSitemap, BLOCKED until the owner verifies a property (no token, so no request goes out); live UNPROVEN.
+//   * Search Console: submitSitemap with the Omnikom account's key, BLOCKED until the account is connected and holds the domain (no key, so no request goes out); live UNPROVEN.
 //   * IndexNow: a ping of the sitemap's addresses, only when the caller can name the site's key and the address of its key file (`deps.indexNow`). Today
 //     none can: no site hosts a key file (the factory slice is work order 45), so the answer says `sent: false` with that reason and nothing is posted.
 //     A ping that is sent (4xx included) is appended to the day's `bing` row, which never holds the key or its file's address (appendIndexNow).
 // Answers { skipped } for a job whose site is not live (a preview publish submits nothing), else { sitemap, searchConsole, indexnow }.
-import { appendIndexNow, dayOf, indexNowPing, originOf, sitemapLocs, submitSitemap, type Target } from './metrics.ts';
+import { appendIndexNow, dayOf, indexNowPing, keysFromEnv, originOf, sitemapLocs, submitSitemap, type Target } from './metrics.ts';
 import type { Sql } from './db.ts';
 
 export type SubmitDeps = {
@@ -26,7 +26,7 @@ export async function submitForJob(sql: Sql, job: string, deps: SubmitDeps = {})
   const doFetch = (u: string | URL | Request, i?: RequestInit) => (deps.fetch ?? fetch)(u, i);
   const day = dayOf((deps.now ?? (() => new Date()))());
 
-  const gsc = await submitSitemap({ fetch: doFetch, property: `sc-domain:${target.domain}`, sitemapUrl: sitemap });
+  const gsc = await submitSitemap({ fetch: doFetch, keys: keysFromEnv(), domain: target.domain, sitemapUrl: sitemap });
   const searchConsole = { ok: gsc.ok, ...(gsc.status !== undefined ? { status: gsc.status } : {}), ...(gsc.blocked ? { blocked: gsc.blocked } : {}) };
 
   const k = deps.indexNow?.(target) ?? null;

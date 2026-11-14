@@ -14,6 +14,7 @@ folder. Tools read it by path, e.g. the audit skill: `doctor.mjs <url> --dotenv 
 | `CRUX_API_KEY` | Chrome UX Report API | same key as above | same |
 | `GEMINI_API_KEY` | Gemini API (Google AI Studio) | "Default Gemini API Key" in project "Default Gemini Project" (`gen-lang-client-0166882660`), free tier | new key format (starts `AQ.`) |
 | `BING_WEBMASTER_KEY` | Bing Webmaster Tools API | Bing Webmaster account signed in with Google (amer@omnikom.io); verified site omniskipx.com | account-level key |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Search Console API (daily read, sitemap submit) | the platform's search service account in project **Omnikom SEO** (`omnikom-seo`; never write its email here); the value is the base64 of its JSON key (`tools/bank-json-key.mjs`) | read scope for the daily read, write scope for the submit; the account must be a user of each domain property in the one Omnikom Search Console account |
 
 `PEWP_GEMINI_TERMS_ACK=1` is set (owner, 2026-10-26: "okay with Gemini" after the Gemini API Additional Terms tab was opened):
 we may keep derived fields (cited domains, whether we are cited) from grounded Gemini answers. Doctor: "acknowledged".

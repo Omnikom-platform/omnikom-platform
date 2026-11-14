@@ -1,6 +1,6 @@
 // Work order 44 (C16): SEO's collectors (tools/audit/metrics, work order 33) as the metrics functions load them, the way crm-map.ts loads tools/crm-map
 // (a relative import the Supabase bundler follows). The collectors take { fetch, keys, workspaceId, day, ... } and return { row, calls, notes }; they read
-// no environment and no file, so every key comes in from the function by its variable name (PSI_API_KEY, CRUX_API_KEY, BING_WEBMASTER_KEY).
+// no environment and no file, so every key comes in from the function by its variable name (PSI_API_KEY, CRUX_API_KEY, BING_WEBMASTER_KEY, GOOGLE_SERVICE_ACCOUNT_JSON).
 // The JS has no types, so each is given the shape it documents (README of tools/audit/metrics); the pure helpers below (sitemap reading, the five
 // pages, the weekly rule) are this file's own and are tested in supabase/functions/test/metrics.test.ts.
 import * as sc from '../../../tools/audit/metrics/search-console.mjs';
@@ -21,6 +21,7 @@ export const appendIndexNow = bg.appendIndexNow as unknown as (row: Row | null, 
 /** The keys by name, from the function's secrets. A missing one is undefined and the collector answers a BLOCKED row (no request goes out). */
 export const keysFromEnv = (): Record<string, string | undefined> => ({
   PSI_API_KEY: Deno.env.get('PSI_API_KEY'), CRUX_API_KEY: Deno.env.get('CRUX_API_KEY'), BING_WEBMASTER_KEY: Deno.env.get('BING_WEBMASTER_KEY'),
+  GOOGLE_SERVICE_ACCOUNT_JSON: Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON'),
 });
 
 export type Target = { workspace_id: string; site_id: string; site_state: string; host: string; domain: string | null };

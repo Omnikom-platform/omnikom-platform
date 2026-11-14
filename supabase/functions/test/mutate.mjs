@@ -351,6 +351,9 @@ const MUTANTS = [
   ['metrics: job-callback submits the sitemap for a preview job', F + 'job-callback/index.ts', "(report?.audit as { target?: unknown } | undefined)?.target === 'production'", 'true', 'metrics.test.ts'],
   ['metrics: job-callback submits the sitemap on a failed job', F + 'job-callback/index.ts', "if (state === 'done' && (report?.audit", 'if ((report?.audit', 'metrics.test.ts'],
   ['metrics: a failed sitemap step fails the callback', F + 'job-callback/index.ts', "try { await submitForJob(c.sql, job, deps); } catch (e) { console.error('job-callback: the sitemap was not submitted', String(e).slice(0, 200)); }", 'await submitForJob(c.sql, job, deps);', 'metrics.test.ts'],
+  ['metrics: Search Console is asked about a preview site', F + 'metrics-pull/index.ts', "domain: t.site_state === 'live' && t.domain ? t.domain : undefined }));", 'domain: t.domain ?? undefined }));', 'metrics.test.ts'],
+  ['metrics: Search Console gets no key from the pull', F + 'metrics-pull/index.ts', 'collectSearchConsole({ fetch: doFetch, keys, workspaceId', 'collectSearchConsole({ fetch: doFetch, workspaceId', 'metrics.test.ts'],
+  ['metrics: the sitemap submit gets no key', F + '_shared/sitemap.ts', 'keys: keysFromEnv(), domain: target.domain,', 'domain: target.domain,', 'metrics.test.ts'],
   // ---- E4: the mail outbox worker and the queued alert ----
   ['E4 mail-outbox: a bad signature is let through', F + 'mail-outbox/index.ts', 'if (!signed) {', 'if (false) {', 'outbox.test.ts'],
   ['E4 mail-outbox: Resend has no timeout', F + 'mail-outbox/index.ts', 'signal: AbortSignal.timeout(deps.timeoutMs ?? TIMEOUT_MS)', 'signal: undefined', 'outbox.test.ts'],

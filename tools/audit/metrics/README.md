@@ -8,10 +8,10 @@ report reads those rows back. Platform loads these modules from a Deno edge func
 
 - **Deno-loadable.** No module except `cli.mjs` imports `node:` or touches `process`; nothing reads a file or the environment.
   A collector takes `{ fetch, keys, workspaceId, day, ... }` (keys are passed in by variable name: `PSI_API_KEY`,
-  `CRUX_API_KEY`, `BING_WEBMASTER_KEY`; Search Console takes an OAuth `token`; no model key, DECISIONS 38). A test enforces it.
+  `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, and `GOOGLE_SERVICE_ACCOUNT_JSON` with a `domain` for Search Console; no model key, DECISIONS 38). A test enforces it.
 - **Returns `{ row, calls, notes }`.** `row = { workspace_id, source, day, data }` (the table's shape), `calls = [{ what, status }]`
   (one per request, no key in it), `notes` = plain sentences about what was skipped or refused.
-- **A source that cannot be read is a BLOCKED row**: `data.blocked = { reason, unblock }` (no key, no verified property, a 403 or
+- **A source that cannot be read is a BLOCKED row**: `data.blocked = { reason, unblock }` (no key, a domain the account does not hold, a 403 or
   429). A number is never filled in from a guess or an older run. Any 429 or 403 stops that source.
 - **Validated before it is returned.** `shapes.mjs` has one `validate<Source>Row(row)` per source, returning a list of problems;
   an invalid row is a thrown error, never a written row.
@@ -25,8 +25,10 @@ report reads those rows back. Platform loads these modules from a Deno edge func
 `queries` and `pages` hold up to 25 items `{ key, clicks, impressions, ctr, position }`. `sitemaps` is the list the API returns:
 `{ path, lastSubmitted, isPending, errors, warnings }`. The window is one day, two days before `day` (Search Console data lags);
 a 28-day baseline passes `start` and `end`. No rows for the window means zero clicks and impressions and `position: null`.
-`submitSitemap({ fetch, token, property, sitemapUrl })` is C16 (Search Console `sitemaps.submit`, a PUT); it returns
-`{ ok, status, calls }` or `{ ok: false, blocked }` and writes no row. **Live: UNPROVEN** until the owner verifies a property.
+`submitSitemap({ fetch, keys, domain, sitemapUrl })` is C16 (Search Console `sitemaps.submit`, a PUT, write scope); it returns
+`{ ok, status, calls }` or `{ ok: false, blocked }` and writes no row. Both sign a one-hour request with the service-account key
+(`GOOGLE_SERVICE_ACCOUNT_JSON`, base64 of its JSON), exchange it at `oauth2.googleapis.com/token` and use `sc-domain:<domain>`. No key: BLOCKED
+"the Omnikom Search Console account is not connected"; 403 or 404 on the property: BLOCKED "this domain is not verified in our account". **Live: UNPROVEN** until the account exists and holds a domain.
 
 ### pagespeed
 `{ strategy: "mobile", pages: [...], crux, failures? }`. `pages` holds one to five items
