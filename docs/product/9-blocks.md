@@ -59,6 +59,7 @@ and `apply --i-mean-production`. Identities: `owner-a`, `owner-b`, `member-a1`, 
 | `land check/<dept>/<slug>` | moves master to that commit only after every `ci.yml` job passed on it, fast-forward only, under a land lock |
 | `hooks install|status` | the pre-push hook that enforces the landing rule |
 | `mfa enroll-staff` | the second factor for the staff test login |
+| `site sign|check|seal|seal-check|deploy|project` | signed builds and the Pages project (`tools/site-sign/`) |
 
 The CLI carries every tool a check needs: "not installed" is never a reason a check did not run.
 

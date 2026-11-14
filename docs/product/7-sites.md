@@ -134,8 +134,8 @@ copy to a new folder; it never edits a build in place, and every stage is made f
 - Every signing, seal and deploy writes a line in the register. It holds client names, so it is never in this repository:
   its place is `--register <file>` or `SIGN_SITE_REGISTER`, and with neither the tools refuse before writing anything.
 
-The five commands: `omnikom site sign` (`--draft`, `--live` or `--handover`), `omnikom site check`, `omnikom site seal`,
-`omnikom site seal-check` and `omnikom site deploy`. A deploy runs only when the checks pass (a sealed draft needs the seal check
+The six commands: `omnikom site sign` (`--draft`, `--live` or `--handover`), `omnikom site check`, `omnikom site seal`,
+`omnikom site seal-check`, `omnikom site deploy` and `omnikom site project` (create or read a Pages project, set its secrets; it never deletes). A deploy reads the project with the token first (a refused token is one line) and runs only when the checks pass (a sealed draft needs the seal check
 and the draft check), and a draft or sealed draft goes only to `--to preview`, a live or handover build only to `--to production`,
 which also needs `--i-mean-production` (the owner's go).
 

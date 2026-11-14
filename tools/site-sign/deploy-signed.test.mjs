@@ -16,7 +16,8 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'deploy-signed-test-'));
 const REG = path.join(TMP, 'register.tsv');
 const NO_REGISTER = "REFUSED: the register's place is not set: give --register <file> or set SIGN_SITE_REGISTER (it is kept outside the repository)";
 let tool = {};
-try { tool = await import(pathToFileURL(path.join(HERE, 'deploy-signed.mjs')).href); } catch (e) { console.log(`  NOTE the tool did not load: ${String(e && e.message).split('\n')[0]}`); }
+try { tool = await import(process.env.DEPLOY_SIGNED_TOOL ? pathToFileURL(process.env.DEPLOY_SIGNED_TOOL).href : pathToFileURL(path.join(HERE, 'deploy-signed.mjs')).href); } catch (e) { console.log(`  NOTE the tool did not load: ${String(e && e.message).split('\n')[0]}`); }
+let papi = {}; try { papi = await import(pathToFileURL(path.join(HERE, 'project-api.mjs')).href); } catch (e) { console.log(`  NOTE project-api did not load: ${String(e && e.message).split('\n')[0]}`); }
 
 let passed = 0, failed = 0;
 async function kase(n, name, fn) {
@@ -55,17 +56,18 @@ const KEY_B64 = fs.existsSync(`${S}-functions`) ? (read(`${S}-functions`, 'omk-k
 const TOKEN = crypto.randomBytes(24).toString('hex');
 const ENV = { SIGN_SITE_REGISTER: REG, CLOUDFLARE_API_TOKEN: TOKEN };
 
+let PROBE = () => ({ status: 0, stdout: 'get demo-site: HTTP 200, success true\n', stderr: '' }); let NOW = Date.now;
 // one deploy with the fake upload: it records each call (the project, the files of the folder handed to it, the key function's text)
 function deploy(argv, env = ENV) {
-  const calls = [], out = [], err = [];
-  const run = (o) => {
+  const calls = [], out = [], err = [], order = [];
+  const run = (o) => { order.push('run');
     const fn = path.join(o.dir, 'functions', 'omk-key.js');
     calls.push({ project: o.project, files: rels(o.dir), keyFn: fs.existsSync(fn) ? fs.readFileSync(fn, 'utf8') : null });
     return 'Uploaded 9 files\nDeployment complete! Take a peek over at https://ab12cd34.demo-site-preview.pages.dev\n';
   };
   if (typeof tool.deploy !== 'function') throw new Error('deploy-signed.mjs exports no deploy()');
-  const code = tool.deploy(argv, { env, run, out: (s) => out.push(String(s)), err: (s) => err.push(String(s)) });
-  return { code, calls, out: out.join('\n'), err: err.join('\n') };
+  const code = tool.deploy(argv, { env, run, probe: (o) => { order.push('probe'); return PROBE(o); }, now: NOW, out: (s) => out.push(String(s)), err: (s) => err.push(String(s)) });
+  return { code, calls, order, out: out.join('\n'), err: err.join('\n') };
 }
 const refused = (r, what) => {
   assert.equal(r.code, 1, `${what}: exit ${r.code}: ${r.err.slice(0, 200)}`);
@@ -192,6 +194,143 @@ await kase(12, 'live: a passing --mode live --to production --i-mean-production 
   assert.deepStrictEqual(regLine('live').map((c) => [c[7], c[8]]), [['demo-site', 'ab12cd34'], ['demo-site-live', 'ab12cd34']]);
 });
 
+// ---- the project read before an upload, the refused-token line, the failure line, the upload time (D1 to D7) ----
+const TOKEN_LINE = 'REFUSED: the token was refused for project demo-site; the key file loaded may be the wrong one for this project; nothing deployed';
+const liveArgv = (name) => {
+  const d = path.join(TMP, name);
+  cli('sign-site.mjs', ['--live', clean, '--out', d, '--site', 'demo-site', '--client', 'Demo Client', '--date', today, '--host', 'demo-site.com']);
+  return [d, '--clean', clean, '--mode', 'live', '--to', 'production', '--i-mean-production', '--project', 'demo-site'];
+};
+// the REAL line project-api prints over a fake fetch that answers `status` with `errors` (an account set by name unless env says otherwise)
+const realLine = async (status, errors, env = { CLOUDFLARE_API_TOKEN: TOKEN, CLOUDFLARE_ACCOUNT_ID: '0123456789abcdef0123456789abcdef' }) => {
+  if (typeof papi.projectApi !== 'function') throw new Error('project-api.mjs exports no projectApi()');
+  const lines = [];
+  const fetch = async () => ({ status, text: async () => JSON.stringify({ success: false, errors, result: null }) });
+  await papi.projectApi(['get', 'demo-site'], { env, fetch, out: (s) => lines.push(String(s)), err: (s) => lines.push(String(s)) });
+  return lines.join('\n');
+};
+const withSeams = async (probe, now, fn) => {
+  const was = [PROBE, NOW];
+  if (probe) PROBE = probe;
+  if (now) NOW = now;
+  try { return await fn(); } finally { [PROBE, NOW] = was; }
+};
+const tmpLeft = () => fs.readdirSync(os.tmpdir()).filter((f) => f.startsWith('deploy-signed-') && !f.startsWith('deploy-signed-test-')).sort();
+// a deploy with its own upload (one that throws)
+const direct = (argv, run) => {
+  const out = [], err = [];
+  const code = tool.deploy(argv, { env: ENV, run, probe: () => ({ status: 0, stdout: '', stderr: '' }), now: Date.now, out: (s) => out.push(String(s)), err: (s) => err.push(String(s)) });
+  return { code, out, err };
+};
+const liveCells = () => regLine('live').map((c) => [c[7], c[8]]);
+
+await kase('D1', 'a token the provider refused (401 or 403) on the project read: one token line, no upload, register unchanged', async () => {
+  for (const status of [403, 401]) {
+    const argv = liveArgv(`d1-${status}`), before = read(REG);
+    const stdout = await realLine(status, [{ code: 10000, message: 'Authentication error' }]);
+    assert.ok(stdout.includes(`HTTP ${status}`), `the real line holds no HTTP ${status}: ${stdout}`);
+    const r = await withSeams(() => ({ status: 1, stdout, stderr: '' }), null, () => deploy(argv));
+    assert.equal(r.code, 1, `${status}: exit ${r.code}: ${r.err.slice(0, 200)}`);
+    assert.equal(r.err, TOKEN_LINE, `${status}: stderr is ${r.err.slice(0, 300)}`);
+    assert.ok(r.err.includes('wrong one') && !/connectivity/i.test(r.err));
+    assert.equal(r.calls.length, 0, `${status}: run was called`);
+    assert.equal(read(REG), before, `${status}: the register changed`);
+  }
+});
+await kase('D2', 'a project that cannot be read (404, no answer): one REFUSED line that is not the token line, no upload', async () => {
+  const argv = liveArgv('d2'), before = read(REG);
+  const nf = await realLine(404, [{ code: 8000007, message: 'Project not found' }]);
+  for (const stdout of [nf, 'get demo-site: no answer from the provider (fetch failed)']) {
+    const r = await withSeams(() => ({ status: 1, stdout, stderr: '' }), null, () => deploy(argv));
+    assert.equal(r.code, 1, `exit ${r.code}: ${r.err.slice(0, 200)}`);
+    const lines = r.err.split('\n');
+    assert.equal(lines.length, 1, `not one line: ${r.err.slice(0, 300)}`);
+    assert.ok(lines[0].startsWith('REFUSED: the project demo-site could not be read (') && lines[0].endsWith('); nothing deployed'), `line: ${lines[0]}`);
+    assert.ok(!r.err.includes('token was refused'), 'the token line was printed for a project that could not be read');
+    assert.equal(r.calls.length, 0, 'run was called');
+  }
+  assert.equal(read(REG), before, 'the register changed');
+});
+await kase('D3', 'the project is read first and the upload follows; a local refusal never reads the project', async () => {
+  const argv = liveArgv('d3');
+  const bad = [
+    ['a usage error', [D, '--clean', clean, '--mode', 'nope', '--to', 'preview', '--project', 'demo-site'], ENV],
+    ['a missing register', argv, { CLOUDFLARE_API_TOKEN: TOKEN }],
+    ['a missing --i-mean-production', argv.filter((a) => a !== '--i-mean-production'), ENV],
+    ['a failed stage check', [D, '--clean', clean, '--mode', 'live', '--to', 'production', '--i-mean-production', '--project', 'demo-site'], ENV],
+  ];
+  for (const [what, a, env] of bad) {
+    const r = deploy(a, env);
+    assert.notEqual(r.code, 0, `${what}: exit 0`);
+    assert.deepStrictEqual(r.order, [], `${what}: the project was read or run was called: ${r.order}`);
+  }
+  const ok = deploy(argv);
+  assert.equal(ok.code, 0, `exit ${ok.code}: ${ok.err.slice(0, 300)}`);
+  assert.deepStrictEqual(ok.order, ['probe', 'run']);
+});
+await kase('D4', 'an upload that fails with the provider\'s auth words: one token line, never "connectivity", register line still empty, no temp folder left', async () => {
+  const argv = liveArgv('d4'), before = tmpLeft(), cells = liveCells();
+  const r = direct(argv, () => { const e = new Error('Command failed'); e.stdout = 'Authentication error [code: 10000]\nA fetch request failed, likely due to a connectivity issue'; throw e; });
+  assert.equal(r.code, 1);
+  assert.deepStrictEqual(r.err, [TOKEN_LINE]);
+  assert.equal(r.out.length, 0);
+  assert.deepStrictEqual(liveCells(), cells, 'the register changed');
+  assert.deepStrictEqual(liveCells().slice(-1), [['-', '-']], 'the new live line is not empty');
+  assert.deepStrictEqual(tmpLeft(), before, 'a temp folder was left');
+});
+await kase('D5', 'an upload that fails for another reason: one FAILED line with its last words, register unchanged', async () => {
+  const argv = liveArgv('d5'), cells = liveCells();
+  const r = direct(argv, () => { const e = new Error('Command failed'); e.stderr = 'disk full'; throw e; });
+  assert.equal(r.code, 1);
+  assert.deepStrictEqual(r.err, ['FAILED: the upload to demo-site failed (disk full); the register line was not filled']);
+  assert.deepStrictEqual(liveCells(), cells, 'the register changed');
+});
+await kase('D6', 'the last line says how many whole seconds the upload took', async () => {
+  for (const [ticks, want] of [[[1000, 49400], 48], [[1000, 1000], 0]]) {
+    const argv = liveArgv(`d6-${want}`);
+    let n = 0;
+    const r = await withSeams(undefined, () => ticks[n++], () => deploy(argv));
+    assert.equal(r.code, 0, `exit ${r.code}: ${r.err.slice(0, 300)}`);
+    assert.ok(r.out.split('\n').pop().endsWith(`; upload took ${want} s`), `last line: ${r.out.slice(-120)}`);
+  }
+});
+await kase('D7', 'a lookup the token is refused on is a refused token: the one token line, nothing uploaded', async () => {
+  const argv = liveArgv('d7'), before = read(REG);
+  const stdout = await realLine(403, [{ code: 10000, message: 'Authentication error' }], { CLOUDFLARE_API_TOKEN: TOKEN });
+  assert.ok(stdout.includes('HTTP 403') && stdout.includes('account lookup'), `the real line: ${stdout}`);
+  const r = await withSeams(() => ({ status: 1, stdout, stderr: '' }), null, () => deploy(argv));
+  assert.equal(r.code, 1);
+  assert.equal(r.err, TOKEN_LINE);
+  assert.equal(r.calls.length, 0, 'run was called');
+  assert.equal(read(REG), before, 'the register changed');
+});
+
 fs.rmSync(TMP, { recursive: true, force: true });
 console.log(`deploy-signed tests: ${passed} passed, ${failed} failed`);
 if (failed) process.exitCode = 1;
+
+if (process.argv.includes('--mutants')) {
+  const MUT = [
+    ['Fd1 a 401 or 403 is not a refused token', "http === '401' || http === '403'", 'false'],
+    ['Fd2 an unreadable project does not stop the deploy', 'if (seen.status !== 0)', 'if (false)'],
+    ['Fd3 the project is not read', 'const seen = read({ project, env });', 'const seen = { status: 0 };'],
+    ['Fd4 an auth failure of the upload is not recognised', 'AUTH_TEXT.test(t)', 'false'],
+    ['Fd5 the upload failure text is dropped', "${e.stdout || ''}${e.stderr || ''}", "''"],
+    ['Fd6 the upload time is not measured', 'Math.round((now() - t0) / 1000)', '0'],
+  ];
+  let caught = 0;
+  const src = fs.readFileSync(path.join(HERE, 'deploy-signed.mjs'), 'utf8');
+  for (const [name, from, to] of MUT) {
+    if (src.split(from).length !== 2) { console.log(`MUTANT TARGET NOT FOUND once: ${name}`); process.exitCode = 1; continue; }
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'deploy-signed-mut-'));
+    fs.cpSync(HERE, dir, { recursive: true, filter: (s) => !s.endsWith('.test.mjs') });
+    fs.writeFileSync(path.join(dir, 'deploy-signed.mjs'), src.split(from).join(to));
+    const res = spawnSync(process.execPath, ['--max-old-space-size=256', fileURLToPath(import.meta.url)], { encoding: 'utf8', timeout: 600000, env: { ...process.env, DEPLOY_SIGNED_TOOL: path.join(dir, 'deploy-signed.mjs') } });
+    const red = res.status !== 0;
+    if (red) caught++;
+    console.log(`mutant "${name}": ${red ? 'caught' : 'MISSED'} (${(res.stdout.trim().split('\n').pop() || '').trim()})`);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  console.log(`mutants: ${caught}/${MUT.length} caught`);
+  if (caught !== MUT.length) process.exitCode = 1;
+}

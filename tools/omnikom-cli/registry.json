@@ -67,7 +67,7 @@
       "script": "tools/site-sign/deploy-signed.mjs", "test": "tools/site-sign/deploy-signed.test.mjs",
       "summary": "Upload a signed or sealed build to its Pages project after its checks; fill its register line",
       "usage": "omnikom site deploy <folder> --clean <clean> --mode draft|sealed|live|handover --to preview|production [--i-mean-production] --project <pages project> [--in <signed draft>] [--functions <lead.js>] [--register <file>]",
-      "args": "<folder>: the signed folder, or with --mode sealed the sealed one; folders are absolute paths",
+      "args": "<folder>: the signed folder, or with --mode sealed the sealed one; folders are absolute paths; reads the project with the token before any upload (CLOUDFLARE_API_TOKEN, and CLOUDFLARE_ACCOUNT_ID when the token sees more than one account)",
       "flags": {
         "clean": { "value": true, "help": "the clean build it was signed from" },
         "mode": { "value": true, "help": "draft, sealed, live or handover (live and handover: the owner's go only)" },
@@ -78,9 +78,19 @@
         "functions": { "value": true, "help": "a lead form function, deployed as functions/api/lead.js" },
         "register": { "value": true, "help": "the register file, kept outside the repository (or set SIGN_SITE_REGISTER; one is required)" }
       },
-      "exits": { "0": "deployed, its register line filled", "1": "refused (REFUSED: <why>; nothing deployed), --to production without --i-mean-production, or CLOUDFLARE_API_TOKEN not set", "2": "wrong command line (a mode with another --to included)" },
-      "output": "deployed <project>: <url> (<ID>, stage <stage>); register updated",
+      "exits": { "0": "deployed, its register line filled", "1": "refused (REFUSED: <why>; nothing deployed), --to production without --i-mean-production, CLOUDFLARE_API_TOKEN not set, the token refused for the project (one line: the key file loaded may be the wrong one), the project not readable, or an upload failure (FAILED: ...)", "2": "wrong command line (a mode with another --to included)" },
+      "output": "deployed <project>: <url> (<ID>, stage <stage>); register updated; upload took <n> s",
       "example": "omnikom site deploy /work/demo-site/sealed --in /work/demo-site/draft --clean /work/demo-site/clean --mode sealed --to preview --project demo-site-preview --register /work/register.tsv",
       "timeoutMinutes": 20
+    },
+    "site project": {
+      "script": "tools/site-sign/project-api.mjs", "test": "tools/site-sign/project-api.test.mjs",
+      "summary": "Create or read one Cloudflare Pages project, or set its secrets, through the API (never deletes)",
+      "usage": "omnikom site project create|get <project> | secrets <project> --names A,B",
+      "args": "create|get <project>, or secrets <project>: the project's name (3 to 58 of a-z, 0-9, -); needs CLOUDFLARE_API_TOKEN, and CLOUDFLARE_ACCOUNT_ID when the token sees more than one account (else the one account is looked up); secret values are read from the environment variable of each name and never printed; delete is NOT wrapped (irreversible: the head's own step)",
+      "flags": { "names": { "value": true, "help": "secrets: the secret names, comma separated (A-Z, 0-9, _); each value is read from the environment variable of that name" } },
+      "exits": { "0": "the provider answered success", "1": "the provider refused or did not answer, a secret variable is not set (named), or the token sees no or several accounts and CLOUDFLARE_ACCOUNT_ID is not set", "2": "wrong command line (a delete included)" },
+      "output": "one line: <verb> <project>: HTTP <n>, success <true|false>, address <host>; secrets list names and types only",
+      "example": "omnikom site project secrets demo-site --names LEAD_URL,LEAD_SECRET"
     }
   } }

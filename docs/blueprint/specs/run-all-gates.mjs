@@ -34,7 +34,8 @@ const GATES = [
   // the site signing tools (tools/site-sign/README.md): a --mutants run first runs every case, then its seeded faults; no network, about 1 to 4 minutes
   ['site sign tests + mutants', 'tools/site-sign/sign-site.test.mjs', '--mutants'],
   ['site seal tests + mutants', 'tools/site-sign/seal-site.test.mjs', '--mutants'],
-  ['site deploy tests', 'tools/site-sign/deploy-signed.test.mjs'],
+  ['site deploy tests', 'tools/site-sign/deploy-signed.test.mjs', '--mutants'],
+  ['site project tests + mutants', 'tools/site-sign/project-api.test.mjs', '--mutants'],
   // slice 5-H (after the 2026-11-01 restart: 1021 orphaned Edge processes, 40 Postgres): the guard's tests and mutants, then, LAST, no
   // process may still run from a temp folder of ours after every gate above has ended
   ['process guard tests', 'tools/proc-guard/test/run.mjs'],

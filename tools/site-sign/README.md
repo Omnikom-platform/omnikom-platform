@@ -80,9 +80,9 @@ project and deployment cells are still `-`; with no such line it refuses before 
 - `draft` and `sealed` take only `--to preview`, `live` and `handover` only `--to production`; anything else is exit 2.
 - `--to production` also needs the switch `--i-mean-production` (live and handover deploys are the owner's go only); without it
   the deploy is refused first, before the register, the token, any check or the upload.
-- the register is `--register <file>` or `SIGN_SITE_REGISTER`; it needs `CLOUDFLARE_API_TOKEN` (read by name, never printed);
+- the register is `--register <file>` or `SIGN_SITE_REGISTER`; it needs `CLOUDFLARE_API_TOKEN` (read by name, never printed; and `CLOUDFLARE_ACCOUNT_ID` when the token sees more than one account) and reads the project first: a refused token is one line, the key file loaded may be the wrong one; the last line says how many seconds the upload took;
   `--functions <lead.js>` adds the lead form's function.
-The upload (wrangler) sits behind the seam `run`: `node --max-old-space-size=256 deploy-signed.test.mjs` (13 cases) never touches
+The upload (wrangler) sits behind the seam `run`, the project read behind `probe`, the clock behind `now`: `node --max-old-space-size=256 deploy-signed.test.mjs` (20 cases) never touches
 the network and checks that a passing run calls it once with the project and prints neither the token nor the key.
 
 ## The draft lock (built 2026-11-12)
@@ -193,8 +193,13 @@ four runs in a row on 2026-11-12. The two page-height differences it first showe
 scrolls: 12 and 47 px of page length) are understood and asserted: they equal the sections the browser has not drawn yet (the
 site's `content-visibility:auto`); after one scroll through the page every box matches. Measured only in Edge.
 
+## The go-live commands
+
+### site project
+create or read one Pages project, set its secrets (names only on the line, values read from the environment); never deletes (irreversible: the head's own step); the token is `CLOUDFLARE_API_TOKEN`, the account `CLOUDFLARE_ACCOUNT_ID` when set, else the one account the token sees (none or several: set it by name); other tools of ours call the Pages token `CLOUDFLARE_PAGES_TOKEN`, a different variable, so the key file loaded may be the wrong one (the usual cause of the one token-refused line); a first `create` once answered HTTP 500 and passed on a second run.
+
 ## In the Omnikom CLI
-Five thin rows of `tools/omnikom-cli/registry.json` (the CLI adds no logic): `omnikom site sign` (`--draft|--live|--handover`),
+Six thin rows of `tools/omnikom-cli/registry.json` (the CLI adds no logic; the first five below, the sixth in section "The go-live commands"): `omnikom site sign` (`--draft|--live|--handover`),
 `omnikom site check` (`--check`), `omnikom site seal`, `omnikom site seal-check`, `omnikom site deploy`. The CLI runs a script from
 the repository root, so give folders as absolute paths. Every draft preview is signed and sealed before it is uploaded, every
 go-live is signed `--live`, a handover is signed `--handover`, each behind its check (`docs/product/7-sites.md`, "Signed and
