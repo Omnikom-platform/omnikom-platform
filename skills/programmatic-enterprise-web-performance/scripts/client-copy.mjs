@@ -35,7 +35,7 @@ const assetsDir = path.resolve(opt["--assets"] || path.join(skillDir, "assets", 
 
 // ---- the client file (it lives with the client, never in the repository)
 const KEYS = ["shortName", "nameWord", "alsoSearchedAs", "date", "contact", "labels", "words", "rivals", "adsFor", "linkPlace", "linkCompare", "rivalsLede", "promisePattern", "handReads", "unconfirmedNames"];
-const WORDS = { buyer: "buyer", buyers: "buyers", applicant: "enquirer", application: "enquiry form", apply: "get in touch", applies: "gets in touch", pastCustomer: "past customer", outcome: "customers", offers: "messages", product: "service", products: "services", localRivals: "businesses", optionalNote: "with or without its optional part", otherKind: "another business" };
+const WORDS = { buyer: "buyer", buyers: "buyers", applicant: "enquirer", application: "enquiry form", apply: "get in touch", applies: "gets in touch", pastCustomer: "past customer", outcome: "customers", offers: "messages", product: "service", products: "services", localRivals: "businesses", optionalNote: "with or without its optional part", otherKind: "another business", applying: "getting in touch" };
 const HANDS = ["leadPath", "mail", "domain", "trust", "trustKey", "filing"];
 const isText = (v) => typeof v === "string" && v.trim() !== "";
 const isTexts = (v) => Array.isArray(v) && v.every(isText);

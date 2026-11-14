@@ -1,5 +1,5 @@
 // Usage: node test-copy-design.mjs [--scripts <dir>] [--quiet] [--mutants] [--only <id>]
-// Test of client-copy-design.mjs (the approved design of the client copy: frame, cover, pages 2 to 4) and of what it reads, on two INVENTED
+// Test of client-copy-design.mjs (the approved design of the client copy: frame, cover, pages 2 to 8) and of what it reads, on two INVENTED
 // businesses built in a temporary folder: the new data keys of client-copy-data.mjs behind cfg.newCopy, the two new client-file keys of
 // client-copy.mjs, the pages in process. No network, no browser, no repository file is read except the skill's own client-copy/ folder.
 // --mutants: watched-fail. Copies the skill, breaks one thing at a time, runs this test against the copy and requires the named
@@ -40,7 +40,7 @@ if (args.includes("--mutants")) {
     { id: "f18-in-list-unchecked", file: "client-copy-data.mjs", from: 'if (t.counts["top three"] + t.counts.listed !== s.inPack) stop(', to: "if (false) stop(", red: "case 4:" },
     { id: "f19-flag-always-on", file: "client-copy-data.mjs", from: "if (cfg.newCopy) {", to: "if (true) {", red: "case 2:" },
     { id: "f20-client-key-not-accepted", file: "client-copy.mjs", from: '"handReads", "unconfirmedNames"];', to: '"handReads"];', red: "case 1:" },
-    { id: "f21-other-kind-word-not-accepted", file: "client-copy.mjs", from: ', otherKind: "another business" };', to: " };", red: "case 1:" },
+    { id: "f21-other-kind-word-not-accepted", file: "client-copy.mjs", from: ', otherKind: "another business", applying: "getting in touch" };', to: ', applying: "getting in touch" };', red: "case 1:" },
     { id: "f22-unconfirmed-names-unchecked", file: "client-copy.mjs", from: '"adsFor", "unconfirmedNames"]) if', to: '"adsFor"]) if', red: "case 1:" },
     { id: "f23-missing-value-printed", file: "client-copy-design.mjs", from: "const P = (key, shown, label, pick) => { if (miss(shown)) stop(", to: "const P = (key, shown, label, pick) => { if (false) stop(", red: "case 9:" },
     { id: "f24-missing-addend-summed", file: "client-copy-design.mjs", from: "if (miss(v)) stop(", to: "if (false) stop(", red: "case 9:" },
@@ -113,6 +113,51 @@ if (args.includes("--mutants")) {
     { id: "f91-pack-ignored", file: "client-copy-data.mjs", from: "city: gp[i].city, pack: get(", to: "city: gp[i].city, pack: [] || get(", red: "case 18:" },
     { id: "f92-client-always-first", file: "client-copy-data.mjs", from: "clientAt: ms.rows.findIndex((r) => r.isTheClient)", to: "clientAt: 0", red: "case 18:" },
     { id: "f93-other-product-for-who-maps-shows", file: "client-copy-data.mjs", from: "s.key === demand[0].key && s.cityName === home), msQ", to: "s.key === demand[1].key && s.cityName === home), msQ", red: "case 18:" },
+    { id: "f94-takes-guard-off", file: "client-copy-design.mjs", from: 'if (D.takes === null) stop(', to: "if (false) stop(", red: "case 27:" },
+    { id: "f95-application-guard-off", file: "client-copy-design.mjs", from: "if (!D.formAsks.taxId || !D.formAsks.ssn || !(D.formFieldsOne < D.formFields)) stop(", to: "if (false) stop(", red: "case 27:" },
+    { id: "f96-none-linked-guard-off", file: "client-copy-design.mjs", from: "if (pr.inCard !== 0) stop(", to: "if (false) stop(", red: "case 27:" },
+    { id: "f97-licence-guard-off", file: "client-copy-design.mjs", from: "if (D.licenceWords !== 0) stop(", to: "if (false) stop(", red: "case 27:" },
+    { id: "f98-works-guard-off", file: "client-copy-design.mjs", from: "for (const k of v2) if (!D[k]) stop(", to: "for (const k of v2) if (false) stop(", red: "case 29:" },
+    { id: "f99-four-steps-guard-off", file: "client-copy-design.mjs", from: "if (!Array.isArray(steps) || steps.length !== 4) stop(", to: "if (false) stop(", red: "case 29:" },
+    { id: "f100-pre-draw-order", file: "client-copy-design.mjs", from: 'for (const k of ["takes", "brokenApply", "spfClause"])', to: 'for (const k of ["spfClause", "brokenApply", "takes"])', red: "case 25:" },
+    { id: "f101-every-row-prints", file: "client-copy-design.mjs", from: "const live = fixes.filter((f) => RULES[f.when]()), memo = {};", to: "const live = fixes.filter((f) => true), memo = {};", red: "case 25:" },
+    { id: "f102-promise-outcome-typed", file: "client-copy-design.mjs", from: 'std.promise.replace("{outcome}", w.outcome)', to: 'std.promise.replace("{outcome}", "customers")', red: "case 28:" },
+    { id: "f103-listed-pages-inverted", file: "client-copy-design.mjs", from: 'D.productPages.listed === 0 ? "none"', to: 'D.productPages.listed !== 0 ? "none"', red: "case 25:" },
+    { id: "f104-fix-and-gets-swapped", file: "client-copy-design.mjs", from: "const R = live.map((f) => [fill(f.fix), fill(f.gets), f.who, f.see]);", to: "const R = live.map((f) => [fill(f.gets), fill(f.fix), f.who, f.see]);", red: "case 25:" },
+    { id: "f105-page-count-not-drawn", file: "client-copy-design.mjs", from: 'PC(String(all.length), "page count in the footers"', to: 'void (String(all.length), "page count in the footers"', red: "case 28:" },
+    { id: "f106-applying-key-not-accepted", file: "client-copy.mjs", from: 'otherKind: "another business", applying: "getting in touch" };', to: 'otherKind: "another business" };', red: "case 24:" },
+    { id: "f107-fixes-count-not-drawn", file: "client-copy-design.mjs", from: '${PC(String(R.length), "fixes", "count of the plan rows printed")}', to: "${String(R.length)}", red: "case 25:" },
+    { id: "f108-licence-row-not-cited", file: "client-copy-design.mjs", from: 'when === "trustRead"', to: 'when === "noSuchRule"', red: "case 25:" },
+    { id: "f109-slow-phone-inverted", file: "client-copy-design.mjs", from: "lcpSlow = Number(D.lcpS) > Number(D.goodLcpS)", to: "lcpSlow = Number(D.lcpS) < Number(D.goodLcpS)", red: "case 25:" },
+    { id: "f110-two-addresses-are-not-enough", file: "client-copy-design.mjs", from: "addressesDiffer: () => D.addresses.length > 1,", to: "addressesDiffer: () => D.addresses.length > 2,", red: "case 25:" },
+    { id: "f111-spf-clause-needs-three", file: "client-copy-design.mjs", from: "(D.mail.spf > 1 ? ", to: "(D.mail.spf > 2 ? ", red: "case 25:" },
+    { id: "f112-spf-clause-always", file: "client-copy-design.mjs", from: "(D.mail.spf > 1 ? ", to: "(true ? ", red: "case 26:" },
+    { id: "f113-renew-clause-always", file: "client-copy-design.mjs", from: "renewClause: () => (D.renewBy ? ", to: "renewClause: () => (true ? ", red: "case 26:" },
+    { id: "f114-claim-list-listed-ones", file: "client-copy-design.mjs", from: 'claimList: () => rt(andList(D.directories.filter((r) => r.status === "not listed")', to: 'claimList: () => rt(andList(D.directories.filter((r) => r.status === "listed")', red: "case 25:" },
+    { id: "f115-top-product-not-lowered", file: "client-copy-design.mjs", from: "topProduct: () => rt(T7.lower)", to: "topProduct: () => rt(T7.product)", red: "case 25:" },
+    { id: "f116-second-is-the-first", file: "client-copy-design.mjs", from: "secondLower: () => rt(D.demand[1].lower)", to: "secondLower: () => rt(D.demand[0].lower)", red: "case 25:" },
+    { id: "f117-other-count-off-by-one", file: "client-copy-design.mjs", from: 'P("demand", D.demand.length - 2,', to: 'P("demand", D.demand.length - 1,', red: "case 25:" },
+    { id: "f118-listed-count-wrong", file: "client-copy-design.mjs", from: ': P("productPages", D.productPages.listed, ', to: ': P("productPages", D.productPages.listed + 1, ', red: "case 26:" },
+    { id: "f119-file-text-not-escaped", file: "client-copy-design.mjs", from: "? ph(s.slice(1, -1)) : esc(s)", to: "? ph(s.slice(1, -1)) : s", red: "case 26:" },
+    { id: "f120-who-not-escaped", file: "client-copy-design.mjs", from: "<td>${esc(wh)}</td>", to: "<td>${wh}</td>", red: "case 26:" },
+    { id: "f121-see-not-escaped", file: "client-copy-design.mjs", from: '<td class="see">${esc(se)}</td>', to: '<td class="see">${se}</td>', red: "case 26:" },
+    { id: "f122-dmarc-always-missing", file: "client-copy-design.mjs", from: 'D.mail.dmarcMissing ? "missing" : "found"', to: '"missing"', red: "case 26:" },
+    { id: "f123-analytics-row-not-cited", file: "client-copy-design.mjs", from: 'f.when === "noAnalyticsTag"', to: 'f.when === "noSuchRule"', red: "case 25:" },
+    { id: "f124-mail-row-not-cited", file: "client-copy-design.mjs", from: 'f.when === "mailProblem"', to: 'f.when === "noSuchRule"', red: "case 25:" },
+    { id: "f125-unknown-rule-allowed", file: "client-copy-design.mjs", from: "if (!RULES[f.when]) stop(", to: "if (false) stop(", red: "case 26:" },
+    { id: "f126-unknown-placeholder-allowed", file: "client-copy-design.mjs", from: "if (!PH[m[1]]) stop(", to: "if (false) stop(", red: "case 26:" },
+    { id: "f127-bullets-under-step-two", file: "client-copy-design.mjs", from: '${i === 0 ? `<ul class="draft">', to: '${i === 1 ? `<ul class="draft">', red: "case 28:" },
+    { id: "f128-step-where-always-first", file: "client-copy-design.mjs", from: "`nextSteps[${i}]`, s[1]", to: "`nextSteps[0]`, s[1]", red: "case 28:" },
+    { id: "f129-headline-word-typed", file: "client-copy-design.mjs", from: "finds you and ${esc(w.applies)}.", to: "finds you and gets in touch.", red: "case 25:" },
+    { id: "f130-applying-typed", file: "client-copy-design.mjs", from: "applying: () => esc(w.applying)", to: 'applying: () => "getting in touch"', red: "case 25:" },
+    { id: "f131-last-step-typed", file: "client-copy-design.mjs", from: "for ${esc(steps[3][1])} we keep it", to: "for 12 months we keep it", red: "case 28:" },
+    { id: "f132-profiles-pick-dropped", file: "client-copy-design.mjs", from: 'return P("profiles", pr.total, "profiles", "rows (length)");', to: 'return P("profiles", pr.total, "profiles");', red: "case 25:" },
+    { id: "f133-rivals-linked-pick-dropped", file: "client-copy-design.mjs", from: 'D.linkPlaces.metro, `rivals linked from ${client.linkPlace}`, "opportunities[")', to: "D.linkPlaces.metro, `rivals linked from ${client.linkPlace}`)", red: "case 25:" },
+    { id: "f134-broken-links-pick-dropped", file: "client-copy-design.mjs", from: ', "linksBroken");', to: ");", red: "case 25:" },
+    { id: "f135-home-dash-kept", file: "client-copy-design.mjs", from: "home: () => rt(home)", to: "home: () => esc(home)", red: "case 26:" },
+    { id: "f136-top-product-dash-kept", file: "client-copy-design.mjs", from: "topProduct: () => rt(T7.lower)", to: "topProduct: () => esc(T7.lower)", red: "case 26:" },
+    { id: "f137-second-product-dash-kept", file: "client-copy-design.mjs", from: "secondLower: () => rt(D.demand[1].lower)", to: "secondLower: () => esc(D.demand[1].lower)", red: "case 26:" },
+    { id: "f138-claim-list-dash-kept", file: "client-copy-design.mjs", from: "claimList: () => rt(andList(", to: "claimList: () => esc(andList(", red: "case 26:" },
     // @@MUT (job R2b adds its seeded faults above this line; keep it verbatim)
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ccopy-mut-"));
@@ -179,7 +224,7 @@ const A = () => mk({
   siteAddr: "14 Cedar Row, Alder Bay, WA", gAddr: "14 Cedar Row, Alder Bay, WA", bAddr: "9 Mill Lane, Alder Bay, WA", fAddr: "22 Harbor Street, Alder Bay, WA", hasFiling: true,
   sitemapUrls: 0, sitemapType: "text/html", notFound: 200, rangeFrom: "2026-10-15", rangeTo: "2026-11-13", seedsN: 7, rowsN: 31,
   serpProduct: [null, null, null, null, null, null], serpName: [1, 3], serpSite: [1], serpNick: [null], nick: "alder roofs", nameQ: "alder bay roofing",
-  missing: ["roof repair", "roof replacement", "gutter installation"], desc: "", services: [], broken: true, social: ["instagram", "youtube", "linkedin"], sameAs: 1,
+  missing: ["roof repair", "roof replacement", "gutter installation"], desc: "", services: [], broken: true, social: ["instagram", "youtube", "linkedin"], sameAs: 0,
   faqHeading: true, cites: [["bing.com (Bing Places)", "listed", true], ["apple.com (Apple Maps)", "not listed"], ["yelp.com", "listed"], ["manta.com", "not listed"]],
   hands: true, mailProblem: true, qNames: ["who is alder bay roofing", "best roof repair near me", "gutter installation cost", "alder bay roofing reviews"], shares: [0.4, 0, 0, 0.2],
 });
@@ -305,7 +350,7 @@ function makeRun(s) {
 const clientFor = (s, over = {}) => {
   const c = {
     contact: "none", alsoSearchedAs: [s.nick], nameWord: "alder bay roofing", labels: { "roof repair": "Roof repair and patching" }, unconfirmedNames: ["summit-shingle.test"],
-    words: { buyer: "homeowner", buyers: "homeowners", applicant: "caller", application: "quote form", apply: "ask for a quote", applies: "asks for a quote", pastCustomer: "happy customer", outcome: "jobs", offers: "emails", product: "job type", products: "job types", localRivals: "roofers", optionalNote: "with or without a second contact", otherKind: "another roofer" },
+    words: { buyer: "homeowner", buyers: "homeowners", applicant: "caller", application: "quote form", apply: "ask for a quote", applies: "asks for a quote", pastCustomer: "happy customer", outcome: "jobs", offers: "emails", product: "job type", products: "job types", localRivals: "roofers", optionalNote: "with or without a second contact", otherKind: "another roofer", applying: "applying" },
     rivals: [{ domain: s.rivals[0].domain, name: null, type: "local roofer", group: "local" }, { domain: s.rivals[1].domain, name: "Harbor", type: "local gutter shop", group: "local" }, { domain: s.rivals[2].domain, name: null, type: "national roofer", group: "nat" }],
     adsFor: [s.rivals[0].domain, s.rivals[1].domain], linkPlace: "pinehollow-chamber.test", linkCompare: { group: "nat", label: "national roofers" },
     rivalsLede: "Alder Bay roofers and one national chain, then the rest.", promisePattern: "Quotes in \\d+ days?",
@@ -336,23 +381,31 @@ const cleanText = (h) => h.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>
 const sheetRows = (tsv) => tsv.split("\n").slice(1).filter(Boolean).map((l) => l.split("\t"));
 
 // ---------------------------------------------------------------- what the cases need: words, the data layer's config, the pages, two runs
-const W0 = { buyer: "buyer", buyers: "buyers", applicant: "enquirer", application: "enquiry form", apply: "get in touch", applies: "gets in touch", pastCustomer: "past customer", outcome: "customers", offers: "messages", product: "service", products: "services", localRivals: "businesses", optionalNote: "with or without its optional part", otherKind: "another business" };
-const cfgOf = (run, client, newCopy) => ({ pewp: run.pewp, snapAbs: path.join(path.dirname(run.pewp), "snapshots", "2026-11-10-2"), snapRel: "snapshots/2026-11-10-2", client, hand: { leadPath: null, mail: null, domain: null, trust: null, filing: null }, bookAbs: run.book, backingAbs: path.join(skill, "client-copy", "backing.json"), dirNames: JSON.parse(fs.readFileSync(path.join(skill, "client-copy", "directories.json"), "utf8")), newCopy });
-const std = JSON.parse(fs.readFileSync(path.join(skill, "client-copy", "standard-copy.json"), "utf8"));
-const ctxOf = (col, client) => ({ D: col.D, S: col.S, fmt: col.fmt, w: { ...W0, ...(client.words || {}) }, std, client, draft: true, contact: null, notRead: [], fixes: [], logoUrl: "file:///logo.png", fontsUrl: "file:///fonts.css" });
+const W0 = { buyer: "buyer", buyers: "buyers", applicant: "enquirer", application: "enquiry form", apply: "get in touch", applies: "gets in touch", pastCustomer: "past customer", outcome: "customers", offers: "messages", product: "service", products: "services", localRivals: "businesses", optionalNote: "with or without its optional part", otherKind: "another business", applying: "getting in touch" };
+// R3b: the hand reads the client file names, resolved as the command does (cfgOf's 4th argument); without it the run has no hand reads
+const handOf = (run, client) => { const hr = client.handReads || {}; const one = (k) => { if (!hr[k] || (k === "trust" && !hr.trustKey)) return null; const i = hr[k].indexOf(":"), kind = hr[k].slice(0, i), rel = hr[k].slice(i + 1); return kind === "pewp" ? { abs: path.join(run.pewp, rel), label: `.pewp/${rel}` } : { abs: path.join(run.client, rel), label: path.basename(rel) }; }; return { leadPath: one("leadPath"), mail: one("mail"), domain: one("domain"), trust: one("trust"), filing: one("filing") }; };
+const cfgOf = (run, client, newCopy, hands = false) => ({ pewp: run.pewp, snapAbs: path.join(path.dirname(run.pewp), "snapshots", "2026-11-10-2"), snapRel: "snapshots/2026-11-10-2", client, hand: hands ? handOf(run, client) : { leadPath: null, mail: null, domain: null, trust: null, filing: null }, bookAbs: run.book, backingAbs: path.join(skill, "client-copy", "backing.json"), dirNames: JSON.parse(fs.readFileSync(path.join(skill, "client-copy", "directories.json"), "utf8")), newCopy });
+// R3b: the wording files of pages 7 and 8 (null when absent, so the test says so in case 24 and does not stop)
+const readW = (f) => { try { return JSON.parse(fs.readFileSync(path.join(skill, "client-copy", f), "utf8")); } catch { return null; } };
+const std = readW("how-we-work.json") || {}, plan = readW("plan.json") || [];
+const ctxOf = (col, client) => ({ D: col.D, S: col.S, fmt: col.fmt, w: { ...W0, ...(client.words || {}) }, std, client, draft: true, contact: null, notRead: [], fixes: plan, logoUrl: "file:///logo.png", fontsUrl: "file:///fonts.css" });
 const { collect } = await import(pathToFileURL(path.join(dir, "client-copy-data.mjs")).href + "?" + Math.random());
 let DM = null;
 try { DM = await import(pathToFileURL(path.join(dir, "client-copy-design.mjs")).href + "?" + Math.random()); } catch {}
-const bp = (col, client) => DM.buildPages(ctxOf(col, client));
+const bp = (col, client, over = {}) => DM.buildPages({ ...ctxOf(col, client), ...over });
 const stopOf = (fn) => { try { fn(); return ""; } catch (e) { return e.isStop ? e.message : "NOT A STOP: " + e.message; } };
-const built = (col, client) => { try { return { r: bp(col, client) }; } catch (e) { return { err: e.stack || String(e) }; } };
+const built = (col, client, over = {}) => { try { return { r: bp(col, client, over) }; } catch (e) { return { err: e.stack || String(e) }; } };
 
 const runA = makeRun(A()), sA = runA.spec, clientA = clientFor(sA);
 const runB = makeRun(B()), sB = runB.spec;
 const clientB = clientFor(sB, { rivals: [{ domain: sB.rivals[0].domain, name: null, type: "dental clinic", group: "local" }, { domain: sB.rivals[1].domain, name: null, type: "dentist group", group: "local" }], adsFor: [sB.rivals[0].domain, sB.rivals[1].domain], linkPlace: "pinehollow-chamber.test", linkCompare: undefined, rivalsLede: "Two local practices, then the rest.", promisePattern: undefined, handReads: undefined, alsoSearchedAs: undefined, nameWord: "northgate family dental", labels: undefined });
 let colA = null, colB = null;
 try { colA = collect(cfgOf(runA, clientA, true)); colB = collect(cfgOf(runB, clientB, true)); } catch (e) { console.log("SETUP: " + e.message); }
-const bA = built(colA, clientA), bB = built(colB, clientB);
+// R3b: run A with its hand reads (pages 7 and 8 name the application, the mail records, the domain and the licence wording)
+let colH = null;
+try { colH = collect(cfgOf(runA, clientA, true, true)); } catch (e) { console.log("SETUP (hand reads): " + e.message); }
+const withH = (r, client) => collect(cfgOf(r, client, true, true));
+const bA = built(colA, clientA), bB = built(colB, clientB), bH = colH ? built(colH, clientA) : { err: "no hand-read collection" };
 const WA = clientA.words;
 const lowerFirst = (s) => s.replace(/^[A-Z](?=[a-z])/, (c) => c.toLowerCase());
 const upFirst = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -482,7 +535,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   if (!tA.includes("job types") || /product/i.test(tA)) bad.push("the words on run A");
   if (!tA.includes("for gutter installation and for roof repair and patching")) bad.push("the F line of run A");
   if (!tA.includes("Pine Hollow and Stonebrook")) bad.push("the away list of run A");
-  if (!tB.includes("for teeth cleaning") || tB.includes(" and for ")) bad.push("the F line of run B");
+  if (!tB.includes("for teeth cleaning") || tB.includes("for teeth cleaning and for ")) bad.push("the F line of run B");
   if (!tB.includes("Elm Ridge")) bad.push("the away list of run B");
   const got = pageRows(bB.r.tsv, 2).map((r) => [r[1], r[2]]);
   if (!same(got, rows2(sB, clientB))) bad.push(`rows of run B ${JSON.stringify(got)}`);
@@ -603,9 +656,9 @@ const wantStop = (bad, name, got, text) => { if (!got.startsWith("STOP: ") || !g
   if (!p) return [false, "no page 4"];
   const h4 = p.split("</section>")[0], cnt = (re) => (h4.match(re) || []).length, t4 = cleanText(h4);
   if (cnt(/<td class="qq">/g) !== 3 || cnt(/class="dot on"/g) !== 3 || cnt(/names you<\/span>/g) !== 3 || cnt(/asks for you by name/g) !== 1) bad.push("the grid");
-  for (const t of ["Zinc Roofs, Birch Roofs and 2 more", "Birch Roofs, Cedar Roofs</span>", "Cedar Roofs</span>", "Link your 3 profiles in the company details your site gives Google.", "Today 1 of 3 are linked.", "Named instead, across 6 answers", "Today the first response holds no words for an AI answer to use (page 3)."]) if (!h4.includes(t) && !t4.includes(t)) bad.push(`no ${t}`);
+  for (const t of ["Zinc Roofs, Birch Roofs and 2 more", "Birch Roofs, Cedar Roofs</span>", "Cedar Roofs</span>", "Link your 3 profiles in the company details your site gives Google.", `Today ${sA.sameAs} of 3 are linked.`, "Named instead, across 6 answers", "Today the first response holds no words for an AI answer to use (page 3)."]) if (!h4.includes(t) && !t4.includes(t)) bad.push(`no ${t}`);
   const rows = pageRows(tsv, 4), got = rows.map((r) => [r[1], r[2]]);
-  const want = [["more businesses named, question 1, Perplexity", "2"], [`answers naming ${sA.rivals[0].name}`, "9"], [`answers naming ${sA.rivals[1].name}`, "6"], [`answers naming ${sA.rivals[2].name}`, "3"], [`${WA.products} with a page`, "0"], [WA.products, "3"], ["FAQ answers marked", "0"], ["FAQ answers", "2"], ["profiles linked", "1"], ["profiles", "3"], ["ChatGPT", "2 of 3"], ["Perplexity", "1 of 3"], ["Google AI answers that name you", "2 of 4"], ["profiles to link", "3"], ["questions asked", "3"], ["answers from both assistants", "6"]];
+  const want = [["more businesses named, question 1, Perplexity", "2"], [`answers naming ${sA.rivals[0].name}`, "9"], [`answers naming ${sA.rivals[1].name}`, "6"], [`answers naming ${sA.rivals[2].name}`, "3"], [`${WA.products} with a page`, "0"], [WA.products, "3"], ["FAQ answers marked", "0"], ["FAQ answers", "2"], ["profiles linked", String(sA.sameAs)], ["profiles", "3"], ["ChatGPT", "2 of 3"], ["Perplexity", "1 of 3"], ["Google AI answers that name you", "2 of 4"], ["profiles to link", "3"], ["questions asked", "3"], ["answers from both assistants", "6"]];
   if (!same(got, want)) bad.push(`rows ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
   if (rows.some((r) => r.length !== 8 || r.some((c) => c === ""))) bad.push("a row has an empty cell");
   const find = (l) => rows.find((r) => r[1] === l) || [];
@@ -789,8 +842,8 @@ const firstAt = (j) => j.points.findIndex((p) => p.query === queryA);
 { const [ok, detail] = T(() => {
   if (bA.err) return [false, bA.err];
   const { html, tsv, pages } = bA.r, bad = [], n = (re) => (html.match(re) || []).length, t = cleanText(html);
-  if (pages !== 6 || n(/<section class="(?:cover|pg)"/g) !== 6) bad.push(`sections ${n(/<section class="(?:cover|pg)"/g)} / ${pages}`);
-  for (let i = 2; i <= 6; i++) if (!html.includes(`<b>${i} / 6</b>`)) bad.push(`footer ${i}`);
+  if (pages < 6 || n(/<section class="(?:cover|pg)"/g) !== pages) bad.push(`sections ${n(/<section class="(?:cover|pg)"/g)} / ${pages}`);
+  for (let i = 2; i <= pages; i++) if (!html.includes(`<b>${i} / ${pages}</b>`)) bad.push(`footer ${i}`);
   if (/[\u2013\u2014]/.test(html + tsv) || html.includes("@@")) bad.push("a dash or an anchor");
   if (/product/i.test(t) || !t.includes("job types")) bad.push("the client's words");
   const rows = sheetRows(tsv);
@@ -802,7 +855,194 @@ const firstAt = (j) => j.points.findIndex((p) => p.query === queryA);
   if (!same(counts, [8, rows2(sA, clientA).length, 25, 16, rows5(sA, clientA).length, rows6(sA, clientA).length])) bad.push(`rows per page ${counts}`);
   if (!same(pageRows(tsv, 2).map((r) => [r[1], r[2]]), rows2(sA, clientA))) bad.push("page 2 rows changed");
   return [bad.length === 0, bad.join(" | ")];
-}); check("case 23: THE WHOLE: 6 sections, footers n / 6, no dash and no anchor, the client's words, 8 filled cells in every row, no two rows alike, the sheet in page order, the rows of pages 1 to 4 as before", ok, detail); }
+}); check("case 23: THE WHOLE: 6 or more sections, footers n / pages, no dash and no anchor, the client's words, 8 filled cells in every row, no two rows alike, the sheet in page order, the rows of pages 1 to 4 as before", ok, detail); }
+// ---------------------------------------------------------------- R3b: the two wording files and pages 7 and 8
+const pg = (html, n) => (html.split(`<section class="pg" id="p${n}">`)[1] || "").split("</section>")[0];
+const STEP_TITLES = ["We draft your website", "You take a look", "It goes live", "12 months"];
+// the [label, printed] list that page 7 must put on the sheet for run A with its hand reads, in the order of the calls, from the spec alone
+const rows7 = (s, client, o = {}) => {
+  const top = order(s, client)[0], W = client.words, n = o.slow ? 12 : 11, R = [];
+  R.push(["Quotes in N days, on the home page", "Quotes in 5 days"], ["profile links that open an error page (Instagram, YouTube)", "2"], ["sender records found", String(s.spf)]);
+  R.push(["words from the home page", "0"], ["fields, one owner", String(s.fieldsOne)], ["fields, two owners", String(s.fields)], [`share of demand, ${top.lab}`, `${Math.round((100 * Math.max(...s.vol)) / s.vol.reduce((a, b) => a + b, 0))}%`], [`other ${W.product} pages`, "1"], ["addresses", "3"], ["domain expiry", "9 Mar 2027"], [`rivals linked from ${client.linkPlace}`, fmt(s.metro)]);
+  if (o.slow) R.push(["seconds on a phone", "3.9"], ["seconds, Google's mark", "2.5"]);
+  R.push(["profiles", "3"], ["number of fixes", String(n)], ["licence wording on the home page", "0"], ["analytics host in the test visit", "fonts only"], ["domain's sender records, DMARC", `spf ${s.spf}, dmarc missing`], ["fixes", String(n)]);
+  return R;
+};
+// the [label, printed] list of page 8
+const rows8 = (s, client) => [["product rows that read WORKS", "D3 D4 A1 D6 D10 D8 D1 D3 A20 E14"], ...STEP_TITLES.map((t, i) => [`step ${i + 1} title`, t]), [client.words.products, String(s.products.length)], [`${client.words.product} searches that show you`, `${s.serpProductWithUs} of ${s.serpProductN}`], [`${client.words.products} with a page`, `${s.products.length - s.missing.length} of ${s.products.length}`], ["words in the first response", "0 words"], ["page count in the footers", "8"]];
+// the eleven rows that print for run A (every row of plan.json but speed): [fix, gets, who, see], in html text
+const cells7 = (s, client) => {
+  const W = client.words, top = order(s, client)[0], sec = order(s, client)[1], share = Math.round((100 * Math.max(...s.vol)) / s.vol.reduce((a, b) => a + b, 0));
+  return [
+    ["Send the words of every public page in the first response.", "Google, Bing and ChatGPT read each page. Today your home page sends them 0 words.", "Omnikom, in the site we draft", "Page 3"],
+    ["Fix the link to your site on Instagram and YouTube.", "Buyers who tap it reach your site. Today it opens an error page. Check it: tap the website link in your Instagram and YouTube profiles.", "You and Omnikom", "This page"],
+    [`Add a visitor counter, so you can see where each ${W.applicant} came from.`, `Each ${W.applicant} traced to the channel that brought them. Today none can be.`, "Omnikom, in the site we draft", "This page"],
+    [`Ask for less in the first step of the ${W.application}.`, `A first step that matches "Quotes in 5 days". Today it asks ${s.fieldsOne} to ${s.fields} fields, including tax ID and each owner's SSN. Check it: count the fields on the ${W.application}.`, "You and Omnikom", "This page"],
+    [`Build the ${top.lower} page first, then ${sec.lower}.`, `A page for the search most buyers type: ${share}% of your demand.`, "Omnikom and you", "Page 2"],
+    [`Build the other 1 ${W.product} pages, each with a ${s.home} line.`, `A page that Google and Bing can list for each ${W.product}. Today they list none.`, "Omnikom and you", "Page 2"],
+    ["One address everywhere; fill in your Google profile; claim Apple Maps and Manta.", "One address a buyer can trust. Today they find 3.", "You, then Omnikom", "Page 5"],
+    ["Prove your email is yours: fix the email records (one sender record, not 2); renew the domain before 9 Mar 2027.", `Your ${W.offers} are less likely to land in spam.`, "Whoever runs your domain", "This page"],
+    ["Publish your company history and your license details.", `A buyer can check who you are before ${W.applying}. Today your home page shows no license wording.`, "You and Omnikom", "This page"],
+    [`Join the ${s.home} chambers and ask for listings.`, `Links from places that already link to your rivals. ${client.linkPlace} links to ${fmt(s.metro)}, and not to you.`, "You and Omnikom", "Page 6"],
+    ["Name your 3 profiles in the company details your site gives Google.", "Google and AI assistants learn which profiles are yours. Today none is linked.", "Omnikom, in the site we draft", "Page 4"],
+  ];
+};
+
+{ const [ok, detail] = T(() => {
+  const bad = [], raw = (f) => { try { return fs.readFileSync(path.join(skill, "client-copy", f), "utf8"); } catch { return ""; } };
+  const ids = ["words", "profile-link", "analytics", "application", "top-page", "other-pages", "address", "mail", "licence", "chambers", "speed", "card"];
+  const who = ["Omnikom, in the site we draft", "You and Omnikom", "Omnikom, in the site we draft", "You and Omnikom", "Omnikom and you", "Omnikom and you", "You, then Omnikom", "Whoever runs your domain", "You and Omnikom", "You and Omnikom", "Omnikom, in the site we draft", "Omnikom, in the site we draft"];
+  const see = ["Page 3", "This page", "This page", "This page", "Page 2", "Page 2", "Page 5", "This page", "This page", "Page 6", "Page 3", "Page 4"];
+  if (!Array.isArray(plan) || plan.length !== 12) bad.push(`plan.json holds ${Array.isArray(plan) ? plan.length : "no"} rows`);
+  else plan.forEach((f, i) => {
+    if (JSON.stringify(Object.keys(f)) !== JSON.stringify(["id", "when", "fix", "gets", "who", "see"])) bad.push(`row ${i + 1} keys ${Object.keys(f)}`);
+    for (const k of ["id", "when", "fix", "gets", "who", "see"]) if (typeof f[k] !== "string" || f[k].trim() === "") bad.push(`row ${i + 1} has no ${k}`);
+    if (f.id !== ids[i] || f.who !== who[i] || f.see !== see[i]) bad.push(`row ${i + 1}: ${f.id} / ${f.who} / ${f.see}`);
+  });
+  if (bH.err && /names the rule|names \{/.test(bH.err)) bad.push(`a row of plan.json names a rule or a placeholder the module lacks: ${bH.err.split("\n")[0]}`);
+  const sw = std.nextSteps;
+  if (!Array.isArray(sw) || sw.length !== 4 || sw.some((x) => !Array.isArray(x) || x.length !== 3 || x.some((t) => typeof t !== "string" || !t.trim()))) bad.push("how-we-work.json nextSteps is not 4 steps of 3 texts");
+  else if (JSON.stringify(sw.map((x) => x[1])) !== JSON.stringify(STEP_TITLES)) bad.push(`titles ${sw.map((x) => x[1])}`);
+  else if (!sw[3][2].endsWith("We add your site to our Search Console and report its numbers to you.")) bad.push("step 4 does not end with the Search Console sentence");
+  if (!Array.isArray(std.draftContains) || std.draftContains.length !== 3 || std.draftContains.some((t) => typeof t !== "string" || !t.trim()) || !std.draftContains[0].includes("{n}") || !std.draftContains[0].includes("{products}")) bad.push("draftContains is not 3 texts, the first with {n} and {products}");
+  for (const k of ["goAhead", "promise"]) if (typeof std[k] !== "string" || !std[k].trim()) bad.push(`how-we-work.json has no ${k}`);
+  if (typeof std.promise === "string" && !std.promise.includes("{outcome}")) bad.push("promise has no {outcome}");
+  for (const f of ["plan.json", "how-we-work.json"]) { const t = raw(f); if (t === "") bad.push(`${f} is missing`); if (/[\u2013\u2014]|Users/.test(t)) bad.push(`${f} holds a dash or a user path`); }
+  const good = go(runA, { client: clientFor(sA, { words: { ...clientFor(sA).words, applying: "going ahead" } }) });
+  if (good.status !== 0) bad.push(`words.applying: exit ${good.status}: ${good.stderr}`);
+  const empty = go(runA, { client: clientFor(sA, { words: { ...clientFor(sA).words, applying: "" } }) });
+  if (empty.status !== 2) bad.push(`words.applying empty: exit ${empty.status}: ${empty.stderr}`);
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 24: THE FILES: plan.json is 12 rows of 6 texts (ids, who and told-on pinned) whose rules and placeholders the module knows; how-we-work.json is 4 steps of 3 texts, 3 bullets, a go-ahead and a promise; no dash and no user path; the command takes words.applying and refuses an empty one", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  if (bH.err) return [false, bH.err];
+  const { html, tsv } = bH.r, h7 = pg(html, 7), bad = [];
+  if (!h7) return [false, "no page 7"];
+  const h7n = h7.replace(/\n/g, ""), t7 = cleanText(h7);  const rows = pageRows(tsv, 7), got = rows.map((r) => [r[1], r[2]]), want = rows7(sA, clientA);
+  if (!same(got, want)) bad.push(`rows ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
+  if (rows.some((r) => r.length !== 8 || r.some((c) => c === ""))) bad.push("a row has an empty cell");
+  const whereOf = (l) => (rows.find((r) => r[1] === l) || [])[4] || "";
+  const brokenL = "profile links that open an error page (Instagram, YouTube)", metroL = `rivals linked from ${clientA.linkPlace}`;
+  if (!whereOf(brokenL).includes("linksBroken") || whereOf(brokenL).includes("sameAs")) bad.push("pick of the broken links");
+  if (!whereOf("profiles").includes("rows (length)") || whereOf("profiles").includes("sameAs")) bad.push("pick of the profiles");
+  if (!whereOf(metroL).includes("opportunities[") || whereOf(metroL).includes("summary.PURSUE")) bad.push("pick of the rivals linked");
+  if (!h7n.includes('<table class="plan"><tr><th>#</th><th>Fix</th><th>What you get</th><th>Who</th><th>Told on</th></tr>')) bad.push("the table head");
+  cells7(sA, clientA).forEach(([f, g, wh, se], i) => { const tr = `<tr${i === 0 ? ' class="first"' : ""}><td>${i + 1}</td><td>${f}</td><td>${g}</td><td>${wh}</td><td class="see">${se}</td></tr>`; if (!h7n.includes(tr)) bad.push(`row ${i + 1} is not ${tr.slice(0, 90)}`); });
+  if ((h7n.match(/<tr(?: class="first")?><td>\d+<\/td>/g) || []).length !== 11 || (h7n.match(/<tr class="first">/g) || []).length !== 1) bad.push("the data rows or the first");
+  if (t7.includes("Speed up the phone page")) bad.push("the speed row prints on a fast phone");
+  if (!t7.includes(`11 fixes, in the order that decides whether a ${WA.buyer} finds you and ${WA.applies}.`)) bad.push("the headline");
+  if (!t7.includes("Start at the top. Each line says what you get.")) bad.push("the lede");
+  if (/develop/i.test(t7)) bad.push("developer wording");
+  const pg0 = pageRows(bA.r.tsv, 7);
+  if (bA.err || !pg0.length || pg0.some((r) => r.length !== 8 || r.some((c) => c === ""))) bad.push(`run A without hand reads: ${bA.err || "no page 7 rows"}`);
+  else if (!cleanText(pg(bA.r.html, 7)).includes("8 fixes, in the order")) bad.push("run A without hand reads does not print 8 fixes");
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 25: PAGE 7 BUILDS: the rows of the sheet in the order of the calls, the table (11 rows, the first marked, every cell word for word with the client's words), the headline and lede, no speed row on a fast phone, no developer wording; without the hand reads 8 rows print", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  if (bH.err) return [false, bH.err];
+  const bad = [], rS = makeRun({ ...A(), phone: 3920 }), cS = clientFor(rS.spec), colS = withH(rS, cS), bS = built(colS, cS);
+  if (bS.err) return [false, bS.err];
+  const gotS = pageRows(bS.r.tsv, 7).map((r) => [r[1], r[2]]);
+  if (!same(gotS, rows7(rS.spec, cS, { slow: true }))) bad.push(`slow rows ${JSON.stringify(gotS)}`);
+  const t7 = cleanText(pg(bS.r.html, 7));
+  if (!t7.includes("Speed up the phone page: main picture first, sized images.") || !t7.includes("Visitors on a phone wait less. Today 3.9 s; Google's good mark is 2.5 s.") || !t7.includes("12 fixes, in the order")) bad.push("the speed row");
+  const D2 = structuredClone(colH.D); D2.profiles.broken = [];
+  const b2 = built({ ...colH, D: D2 }, clientA);
+  if (b2.err) bad.push(b2.err.split("\n")[0]);
+  else { const r2 = pageRows(b2.r.tsv, 7).map((r) => r[1]); if (r2.length !== rows7(sA, clientA).length - 1 || r2.some((l) => /error page/.test(l)) || cleanText(pg(b2.r.html, 7)).includes("Fix the link to your site") || !cleanText(pg(b2.r.html, 7)).includes("10 fixes, in the order")) bad.push(`no broken link: ${r2.length} rows`); }
+  const variant = (name, edit, want, not) => {
+    const D3 = structuredClone(colH.D); edit(D3);
+    const b3 = built({ ...colH, D: D3 }, clientA);
+    if (b3.err) { bad.push(`${name}: ${b3.err.split("\n")[0]}`); return; }
+    const t = cleanText(pg(b3.r.html, 7)), rows = pageRows(b3.r.tsv, 7).map((r) => [r[1], r[2]]);
+    for (const x of want) if (!(typeof x === "string" ? t.includes(x) : rows.some((r) => r[0] === x[0] && r[1] === x[1]))) bad.push(`${name}: no ${JSON.stringify(x)}`);
+    for (const x of not || []) if (typeof x === "string" ? t.includes(x) : rows.some((r) => r[0] === x[0])) bad.push(`${name}: still ${JSON.stringify(x)}`);
+  };
+  variant("some pages listed", (D) => { D.productPages.listed = 1; }, ["Today they list 1.", [`${WA.products} listed`, "1"]]);
+  variant("one sender record", (D) => { D.mail.spf = 1; }, ["fix the email records; renew the domain before 9 Mar 2027."], [["sender records found"]]);
+  variant("no renewal date", (D) => { D.renewBy = null; }, ["fix the email records (one sender record, not 2)."], [["domain expiry"]]);
+  variant("dmarc found", (D) => { D.mail.dmarcMissing = false; }, [["domain's sender records, DMARC", "spf 2, dmarc found"]]);
+  variant("a dash in a name from the run", (D) => { D.topDemand.lower = "gutter \u2014 installation"; D.demand[1].lower = "roof \u2013 replacement"; D.directories.find((r) => r.status === "not listed").name = "Apple \u2013 Maps"; D.biz.home = "Alder \u2013 Bay"; }, ["Build the gutter - installation page first, then roof - replacement.", "claim Apple - Maps and Manta.", "each with a Alder - Bay line.", "Join the Alder - Bay chambers"]);
+  const esc7 = built(colH, clientA, { fixes: plan.map((f, i) => (i === 0 ? { ...f, fix: "Tom & <i>", who: "A & B", see: "<x>" } : f)) });
+  if (esc7.err || !pg(esc7.r.html, 7).includes("<td>Tom &amp; &lt;i&gt;</td>") || !pg(esc7.r.html, 7).includes("<td>A &amp; B</td>") || !pg(esc7.r.html, 7).includes('<td class="see">&lt;x&gt;</td>')) bad.push(`a text of the file with & or <: ${esc7.err ? esc7.err.split("\n")[0] : "not escaped"}`);
+  const noRule = stopOf(() => bp(colH, clientA, { fixes: plan.map((f, i) => (i === 3 ? { ...f, when: "noSuchRule" } : f)) })), noPh = stopOf(() => bp(colH, clientA, { fixes: plan.map((f, i) => (i === 0 ? { ...f, gets: `${f.gets} {nope}` } : f)) }));
+  wantStop(bad, "unknown rule", noRule, "names the rule noSuchRule"); wantStop(bad, "unknown placeholder", noPh, "names {nope}");
+  for (const f of plan) { const one = built(colS, cS, { fixes: [f] }); const n = one.err ? -1 : pageRows(one.r.tsv, 7).filter((r) => r[1] !== "number of fixes" && r[1] !== "fixes").length; if (n < 1) bad.push(`row ${f.id} alone: ${one.err ? one.err.split("\n")[0] : "no sheet row"}`); }
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 26: PAGE 7 VARIANTS: a slow phone prints the speed row (12 fixes, its two rows); no broken link drops the row and its row (10); a row naming an unknown rule or placeholder STOPs; every row of plan.json alone leaves a sheet row of its own", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  if (bH.err) return [false, bH.err];
+  const bad = [];
+  const g = (name, edit, text) => { const D2 = structuredClone(colH.D); edit(D2); wantStop(bad, name, stopOf(() => bp({ ...colH, D: D2 }, clientA)), text); };
+  g("no promise", (D) => { D.takes = null; }, "matches a promise");
+  g("no SSN", (D) => { D.formAsks.ssn = false; }, "a tax ID, each owner's SSN");
+  g("no tax ID", (D) => { D.formAsks.taxId = false; }, "a tax ID, each owner's SSN");
+  g("no optional part", (D) => { D.formFieldsOne = D.formFields; }, "a tax ID, each owner's SSN");
+  g("a profile is linked", (D) => { D.profiles.inCard = 1; }, "says none is linked");
+  g("licence wording", (D) => { D.licenceWords = 2; }, "shows no license wording");
+  const clean = stopOf(() => bp(colH, clientA));
+  if (clean !== "") bad.push(`the unedited run: ${clean}`);
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 27: PAGE 7 GUARDS: no promise on the home page, no tax ID or SSN, no optional part, a linked profile, licence wording: each STOPs with its line, and the unedited run builds", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  if (bH.err) return [false, bH.err];
+  const { html, tsv } = bH.r, h8 = pg(html, 8), bad = [];
+  if (!h8) return [false, "no page 8"];
+  const h8n = h8.replace(/\n/g, ""), t8 = cleanText(h8);
+  const rows = pageRows(tsv, 8), got = rows.map((r) => [r[1], r[2]]);
+  if (!same(got, rows8(sA, clientA))) bad.push(`rows ${JSON.stringify(got)} want ${JSON.stringify(rows8(sA, clientA))}`);
+  if (rows.some((r) => r.length !== 8 || r.some((c) => c === ""))) bad.push("a row has an empty cell");
+  const last = rows[rows.length - 1] || [];
+  if (last[1] !== "page count in the footers" || last[3] !== "(computed)" || last[0] !== "8") bad.push(`the last row ${JSON.stringify(last)}`);
+  rows.filter((r) => /^step \d title$/.test(r[1])).forEach((r, i) => { if (r[3] !== "client-copy/how-we-work.json" || r[4] !== `nextSteps[${i}]`) bad.push(`file of ${r[1]}: ${r[3]} ${r[4]}`); });
+  if (!h8n.includes(`<li><span class="sn">1</span><div><b>${STEP_TITLES[0]}</b><p>${std.nextSteps[0][2]}</p><ul class="draft"><li>A page for each of your 3 ${WA.products}, built`)) bad.push("the bullets are not under step 1");
+  if (!h8n.includes(`<li><span class="sn">4</span><div><b>12 months</b><p>${std.nextSteps[3][2]}</p></div></li></ol>`)) bad.push("step 4 and the end of the list");
+  const works = rows.find((r) => r[1] === "product rows that read WORKS") || [];
+  if (!/backing/.test(works[3] || "") || !/book/.test(works[3] || "")) bad.push(`where the WORKS row reads: ${works[3]}`);
+  const need = [...STEP_TITLES, `A page for each of your 3 ${WA.products}, built from a plan you approve before anything goes live.`, "Every page sends its words in the first response, with a list of your pages and the company details Google reads.", "Every inquiry lands in your lead list, with an email to the right person.", "Your leads are yours.", `We can't promise a position on Google or a number of ${WA.outcome}.`, "Tell us to start your draft.", "We add your site to our Search Console and report its numbers to you.", "We draft your whole website, you look at it, it goes live, and for 12 months we keep it in place and report the numbers.", "The numbers we report against, as they are today", `${WA.product} searches that show your site`, `${WA.products} with a page of their own`, "in the first response your site sends"];
+  for (const t of need) if (!t8.includes(t)) bad.push(`no "${t}"`);
+  if (/contact/i.test(t8) || /develop/i.test(t8)) bad.push("a contact or developer word");
+  if ((h8n.match(/<ol class="steps">/g) || []).length !== 1 || (h8n.match(/<span class="sn">/g) || []).length !== 4 || (h8n.match(/<ul class="draft">/g) || []).length !== 1 || (h8n.match(/<div class="goahead">/g) || []).length !== 1) bad.push("the markup of the steps");
+  const other = built(colH, clientA, { std: { ...std, goAhead: "Say go when ready.", nextSteps: std.nextSteps.map((s, i) => (i === 3 ? [s[0], "18 months", s[2]] : s)) } });
+  if (other.err || !cleanText(pg(other.r.html, 8)).includes("Say go when ready.") || cleanText(pg(other.r.html, 8)).includes("Tell us to start your draft.") || !cleanText(pg(other.r.html, 8)).includes("and for 18 months we keep it in place")) bad.push(`another go-ahead and another last step: ${other.err || "not printed"}`);
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 28: PAGE 8 BUILDS: the rows of the sheet in order (the last the page count, computed), the four steps from how-we-work.json, the three bullets with the client's word, the numbers, the go-ahead and the promise with the client's outcome, no contact line, a go-ahead from the file", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  if (bH.err) return [false, bH.err];
+  const bad = [];
+  const g = (name, edit, text) => { const D2 = structuredClone(colH.D); edit(D2); wantStop(bad, name, stopOf(() => bp({ ...colH, D: D2 }, clientA)), text); };
+  g("a product row not WORKS", (D) => { D.v2_forms = false; }, "the product book rows of forms");
+  wantStop(bad, "3 steps", stopOf(() => bp(colH, clientA, { std: { ...std, nextSteps: std.nextSteps.slice(0, 3) } })), "does not hold 4 steps");
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 29: PAGE 8 GUARDS: a product book row that does not read WORKS, a steps list that is not 4: each STOPs with its line", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  if (bH.err) return [false, bH.err];
+  const { html, tsv, pages } = bH.r, bad = [], n = (re) => (html.match(re) || []).length, t = cleanText(html);
+  if (pages !== 8 || n(/<section class="(?:cover|pg)"/g) !== 8) bad.push(`sections ${n(/<section class="(?:cover|pg)"/g)} / ${pages}`);
+  for (let i = 2; i <= 8; i++) if (!html.includes(`<b>${i} / 8</b>`)) bad.push(`footer ${i}`);
+  if (/[\u2013\u2014]/.test(html + tsv) || html.includes("@@")) bad.push("a dash or an anchor");
+  if (/product/i.test(t) || !t.includes("job types")) bad.push("the client's words");
+  const rows = sheetRows(tsv);
+  if (rows.some((r) => r.length !== 8 || r.some((c) => c === ""))) bad.push("a row has an empty cell");
+  const keys = rows.map((r) => [r[0], r[1], r[2], r[4]].join("|"));
+  if (new Set(keys).size !== keys.length) bad.push("two rows alike");
+  if (rows.some((r, i) => i > 0 && Number(r[0]) < Number(rows[i - 1][0]))) bad.push("pages out of order on the sheet");
+  const counts = [1, 2, 3, 4, 5, 6, 7, 8].map((i) => pageRows(tsv, i).length);
+  if (counts.reduce((a, b) => a + b, 0) !== rows.length) bad.push("the pages' rows do not add up to the sheet");
+  for (const i of [1, 2, 3, 4, 6]) if (!same(pageRows(tsv, i), pageRows(bA.r.tsv, i))) bad.push(`page ${i} rows differ from the run without hand reads`);
+  const noAddr = (r) => !/^address/.test(r[1]);
+  if (!same(pageRows(tsv, 5).filter(noAddr), pageRows(bA.r.tsv, 5).filter(noAddr))) bad.push("page 5 rows other than the addresses differ");
+  if (counts[6] !== rows7(sA, clientA).length || counts[7] !== rows8(sA, clientA).length) bad.push(`rows of pages 7 and 8: ${counts[6]}, ${counts[7]}`);
+  const wholeA = bA.err ? null : bA.r;
+  if (!wholeA || wholeA.pages !== 8 || !wholeA.html.includes("<b>8 / 8</b>")) bad.push("the run without hand reads is not 8 pages");
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 30: THE WHOLE: 8 sections, footers n / 8, no dash and no anchor, the client's words, 8 filled cells in every row, no two rows alike, the sheet in page order, pages 1 to 4 and 6 as before, pages 7 and 8 as counted", ok, detail); }
 // @@CASES (job R2b adds its cases above this line; keep it verbatim)
 const failed = results.filter((r) => !r.ok);
 console.log(`${results.length - failed.length}/${results.length} passed${failed.length ? "; FAILED: " + failed.map((r) => r.name.split(":")[0] + ": " + r.name.slice(r.name.indexOf(":") + 2, 60)).join(" | ") : ""}`);

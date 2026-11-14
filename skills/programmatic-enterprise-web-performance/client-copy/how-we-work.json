@@ -1,0 +1,15 @@
+{
+  "nextSteps": [
+    ["Next", "We draft your website", "The whole site, built the right way for search, with everything in this review in place."],
+    ["Then", "You take a look", "We send you the draft on a private link. Nothing on your current site changes."],
+    ["Then", "It goes live", "Once you have looked it over, it goes live on your domain."],
+    ["Then", "12 months", "We keep everything in place, check the numbers and report them to you. We add your site to our Search Console and report its numbers to you."]
+  ],
+  "draftContains": [
+    "A page for each of your {n} {products}, built from a plan you approve before anything goes live.",
+    "Every page sends its words in the first response, with a list of your pages and the company details Google reads.",
+    "Every inquiry lands in your lead list, with an email to the right person."
+  ],
+  "goAhead": "Tell us to start your draft.",
+  "promise": "We can't promise a position on Google or a number of {outcome}."
+}

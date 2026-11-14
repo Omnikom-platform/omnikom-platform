@@ -1,6 +1,6 @@
 // client-copy-design.mjs: the approved design of the client copy, built in memory from the data of client-copy-data.mjs.
-// Jobs R2a and R2b build the frame (head, footer, style), page 1 (the cover) and pages 2 to 4 (summary, SEO, AI search); later jobs add
-// pages 5 to 8 at the two anchor comments below (PAGES, ALL). Every drawn value goes through P/PC/sum and gets ONE sheet row (8 columns, as the old pages' sheet);
+// Jobs R2a to R3b build the frame (head, footer, style), page 1 (the cover) and pages 2 to 8 (summary, SEO, AI search, Maps, rivals, the plan,
+// how Omnikom works); the two anchor comments below (PAGES, ALL) stay. Pages 7 and 8 take their words from plan.json and how-we-work.json. Every drawn value goes through P/PC/sum and gets ONE sheet row (8 columns, as the old pages' sheet);
 // a sentence that states a finding is printed only when the finding holds, else the build STOPs with one line naming page, sentence
 // and condition. No client word is typed here: names, products and cities come from the data and the client file.
 // Nothing is written here: the caller writes the html and the sheet. Not called by client-copy.mjs yet (the command keeps the old pages).
@@ -432,8 +432,94 @@ export function buildPages(ctx) {
   ${fixesOl(fixes)}`);
   })();
 
+  // =============================================================== page 7: the action plan
+  page = 7;
+  const p7 = (() => {
+    const pr = D.profiles, T7 = D.topDemand, leadRead = D.formFields !== null, lcpSlow = Number(D.lcpS) > Number(D.goodLcpS);
+    // the rows are data (plan.json); a rule decides whether a row is printed; a placeholder is filled from the data and drawn as a sheet row
+    const RULES = {
+      wordsSentIsZero: () => D.wordsSent === 0,
+      profileLinkBroken: () => pr.broken.length > 0,
+      noAnalyticsTag: () => D.outsideOnlyFonts,
+      leadPathRead: () => leadRead,
+      topProductHasNoPage: () => !T7.page,
+      otherProductsHaveNoPage: () => D.demand.slice(2).some((r) => !r.page),
+      addressesDiffer: () => D.addresses.length > 1,
+      mailProblem: () => D.mail !== null && (D.mail.spf !== 1 || D.mail.dmarcMissing || !D.mail.dkimFound),
+      trustRead: () => D.licenceWords !== null,
+      linkPlacesFound: () => Boolean(client.linkPlace) && D.linkPlaces.metro > 0 && !D.ourLinks,
+      phoneIsSlow: () => lcpSlow,
+      profilesNotInCard: () => pr.inCard < pr.total,
+    };
+    const PH = {
+      wordsSent: () => P("wordsSent", D.wordsSent, "words from the home page"),
+      brokenApply: () => { cite("profiles", pr.broken.length, `profile links that open an error page (${pr.broken.join(", ")})`, "linksBroken"); return rt(andList(pr.broken)); },
+      spfClause: () => (D.mail.spf > 1 ? ` (one sender record, not ${P("mail", D.mail.spf, "sender records found")})` : ""),
+      takes: () => {
+        if (D.takes === null) stop("STOP: page 7, the first step of the application matches a promise: the client file has no promisePattern or the home page holds none");
+        return P("takes", D.takes, `${D.takes.replace(/\d+/, "N")}, on the home page`);
+      },
+      applicant: () => esc(w.applicant), application: () => esc(w.application), offers: () => esc(w.offers), applying: () => esc(w.applying), product: () => esc(w.product),
+      home: () => rt(home), linkPlace: () => rt(client.linkPlace), topProduct: () => rt(T7.lower), secondLower: () => rt(D.demand[1].lower),
+      claimList: () => rt(andList(D.directories.filter((r) => r.status === "not listed").map((r) => r.name))),
+      fieldsRange: () => {
+        if (!D.formAsks.taxId || !D.formAsks.ssn || !(D.formFieldsOne < D.formFields)) stop("STOP: page 7, the application row names a tax ID, each owner's SSN and a range of fields: the form asks for less or has no optional part");
+        return `${P("formFieldsOne", D.formFieldsOne, "fields, one owner")} to ${P("formFields", D.formFields, "fields, two owners")}`;
+      },
+      topShare: () => P("topDemand", `${T7.share}%`, `share of demand, ${T7.product}`),
+      otherCount: () => P("demand", D.demand.length - 2, `other ${w.product} pages`),
+      listedOrNone: () => (D.productPages.listed === 0 ? "none" : P("productPages", D.productPages.listed, `${w.products} listed`)),
+      addrCount: () => P("addresses", D.addresses.length, "addresses"),
+      renewClause: () => (D.renewBy ? `; renew the domain before ${P("renewBy", D.renewBy, "domain expiry")}` : ""),
+      linkMetro: () => P("linkPlaces", D.linkPlaces.metro, `rivals linked from ${client.linkPlace}`, "opportunities["),
+      lcpS: () => P("lcpS", D.lcpS, "seconds on a phone"),
+      goodLcpS: () => P("goodLcpS", D.goodLcpS, "seconds, Google's mark"),
+      profilesTotal: () => {
+        if (pr.inCard !== 0) stop("STOP: page 7, the profiles row says none is linked: some are");
+        return P("profiles", pr.total, "profiles", "rows (length)");
+      },
+    };
+    for (const f of fixes) {
+      if (!RULES[f.when]) stop(`STOP: plan.json row ${f.id} names the rule ${f.when}`);
+      for (const t of [f.fix, f.gets]) for (const m of String(t).matchAll(/\{(\w+)\}/g)) if (!PH[m[1]]) stop(`STOP: plan.json row ${f.id} names {${m[1]}}`);
+    }
+    const live = fixes.filter((f) => RULES[f.when]()), memo = {};
+    const ph = (k) => (k in memo ? memo[k] : (memo[k] = PH[k]()));
+    const fill = (t) => String(t).split(/(\{\w+\})/).map((s) => (/^\{\w+\}$/.test(s) ? ph(s.slice(1, -1)) : esc(s))).join("");
+    for (const k of ["takes", "brokenApply", "spfClause"]) if (live.some((f) => `${f.fix} ${f.gets}`.includes(`{${k}}`))) ph(k); // drawn before the rows, in this order
+    const R = live.map((f) => [fill(f.fix), fill(f.gets), f.who, f.see]);
+    PC(String(R.length), "number of fixes", "count of the plan rows printed");
+    if (live.some((f) => f.when === "trustRead")) {
+      if (D.licenceWords !== 0) stop("STOP: page 7, the licence row says your home page shows no license wording: it shows some");
+      cite("licenceWords", D.licenceWords, "licence wording on the home page");
+    }
+    if (live.some((f) => f.when === "noAnalyticsTag")) cite("outsideOnlyFonts", "fonts only", "analytics host in the test visit");
+    if (live.some((f) => f.when === "mailProblem")) cite("mail", `spf ${D.mail.spf}, dmarc ${D.mail.dmarcMissing ? "missing" : "found"}`, "domain's sender records, DMARC");
+    const rowsHtml = R.map(([fx, gt, wh, se], i) => `<tr${i === 0 ? ' class="first"' : ""}><td>${i + 1}</td><td>${fx}</td><td>${gt}</td><td>${esc(wh)}</td><td class="see">${esc(se)}</td></tr>`).join("");
+    return sheetPage(7, `${head("Action plan", `${PC(String(R.length), "fixes", "count of the plan rows printed")} fixes, in the order that decides whether a ${esc(w.buyer)} finds you and ${esc(w.applies)}.`, "Start at the top. Each line says what you get.")}
+  <table class="plan"><tr><th>#</th><th>Fix</th><th>What you get</th><th>Who</th><th>Told on</th></tr>${rowsHtml}</table>`);
+  })();
+
+  // =============================================================== page 8: how Omnikom works
+  page = 8;
+  const p8 = (() => {
+    const v2 = Object.keys(D).filter((k) => k.startsWith("v2_")), steps = std.nextSteps, pp = D.productPages;
+    for (const k of v2) if (!D[k]) stop(`STOP: page 8, what is in the draft: the product book rows of ${k.slice(3)} do not all read WORKS`);
+    if (!Array.isArray(steps) || steps.length !== 4) stop("STOP: page 8, the four steps: how-we-work.json does not hold 4 steps");
+    cite(v2, v2.flatMap((k) => JSON.parse(S[k][0].value)).join(" "), "product rows that read WORKS");
+    steps.forEach((s, i) => add([page, `step ${i + 1} title`, s[1], "client-copy/how-we-work.json", `nextSteps[${i}]`, s[1], "(not dated)", "STANDARD COPY"]));
+    const bullet = (t) => String(t).split(/(\{\w+\})/).map((s) => (s === "{n}" ? P("productPages", pp.of, `${w.products}`) : s === "{products}" ? esc(w.products) : esc(s))).join("");
+    const stepHtml = steps.map((s, i) => `<li><span class="sn">${i + 1}</span><div><b>${esc(s[1])}</b><p>${esc(s[2])}</p>${i === 0 ? `<ul class="draft">${std.draftContains.map((t) => `<li>${bullet(t)}</li>`).join("")}</ul>` : ""}</div></li>`).join("");
+    const nums = `<div class="rep"><div><b>${P("serp", `${D.serp.productWithUs} of ${D.serp.product}`, `${w.product} searches that show you`, "where the query is a product search")}</b><span>${esc(w.product)} searches that show your site</span></div><div><b>${P("productPages", `${pp.listed} of ${pp.of}`, `${w.products} with a page`)}</b><span>${esc(w.products)} with a page of their own</span></div><div><b>${P("wordsSent", `${D.wordsSent} words`, "words in the first response")}</b><span>in the first response your site sends</span></div></div>`;
+    return sheetPage(8, `${head("How Omnikom works", `We draft your whole website, you look at it, it goes live, and for ${esc(steps[3][1])} we keep it in place and report the numbers.`, "")}
+  <ol class="steps">${stepHtml}</ol>
+  <p class="own"><b>Your leads are yours.</b> Export them to a spreadsheet at any time, and take a full copy of your data if you leave.</p>
+  <h3>The numbers we report against, as they are today</h3>${nums}
+  <div class="goahead"><div><p class="label">To go ahead</p><p class="big">${esc(std.goAhead)}</p></div><div><p class="note2">${esc(std.promise.replace("{outcome}", w.outcome))}</p></div></div>`);
+  })();
   // @@PAGES
-  const all = [p1, p2, p3, p4, p5, p6]; // @@ALL
+  const all = [p1, p2, p3, p4, p5, p6, p7, p8]; // @@ALL
+  page = all.length; PC(String(all.length), "page count in the footers", "number of sections built");
   const spaced = all.join("\n").replace(/>(?=<(?!\/?(?:i|svg|rect|br)\b))/g, ">\n"); // a space between neighbours, so no label runs into its number when read as text
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(NAME)}: SEO, AI search and local audit, ${esc(MONTH)}${draft ? " (draft)" : ""}</title>
 <link href="${fontsUrl}" rel="stylesheet"><style>${CSS}</style></head><body>
