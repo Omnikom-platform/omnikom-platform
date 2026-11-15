@@ -2,6 +2,8 @@
 // and the lock check every later stage uses.
 // Usage: node approve.mjs <target> targets|plan|business|competitors|seeds|prompt-map|research-cost [--by "<owner name>"] [--from proposals] [--run <research run id>] [--cwd DIR] [--pewp DIR]
 //        node approve.mjs <target> --check            verify the lock only (exit 0 ok, 1 a file changed after approval, 2 nothing approved)
+//        node approve.mjs <target> competitors --exclude <domain> --as teammate|brokerage --by "<who>" [--name "<name>"]
+//                                                     move that row of the proposal to excluded[] with the relation, who and when (lib-related.mjs); signs nothing
 // <target> = a URL (state in <cwd>/site-checks/<host>/.pewp/) or a repo path (state in <repo>/.pewp/); --pewp names the folder directly.
 // What it does: shows the diff of the source against the current approved copy, then (only with --by) writes
 //   <pewp>/approved/targets.json            the approved targets
@@ -16,7 +18,8 @@
 // business | competitors | seeds | prompt-map | research-cost (contract C1): the same diff / sign / lock behaviour for one file each:
 //   business.json                          -> approved/business.json     REFUSED (exit 1) while an owner-only field (kind, offer, audience, goals, competitors,
 //                                            brand.constraints, vocabulary) has a provenance other than "owner" (intake.mjs writes provenance; stages/intake.md)
-//   research/competitors-proposed.json    -> approved/competitors.json  REFUSED while a row lacks evidenceUrl, kind, closeness 1..5, or both domain and handle
+//   research/competitors-proposed.json    -> approved/competitors.json  REFUSED while a row lacks evidenceUrl, kind, closeness 1..5, or both domain and handle,
+//                                            or is a related business of approved/business.json (a teammate or the brokerage: they stand in excluded[])
 //   research/seeds.json                    -> approved/seeds.json        REFUSED while a query lacks `from` (where it came from)
 //   research/prompt-map.json               -> approved/prompt-map.json   REFUSED while a row fails the prompt-map validator (lib-prompt-map.mjs); plan-site.mjs reads the approved copy first
 //   research/research-cost.json            -> approved/research-cost.json REFUSED while calls are not whole numbers, total is not their sum, or the competitor list does not match its sha256;
@@ -32,6 +35,8 @@ import { fileURLToPath } from "node:url";
 import { locate } from "./state.mjs";
 import { validate, validateBusiness } from "./targets-validate.mjs";
 import { validateMap } from "./lib-prompt-map.mjs";
+import { RELATIONS, hostOf, nameKey, declaredOf, relatedOf, leftOutLine } from "./lib-related.mjs";
+import { table as competitorsTable } from "./competitors-discover.mjs";
 
 export const sha256 = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
 const J = (p) => JSON.parse(fs.readFileSync(p, "utf8").replace(/^\uFEFF/, "")); // a BOM from a Windows editor is not "not JSON"
@@ -160,7 +165,7 @@ function checkBusiness(b) {
   if (!v.ok) { out.push(`business.json is not a valid business (${v.errors.length} error(s)); run intake until it says COMPLETE`); for (const e of v.errors.slice(0, 8)) out.push(`  ${e.rule} ${e.path}: ${e.message}`); return out; }
   const prov = b.provenance && typeof b.provenance === "object" && !Array.isArray(b.provenance) ? b.provenance : {};
   const groups = new Map();
-  for (const field of OWNER_ONLY) {
+  for (const field of [...OWNER_ONLY, ...(declaredOf(b).length ? ["related"] : [])]) { // related is owner-only once the record declares one
     const missingValue = field === "vocabulary" && (!Array.isArray(b.vocabulary) || !b.vocabulary.length);
     let p = missingValue ? "unstated" : prov[field] || "unstated";
     if (p === "delegated" && !delegationOf(b.delegations?.[field])) p = "delegated without a record of who and when (business.delegations)"; // a hand-written "delegated" proves nothing
@@ -170,8 +175,9 @@ function checkBusiness(b) {
   return out;
 }
 function rowsOf(doc) { return Array.isArray(doc) ? doc : Array.isArray(doc?.rows) ? doc.rows : null; }
-function checkCompetitors(doc) {
-  const rows = rowsOf(doc);
+function checkCompetitors(doc, pewp) {
+  const rows = rowsOf(doc), related = declaredOf(jr(path.join(approvedDir(pewp), "business.json"))); // the SIGNED record's declarations (a working business.json is not a signature)
+  const badEx = (Array.isArray(doc?.excluded) ? doc.excluded : []).filter((x) => x && typeof x === "object" && "relation" in x && (!RELATIONS.includes(x.relation) || !(nonEmpty(x.domain) || nonEmpty(x.name))));
   if (!rows || !rows.length) return [`no rows in the competitors file; ${FIX.competitors}`];
   const out = [];
   rows.forEach((r, i) => {
@@ -181,8 +187,11 @@ function checkCompetitors(doc) {
     if (!nonEmpty(r.kind)) why.push("no kind");
     if (!(Number.isInteger(r.closeness) && r.closeness >= 1 && r.closeness <= 5)) why.push("closeness is not a whole number from 1 to 5");
     if (!nonEmpty(r.domain) && !nonEmpty(r.handle)) why.push("neither a domain nor a handle");
+    const rel = related.find((x) => (x.domain && hostOf(r.domain) === x.domain) || (x.name && nameKey(r.name) === nameKey(x.name)));
+    if (rel) why.push(`is a ${rel.relation} of the business (approved/business.json related), never a competitor: it stands in excluded[] (approve.mjs <target> competitors --exclude <domain> --as ${rel.relation})`);
     if (why.length) out.push(`${name}: ${why.join(", ")}`);
   });
+  if (badEx.length) out.push(`excluded[] has ${badEx.length} row(s) whose relation is not ${RELATIONS.join(" or ")} or that name neither a domain nor a name`);
   if (out.length) out.push(`(${out.length} of ${rows.length} rows) ${FIX.competitors}`);
   return out;
 }
@@ -228,6 +237,9 @@ function diffFile(kind, o, n) {
     for (const [k, r] of nm) if (!om.has(k)) L.push(`+ ${r.name} (${r.handle || r.domain}, ${r.kind}, closeness ${r.closeness})`);
     for (const [k, r] of om) if (!nm.has(k)) L.push(`- ${r.name} (${r.handle || r.domain})`);
     for (const [k, r] of nm) { const p = om.get(k); if (!p) continue; for (const f of ["kind", "closeness", "evidenceUrl", "domain", "handle"]) if (JSON.stringify(p[f]) !== JSON.stringify(r[f])) L.push(`~ ${r.name}.${f}: ${short(p[f])} -> ${short(r[f])}`); }
+    const ek = (x) => `${hostOf(x.domain)}|${nameKey(x.name)}`, oe = new Map((o.excluded || []).map((x) => [ek(x), x])), ne = new Map((n.excluded || []).map((x) => [ek(x), x]));
+    for (const [k, x] of ne) if (!oe.has(k)) L.push(`+ excluded ${x.name || x.domain} (${x.relation || "no relation"})`);
+    for (const [k, x] of oe) if (!ne.has(k)) L.push(`- excluded ${x.name || x.domain}`);
   } else if (kind === "prompt-map") {
     const om = new Map((rowsOf(o) || []).map((r) => [r.id, r])), nm = new Map((rowsOf(n) || []).map((r) => [r.id, r]));
     for (const [k, r] of nm) if (!om.has(k)) L.push(`+ ${k} "${short(r.prompt)}" (${r.fix?.kind})`);
@@ -255,7 +267,7 @@ function approveFile(pewp, kind, { by, log, lock, stamp }) {
   const spec = FILE_KINDS[kind], dir = approvedDir(pewp), src = path.join(pewp, ...spec.src.split("/")), dstFile = path.join(dir, spec.dst);
   if (!fs.existsSync(src)) { log(`ERROR approve cannot judge: ${src} not found${NOTFOUND[kind]}`); return 2; }
   let doc; try { doc = J(src); } catch (e) { log(`ERROR approve cannot judge: ${src} is not JSON: ${e.message}`); return 2; }
-  const problems = CHECKS[kind](doc);
+  const problems = CHECKS[kind](doc, pewp);
   if (problems.length) { log(`FAIL approve ${kind}: ${spec.src} cannot be approved yet, nothing approved`); for (const p of problems) log(`  ${p}`); return 1; }
   const deleg = kind === "business" ? delegatedOf(doc) : [];
   if (deleg.length) log(`NOTE ${deleg.length} owner-only field(s) were answered by a delegate for the owner, not by the owner: ${deleg.map((d) => `${d.field} (by ${d.by}, delegated by the ${d.delegatedBy}, ${d.at})`).join("; ")}`);
@@ -364,10 +376,34 @@ export function approve(pewp, kind, { by = null, from = null, run = null, log = 
   return 0;
 }
 
+// `--exclude <domain> --as teammate|brokerage --by <who>`: the row of that domain leaves rows[] of the PROPOSAL and stands in excluded[] with the relation, who and
+// when. The approved copy is never edited by hand (its sha256 is in the lock and approvedMatches wants it equal to the proposal): the owner signs the changed list.
+export function excludeRow(pewp, { domain, as, name = null, by = null, log = console.log } = {}) {
+  if (!RELATIONS.includes(as)) { log(`ERROR approve --exclude: --as must be ${RELATIONS.join(" or ")}`); return 2; }
+  const h = hostOf(domain), nk = nameKey(name); // a business with no site is declared by its name alone: --as brokerage --name "<name>"
+  if (!h && !nk) { log("ERROR approve --exclude: give the domain of the business to leave out (--exclude <domain>) or its name (--name)"); return 2; }
+  if (!by) { log(`ERROR approve --exclude: say who declares the relation: --by "<who>" (kept with the time in excluded[])`); return 2; }
+  const lockNow = verifyLock(pewp);
+  if (lockNow.exists && !lockNow.ok) { for (const p of lockNow.problems) log(`  ${p}`); log("FAIL approve: the approved files changed after approval; restore them (or delete approved/ and approve again) before approving anything new"); return 1; }
+  const src = path.join(pewp, "research", "competitors-proposed.json");
+  if (!fs.existsSync(src)) { log(`ERROR approve cannot judge: ${src} not found (run competitors-discover.mjs)`); return 2; }
+  let doc; try { doc = J(src); } catch (e) { log(`ERROR approve cannot judge: ${src} is not JSON: ${e.message}`); return 2; }
+  if (!doc || typeof doc !== "object" || Array.isArray(doc) || !Array.isArray(doc.rows)) { log(`ERROR approve cannot judge: ${src} has no rows list`); return 2; }
+  const at = new Date().toISOString(), hit = doc.rows.filter((r) => r && ((h && hostOf(r.domain) === h) || (nk && nameKey(r.name) === nk)));
+  doc.rows = doc.rows.filter((r) => !hit.includes(r));
+  const same = (x) => (h ? hostOf(x.domain) === h : !hostOf(x.domain) && nameKey(x.name) === nk), old = (doc.excluded || []).find(same);
+  doc.excluded = [...(doc.excluded || []).filter((x) => !same(x)), { domain: h || null, name: name || old?.name || hit.find((r) => r.name)?.name || null, relation: as, reason: `declared ${as} of the business`, by, at }];
+  fs.writeFileSync(src, JSON.stringify(doc, null, 1) + "\n");
+  fs.writeFileSync(path.join(pewp, "research", "competitors-proposed.md"), competitorsTable({ ...doc, source: doc.source || [], needsEvidence: doc.needsEvidence || [], dropped: doc.dropped || [], generatedAt: doc.generatedAt || at })); // the owner reads the .md
+  log(`MOVED ${h || name}: ${hit.length ? `${hit.length} row(s) left rows[] and stand` : `no row had this ${h ? "domain" : "name"}; it stands`} in excluded[] as ${as}, by ${by} at ${at}`);
+  log(`NOT SIGNED: the owner signs the changed list: node approve.mjs <target> competitors --by "<owner name>"`);
+  return 0;
+}
+
 function main() {
   const a = process.argv.slice(2);
   const opt = (k) => (a.includes(k) ? a[a.indexOf(k) + 1] : null);
-  const pos = a.filter((x, i) => !x.startsWith("--") && !["--by", "--from", "--run", "--cwd", "--pewp"].includes(a[i - 1]));
+  const pos = a.filter((x, i) => !x.startsWith("--") && !["--by", "--from", "--run", "--cwd", "--pewp", "--exclude", "--as", "--name"].includes(a[i - 1]));
   if (!opt("--pewp") && pos.length < 1) { console.error('usage: node approve.mjs <target> targets|plan|business|competitors|seeds|prompt-map|research-cost [--by "<name>"] [--from proposals] [--run ID] [--cwd DIR] [--pewp DIR] | <target> --check'); process.exit(2); }
   const pewp = opt("--pewp") ? path.resolve(opt("--pewp")) : locate(pos[0], { cwd: opt("--cwd") || process.cwd() }).pewp;
   if (a.includes("--check")) {
@@ -377,11 +413,16 @@ function main() {
     const extra = Object.keys(FILE_KINDS).filter((k) => r.lock[k]);
     console.log(`PASS approve-lock ${Object.keys(r.lock.targets?.files || {}).length + Object.keys(r.lock.plan?.files || {}).length + extra.reduce((n, k) => n + Object.keys(r.lock[k].files || {}).length, 0)} approved file(s) unchanged${r.lock.targets ? `, targets by ${r.lock.targets.approvedBy}` : ""}${extra.map((k) => `, ${k} by ${r.lock[k].approvedBy}`).join("")}`);
     for (const k of extra) { const m = approvedMatches(pewp, k); if (!m.ok) console.log(`  NOTE ${k}: ${m.reason}`); }
+    for (const x of relatedOf(pewp).rows) console.log(`  NOTE related: ${leftOutLine(x)}`);
     for (const s of r.stale) console.log(`  STALE ${s}`);
     process.exit(0);
   }
   const kind = pos[pos.length - 1];
   if (!["targets", "plan", ...Object.keys(FILE_KINDS)].includes(kind)) { console.error("say what to approve: targets, plan, business, competitors, seeds, prompt-map or research-cost"); process.exit(2); }
+  if (a.includes("--exclude") || a.includes("--as") || a.includes("--name")) {
+    if (kind !== "competitors") { console.error('--exclude, --as and --name belong to: approve.mjs <target> competitors --exclude <domain> --as teammate|brokerage --by "<who>" [--name "<name>"]'); process.exit(2); }
+    process.exit(excludeRow(pewp, { domain: opt("--exclude"), as: opt("--as"), name: opt("--name"), by: opt("--by") }));
+  }
   process.exit(approve(pewp, kind, { by: opt("--by"), from: opt("--from"), run: opt("--run") }));
 }
 if (isMain(import.meta.url)) main();

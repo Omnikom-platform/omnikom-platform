@@ -12,6 +12,8 @@
 //                 data and its capture date for each source that has data, a BLOCKED line with "| unblocks:" for each that has none (never a zero), no data (too little traffic) said as a result
 //   C  checks     report-live.mjs --checks DIR (SKILL-REPORT-1): the root causes and their date come from DIR, not <snapshot>/.checks
 //                 (without it: as before); no readable list of causes there is BLOCKED (exit 3, no report); --checks with no DIR is exit 2
+//   T  teammate   report-live.mjs (job 5): a teammate or the brokerage declared related (excluded[] rows with a relation, or business.json related) is in no competitor table,
+//                 link gap list, count or cited-instead list of the report, and section 4 says who was left out
 //   G  groups     this file's own --group option: only the chosen scenario groups run, and only the mutants whose group is among them
 //   --group Q,W runs just those groups and the mutants whose group is among them
 // Fixtures only: no network, no model. Chrome is used only for the PNG check (local file:// page). Mutants: each patches ONE string in a copy of the
@@ -38,7 +40,7 @@ const BARE_SITEMAP = /\bsitemap\b(?!\.json|\.xml| file)/gi; // "sitemap" alone: 
 const bare = (text) => [...String(text).matchAll(BARE_SITEMAP)].map((m) => text.slice(Math.max(0, m.index - 30), m.index + 30).replace(/\s+/g, " "));
 const section = (md, n) => (md.split(new RegExp(`^## ${n}\\. `, "m"))[1] || "").split(/^## \d\. /m)[0].split("\n").slice(1).join("\n"); // without the heading's own words
 
-const GROUPS = ["W", "P", "N", "A", "D", "S", "Q", "X", "C", "G"];
+const GROUPS = ["W", "P", "N", "A", "D", "S", "Q", "X", "C", "T", "G"];
 function parseGroups(raw) { // "q, w" -> ["Q", "W"]; an unknown letter is an error, never a silent empty run
   const gs = [...new Set(String(raw).split(",").map((x) => x.trim().toUpperCase()).filter(Boolean))];
   const bad = gs.filter((g) => !GROUPS.includes(g));
@@ -294,6 +296,36 @@ async function runScenarios(skill, groups = null) {
     check("Q", "since the last report, not found twice: no change line for referring domains, counted as unchanged", !/Since the last report[^\n]*referring domains/.test(c5.md), c5.md.split("\n").find((l) => l.includes("Since the last")));
   }
 
+  // =============================== T: a teammate and the brokerage are never a competitor (lib-related.mjs, job 5) ===============================
+  // report-live.mjs is run as the command on a made-up run: the same files twice, once with no relation declared (the control) and once with excluded[] rows that carry one
+  if (want("T")) {
+    const IN = (domain, role, n, pos) => ({ domain, role, inGraph: true, hosts: 1, harmonicPos: pos, pageRankPos: pos, linkingDomains: n, strongestLinkingDomains: [{ domain: "l1.example", harmonicPos: 5 }] });
+    const pagesT = [{ path: "/", slug: "home", lcp: 1500 }];
+    const REL = [{ domain: "teammate.example", name: "Casey Teammate", relation: "teammate", reason: "declared teammate of the business" }, { domain: "brokerage-gap.example", name: "North Ridge Realty", relation: "brokerage", reason: "declared brokerage of the business" }];
+    const site = (host, related) => {
+      const s = snapshot(host, { pages: pagesT });
+      w(path.join(s.pewp, "authority.json"), { fetchedAt: "2026-10-23T08:00:00Z", source: "Common Crawl web graph cc-test (domain level)", release: "cc-test", target: host, results: [IN(host, "target", 14, 900), IN("rival-a.example", "competitor", 120, 800), IN("teammate.example", "competitor", 60, 700)], linkGap: [{ domain: "g1.example", linksToCompetitors: 2, harmonicPos: 50 }, { domain: "brokerage-gap.example", linksToCompetitors: 2, harmonicPos: 40 }] });
+      const pageOf = (words) => ({ words, h2: [], text: "" });
+      w(path.join(s.pewp, "research", "competitors.json"), { generatedAt: "2026-10-22T08:00:00Z", sites: [{ domain: "rival-a.example", status: 200, page: pageOf(900) }, { domain: "teammate.example", status: 200, page: pageOf(700) }] });
+      w(path.join(s.pewp, "research", "ai-citations.json"), { rows: [{ question: "who is the best", engine: "gemini", runs: 3, citedShare: { value: 0 }, ourDomainCited: false, sourceCounts: { "rival-a.example": 2, "teammate.example": 5, "other.example": 1 } }] });
+      w(path.join(s.pewp, "approved", "competitors.json"), { rows: [{ name: "Rival A", domain: "rival-a.example", kind: "publisher" }], ...(related ? { excluded: REL } : {}) });
+      return s;
+    };
+    const free = report(site("t1.example", false), BASE_ENV), rel = report(site("t2.example", true), BASE_ENV);
+    const sec = (c, n) => section(c.md, n), q4 = (c) => c.json?.questions?.find((x) => x.n === 4), q5 = (c) => c.json?.questions?.find((x) => x.n === 5);
+    check("T", "the control (no relation declared) builds and shows the teammate everywhere a competitor would be: section 3 winners, section 4 competitors and gap, section 5 cited instead", free.r.status === 0 && /Winners audited: [^\n]*teammate\.example/.test(free.md) && /- Competitor teammate\.example/.test(sec(free, 4)) && sec(free, 4).includes("brokerage-gap.example") && /teammate\.example/.test(sec(free, 5)), free.r.stderr + sec(free, 5).slice(0, 400));
+    check("T", "a run with related declared builds (exit 0) and the competitor audit of section 3 names only the real rival", rel.r.status === 0 && /Winners audited: rival-a\.example/.test(rel.md) && !/Winners audited:[^\n]*teammate\.example/.test(rel.md), rel.r.stderr + (rel.md.match(/Winners audited[^\n]*/) || [""])[0]);
+    check("T", "section 4: the teammate is no competitor row (the page and report.json), the real rival keeps its row", !/- Competitor teammate\.example/.test(sec(rel, 4)) && /- Competitor rival-a\.example: 120 referring domains/.test(sec(rel, 4)) && JSON.stringify((q4(rel)?.facts?.competitors?.value || []).map((x) => x.domain)) === '["rival-a.example"]', sec(rel, 4).slice(0, 600));
+    check("T", "section 4: the brokerage is not in the link gap list and the gap count drops by it (2 sites to 1)", !(sec(rel, 4).split("\n").find((l) => l.startsWith("- link gap")) || "").includes("brokerage-gap.example") && /- link gap: 1 sites, most competitors linked first: g1\.example/.test(sec(rel, 4)) && /- link gap: 2 sites/.test(sec(free, 4)), sec(rel, 4).slice(0, 700));
+    check("T", "section 5: a site the engines cite is not a related business: the teammate is not in who is cited instead, the other sites are", !/teammate\.example/.test(sec(rel, 5)) && /rival-a\.example/.test(sec(rel, 5)) && !JSON.stringify(q5(rel)?.facts?.citedInstead?.value || []).includes("teammate.example"), sec(rel, 5).slice(0, 600));
+    check("T", "the report says who was left out and why, one line each, under section 4, and report.json lists them", /Left out of every competitor table, list and count of this report/.test(sec(rel, 4)) && sec(rel, 4).includes("- Casey Teammate (teammate.example) is a teammate of the business: left out of every competitor table, list and count") && sec(rel, 4).includes("- North Ridge Realty (brokerage-gap.example) is a brokerage of the business: left out of every competitor table, list and count") && rel.json?.leftOut?.length === 2, sec(rel, 4).slice(-600));
+    check("T", "a run with no relation prints no left-out line and no leftOut in report.json (nothing new for the first run)", !/Left out of every competitor/.test(free.md) && !("leftOut" in (free.json || {})), "");
+    // a related business declared only in the business record (not yet in the competitors file) is left out too
+    const s3 = site("t3.example", false); w(path.join(s3.pewp, "business.json"), { ...(rj(path.join(s3.pewp, "business.json")) || {}), related: [{ relation: "teammate", domain: "teammate.example", name: "Casey Teammate" }] });
+    const c3 = report(s3, BASE_ENV);
+    check("T", "declared in business.json only: the teammate is left out of the competitor row of section 4 and named in the left-out line", c3.r.status === 0 && !/- Competitor teammate\.example/.test(sec(c3, 4)) && sec(c3, 4).includes("- Casey Teammate (teammate.example) is a teammate of the business"), c3.r.stderr + sec(c3, 4).slice(0, 500));
+  }
+
   // =============================== G: --group (work order 28) ===============================
   if (want("G")) {
     const self = path.join(scripts, "test-reports.mjs");
@@ -435,13 +467,13 @@ const MUTANTS = [
   { name: "S: a trusted lab run is shown as PSI only", file: S0, from: 'const trusted = lab && !isUntrusted(lab) ? "lab and PSI" : "PSI";', to: 'const trusted = "PSI";', sc: "S", expect: [/^S: a page whose lab run was trusted/, /^S: a quiet machine/] },
   { name: "S: the machine load line is dropped", file: S0, from: "if (machineLoad) speedTrustLines.push(", to: "if (false) speedTrustLines.push(", sc: "S", expect: [/^S: a busy machine/, /^S: a quiet machine/] },
   { name: "S: PSI is left out of report.json", file: S0, from: "if (psiRows.length) q1Facts.psiSpeed =", to: "if (false) q1Facts.psiSpeed =", sc: "S", expect: [/^S: the newest PSI file is used/, /^S: report\.json carries the trust/] },
-  { name: "S: the untrusted lab speed is still a finding", file: S0, from: "if (labUntrusted) {\n  problemsQ1.push(", to: "if (false) {\n  problemsQ1.push(", sc: "S", expect: [/^S: the untrusted lab speed is not counted/] },
+  { name: "S: the untrusted lab speed is still a finding", file: S0, from: "if (labUntrusted) {", to: "if (false) {", sc: "S", expect: [/^S: the untrusted lab speed is not counted/] },
   { name: "S: PSI's own slow phone speed is not reported", file: S0, from: "psiMedianLcp != null && psiMedianLcp > 2500", to: "psiMedianLcp != null && psiMedianLcp > 25000000", sc: "S", expect: [/^S: the untrusted lab speed is not counted/] },
   { name: "S: PSI rows are not read", file: S0, from: 'const psiRows = ((psiFile && J(psiFile))?.pages || []).filter((r) => r && r.url);', to: "const psiRows = [];", sc: "S", expect: [/^S: lab and PSI side by side/, /^S: a page whose lab run was trusted/, /^S: a quiet machine/] },
   { name: "S: a quiet machine is called untrusted", file: S0, from: 'const untrustedPages = measured.filter(isUntrusted);', to: "const untrustedPages = measured;", sc: "S", expect: [/^S: a quiet machine/] },
   { name: "Q: the target not in the graph is 0 again", file: S0, from: "referringDomains: f(me.inGraph ? me.linkingDomains : null),", to: "referringDomains: f(me.inGraph ? me.linkingDomains : 0),", sc: "Q", expect: [/^Q: target not in the graph/] },
   { name: "Q: a competitor not in the graph is 0 again", file: S0, from: "referringDomains: c.inGraph ? c.linkingDomains : null,", to: "referringDomains: c.inGraph ? c.linkingDomains : 0,", sc: "Q", expect: [/^Q: competitors: the one in the graph/] },
-  { name: "Q: a competitor with no role is dropped again", file: S0, from: "const comps = auth.results.filter((r) => r !== me);", to: 'const comps = auth.results.filter((r) => r.role === "competitor");', sc: "Q", expect: [/^Q: competitors: the one in the graph/, /^Q: section 4 says/] },
+  { name: "Q: a competitor with no role is dropped again", file: S0, from: "const comps = auth.results.filter((r) => r !== me && !related.byDomain(r.domain));", to: 'const comps = auth.results.filter((r) => r.role === "competitor");', sc: "Q", expect: [/^Q: competitors: the one in the graph/, /^Q: section 4 says/] },
   { name: "Q: inGraph false is not recorded", file: S0, from: "inGraph: f(!!me.inGraph),", to: "inGraph: f(true),", sc: "Q", expect: [/^Q: target not in the graph/, /^Q: section 4 says/, /^Q: the short answer says/] },
   { name: "Q: section 4 prints a competitor not in the graph as a count", file: S0, from: "c.inGraph === false ? `- Competitor ${c.domain}: ${NOT_IN_GRAPH}`", to: "false ? `- Competitor ${c.domain}: ${NOT_IN_GRAPH}`", sc: "Q", expect: [/^Q: section 4 says/] },
   { name: "Q: section 4 prints the target not in the graph as a count", file: S0, from: "    ? [inGraphQ4 ? `- ${term(", to: "    ? [true ? `- ${term(", sc: "Q", expect: [/^Q: section 4 says/] },
@@ -476,6 +508,16 @@ const MUTANTS = [
   { name: "C: a causes.json that is not a list passes", file: S0, from: "!Array.isArray(causes)) {", to: "causes === null) {", sc: "C", expect: [/^C: C4 /] },
   { name: "C: a BLOCKED checker result exits 1", file: S0, from: "then report-live again`); process.exit(3); }", to: "then report-live again`); process.exit(1); }", sc: "C", expect: [/^C: C3 /, /^C: C4 /] },
   { name: "C: --checks with no folder falls back to the snapshot", file: S0, from: ' || (a.includes("--checks") && !/^[^-]/.test(opt("--checks") || ""))', to: "", sc: "C", expect: [/^C: C5 /] },
+  { name: "teammate: the competitor audit keeps a related site", file: "scripts/report-live.mjs", from: "x.page && x.status === 200 && !related.byDomain(x.domain)", to: "x.page && x.status === 200", sc: "T", expect: [/^T: a run with related declared builds/] },
+  { name: "teammate: authority competitors keep a related domain", file: "scripts/report-live.mjs", from: "r !== me && !related.byDomain(r.domain)", to: "r !== me", sc: "T", expect: [/^T: section 4: the teammate is no competitor row/] },
+  { name: "teammate: the link gap list keeps a related domain", file: "scripts/report-live.mjs", from: "gapTop: auth.linkGap.filter((g) => !related.byDomain(g.domain)).slice(0, 15)", to: "gapTop: auth.linkGap.slice(0, 15)", sc: "T", expect: [/^T: section 4: the brokerage is not in the link gap list/] },
+  { name: "teammate: the link gap count keeps a related domain", file: "scripts/report-live.mjs", from: ".length) - gapRelated;", to: ".length);", sc: "T", expect: [/^T: section 4: the brokerage is not in the link gap list/] },
+  { name: "teammate: cited instead counts a related domain", file: "scripts/report-live.mjs", from: "d !== loc.host && !related.byDomain(d)) counts.set(", to: "d !== loc.host) counts.set(", sc: "T", expect: [/^T: section 5/] },
+  { name: "teammate: the report says nothing of who was left out", file: "scripts/report-live.mjs", from: "...(related.rows.length ? [\"\", \"Left out of every competitor table", to: "...(false ? [\"\", \"Left out of every competitor table", sc: "T", expect: [/^T: the report says who was left out/, /^T: declared in business\.json only/] },
+  { name: "teammate: report.json has no leftOut", file: "scripts/report-live.mjs", from: "...(related.rows.length ? { leftOut: related.rows } : {}),", to: "", sc: "T", expect: [/^T: the report says who was left out/] },
+  { name: "teammate: a left-out line is printed for a run with none", file: "scripts/report-live.mjs", from: "...(related.rows.length ? [\"\", \"Left out of every competitor table", to: "...(true ? [\"\", \"Left out of every competitor table", sc: "T", expect: [/^T: a run with no relation prints no left-out line/] },
+  { name: "teammate: the business record is not read for related", file: "scripts/lib-related.mjs", from: "for (const f of [\"business.json\", \"approved/business.json\"]) add(J(path.join(pewp, f))?.related);", to: "", sc: "T", expect: [/^T: declared in business\.json only/] },
+  { name: "teammate: the competitors file is not read for related", file: "scripts/lib-related.mjs", from: "for (const f of [\"research/competitors-proposed.json\", \"approved/competitors.json\"]) add(J(path.join(pewp, f))?.excluded);", to: "", sc: "T", expect: [/^T: a run with related declared builds/, /^T: section 4: the teammate is no competitor row/] },
 ];
 
 const mutantsIn = (groups) => MUTANTS.filter((m) => !groups || m.sc.split("+").every((g) => groups.includes(g))); // all of a mutant's groups must be chosen

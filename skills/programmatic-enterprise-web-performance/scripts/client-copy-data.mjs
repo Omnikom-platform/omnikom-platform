@@ -9,6 +9,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { isAdName, mapsTile, mapsFirstThree, excludedRivals, nameToPrint, namesByFirstMention } from "./client-copy-rules.mjs";
+import { hostOf, nameKey } from "./lib-related.mjs";
 
 export const stop = (line) => { const e = new Error(line); e.isStop = true; throw e; };
 export const fmt = (n) => (typeof n === "number" ? n.toLocaleString("en-US") : n);
@@ -367,20 +368,30 @@ export function collect(cfg) {
   put("rating", { rating: rating.toFixed(1), reviews }, src("profile", "reviews.rating, reviews.count", `${rating}, ${reviews}`));
   const desc = get("profile", "description", "string"), services = get("profile", "services", "array");
   put("profileEmpty", { description: desc.trim() === "", services: services.length === 0 }, src("profile", "description, services", { description: desc, services }));
+  // the businesses the owner declared related (a teammate, the brokerage): the rows of excluded[] of the approved competitors that carry a relation. They are no
+  // rival anywhere: Maps lists and the review count leave them out by their NAME (case and punctuation aside), a client file naming one STOPs the build.
+  const related = (() => {
+    if (!fs.existsSync(defs.approved.abs)) return []; // a missing file STOPs where it is read below
+    const n = (getMaybe("approved", "excluded", "array") || []).length, one = (i) => ({ relation: getMaybe("approved", `excluded[${i}].relation`, "text"), domain: getMaybe("approved", `excluded[${i}].domain`, "text"), name: getMaybe("approved", `excluded[${i}].name`, "text") });
+    return Array.from({ length: n }, (_, i) => one(i)).filter((x) => x.relation && (x.domain || x.name));
+  })();
+  const relName = (nm) => related.find((x) => x.name && nameKey(x.name) === nameKey(nm)) || null;
+  const relHost = (d) => related.find((x) => x.domain && hostOf(x.domain) === hostOf(d)) || null;
+  const leftOutNote = related.length ? ", related businesses left out" : "";
   // businesses Maps put in the first three around the home city: how many show more reviews than this listing
   const seen = new Map();
   for (const p of pts.filter((x) => x.city.split(",")[0].trim() === home)) {
     const t3 = get("grid", `points[${p.i}].top3`, "array");
     t3.forEach((_, j) => {
       const name = get("grid", `points[${p.i}].top3[${j}].name`, "text");
-      if (isAd(name) || name === ourName) return;
+      if (isAd(name) || name === ourName || relName(name)) return;
       const rv = getMaybe("grid", `points[${p.i}].top3[${j}].reviews`, "count"); // a card may show no review count
       if (!seen.has(name) || (rv !== null && (seen.get(name) === null || rv > seen.get(name)))) seen.set(name, rv);
     });
   }
   const withCount = [...seen.values()].filter((v) => v !== null);
   put("rivalReviews", { more: withCount.filter((v) => v > reviews).length, of: withCount.length, ours: reviews },
-    src("grid", `points[city=${home}].top3[*].name/reviews (distinct names, ads left out, our listing left out)`, `${withCount.filter((v) => v > reviews).length} of ${withCount.length} above ${reviews}`));
+    src("grid", `points[city=${home}].top3[*].name/reviews (distinct names, ads left out, our listing left out${leftOutNote})`, `${withCount.filter((v) => v > reviews).length} of ${withCount.length} above ${reviews}`));
   const dirNames = cfg.dirNames || {};
   const citeRows = get("cites", "$", "array").map((_, i) => ({ i, directory: get("cites", `[${i}].directory`, "text"), status: get("cites", `[${i}].status`, "text"), at: get("cites", `[${i}].capturedAt`, "date") }));
   const printedName = (d) => dirNames[d] || (d.match(/\(([^)]+)\)/) || [])[1] || d.split(/[ (]/)[0].split(".")[0];
@@ -413,7 +424,7 @@ export function collect(cfg) {
 
   // ---- competitors and links
   const approvedRows = get("comp", "approvedRows", "count");
-  const sites = get("comp", "sites", "array").map((_, i) => { const status = get("comp", `sites[${i}].status`, "count"); return { status, words: status === 200 ? get("comp", `sites[${i}].page.words`, "count") : null }; });
+  const sites = get("comp", "sites", "array").map((_, i) => { const status = get("comp", `sites[${i}].status`, "count"); return { status, words: status === 200 ? get("comp", `sites[${i}].page.words`, "count") : null, rel: related.length > 0 && relHost(getMaybe("comp", `sites[${i}].domain`, "text")) !== null }; }).filter((s) => !s.rel); // a related business audited from the results is no rival site
   const read = sites.filter((s) => s.status === 200);
   put("sitesRead", { read: read.length, of: approvedRows, allSend: read.length > 0 && read.every((s) => s.words > 0) }, src("comp", "approvedRows; sites[*].status == 200; sites[*].page.words > 0", `${read.length} of ${approvedRows}; ${read.filter((s) => s.words > 0).length} with words`));
   let list = client.rivals;
@@ -512,6 +523,8 @@ export function collect(cfg) {
     put("approvedSet", { rows: aRows, excluded: aEx }, src("approved", "rows[*].name, .domain, .kind; excluded[*].domain", `${aRows.length} rows, ${aEx.length} excluded`));
     const unconf = client.unconfirmedNames || [], exRiv = excludedRivals(client.rivals || [], { excluded: aEx });
     if (exRiv.length) stop(`STOP: the client file names the rival ${exRiv[0]}, which stands on the excluded list of ${label(defs.approved)}`);
+    for (const r of client.rivals || []) { const x = relName(r.name); if (x) stop(`STOP: the client file names the rival ${r.name}, a ${x.relation} of the business, which stands on the excluded list of ${label(defs.approved)}`); }
+    for (const d of client.adsFor || []) { const x = relHost(d); if (x) stop(`STOP: the client file's adsFor names ${d}, a ${x.relation} of the business, which stands on the excluded list of ${label(defs.approved)}`); }
     for (const r of rivals) { r.printName = nameToPrint(r.domain, r.name, unconf); r.printFrom = r.printName === r.name ? (r.fromClient ? "client" : "approved") : "domain"; } // where the printed name comes from: the client file, the approved sheet, or the domain
     const smType = get("sitemaps", "fetched[0].contentType", "text");
     put("sitemapType", smType, src("sitemaps", "fetched[0].contentType", smType));
@@ -542,8 +555,8 @@ export function collect(cfg) {
     const msIdx = gp.map((p, i) => (p.query === msQ && p.city === solv[msAt].city ? i : -1)).filter((i) => i >= 0);
     const msPts = msIdx.map((i) => ({ query: msQ, city: gp[i].city, pack: get("grid", `points[${i}].pack`, "array").map((_, k) => ({ position: get("grid", `points[${i}].pack[${k}].position`, "count"), name: get("grid", `points[${i}].pack[${k}].name`, "text"), reviews: getMaybe("grid", `points[${i}].pack[${k}].reviews`, "count") })) }));
     // the client's name is the data layer's own `ourName` (profile name, read above): 127 of 162 real points have `ours` null, so a point's `ours.name` is never read
-    let ms; try { ms = mapsFirstThree(msPts, msQ, ourName); } catch (e) { stop(`STOP: ${label(defs.grid)}: ${e.message}`); }
-    put("mapShown", { query: msQ, points: ms.points, rows: ms.rows, clientAt: ms.rows.findIndex((r) => r.isTheClient) }, src("grid", `points[query=${msQ}].pack[position<=3] (name, reviews); the client is profile name`, `${ms.rows.length} businesses over ${ms.points} points`));
+    let ms; try { ms = mapsFirstThree(related.length ? msPts.map((p) => ({ ...p, pack: p.pack.filter((r) => !relName(r.name)) })) : msPts, msQ, ourName); } catch (e) { stop(`STOP: ${label(defs.grid)}: ${e.message}`); } // a related business is no one Maps shows
+    put("mapShown", { query: msQ, points: ms.points, rows: ms.rows, clientAt: ms.rows.findIndex((r) => r.isTheClient) }, src("grid", `points[query=${msQ}].pack[position<=3] (name, reviews); the client is profile name${leftOutNote}`,`${ms.rows.length} businesses over ${ms.points} points`));
     const usN = ourGraph ? get("auth", `results[domain=${domain}].linkingDomains`, "count") : null;
     put("usLinks", usN, src("auth", `results[domain=${domain}].linkingDomains`, usN === null ? "not in graph" : usN));
     // ---- the texts the pages print that come from a file: one source for each, read by the pages' TX() into a sheet row of kind text

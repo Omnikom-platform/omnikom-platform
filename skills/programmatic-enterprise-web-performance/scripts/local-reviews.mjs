@@ -10,10 +10,14 @@
 import { readJson, writeJson, blocked } from "./local-lib.mjs";
 import { isMain } from "./lib-main.mjs";
 import { fact } from "./measure-sources.mjs";
+import { nameKey } from "./lib-related.mjs";
 
 const median = (a) => { const s = a.filter((x) => x != null).sort((x, y) => x - y); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null; };
 
-export function reviewGap(profile, packRows) {
+// leaveOut: the names of businesses the owner declared related (a teammate, the brokerage; lib-related.mjs): never a business to compare with, matched by name, case and punctuation aside
+export function reviewGap(profile, packRows, leaveOut = []) {
+  const left = new Set(leaveOut.map(nameKey).filter(Boolean));
+  if (left.size) packRows = packRows.map((r) => ({ ...r, pack: r.pack.filter((p) => !left.has(nameKey(p.name))) }));
   if (!profile?.reviews || profile.reviews.count == null) return { status: "blocked", blocked: { source: "business-profile", reason: "no review count for our own profile", unblock: "Import the Business Profile export or a dated manual capture (local-profile.mjs)." } };
   if (!packRows?.length) return { status: "blocked", blocked: { source: "local-pack captures", reason: "no local-pack captures to compare against", unblock: "Capture the map pack for each service + city on mobile (owner, human pace) into captures/local/pack/." } };
   const rows = [], excluded = [];

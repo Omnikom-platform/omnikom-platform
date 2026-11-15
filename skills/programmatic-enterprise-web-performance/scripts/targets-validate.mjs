@@ -13,6 +13,7 @@ import crypto from "node:crypto";
 import { isMain } from "./lib-main.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { relatedErrors } from "./lib-related.mjs";
 import { tokens } from "./lib-text.mjs";
 
 export const INTENTS = ["informational", "commercial", "transactional", "local", "navigational"];
@@ -136,6 +137,7 @@ export function validateBusiness(obj) {
   if (!isObj(obj.brand) || !Array.isArray(obj.brand.constraints)) c.add("B-001", "brand.constraints", "must be a list");
   if (!isObj(obj.existing)) c.add("B-001", "existing", "missing");
   if (!["live", "preview", "planned"].includes(obj.launchState)) c.add("B-001", "launchState", "must be live | preview | planned");
+  if ("related" in obj) for (const why of relatedErrors(obj.related)) c.add("B-001", "related", why); // optional: a teammate or the brokerage (lib-related.mjs)
   if ("rankTracking" in obj) {
     const r = obj.rankTracking;
     if (!isObj(r) || !["search-console", "browser-capture"].includes(r.source) || !isStrList(r.locations) || !isStrList(r.devices) || !r.devices.every((d) => DEVICES.includes(d))) c.add("B-001", "rankTracking", "needs source (search-console | browser-capture), locations[], devices[]");

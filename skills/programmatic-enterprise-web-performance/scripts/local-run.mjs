@@ -16,6 +16,7 @@ import { importProfile, auditProfile, loadCompetitors } from "./local-profile.mj
 import { importPackCaptures } from "./local-pack.mjs";
 import { runNap } from "./local-nap.mjs";
 import { reviewGap } from "./local-reviews.mjs";
+import { relatedOf, leftOutLine } from "./lib-related.mjs";
 import { latestComplete } from "./live-target.mjs";
 import { runGridImport } from "./local-grid.mjs";
 import { isDay } from "./measure-sources.mjs";
@@ -42,7 +43,8 @@ export function runLocal(target, { cwd = process.cwd(), site = null, today = nul
   let siteDir = site; if (!siteDir && loc.kind === "url") { const l = latestComplete(loc.snapshots); siteDir = l?.dir || null; }
   out.nap = runNap({ business, siteDir, citations: readJson(citationsFile), sources: readJson(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "rules", "citation-sources.json")), now });
   // reviews
-  out.reviews = out.profile.status === "ok" && out.pack.status === "ok" ? reviewGap(out.profile.profile, out.pack.rows) : { status: "blocked", blocked: { source: out.profile.status !== "ok" ? "business-profile" : "local-pack captures", reason: "needs both our profile and local-pack captures", unblock: (out.profile.status !== "ok" ? out.profile.blocked : out.pack.blocked)?.unblock } };
+  const relRows = relatedOf(loc.pewp).rows; // a teammate or the brokerage is no business to compare reviews with (lib-related.mjs)
+  out.reviews = out.profile.status === "ok" && out.pack.status === "ok" ? reviewGap(out.profile.profile, out.pack.rows, relRows.map((r) => r.name).filter(Boolean)) : { status: "blocked", blocked: { source: out.profile.status !== "ok" ? "business-profile" : "local-pack captures", reason: "needs both our profile and local-pack captures", unblock: (out.profile.status !== "ok" ? out.profile.blocked : out.pack.blocked)?.unblock } };
   for (const k of ["profile", "pack", "nap", "reviews"]) { writeJson(path.join(dir, `${k}.json`), out[k]); out.parts[k] = out[k].status === "ok" ? "ok" : "BLOCKED"; }
   // the local grid: captures per grid point (local-grid.mjs plan writes the requests, a person captures them, this imports them)
   const gr = runGridImport(target, { cwd, today, log: () => {} });
@@ -53,6 +55,7 @@ export function runLocal(target, { cwd = process.cwd(), site = null, today = nul
   for (const b of nr) L.push(notReadLine(b));
   if (out.nap.status === "ok") { for (const m of out.nap.mismatches) L.push(`- Listing differs: ${m.detail}`); if (out.nap.consistency) L.push(`- Listings consistent with the business record: ${out.nap.consistency.text}`); for (const x of out.nap.notCheckedDirectories || []) L.push(`- NOT CHECKED, ${x.directory} (${x.status}): ${x.reason}`); for (const i of (out.nap.site?.issues || []).filter((x) => !x.lowConfidence).slice(0, 20)) L.push(`- Site ${i.page}: ${i.field} is "${i.found}", the business record says "${i.expected}" (${i.where})`); }
   if (out.reviews.status === "ok") for (const r of out.reviews.rows) L.push(`- ${r.city} (${r.device}): ${r.ourReviews.value} reviews against ${r.packThirdPlaceReviews.value ?? "?"} for 3rd place in the pack.`);
+  for (const r of relRows.filter((x) => x.name)) L.push(`- Left out of the review comparison: ${leftOutLine(r)}`);
   if (out.grid.status !== "ok") L.push(`- NOT MEASURED, grid: ${out.grid.blocked.reason}. To fix: ${out.grid.blocked.unblock}`);
   else for (const s of out.grid.solv) L.push(`- Grid, "${s.query}" around ${s.city}: in the 3-pack at ${s.pointsIn3Pack} of ${s.localizedPoints} points${s.solv3.value != null ? ` (${Math.round(s.solv3.value * 100)}%)` : ""}. Heat map: ${path.join(out.grid.dir, "grid.html")}`);
   fs.writeFileSync(path.join(dir, "report.md"), L.join("\n") + "\n");

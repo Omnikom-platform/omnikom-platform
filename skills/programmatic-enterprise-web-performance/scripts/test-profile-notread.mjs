@@ -53,6 +53,11 @@ if (args.includes("--mutants")) {
     { id: "partial-exit-changed", file: "local-run.mjs", from: "if (pl) console.log(pl);", to: "if (pl) { console.log(pl); process.exitCode = 3; }", red: "case 18:" },
     { id: "partial-names-only-the-first-part", file: "local-run.mjs", from: ".map(([k]) => k)", to: ".map(([k]) => k).slice(0, 1)", red: "case 19:" },
     { id: "partial-names-the-ok-parts", file: "local-run.mjs", from: '.filter(([, v]) => v !== "ok")', to: '.filter(([, v]) => v === "ok")', red: "case 18:" },
+    { id: "tm-related-kept-in-reviews", file: "local-reviews.mjs", from: "if (left.size) packRows = packRows.map(", to: "if (false) packRows = packRows.map(", red: "case 21:" },
+    { id: "tm-review-name-exact", file: "lib-related.mjs", from: "export const nameKey = (s) => String(s || \"\").toLowerCase().replace(/[^a-z0-9]+/g, \" \").trim();", to: "export const nameKey = (s) => String(s || \"\");", red: "case 21:" },
+    { id: "tm-local-run-passes-no-names", file: "local-run.mjs", from: "relRows.map((r) => r.name).filter(Boolean)", to: "[]", red: "case 21:" },
+    { id: "tm-left-out-line-dropped", file: "local-run.mjs", from: "for (const r of relRows.filter((x) => x.name)) L.push(", to: "for (const r of []) L.push(", red: "case 21:" },
+    { id: "tm-left-out-line-for-all", file: "local-run.mjs", from: "for (const r of relRows.filter((x) => x.name)) L.push(", to: "for (const r of [{ name: \"x\", relation: \"teammate\", domain: null }]) L.push(", red: "case 21:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "profnr-mut-"));
   let ok = 0;
@@ -246,6 +251,22 @@ const OUT = "local 2026-10-22: ";
   try { a = LR.partialLine(ok, "d"); b = LR.partialLine({ ...ok, profile: "BLOCKED", reviews: "BLOCKED" }, "d"); } catch (e) { err = String(e); }
   check("case 20: with every part ok partialLine is empty (no PARTIAL: line); with two BLOCKED it names exactly those two, in order",
     !err && a === "" && b === "PARTIAL: profile, reviews not measured (BLOCKED); see " + path.join("d", "report.md"), err || JSON.stringify([a, b]));
+}
+{
+  // job 5: a teammate or the brokerage (lib-related.mjs) is no business to compare reviews with: the command is run twice on the same invented pack, once with no relation (the control)
+  const PACK = { query: "home loans tracy", city: "Tracy, CA", location: "Tracy, CA", device: "mobile", language: "en", capturedAt: "2026-10-20T10:00:00Z", pack: [{ position: 1, name: "Maple Loans", rating: 4.9, reviews: 300 }, { position: 2, name: "Elm Lending", rating: 4.1, reviews: 100 }, { position: 3, name: "Casey Teammate Loans", rating: 4.7, reviews: 900 }] };
+  const runWith = (n, related) => { const w = world(n, BASE); fs.mkdirSync(path.join(w.cap, "pack"), { recursive: true }); fs.writeFileSync(path.join(w.cap, "pack", "p1.json"), JSON.stringify(PACK));
+    if (related) { fs.mkdirSync(path.join(w.root, ".pewp", "approved"), { recursive: true }); fs.writeFileSync(path.join(w.root, ".pewp", "approved", "competitors.json"), JSON.stringify({ rows: [], excluded: [{ domain: null, name: "casey teammate loans.", relation: "teammate", reason: "declared teammate of the business" }, { domain: "x.example", relation: "brokerage", reason: "declared" }] })); }
+    const c = cli(w), rv = fs.existsSync(path.join(c.od, "reviews.json")) ? J(path.join(c.od, "reviews.json")) : {}, md = fs.existsSync(path.join(c.od, "report.md")) ? fs.readFileSync(path.join(c.od, "report.md"), "utf8") : "";
+    return { c, row: (rv.rows || [])[0] || {}, md }; };
+  const free = runWith(21, false), rel = runWith(22, true), names = (x) => (x.row.competitors || []).map((p) => p.name).join("|");
+  check("case 21: a teammate declared by name (other case and punctuation) is left out of the review comparison: not in the competitors, not the 3rd place bar, not in the median; a run with none declared compares all three",
+    free.c.r.status === 0 && rel.c.r.status === 0 && names(free) === "Maple Loans|Elm Lending|Casey Teammate Loans" && free.row.packThirdPlaceReviews?.value === 900 && free.row.packMedianReviews?.value === 300
+      && names(rel) === "Maple Loans|Elm Lending" && rel.row.packThirdPlaceReviews?.value === null && rel.row.packMedianReviews?.value === 200,
+    `${free.c.r.status}/${rel.c.r.status} ${names(free)} ${free.row.packThirdPlaceReviews?.value}/${free.row.packMedianReviews?.value} | ${names(rel)} ${rel.row.packThirdPlaceReviews?.value}/${rel.row.packMedianReviews?.value} ${String(rel.c.r.stderr || "").slice(0, 200)}`);
+  check("case 21: the local report says who was left out (a declared business with a name), and a run with none declared says nothing new",
+    rel.md.includes("- Left out of the review comparison: casey teammate loans. is a teammate of the business: left out of every competitor table, list and count") && !/Left out of the review comparison/.test(free.md) && !rel.md.includes("x.example"),
+    rel.md.split("\n").filter((l) => /Left out/.test(l)).join(" / "));
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 

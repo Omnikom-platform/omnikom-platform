@@ -18,6 +18,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { context, J, W, iso, domainOf, runCli } from "./research-lib.mjs";
+import { hostOf, nameKey, relatedOf } from "./lib-related.mjs";
 
 export const PLATFORMS = ["web", "instagram", "tiktok", "youtube", "substack", "newsletter", "facebook", "pinterest", "x", "other"];
 export const KINDS = ["publisher", "social-curator", "paid-media", "agency", "brokerage-program", "design-broker", "marketplace", "other"];
@@ -199,6 +200,7 @@ export function table(doc) {
   const L = [`# Competitors proposed for ${doc.business || "the business"} (${doc.generatedAt.slice(0, 10)})`, "",
     `${doc.rows.length} rows from ${doc.source.length ? doc.source.join(", ") : "no file"}. Closeness 5 = nearest. Read it, strike out what is wrong, then approve: ${"`"}node approve.mjs <target> competitors --by "<owner name>"${"`"}.`, ""];
   if (doc.needsEvidence.length) L.push(`**Needs an evidence URL before it can be approved (${doc.needsEvidence.length}):** ${doc.needsEvidence.join("; ")}`, "");
+  if ((doc.excluded || []).some((x) => x.relation)) L.push(`Left out (related to the business, never a competitor): ${doc.excluded.filter((x) => x.relation).map((x) => `${x.name || x.domain} (${x.relation})`).join("; ")}`, "");
   if (doc.dropped.length) L.push(`Left out (nobody to track): ${doc.dropped.map((d) => `${d.name} (${d.why})`).join("; ")}`, "");
   L.push("| # | Name | Where | Kind | Closeness | Evidence |", "|---|---|---|---|---|---|");
   doc.rows.forEach((r, i) => L.push(`| ${i + 1} | ${esc(r.name)} | ${esc([r.handle, r.domain].filter(Boolean).join(" · ") + ` (${r.platform})`)} | ${r.kind} | ${r.closeness} | ${r.evidenceUrl ? esc(r.evidenceUrl) : "**none**"} |`));
@@ -224,8 +226,13 @@ export function run(ctx, { candidatesFile = null } = {}) {
     for (const c of list) { const r = normaliseCandidate(c, path.basename(candFile)); if (r.row) rows.push(r.row); else dropped.push(r.dropped); }
     source.push(rel); perFile[rel] = list.length;
   }
-  const merged = mergeRows(rows).sort((a, b) => b.closeness - a.closeness); // stable: file order within a closeness
-  const doc = { step: "competitors-discover", generatedAt: iso(), business: ctx.domain || null, source, rows: merged, needsEvidence: merged.filter((r) => !r.evidenceUrl).map((r) => r.name), dropped, readPerFile: perFile };
+  // a business the record declares related (a teammate, the brokerage) is never a competitor: it stands in excluded[] with the relation as the reason
+  // (the rows an earlier `approve.mjs --exclude` wrote keep their who and when)
+  const prev = (J(outJson, {})?.excluded || []).filter((x) => x && x.relation), key = (x) => `${hostOf(x.domain)}|${nameKey(x.name)}`;
+  const excluded = [...prev, ...relatedOf(ctx.pewp).rows.filter((x) => !prev.some((p) => key(p) === key(x))).map((x) => ({ domain: x.domain, name: x.name, relation: x.relation, reason: `declared ${x.relation} of the business` }))];
+  const isRel = (r) => excluded.some((x) => (x.domain && hostOf(r.domain) === x.domain) || (x.name && nameKey(r.name) === nameKey(x.name)));
+  const merged = mergeRows(rows).filter((r) => !isRel(r)).sort((a, b) => b.closeness - a.closeness); // stable: file order within a closeness
+  const doc = { step: "competitors-discover", generatedAt: iso(), business: ctx.domain || null, source, rows: merged, needsEvidence: merged.filter((r) => !r.evidenceUrl).map((r) => r.name), dropped, ...(excluded.length ? { excluded } : {}), readPerFile: perFile };
   W(outJson, doc);
   W(outMd, table(doc));
   return { status: "written", doc, files: [outJson, outMd] };

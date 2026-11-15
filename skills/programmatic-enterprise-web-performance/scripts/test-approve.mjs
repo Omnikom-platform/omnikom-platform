@@ -4,6 +4,8 @@
 //   B  intake.mjs: answeredBy provenance, vocabulary, notOffer, editorial-media, the multi-region default (G16)
 //   C  competitors-discover.mjs: the three real markdown layouts (fixtures/competitors/), evidence, closeness, merge, the discovery brief
 //   D  authority.mjs: --approved-competitors, --require-approved, --download-only (tiny fake Common Crawl release on a local server)
+//   E  lib-related.mjs (job 5): a teammate and the brokerage are never a competitor: intake `related`, approve business (owner-only), competitors-discover and the
+//      approval (excluded[] with the relation; the refusal; `approve.mjs <target> competitors --exclude <domain> --as teammate|brokerage --by <who>`)
 // Fixtures only: no real network (PEWP_CC_BASE points at a closed local port or a local server), no Chrome, no model.
 // Mutants: break the code each assertion guards, expect the named assertions red, restore. Exit 0 = every assertion passed and every mutant was caught.
 import fs from "node:fs";
@@ -26,7 +28,7 @@ const rj = (p) => JSON.parse(fs.readFileSync(p, "utf8"));
 const sha = (p) => crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");
 const CLOSED = "http://127.0.0.1:1/graph"; // nothing listens: any attempt to download fails fast and is never the real internet
 
-async function runScenarios(sdir, groups = ["a", "b", "c", "d"]) {
+async function runScenarios(sdir, groups = ["a", "b", "c", "d", "e"]) {
   const R = [];
   const check = (name, ok, detail = "") => R.push({ name, ok: !!ok, detail: ok ? "" : String(detail).slice(0, 900) });
   const skill = path.dirname(sdir);
@@ -357,6 +359,151 @@ async function runScenarios(sdir, groups = ["a", "b", "c", "d"]) {
       check("C5: --help prints the usage", /usage/i.test(r.out), r.out);
     }
 
+    // =============================================================== E: a teammate and the brokerage are never a competitor (lib-related.mjs); every case runs the COMMAND on a made-up run on disk
+    if (groups.includes("e")) {
+      const OWNER_E = ["kind", "offer", "audience", "goals", "competitors", "brand.constraints", "vocabulary"];
+      const ownerProv = Object.fromEntries(OWNER_E.map((f) => [f, "owner"]));
+      const RELATED = [{ relation: "teammate", domain: "https://www.Teammate-Homes.test/", name: "Casey Teammate" }, { relation: "brokerage", name: "North Ridge Realty" }];
+      const SIGNED = [{ relation: "teammate", domain: "teammate-homes.test", name: "Casey Teammate" }, { relation: "brokerage", domain: null, name: "North Ridge Realty" }];
+      const bizE = (over = {}, prov = {}) => ({ name: "Alder Bay Realty", domain: "alderbay-realty.test", kind: "real-estate-agent", industry: null, offer: "Homes in Alder Bay.", audience: "Buyers and sellers", vocabulary: ["homes"], market: { country: "US", language: "en" }, locations: [{ name: "Alder Bay, WA", address: null, serviceArea: ["Alder Bay"] }], goals: ["leads"], competitors: ["dwell.test"], brand: { constraints: [] }, existing: { site: null, searchConsole: false, businessProfile: null, socials: [] }, launchState: "planned", rankTracking: { source: "browser-capture", locations: ["Alder Bay, WA"], devices: ["mobile"] }, provenance: { ...ownerProv, ...(over.related ? { related: "owner" } : {}), ...prov }, ...over });
+      const rd = (p) => (fs.existsSync(p) ? fs.readFileSync(p, "utf8") : ""), rjs = (p) => (fs.existsSync(p) ? rj(p) : {}); // a missing file is a red case, never a crash of the test
+      let n = 0;
+      const mk = () => { const p = path.join(tmp, "e", `p${++n}`); fs.mkdirSync(path.join(p, "research"), { recursive: true }); return p; };
+      const ap = (pewp, ...x) => run("approve.mjs", ["--pewp", pewp, ...x]);
+      const row = (over = {}) => ({ name: "Dwell", domain: "dwell.test", handle: null, platform: "web", kind: "publisher", evidenceUrl: "https://x.test/dwell", closeness: 4, note: "", ...over });
+      const proposal = (rows, extra = {}) => ({ step: "competitors-discover", generatedAt: "2026-11-14T00:00:00Z", business: "alderbay-realty.test", source: [], rows, needsEvidence: [], dropped: [], ...extra });
+      const signedBusiness = (p, over = {}) => { w(path.join(p, "business.json"), bizE(over)); return ap(p, "business", "--by", "Ana"); };
+
+      // ---- E1 intake: the answer `related`
+      const cwdE = path.join(tmp, "e-intake");
+      const hostE = (h) => ({ url: `https://${h}/`, pewp: path.join(cwdE, "site-checks", h, ".pewp") });
+      const rulesE = path.join(cwdE, "rules"); w(path.join(rulesE, "industries", "real-estate-agent.json"), "{}\n");
+      const own = (v) => ({ value: v, answeredBy: "owner" });
+      const ansE = (over = {}) => ({ kind: own("real-estate-agent"), offer: own("Homes in Alder Bay."), audience: own("Buyers and sellers"), goals: own(["leads"]), competitors: own(["dwell.test"]), "brand.constraints": own([]), "market.country": own("US"), "market.language": own("en"), name: "Alder Bay Realty", launchState: "planned", locations: own([{ name: "Alder Bay, WA", address: null, serviceArea: ["Alder Bay"] }]), "existing.searchConsole": own(false), "existing.businessProfile": own(null), ...over });
+      const intakeE = (h) => run("intake.mjs", [h.url, "--cwd", cwdE], { PEWP_RULES_DIR: rulesE });
+      const bizOf = (h) => (fs.existsSync(path.join(h.pewp, "business.json")) ? rj(path.join(h.pewp, "business.json")) : null);
+      let h1 = hostE("alderbay-realty.test"); w(path.join(h1.pewp, "intake-answers.json"), ansE({ related: own(RELATED) }));
+      let r = intakeE(h1); let b = bizOf(h1);
+      check("E1: intake takes the answer related ([{relation, domain, name}], domain or name or both): exit 0, written with the host of the domain and no other change", r.code === 0 && JSON.stringify(b?.related) === JSON.stringify(SIGNED), r.out.slice(0, 500) + JSON.stringify(b?.related));
+      check("E1: related is stamped with who answered it (owner) in provenance", b?.provenance?.related === "owner", JSON.stringify(b?.provenance));
+      let h2 = hostE("alderbay-two.test"); w(path.join(h2.pewp, "intake-answers.json"), ansE({ related: own([{ relation: "friend", name: "Someone" }]) }));
+      r = intakeE(h2);
+      check("E1: a relation that is not teammate or brokerage is refused with a question about related (exit 3), nothing written", r.code === 3 && /"field": "related"/.test(r.out) && /related\[0\]\.relation must be teammate or brokerage/.test(r.out) && !bizOf(h2), r.out.slice(-600));
+      let h3 = hostE("alderbay-three.test"); w(path.join(h3.pewp, "intake-answers.json"), ansE({ related: own([{ relation: "teammate" }]) }));
+      r = intakeE(h3);
+      check("E1: a row with neither a domain nor a name is refused (exit 3)", r.code === 3 && /related\[0\] needs a domain or a name/.test(r.out) && !bizOf(h3), r.out.slice(-400));
+      let h4 = hostE("alderbay-four.test"); w(path.join(h4.pewp, "intake-answers.json"), ansE());
+      r = intakeE(h4);
+      check("E1: no related answer: the business has no related key and no related provenance (a run that declares none is unchanged)", r.code === 0 && bizOf(h4) && !("related" in bizOf(h4)) && !("related" in bizOf(h4).provenance), r.out.slice(0, 300));
+
+      // ---- E2 approve business: related is owner-only once declared
+      let p = mk();
+      r = signedBusiness(p, { related: SIGNED });
+      check("E2: a business that declares related, answered by the owner, is approved (exit 0)", r.code === 0 && /PASS approve business/.test(r.out), r.out);
+      p = mk(); w(path.join(p, "business.json"), bizE({ related: SIGNED }, { related: "site" }));
+      r = ap(p, "business", "--by", "Ana");
+      check("E2: related stamped site (not the owner) is refused by name (exit 1), nothing approved", r.code === 1 && /related was not answered by the owner \(provenance: site\)/.test(r.out) && !fs.existsSync(path.join(p, "approved")), r.out);
+      p = mk(); w(path.join(p, "business.json"), bizE({ related: SIGNED }, { related: "default" }));
+      r = ap(p, "business", "--by", "Ana");
+      check("E2: related stamped default is refused (exit 1) and nothing is written under approved/", r.code === 1 && /related was not answered by the owner \(provenance: default\)/.test(r.out) && !fs.existsSync(path.join(p, "approved")), r.out);
+      const DEL = { by: "head of operations", delegatedBy: "owner", at: "2026-11-14T08:00:00Z" };
+      p = mk(); w(path.join(p, "business.json"), bizE({ related: SIGNED, delegations: { related: DEL } }, { related: "delegated" }));
+      r = ap(p, "business", "--by", "Ana");
+      check("E2: related answered by a delegate with a record of who and when is accepted (exit 0)", r.code === 0 && /PASS approve business/.test(r.out), r.out);
+      p = mk(); w(path.join(p, "business.json"), bizE({ related: [{ relation: "cousin", name: "X" }] }));
+      r = ap(p, "business", "--by", "Ana");
+      check("E2: a related list with a relation that is not teammate or brokerage is not a valid business (exit 1, B-001 related)", r.code === 1 && /B-001 related: related\[0\]\.relation must be teammate or brokerage/.test(r.out), r.out);
+      p = mk(); w(path.join(p, "business.json"), bizE({}, { kind: "unstated" }));
+      r = ap(p, "business", "--by", "Ana");
+      check("E2: a business with no related is checked as before (no related stamp asked for)", r.code === 1 && /kind was not answered by the owner/.test(r.out) && !/related/.test(r.out), r.out);
+
+      // ---- E3 the proposal obeys: competitors-discover
+      const cand = (over) => ({ name: "Dwell", domain: "dwell.test", platform: "web", kind: "publisher", evidenceUrl: "https://x.test/dwell", closeness: 4, ...over });
+      const cands = [cand(), cand({ name: "Teammate Homes", domain: "www.teammate-homes.test", closeness: 5 }), cand({ name: "north ridge realty!", domain: "northridge.test" }), cand({ name: "Other Realty", domain: "other-realty.test", closeness: 2 })];
+      p = mk(); w(path.join(p, "business.json"), bizE({ related: SIGNED })); w(path.join(p, "research", "competitors-candidates.json"), cands);
+      r = run("competitors-discover.mjs", ["x", "--pewp", p]);
+      let doc = fs.existsSync(path.join(p, "research", "competitors-proposed.json")) ? rjs(path.join(p, "research", "competitors-proposed.json")) : null;
+      check("E3: the proposal never lists a related domain or name as a competitor (the teammate by domain with www, the brokerage by name with other case and punctuation): rows are Dwell and Other Realty", r.code === 0 && JSON.stringify(doc?.rows.map((x) => x.name)) === JSON.stringify(["Dwell", "Other Realty"]), r.out + JSON.stringify(doc?.rows?.map((x) => x.name)));
+      check("E3: each declared business stands in excluded[] with its relation and the reason (a declared one that was never a candidate too)", doc?.excluded?.length === 2 && doc.excluded.every((x) => x.relation && /^declared (teammate|brokerage) of the business$/.test(x.reason)) && doc.excluded[0].domain === "teammate-homes.test" && doc.excluded[1].name === "North Ridge Realty", JSON.stringify(doc?.excluded));
+      const md = rd(path.join(p, "research", "competitors-proposed.md"));
+      check("E3: the page the owner reads says what was left out and why, and its table has no row for them", /Left out \(related to the business, never a competitor\): Casey Teammate \(teammate\); North Ridge Realty \(brokerage\)/.test(md) && !/Teammate Homes/.test(md.split("| # |")[1] || ""), md);
+      p = mk(); w(path.join(p, "business.json"), bizE()); w(path.join(p, "research", "competitors-candidates.json"), cands);
+      r = run("competitors-discover.mjs", ["x", "--pewp", p]); doc = rjs(path.join(p, "research", "competitors-proposed.json"));
+      check("E3: with no related declared the proposal is as before: every candidate is a row and there is no excluded key", r.code === 0 && doc.rows.length === 4 && !("excluded" in doc) && !/related/.test(rd(path.join(p, "research", "competitors-proposed.md"))), JSON.stringify(Object.keys(doc)));
+
+      // ---- E4 the approval refuses a related business that stands as a competitor
+      p = mk(); r = signedBusiness(p, { related: SIGNED });
+      w(path.join(p, "research", "competitors-proposed.json"), proposal([row(), row({ name: "Teammate Homes", domain: "teammate-homes.test" })]));
+      r = ap(p, "competitors", "--by", "Ana");
+      check("E4: a competitors list with the teammate's domain as a row is refused (exit 1) with one line naming it and the way out, nothing approved", r.code === 1 && /Teammate Homes: is a teammate of the business \(approved\/business\.json related\), never a competitor: it stands in excluded\[\] \(approve\.mjs <target> competitors --exclude <domain> --as teammate\)/.test(r.out) && !fs.existsSync(path.join(p, "approved", "competitors.json")), r.out);
+      w(path.join(p, "research", "competitors-proposed.json"), proposal([row(), row({ name: "north ridge realty!", domain: "northridge.test" })]));
+      r = ap(p, "competitors", "--by", "Ana");
+      check("E4: the brokerage is refused by its NAME (case and punctuation aside) when its domain is another one", r.code === 1 && /north ridge realty!: is a brokerage of the business/.test(r.out) && !fs.existsSync(path.join(p, "approved", "competitors.json")), r.out);
+      w(path.join(p, "research", "competitors-proposed.json"), proposal([row()], { excluded: [{ domain: "teammate-homes.test", name: "Casey Teammate", relation: "teammate", reason: "declared teammate of the business" }] }));
+      r = ap(p, "competitors", "--by", "Ana");
+      const apDoc = fs.existsSync(path.join(p, "approved", "competitors.json")) ? rd(path.join(p, "approved", "competitors.json")) : "";
+      check("E4: the list with the teammate in excluded[] is approved (exit 0) and the approved copy is the proposal byte for byte, excluded[] included", r.code === 0 && apDoc === rd(path.join(p, "research", "competitors-proposed.json")) && /"relation": "teammate"/.test(apDoc), r.out);
+      p = mk(); w(path.join(p, "research", "competitors-proposed.json"), proposal([row()], { excluded: [{ domain: "x.test", relation: "friend", reason: "r" }] }));
+      r = ap(p, "competitors", "--by", "Ana");
+      check("E4: an excluded[] row whose relation is not teammate or brokerage is refused (exit 1)", r.code === 1 && /excluded\[\] has 1 row\(s\) whose relation is not teammate or brokerage/.test(r.out) && !fs.existsSync(path.join(p, "approved")), r.out);
+      p = mk(); w(path.join(p, "business.json"), bizE({ related: SIGNED }, { related: "site" })); w(path.join(p, "research", "competitors-proposed.json"), proposal([row(), row({ name: "Teammate Homes", domain: "teammate-homes.test" })]));
+      r = ap(p, "competitors", "--by", "Ana");
+      check("E4: only the SIGNED record counts: a working business.json that declares a teammate (not approved) does not refuse the list", r.code === 0, r.out);
+
+      // ---- E5 the switch for a run already past intake
+      const SW = (pp, ...x) => ap(pp, "competitors", ...x);
+      p = mk(); w(path.join(p, "research", "competitors-proposed.json"), proposal([row(), row({ name: "Teammate Homes", domain: "teammate-homes.test" })]));
+      r = SW(p, "--exclude", "https://www.Teammate-Homes.test/", "--as", "teammate", "--by", "Head of ops", "--name", "Casey Teammate");
+      doc = rjs(path.join(p, "research", "competitors-proposed.json"));
+      check("E5: --exclude <domain> --as teammate --by <who>: exit 0, one MOVED line, and it says nobody signed", r.code === 0 && /^MOVED teammate-homes\.test: 1 row\(s\) left rows\[\] and stand in excluded\[\] as teammate, by Head of ops at \d{4}-\d\d-\d\dT/m.test(r.out) && /NOT SIGNED: the owner signs the changed list/.test(r.out), r.out);
+      check("E5: the row left rows[] and stands in excluded[] with the domain, the name, the relation, the reason, who and when", JSON.stringify(doc.rows.map((x) => x.name)) === '["Dwell"]' && doc.excluded.length === 1 && doc.excluded[0].domain === "teammate-homes.test" && doc.excluded[0].name === "Casey Teammate" && doc.excluded[0].relation === "teammate" && doc.excluded[0].by === "Head of ops" && /^\d{4}-\d\d-\d\dT/.test(doc.excluded[0].at) && doc.excluded[0].reason === "declared teammate of the business", JSON.stringify(doc));
+      check("E5: the page the owner reads is rewritten: no table row for the teammate, the left-out line", !/Teammate Homes/.test(rd(path.join(p, "research", "competitors-proposed.md")).split("| # |")[1] || "") && /Left out \(related to the business, never a competitor\): Casey Teammate \(teammate\)/.test(rd(path.join(p, "research", "competitors-proposed.md"))), "");
+      const again = SW(p, "--exclude", "teammate-homes.test", "--as", "teammate", "--by", "Head of ops");
+      check("E5: the same switch again keeps one excluded row (no duplicate) and says no row had the domain", again.code === 0 && /no row had this domain/.test(again.out) && rjs(path.join(p, "research", "competitors-proposed.json")).excluded.length === 1, again.out);
+      r = ap(p, "competitors", "--by", "Owner");
+      check("E5: then the owner signs it with the usual command (exit 0): the approved copy holds excluded[] and the lock has its sha", r.code === 0 && /"relation": "teammate"/.test(rd(path.join(p, "approved", "competitors.json"))) && rjs(path.join(p, "approved", "lock.json")).competitors.approvedBy === "Owner", r.out);
+      r = run("approve.mjs", ["--pewp", p, "--check"]);
+      check("E5: approve --check says what was left out, one line each (the relation and the name)", r.code === 0 && /NOTE related: Casey Teammate \(teammate-homes\.test\) is a teammate of the business: left out of every competitor table, list and count/.test(r.out), r.out);
+      let q = mk(); w(path.join(q, "research", "competitors-proposed.json"), proposal([row(), row({ name: "Teammate Homes", domain: "teammate-homes.test" })]));
+      const first = ap(q, "competitors", "--by", "Owner");
+      r = SW(q, "--exclude", "teammate-homes.test", "--as", "brokerage", "--by", "Head of ops");
+      r = ap(q, "competitors");
+      check("E5: after an approval, the switch changes the proposal and the next approve shows the diff (the row out, the excluded one in) and waits for the signature (exit 3)", first.code === 0 && r.code === 3 && /- Teammate Homes/.test(r.out) && /\+ excluded Teammate Homes \(brokerage\)/.test(r.out) && /NOT SIGNED/.test(r.out), r.out);
+      q = mk(); w(path.join(q, "research", "competitors-proposed.json"), proposal([row(), row({ name: "Teammate Homes", domain: "teammate-homes.test" })]));
+      SW(q, "--exclude", "teammate-homes.test", "--as", "teammate", "--by", "Head of ops", "--name", "Casey Teammate");
+      w(path.join(q, "research", "competitors-candidates.json"), [cand(), cand({ name: "Teammate Homes", domain: "teammate-homes.test" })]);
+      w(path.join(q, "business.json"), bizE());
+      r = run("competitors-discover.mjs", ["x", "--pewp", q]); doc = rjs(path.join(q, "research", "competitors-proposed.json"));
+      check("E5: competitors-discover run again keeps what the switch recorded (who, when, the name) and still leaves the domain out of the rows", r.code === 0 && doc.excluded?.length === 1 && doc.excluded[0].by === "Head of ops" && doc.excluded[0].name === "Casey Teammate" && JSON.stringify(doc.rows.map((x) => x.name)) === '["Dwell"]', r.out + JSON.stringify(doc.excluded));
+      // refusals of the switch itself
+      q = mk(); w(path.join(q, "research", "competitors-proposed.json"), proposal([row(), row({ name: "Teammate Homes", domain: "teammate-homes.test" })]));
+      const keep = rd(path.join(q, "research", "competitors-proposed.json"));
+      r = SW(q, "--exclude", "teammate-homes.test", "--as", "teammate");
+      check("E5: the switch without --by is a usage error (exit 2) that says who must be named, and changes nothing", r.code === 2 && /say who declares the relation: --by/.test(r.out) && rd(path.join(q, "research", "competitors-proposed.json")) === keep, r.out);
+      r = SW(q, "--exclude", "teammate-homes.test", "--as", "friend", "--by", "Ana");
+      check("E5: --as other than teammate or brokerage is a usage error (exit 2), nothing changed", r.code === 2 && /--as must be teammate or brokerage/.test(r.out) && rd(path.join(q, "research", "competitors-proposed.json")) === keep, r.out);
+      r = ap(q, "seeds", "--exclude", "teammate-homes.test", "--as", "teammate", "--by", "Ana");
+      check("E5: the switch belongs to competitors only (exit 2)", r.code === 2 && /belong to: approve\.mjs <target> competitors --exclude/.test(r.out), r.out);
+      q = mk(); r = SW(q, "--exclude", "teammate-homes.test", "--as", "teammate", "--by", "Ana");
+      check("E5: with no proposal the switch cannot judge (exit 2) and says which file", r.code === 2 && /approve cannot judge: .*competitors-proposed\.json not found/.test(r.out), r.out);
+      q = mk(); w(path.join(q, "research", "competitors-proposed.json"), proposal([row()])); ap(q, "competitors", "--by", "Owner");
+      fs.appendFileSync(path.join(q, "approved", "competitors.json"), " ");
+      r = SW(q, "--exclude", "dwell.test", "--as", "teammate", "--by", "Ana");
+      check("E5: an approved copy edited by hand after the signature stops the switch (exit 1, the lock problem named), like every approval", r.code === 1 && /changed after approval/.test(r.out), r.out);
+      // a business with no site of its own is declared by its name alone
+      q = mk(); w(path.join(q, "research", "competitors-proposed.json"), proposal([row(), row({ name: "north ridge realty!", domain: "northridge.test" })]));
+      r = SW(q, "--as", "brokerage", "--name", "North Ridge Realty", "--by", "Ana"); doc = rjs(path.join(q, "research", "competitors-proposed.json"));
+      check("E5: --as brokerage --name <name> with no domain: the row of that name (case and punctuation aside) leaves rows[] and the brokerage stands in excluded[] by its name alone", r.code === 0 && /^MOVED North Ridge Realty: 1 row\(s\) left rows\[\] and stand in excluded\[\] as brokerage, by Ana at /m.test(r.out) && JSON.stringify(doc.rows?.map((x) => x.name)) === '["Dwell"]' && doc.excluded?.length === 1 && doc.excluded[0].domain === null && doc.excluded[0].name === "North Ridge Realty" && doc.excluded[0].relation === "brokerage", r.out + JSON.stringify(doc));
+      r = SW(q, "--as", "brokerage", "--name", "north ridge realty", "--by", "Ana");
+      check("E5: the same name again keeps one excluded row", r.code === 0 && /no row had this name/.test(r.out) && rjs(path.join(q, "research", "competitors-proposed.json")).excluded?.length === 1, r.out);
+      r = SW(q, "--as", "brokerage", "--by", "Ana");
+      check("E5: neither a domain nor a name is a usage error (exit 2) that says what to give", r.code === 2 && /give the domain of the business to leave out \(--exclude <domain>\) or its name \(--name\)/.test(r.out), r.out);
+      // a run with no related: nothing new is printed
+      q = mk(); w(path.join(q, "research", "competitors-proposed.json"), proposal([row()])); r = ap(q, "competitors", "--by", "Owner");
+      const chk = run("approve.mjs", ["--pewp", q, "--check"]);
+      check("E5: a run with no related: --check prints no related line, the approved copy has no excluded key", r.code === 0 && chk.code === 0 && !/related/.test(chk.out) && !/excluded/.test(rd(path.join(q, "approved", "competitors.json"))), chk.out);
+    }
+
     // =============================================================== D: authority.mjs (G8)
     if (groups.includes("d")) {
       const cache = path.join(tmp, "d", "cache"), REL = "TEST-1";
@@ -448,7 +595,7 @@ async function runScenarios(sdir, groups = ["a", "b", "c", "d"]) {
 // ---------------- mutants: [name, file, from, to, group, expected red assertion names] ----------------
 const MUTANTS = [
   // approve.mjs
-  { name: "approve: owner provenance not enforced", file: "approve.mjs", from: 'if (p !== "owner") groups.set(', to: 'if (false) groups.set(', g: "a", expect: [/^A1: business with kind and offer/, /^A1: a stamp of site or default/, /^A1: a business with no provenance/] },
+  { name: "approve: owner provenance not enforced", file: "approve.mjs", from: 'if (p !== "owner" && p !== "delegated") groups.set(', to: 'if (false) groups.set(', g: "a", expect: [/^A1: business with kind and offer/, /^A1: a stamp of site or default/, /^A1: a business with no provenance/] },
   { name: "approve: vocabulary is not owner-only", file: "approve.mjs", from: '"brand.constraints", "vocabulary"];', to: '"brand.constraints"];', g: "a", expect: [/^A1: vocabulary is owner-only/, /^A1: a business with no provenance/] },
   { name: "approve: business shape (B-001) not checked", file: "approve.mjs", from: "if (!v.ok) { out.push(`business.json is not a valid business", to: "if (false) { out.push(`business.json is not a valid business", g: "a", expect: [/^A1: a business that fails its own shape/] },
   { name: "approve: evidenceUrl not required", file: "approve.mjs", from: 'if (!nonEmpty(r.evidenceUrl) || !/^https?:\\/\\//i.test(r.evidenceUrl)) why.push("no evidenceUrl");', to: 'if (false) why.push("no evidenceUrl");', g: "a", expect: [/^A4: competitors: a row without evidenceUrl/] },
@@ -518,11 +665,38 @@ const MUTANTS = [
   { name: "authority: --download-only computes", file: "authority.mjs", from: "if (downloadOnly) {\n    if (!cacheDir)", to: "if (false) {\n    if (!cacheDir)", g: "d", expect: [/^D6: --download-only with a complete cache/, /^D6: --download-only needs neither/, /^D6: --download-only fetches/] },
   { name: "authority: --download-only re-downloads a cached release", file: "authority.mjs", from: "!fs.existsSync(file + \".part\")) { report.push(", to: "false) { report.push(", g: "d", expect: [/^D6: a second --download-only/] },
   { name: "authority: --download-only still demands an out file and target", file: "authority.mjs", from: "if (!downloadOnly && (!out ||", to: "if ((!out ||", g: "d", expect: [/^D6: --download-only needs neither/] },
+  { name: "teammate: intake does not read related", file: "intake.mjs", from: "if (c.related !== undefined) { // owner-only", to: "if (false) { // owner-only", g: "e", expect: [/^E1: intake takes the answer related/, /^E1: related is stamped/] },
+  { name: "teammate: intake accepts a bad relation as it is", file: "intake.mjs", from: "if (bad.length) invalid.push({ field: \"related\", why: bad[0] }); else b.related = normalRelated(c.related);", to: "b.related = c.related;", g: "e", expect: [/^E1: a relation that is not teammate/, /^E1: a row with neither/] },
+  { name: "teammate: the domain is not reduced to its host", file: "lib-related.mjs", from: ".replace(/^https?:\\/\\//, \"\").replace(/[/?#].*$/, \"\").replace(/^www\\./, \"\")", to: "", g: "e", expect: [/^E1: intake takes the answer related/] },
+  { name: "teammate: related is not owner-only", file: "approve.mjs", from: "...(declaredOf(b).length ? [\"related\"] : [])", to: "...[]", g: "e", expect: [/^E2: related stamped site/, /^E2: related stamped default/] },
+  { name: "teammate: related is not checked as a business field", file: "targets-validate.mjs", from: "if (\"related\" in obj) for (const why of relatedErrors(obj.related)) c.add(\"B-001\", \"related\", why);", to: "", g: "e", expect: [/^E2: a related list with a relation/] },
+  { name: "teammate: a related domain may stand as a competitor", file: "approve.mjs", from: "if (rel) why.push(", to: "if (false) why.push(", g: "e", expect: [/^E4: a competitors list with the teammate/, /^E4: the brokerage is refused by its NAME/] },
+  { name: "teammate: the related name is not compared", file: "approve.mjs", from: "(x.name && nameKey(r.name) === nameKey(x.name))", to: "false", g: "e", expect: [/^E4: the brokerage is refused by its NAME/] },
+  { name: "teammate: the refusal reads the unsigned record", file: "approve.mjs", from: "declaredOf(jr(path.join(approvedDir(pewp), \"business.json\")))", to: "declaredOf(jr(path.join(pewp, \"business.json\")))", g: "e", expect: [/^E4: only the SIGNED record counts/] },
+  { name: "teammate: a bad relation in excluded[] is approved", file: "approve.mjs", from: "if (badEx.length) out.push(", to: "if (false) out.push(", g: "e", expect: [/^E4: an excluded\[\] row whose relation/] },
+  { name: "teammate: the switch leaves the row in rows[]", file: "approve.mjs", from: "doc.rows = doc.rows.filter((r) => !hit.includes(r));", to: "", g: "e", expect: [/^E5: the row left rows/, /^E5: after an approval/] },
+  { name: "teammate: the switch records no relation", file: "approve.mjs", from: "relation: as, reason:", to: "relation: null, reason:", g: "e", expect: [/^E5: the row left rows/] },
+  { name: "teammate: the switch records neither who nor when", file: "approve.mjs", from: "by, at }];", to: "}];", g: "e", expect: [/^E5: the row left rows/] },
+  { name: "teammate: the switch does not rewrite the page the owner reads", file: "approve.mjs", from: "fs.writeFileSync(path.join(pewp, \"research\", \"competitors-proposed.md\"), competitorsTable(", to: "fs.writeFileSync(path.join(pewp, \"research\", \"unused.md\"), competitorsTable(", g: "e", expect: [/^E5: the page the owner reads is rewritten/] },
+  { name: "teammate: the switch asks nobody's name", file: "approve.mjs", from: "if (!by) { log(`ERROR approve --exclude: say who", to: "if (false) { log(`ERROR approve --exclude: say who", g: "e", expect: [/^E5: the switch without --by/] },
+  { name: "teammate: the switch ignores a broken lock", file: "approve.mjs", from: "before approving anything new\"); return 1; }\n  const src = path.join(pewp, \"research\", \"competitors-proposed.json\");", to: "before approving anything new\"); void 0; }\n  const src = path.join(pewp, \"research\", \"competitors-proposed.json\");", g: "e", expect: [/^E5: an approved copy edited by hand/] },
+  { name: "teammate: the switch twice duplicates the row", file: "approve.mjs", from: "(doc.excluded || []).filter((x) => !same(x))", to: "(doc.excluded || [])", g: "e", expect: [/^E5: the same switch again/] },
+  { name: "teammate: the switch twice forgets the name", file: "approve.mjs", from: "name: name || old?.name || hit.find", to: "name: name || hit.find", g: "e", expect: [/^E5: approve --check says what was left out/] },
+  { name: "teammate: the diff does not show excluded", file: "approve.mjs", from: "for (const [k, x] of ne) if (!oe.has(k)) L.push(", to: "for (const [k, x] of ne) if (false) L.push(", g: "e", expect: [/^E5: after an approval/] },
+  { name: "teammate: --check says nothing of who was left out", file: "approve.mjs", from: "for (const x of relatedOf(pewp).rows) console.log(", to: "for (const x of []) console.log(", g: "e", expect: [/^E5: approve --check says what was left out/] },
+  { name: "teammate: the proposal lists a related candidate as a row", file: "competitors-discover.mjs", from: ".filter((r) => !isRel(r))", to: "", g: "e", expect: [/^E3: the proposal never lists/] },
+  { name: "teammate: the proposal matches no related name", file: "competitors-discover.mjs", from: "(x.name && nameKey(r.name) === nameKey(x.name))", to: "false", g: "e", expect: [/^E3: the proposal never lists/] },
+  { name: "teammate: the proposal writes no excluded[]", file: "competitors-discover.mjs", from: "...(excluded.length ? { excluded } : {}), readPerFile: perFile };", to: "readPerFile: perFile };", g: "e", expect: [/^E3: each declared business stands/, /^E3: the page the owner reads says/] },
+  { name: "teammate: the proposal always has an excluded key", file: "competitors-discover.mjs", from: "...(excluded.length ? { excluded } : {}), readPerFile: perFile };", to: "excluded, readPerFile: perFile };", g: "e", expect: [/^E3: with no related declared/] },
+  { name: "teammate: a run again forgets what the switch recorded", file: "competitors-discover.mjs", from: "const prev = (J(outJson, {})?.excluded || []).filter((x) => x && x.relation), key =", to: "const prev = [], key =", g: "e", expect: [/^E5: competitors-discover run again keeps/] },
+  { name: "teammate: names are compared as typed", file: "lib-related.mjs", from: "export const nameKey = (s) => String(s || \"\").toLowerCase().replace(/[^a-z0-9]+/g, \" \").trim();", to: "export const nameKey = (s) => String(s || \"\");", g: "e", expect: [/^E3: the proposal never lists/, /^E4: the brokerage is refused by its NAME/] },
+  { name: "teammate: the switch by name moves no row", file: "approve.mjs", from: "(nk && nameKey(r.name) === nk)", to: "false", g: "e", expect: [/^E5: --as brokerage --name <name> with no domain/] },
+  { name: "teammate: the switch needs a domain", file: "approve.mjs", from: "if (!h && !nk) {", to: "if (!h) {", g: "e", expect: [/^E5: --as brokerage --name <name> with no domain/, /^E5: the same name again/] },
 ];
 
 if (isMain(import.meta.url)) {
   if (A.includes("--help")) { console.log("usage: node test-approve.mjs [--scripts <dir>] [--no-mutants] [--mutant <name part>] [--group a|b|c|d]"); process.exit(0); }
-  const groups = opt("--group") ? [opt("--group")] : ["a", "b", "c", "d"];
+  const groups = opt("--group") ? [opt("--group")] : ["a", "b", "c", "d", "e"];
   const main = await runScenarios(scriptsDir, groups);
   for (const r of main) console.log(`${r.ok ? "PASS" : "FAIL"} ${r.name}${r.ok ? "" : `\n     ${r.detail}`}`);
   let failed = main.filter((r) => !r.ok).length;

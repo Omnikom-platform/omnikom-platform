@@ -16,6 +16,7 @@
 // Outputs: business.json (only when nothing is missing), intake-facts.json (every found fact with its source, what was
 // accepted, what was defaulted, the open questions), business.draft.json. Exit 0 complete, 3 questions open (BLOCKED), 2 usage.
 import fs from "node:fs";
+import { relatedErrors, normalRelated } from "./lib-related.mjs";
 import { delegationOf } from "./lib-provenance.mjs";
 import path from "node:path";
 import zlib from "node:zlib";
@@ -166,7 +167,7 @@ const getPath = (o, p) => p.split(".").reduce((c, k) => (c && typeof c === "obje
 // who answered <field>: its own entry, else the nearest parent's ("market" for "market.country"), else unstated
 const answerDelegOf = (deleg, field) => { for (let p = field; ; p = p.slice(0, p.lastIndexOf("."))) { if (deleg[p]) return deleg[p]; if (!p.includes(".")) return null; } };
 const answerProvOf = (prov, field) => { for (let p = field; ; p = p.slice(0, p.lastIndexOf("."))) { if (prov[p]) return prov[p]; if (!p.includes(".")) return "unstated"; } };
-const PROV_FIELDS = ["name", "domain", "phone", "kind", "industry", "offer", "audience", "market.country", "market.language", "locations", "goals", "competitors", "brand.constraints", "existing.site", "existing.searchConsole", "existing.businessProfile", "existing.socials", "launchState", "vocabulary", "notOffer", "credentials", "rankTracking.source", "rankTracking.locations", "rankTracking.devices"];
+const PROV_FIELDS = ["name", "domain", "phone", "kind", "industry", "offer", "audience", "market.country", "market.language", "locations", "goals", "competitors", "brand.constraints", "existing.site", "existing.searchConsole", "existing.businessProfile", "existing.socials", "launchState", "vocabulary", "notOffer", "related", "credentials", "rankTracking.source", "rankTracking.locations", "rankTracking.devices"];
 export function provenanceOf(business, answers, answerProv, accepted, defaulted) {
   const out = {}, acc = new Set(accepted.map((x) => x.field)), def = new Set(defaulted.map((x) => x.field));
   for (const f of PROV_FIELDS) {
@@ -218,6 +219,10 @@ export function assemble(c, { industries = null, requireVocabulary = false } = {
     if (!v.length) invalid.push({ field: "vocabulary", why: "[] is not an answer: list the words the business and its readers use for what it does" }); else b.vocabulary = v;
   } else if (requireVocabulary) missing.push("vocabulary");
   if (c.notOffer != null && String(c.notOffer).trim()) b.notOffer = String(c.notOffer).trim();
+  if (c.related !== undefined) { // owner-only: a teammate or the brokerage, never a competitor (lib-related.mjs); [] says there is none
+    const bad = relatedErrors(c.related);
+    if (bad.length) invalid.push({ field: "related", why: bad[0] }); else b.related = normalRelated(c.related);
+  }
   if (!Array.isArray(c.brand?.constraints)) missing.push("brand.constraints"); // [] is valid
   b.brand = { constraints: clean(c.brand?.constraints) || [] };
   const ex = c.existing || {};
@@ -257,6 +262,7 @@ export function questionsFor(missing, invalid, facts, cand, optional = []) {
     "existing.businessProfile": () => ({ header: "Google profile", question: "Is there a Google Business Profile (the map listing)?", options: [opt("None / not sure", "recorded as none", null), opt("Yes, I will paste the link", "pick Other", null)] }),
     vocabulary: () => { const top = (fact("vocabulary.candidates")?.value || []).slice(0, 4); return { header: "Your words", multiSelect: true, question: "Which words do you and the people who read you use for what you do? (pick the right ones; type more under Other)", options: top.length ? top.map((w) => opt(w, "a word your own home page repeats", w)) : [opt("I will type them", "pick Other: the words, one per line", null)] }; },
     notOffer: () => ({ header: "Not this", question: "What is the business NOT? (so research does not chase the wrong searches)", options: [opt("Nothing to rule out", "no exclusions", ""), opt("I will type it", "pick Other: one line", null)] }),
+    related: () => ({ header: "Related", question: "Is any business a teammate of this client or the client's brokerage? (never a competitor; give relation teammate or brokerage, and a domain or a name)", options: [opt("None", "no teammate and no brokerage to leave out", []), opt("I will type them", "pick Other: relation, domain, name for each", null)] }),
     launchState: () => ({ header: "Site state", question: "Is the site live, a preview copy, or only planned?", options: [opt("live", "public and meant to be found", "live"), opt("preview", "a copy kept out of search on purpose", "preview"), opt("planned", "nothing built yet", "planned")] }),
   };
   const asked = [...missing, ...invalid.map((i) => i.field).filter((f) => !missing.includes(f))];
@@ -363,7 +369,7 @@ export async function run(ctx, { answersFile = null, snapshotDir = null, refresh
 }
 
 // owner-only fields (approve.mjs OWNER_ONLY) that nobody with the owner's stamp answered: said on every run so the next step is not a surprise
-const OWNER_FIELDS = ["kind", "offer", "audience", "goals", "competitors", "brand.constraints", "vocabulary"];
+const OWNER_FIELDS = ["kind", "offer", "audience", "goals", "competitors", "brand.constraints", "vocabulary"]; // related (lib-related.mjs) is owner-only too, but only a run that declares one is asked about it
 await runCli(import.meta.url, "node intake.mjs <url | repo path> [--answers FILE] [--snapshot DIR] [--cwd DIR] [--refresh] [--require-vocabulary]", ["refresh", "require-vocabulary"], async (a) => {
   const ctx = context(a._[0], { cwd: a.get("cwd") || process.cwd() });
   const r = await run(ctx, { answersFile: a.get("answers"), snapshotDir: a.get("snapshot"), refresh: a.has("refresh"), requireVocabulary: a.has("require-vocabulary") });

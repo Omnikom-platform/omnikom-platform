@@ -23,7 +23,7 @@ if (args.includes("--mutants")) {
     { id: "get-returns-zero-for-missing", file: "client-copy-data.mjs", from: 'if (v === undefined || v === null) stop(`STOP: ${label(def)} has no ${field}`);', to: "if (v === undefined || v === null) return 0;", red: "case 5:" },
     { id: "none-counts-as-draft", file: "client-copy.mjs", from: "const draft = contactIn === null;", to: 'const draft = contactIn === null || contactIn === "none";', red: "case 6:" },
     { id: "home-city-typed", file: "client-copy-data.mjs", from: 'const home = String(area[0]).split(",")[0].trim();', to: 'const home = "Alder Bay";', red: "case 2:" },
-    { id: "paid-row-filter-out", file: "client-copy-data.mjs", from: "if (isAd(name) || name === ourName) return;", to: "if (name === ourName) return;", red: "case 10:" },
+    { id: "paid-row-filter-out", file: "client-copy-data.mjs", from: "if (isAd(name) || name === ourName || relName(name)) return;", to: "if (name === ourName || relName(name)) return;", red: "case 10:" },
     { id: "missing-lead-path-prints-zero", file: "client-copy-data.mjs", from: 'else put("formFields", null);', to: 'else put("formFields", 0);', red: "case 9:" },
     { id: "backing-id-needs-no-works", file: "client-copy-data.mjs", from: 'const works = states.every((s) => s.state === "WORKS");', to: "const works = true;", red: "case 11:" },
     { id: "address-cut-at-first-comma", file: "client-copy-data.mjs", from: 'const street = (a, home) => { const i = a.search(new RegExp(`,\\\\s*${escRe(home)}`, "i")); return (i > 0 ? a.slice(0, i) : a).trim(); };', to: 'const street = (a, home) => a.split(",")[0].trim();', red: "case 14:" },
@@ -102,6 +102,16 @@ if (args.includes("--mutants")) {
     { id: "f1-gate-lists-two", file: "client-copy-gates.mjs", from: "bad.slice(0, 4).map(", to: "bad.slice(0, 2).map(", red: "case 27:" },
     { id: "f1-branches-file-unchecked", file: "client-copy.mjs", from: "const otherBranches = readJson(\"other-branches.json\", \"other-branches.json\");", to: "const otherBranches = { sentences: [] };", red: "case 27:" },
     { id: "f1-missing-sentence-no-stop", file: "client-copy-design.mjs", from: "if (typeof t !== \"string\") stop(", to: "if (false) stop(", red: "case 27:" },
+    { id: "tm-maps-related-listed", file: "client-copy-data.mjs", from: "ms = mapsFirstThree(related.length ? msPts.map((p) => ({ ...p, pack: p.pack.filter((r) => !relName(r.name)) })) : msPts, msQ, ourName);", to: "ms = mapsFirstThree(msPts, msQ, ourName);", red: "case 28:" },
+    { id: "tm-review-count-related", file: "client-copy-data.mjs", from: "if (isAd(name) || name === ourName || relName(name)) return;", to: "if (isAd(name) || name === ourName) return;", red: "case 28:" },
+    { id: "tm-sites-related-read", file: "client-copy-data.mjs", from: "}).filter((s) => !s.rel);", to: "});", red: "case 28:" },
+    { id: "tm-left-out-note-said-always", file: "client-copy-data.mjs", from: "const leftOutNote = related.length ? \", related businesses left out\" : \"\";", to: "const leftOutNote = \", related businesses left out\";", red: "case 28:" },
+    { id: "tm-left-out-note-not-said", file: "client-copy-data.mjs", from: "const leftOutNote = related.length ? \", related businesses left out\" : \"\";", to: "const leftOutNote = \"\";", red: "case 28:" },
+    { id: "tm-name-matched-exactly", file: "lib-related.mjs", from: "export const nameKey = (s) => String(s || \"\").toLowerCase().replace(/[^a-z0-9]+/g, \" \").trim();", to: "export const nameKey = (s) => String(s || \"\");", red: "case 28:" },
+    { id: "tm-related-needs-no-relation", file: "client-copy-data.mjs", from: ".filter((x) => x.relation && (x.domain || x.name));", to: ".filter((x) => x.domain || x.name);", red: "case 28:" },
+    { id: "tm-excluded-tag-kept", file: "client-copy-rules.mjs", from: "if (onList(approved.excluded, h)) return null;", to: "", red: "case 28:" },
+    { id: "tm-ads-related-not-stopped", file: "client-copy-data.mjs", from: "for (const d of client.adsFor || []) { const x = relHost(d); if (x) stop(", to: "for (const d of client.adsFor || []) { const x = relHost(d); if (false) stop(", red: "case 29:" },
+    { id: "tm-rival-name-related-not-stopped", file: "client-copy-data.mjs", from: "for (const r of client.rivals || []) { const x = relName(r.name); if (x) stop(", to: "for (const r of client.rivals || []) { const x = relName(r.name); if (false) stop(", red: "case 29:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ccopy-mut-"));
   let ok = 0;
@@ -677,6 +687,45 @@ try {
       const real = go(makeRun(A()), { client: cA }); ok(real, "the real file");
       const REAL = JSON.parse(fs.readFileSync(path.join(skill, "client-copy", "other-branches.json"), "utf8"));
       if (!REAL.sentences.every((x) => typeof x.id === "string" && typeof x.text === "string")) bad.push("the real file's shape");
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+
+  // ---------------------------------------------------------------- job 5: a teammate and the brokerage are never a rival (every case runs the COMMAND on a made-up run on disk)
+  // approved/competitors.json excluded[] rows that carry a relation: one by domain (a result of the home city lists), two by NAME only (Maps cards, any case and punctuation)
+  const REL = [{ domain: "random-blog.test", name: "Random Blog", relation: "teammate", reason: "declared teammate of the business" }, { domain: null, name: "hilltop rival one.", relation: "teammate", reason: "declared teammate of the business" }, { domain: null, name: "HILLTOP ROOF TWO", relation: "brokerage", reason: "declared brokerage of the business" }];
+  const BLOG_ROW = { name: "Random Blog", domain: "random-blog.test", kind: "other" }, BLOG_SITE = { domain: "random-blog.test", status: 200, page: { words: 99 }, sitemap: { pages: 5 } };
+  const teamRun = (related) => A({ patch: { "approved/competitors.json": (j) => { j.rows.push(BLOG_ROW); if (related) j.excluded.push(...REL); }, "research/competitors.json": (j) => { j.sites.push(BLOG_SITE); } } });
+  check("case 28: a teammate and the brokerage declared in excluded[] are in no list, count, tag or sheet row of the copy (Maps by name, case and punctuation aside), and the sheet says what was left out",
+    ...T(() => {
+      const bad = [], free = go(makeRun(teamRun(false)), { client: cA }), rel = go(makeRun(teamRun(true)), { client: cA });
+      if (free.status !== 0) return [false, `no relation: exit ${free.status} ${free.stderr}`];
+      if (rel.status !== 0) return [false, `with the relation: exit ${rel.status} ${rel.stderr}`];
+      const tf = norm(free), tr = norm(rel), has = (t, s) => t.includes(s), rowsOf = (r) => allRows(r.tsv).map((x) => x.join(" | "));
+      if (!rowsOf(free).some((x) => x.includes("Hilltop Roof Two"))) bad.push("control: no sheet row names Hilltop Roof Two");
+      if (!has(tf, "Hilltop Roof Two")) bad.push("control: Maps does not show Hilltop Roof Two");
+      if (has(tr, "Hilltop Roof Two") || has(tr, "HILLTOP ROOF TWO")) bad.push("the brokerage is in the list of who Maps shows");
+      if (rowsOf(rel).some((x) => /hilltop roof two/i.test(x))) bad.push("a sheet row holds the brokerage");
+      const rv = (t) => (t.match(/(\d+) of the (\d+) businesses in Maps' top three around Alder Bay show more reviews/) || []).slice(1).join("/");
+      if (rv(tf) !== "2/3" || rv(tr) !== "1/2") bad.push(`the review count: ${rv(tf)} without the relation, ${rv(tr)} with it (2/3 then 1/2 wanted)`);
+      const pub = (t) => (t.match(/another roofer/g) || []).length;
+      if (!(pub(tf) > pub(tr))) bad.push(`a result of the teammate's domain keeps its tag (another roofer: ${pub(tf)} then ${pub(tr)})`);
+      if (!has(tr, "random-blog.test")) bad.push("the teammate's result row is not printed at all");
+      const rs = (t) => (t.match(/(\d+) rival sites and \d+ AI assistants read/) || [])[1];
+      const base = go(makeRun(A()), { client: cA });
+      if (base.status !== 0 || rs(norm(base)) !== rs(tr) || Number(rs(tf)) !== Number(rs(tr)) + 1) bad.push(`rival sites read: ${rs(norm(base))} on a run without the blog, ${rs(tf)} with it and no relation, ${rs(tr)} with the relation`);
+      if (!rowsOf(rel).some((x) => x.includes("related businesses left out"))) bad.push("no sheet row says what was left out");
+      if (rowsOf(free).some((x) => x.includes("related businesses left out"))) bad.push("a run with no relation says it left something out");
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+
+  check("case 29: a client file that names a related business as a rival (by name) or in adsFor (by domain) STOPs the build with one line and writes nothing",
+    ...T(() => {
+      const bad = [], line = (r, l, who) => { if (!(r.status === 1 && r.stderr === l && emptyOut(r))) bad.push(`${who}: ${r.status} ${JSON.stringify(r.stderr).slice(0, 200)} ${r.files}`); };
+      line(go(makeRun(teamRun(true)), { client: clientFor(a0, { adsFor: [a0.rivals[0].domain, "random-blog.test"] }) }), "STOP: the client file's adsFor names random-blog.test, a teammate of the business, which stands on the excluded list of .pewp/approved/competitors.json", "adsFor");
+      const j = JSON.parse(JSON.stringify(cA.rivals)); j[1].name = "hilltop roof two";
+      line(go(makeRun(teamRun(true)), { client: clientFor(a0, { rivals: j }) }), "STOP: the client file names the rival hilltop roof two, a brokerage of the business, which stands on the excluded list of .pewp/approved/competitors.json", "rival by name");
+      const fine = go(makeRun(A()), { client: clientFor(a0, { adsFor: [a0.rivals[0].domain, "random-blog.test"] }) });
+      if (fine.status !== 0) bad.push(`with no relation declared the same client file builds: exit ${fine.status} ${fine.stderr}`);
       return [bad.length === 0, bad.join(" | ")];
     }));
 } catch (e) {
