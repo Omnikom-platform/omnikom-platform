@@ -103,7 +103,7 @@ try {
     try { valid = lib.validateManifest(man, { skillDir: skill }); } catch (e) { valid = { ok: false, err: e.message }; }
     const noClient = ok && !J(C).includes("{client}") && !J(P).includes("{client}");
     check("case 1: the real manifest holds client-copy and client-copy-pdf as designed: script, args, inputs, outputs, evidence, dependsOn, needsBrowser, heavy, hits, kind, no {client}, and it is valid",
-      ok && C.script === "scripts/client-copy.mjs" && J(C.args) === J(["{url}", "--pewp", "{pewp}", "--client-file", "{pewp}/client-copy.json", "--out", "{pewp}/client-copy"])
+      ok && C.script === "scripts/client-copy.mjs" && J(C.args) === J(["{key}", "--pewp", "{pewp}", "--client-file", "{pewp}/client-copy.json", "--out", "{pewp}/client-copy"])
       && J(C.outputs) === J(["{pewp}/client-copy/*.html", "{pewp}/client-copy/numbers-*.tsv"]) && J(C.evidence) === J(C.outputs) && C.needsBrowser === "none" && C.heavy === false && C.hits === "none" && C.kind === "derived" && C.dependsOn.includes("report-live")
       && P.script === "scripts/client-copy-pdf.mjs" && J(P.args) === J(["{pewp}/client-copy"]) && J(P.outputs) === J(["{pewp}/client-copy/*.pdf"]) && J(P.evidence) === J(P.outputs)
       && P.needsBrowser === "headless" && P.heavy === true && P.hits === "none" && P.kind === "derived" && P.timeoutMinutes === 20 && noClient && valid.ok === true,

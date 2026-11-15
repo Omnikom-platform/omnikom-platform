@@ -640,6 +640,40 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
       const copies = readdirSync(libDir).filter(f => f.endsWith('.mjs') && f !== 'stops.mjs').filter(f => /\b(STEP_KEYS|TOP_KEYS|EXIT_WORDS|KNOWN_ENGINES)\s*=/.test(readFileSync(join(libDir, f), 'utf8')));
       check('seo one engine: case 32, every export of seo-manifest.mjs is the engine\'s own object and no CLI lib file (stops.mjs apart) defines STEP_KEYS, TOP_KEYS, EXIT_WORDS or KNOWN_ENGINES [engine]', names.length > 0 && notSame.length === 0 && copies.length === 0, JSON.stringify({ names: names.length, notSame, copies }));
     }
+    // ================================================================ a client with no site: the run key profile:<slug> (NOSITE-1-KEY) [nosite-key]
+    {
+      const PK = 'profile:demo', pewpOf = x => join(x.skill, 'site-checks', 'demo', '.pewp'), prun = (x, extra = []) => go(x, ['run', PK, '--client', 'demo', '--json', ...extra]);
+      const KA = id => ['--id', id, '--key', '{key}', '--out', `{pewp}/${id}.json`], jf = f => { try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return null; } };
+      const ls = d => { try { return readdirSync(d).join(); } catch { return ''; } }, keyArg = f => { const j = jf(f); return j ? j.args[j.args.indexOf('--key') + 1] : null; };
+      const dat = r => (r.json && r.json.data) || {}, st = r => (dat(r).steps ? states(r) : {}), err = r => (r.json && r.json.error) || '', KEY_FILE = JSON.stringify({ key: PK, client: 'demo', site: 'none' });
+      let k = site(M(S('k1', { args: KA('k1') }), S('k2', { dependsOn: ['k1'], inputs: ['{pewp}/k1.json'], args: [...KA('k2'), '--read', '{pewp}/k1.json'] })));
+      let kr = await prun(k);
+      check('seo key: seo run profile:demo --client demo runs the manifest in site-checks/demo (the only folder), hands every step the key, writes run-key.json and the log [nosite-key]', kr.exit === 0 && dat(kr).url === PK && dat(kr).host === 'demo' && st(kr).k1 === 'RUN' && st(kr).k2 === 'RUN' && ls(join(k.skill, 'site-checks')) === 'demo' && JSON.stringify(jf(join(pewpOf(k), 'run-key.json'))) === KEY_FILE && (jf(join(pewpOf(k), 'seo-run.json')) || {}).client === 'demo' && keyArg(join(pewpOf(k), 'k1.json')) === PK, kr.all.slice(0, 300));
+      k = site(M(S('k1', { args: KA('k1') }))); kr = await run(k);
+      check('seo key: a url run is as before: {key} is the url, no run-key.json is written, only the host folder exists [nosite-key]', kr.exit === 0 && keyArg(join(k.pewp, 'k1.json')) === URL_ && !existsSync(join(k.pewp, 'run-key.json')) && ls(join(k.skill, 'site-checks')) === HOST, kr.all.slice(0, 300));
+      k = site(M(S('k1'))); kr = await go(k, ['run', PK, '--client', 'other', '--json']);
+      check('seo key: a key and a --client that disagree are refused, exit 2, and nothing is written [nosite-key]', kr.exit === 2 && err(kr).includes("belongs to client 'demo'") && !existsSync(join(k.skill, 'site-checks')) && rec(k).length === 0, kr.all.slice(0, 300));
+      k = site(M(S('k1'))); await prun(k);
+      kr = await go(k, ['resume', PK, '--json']); const ks = await go(k, ['status', PK, '--json']);
+      check('seo key: resume and status take the key; a resume redoes nothing and leaves run-key.json as the run wrote it [nosite-key]', kr.exit === 0 && starts(k, 'k1') === 1 && JSON.stringify(jf(join(pewpOf(k), 'run-key.json'))) === KEY_FILE && ks.exit === 0 && dat(ks).hasLog === true && dat(ks).host === 'demo' && dat(ks).counts.RUN === 1, kr.all.slice(0, 200) + ks.all.slice(0, 200));
+      const bad = [], badSites = [];
+      for (const b of ['profile:Bad Slug', 'profile:', 'profile:a--b']) { const x = site(M(S('k1'))); badSites.push(x); bad.push(await go(x, ['run', b, '--client', 'demo', '--json'])); }
+      check('seo key: a malformed profile key is exit 2 naming the form, and nothing is written [nosite-key]', bad.every(x => x.exit === 2 && err(x).includes('a profile key is profile:<slug>')) && badSites.every(x => !existsSync(join(x.skill, 'site-checks')) && rec(x).length === 0), bad.map(x => err(x)).join(' | '));
+      k = site(M(S('k1'))); kr = await go(k, ['run', 'profile:localhost', '--client', 'localhost', '--json']);
+      check('seo key: the slug localhost is refused as a host name, exit 2, and nothing is written [nosite-key]', kr.exit === 2 && err(kr).includes('localhost is a host name') && !existsSync(join(k.skill, 'site-checks')) && rec(k).length === 0, kr.all.slice(0, 300));
+      k = site(M(S('k1'))); mkdirSync(pewpOf(k), { recursive: true });   // a site's run already holds site-checks/demo: its log, and no run-key.json
+      writeFileSync(join(pewpOf(k), 'seo-run.json'), JSON.stringify({ version: 1, url: 'http://demo/', client: 'demo', host: 'demo', runStartedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), steps: [] }));
+      kr = await prun(k);
+      check('seo key: a slug whose folder already holds a site run (no run-key.json) is refused, exit 2, the folder named, nothing started or written [nosite-key]', kr.exit === 2 && err(kr).includes('site-checks/demo') && err(kr).includes('already exists') && err(kr).includes('choose another slug, or put the folder') && ls(pewpOf(k)) === 'seo-run.json' && rec(k).length === 0, kr.all.slice(0, 300));
+      k = site(M(S('u1', { args: ['--id', 'u1', '--url', '{url}', '--out', '{pewp}/u1.json'] }))); kr = await prun(k);
+      check('seo key: a step that asks for {url} on a profile key is not run with the key as its url: exit 2, the run refused before any step, nothing started or written [nosite-key]', kr.exit === 2 && err(kr).includes('the placeholder {url} has no value for this run') && rec(k).length === 0 && !existsSync(join(k.skill, 'site-checks')), kr.all.slice(0, 300));
+      k = site(M(S('loc', { script: 'scripts/state.mjs', args: ['{key}', '--cwd', '{skill}', '--init', 'x'], outputs: ['{pewp}/state.json'], evidence: ['{pewp}/state.json'] })));
+      for (const f of ['state.mjs', 'lib-main.mjs']) cpSync(join(REPO_ROOT, ...SKILL, 'scripts', f), join(k.skill, 'scripts', f));   // the real locate, run by the runner as a step
+      kr = await prun(k);
+      check('seo key: the folder the runner makes for the key is the folder state.mjs locates for it (the step wrote its state file where the runner looked) [nosite-key]', kr.exit === 0 && st(kr).loc === 'RUN' && (jf(join(pewpOf(k), 'state.json')) || {}).kind === 'profile', kr.all.slice(0, 300));
+      const gi = join(pewpOf(k), '.gitignore');
+      check('seo key: the state file state.mjs wrote for the key sits in a .pewp whose .gitignore is * (the profile kind is not committed like a repo) [nosite-key]', existsSync(gi) && readFileSync(gi, 'utf8') === '*\n', kr.all.slice(0, 200));
+    }
     // ================================================================ what a resume takes over (SKILL-ADOPT-1) [adopt]
     {
       const D = 86400000, H = 3600000, REC = '{"step":"x","status":"blocked","blocked":"set FIXTURE_KEY"}', how = (r, id) => String((row(r, id) || {}).how || '');

@@ -6,9 +6,9 @@
 //   loadManifest(file, { io })                         -> { ok, manifest, problems }          read + parse pipeline.json
 //   validateManifest(manifest, { skillDir, repoRoot, exists, io }) -> { ok, problems: [{ rule, step, detail }] }   every rule below
 //   runOrder(manifestOrSteps)                          -> { ok, steps, ids, problems }        the run order (see below); a cycle is a problem
-//   makeVars({ url, client, skillDir, data })          -> { url, client, host, skill, data, runDir, pewp, work }   the variables of a run's paths; hostOf(url) throws PipelineError
+//   makeVars({ url, client, skillDir, data })          -> { url, client, host, skill, data, runDir, pewp, work } (a profile:<slug> key adds key and makes url ""; profileSlug(key) -> null | slug)   the variables of a run's paths; hostOf(url) throws PipelineError
 //   resolveScript(script, { skillDir, repoRoot })      -> the file a step's script is, or null when the path leaves the skill folder and the repository (`repo:` = relative to the repository)
-//   substitute(textOrList, vars)                       -> string | string[]                   fills {url} {client} {host} {skill} {data} {runDir} {pewp} {work};
+//   substitute(textOrList, vars)                       -> string | string[]                   fills {url} {client} {host} {skill} {data} {runDir} {pewp} {work} {key} ({key} is {url} when the run has no key);
 //                                                         throws PlaceholderError (.placeholder, .reason "unknown"|"missing") instead of returning an empty string
 //   covers(a, b), globPaths(pattern, { io }), filesUnder(path, out, cap, io)                   paths and globs: `*` inside one path segment, a trailing slash is a folder
 //   evidenceState(step, vars, { since, allFresh, io }) -> { state: "done"|"stale"|"missing", problems, files: [{ path, mtimeMs, glob, out }] }
@@ -26,7 +26,7 @@
 //   [top-level] only version (1), name, what, conventions, vars, steps, coverage; a name [vars] vars keys are placeholders [steps] a non-empty list
 //   [step-key] a step has exactly the keys in REQUIRED, plus optionally brief, exit, engines and partialSettles [required-key] [type] every value the right type (kind and maxAgeDays are required on every step)
 //   [id] [duplicate-id] ids unique, lower-case words joined by single hyphens [module] the same pattern [kind] stable | time-sensitive | derived [pace] text or null
-//   [placeholder] only {url} {client} {host} {skill} {data} {runDir} {pewp} {work}, in args, inputs, outputs, evidence and brief; none in the script path
+//   [placeholder] only {url} {client} {host} {skill} {data} {runDir} {pewp} {work} {key}, in args, inputs, outputs, evidence and brief; none in the script path
 //   [dependsOn] names an id that exists [self-dependency] never itself [cycle] no cycle
 //   [script] a node file (.mjs, .cjs, .js) under the skill folder (or `repo:` under the repository): not absolute, no drive letter, no `..`
 //   [script-missing] the file exists (a `repo:` path is looked up only when repoRoot is given) [vantage-start] a step never calls `vantage start`
@@ -50,7 +50,7 @@ import nodeFs from "node:fs";
 import path from "node:path";
 import { KNOWN_ENGINES, isStopped as realIsStopped } from "./lib-stops.mjs";
 
-export const PLACEHOLDERS = ["url", "client", "host", "skill", "data", "runDir", "pewp", "work"];
+export const PLACEHOLDERS = ["url", "client", "host", "skill", "data", "runDir", "pewp", "work", "key"];
 export const TOP_KEYS = ["version", "name", "what", "conventions", "vars", "steps", "coverage"];
 export const REQUIRED = ["id", "module", "what", "script", "args", "inputs", "outputs", "dependsOn", "needsBrowser", "needsAi", "needsPerson", "needsKeys", "heavy", "hits", "pace", "timeoutMinutes", "evidence", "kind", "maxAgeDays"];
 export const OPTIONAL = ["brief", "exit", "engines", "partialSettles"];
@@ -96,8 +96,9 @@ export function substitute(x, vars) {
   if (Array.isArray(x)) return x.map((s) => substitute(s, vars));
   return String(x).replace(/\{([A-Za-z][A-Za-z0-9]*)\}/g, (all, k) => {
     if (!PLACEHOLDERS.includes(k)) throw new PlaceholderError(k, "unknown");
-    if (vars?.[k] == null || vars[k] === "") throw new PlaceholderError(k, "missing");
-    return vars[k];
+    const v = k === "key" ? (vars?.key ?? vars?.url) : vars?.[k];   // {key} is {url} for a run whose vars carry no key (start.mjs, a url run)
+    if (v == null || v === "") throw new PlaceholderError(k, "missing");
+    return v;
   });
 }
 
@@ -108,14 +109,22 @@ export function hostOf(url) {
   if (u.protocol !== "http:" && u.protocol !== "https:") throw new PipelineError(`the url must be http or https: ${url}`);
   return u.hostname.toLowerCase().replace(/^www\./, "");
 }
+// A run key is a site's url or `profile:<slug>`, a client with no site (its folder is site-checks/<slug>, {key} is the key, {url} has no value). Another `profile:...` is a typed error, never read as a host; so is the slug `localhost` (a host name: its folder would be a url run's).
+export function profileSlug(key) {
+  if (!/^profile:/i.test(String(key))) return null;
+  const m = /^profile:([a-z0-9]+(-[a-z0-9]+)*)$/.exec(String(key));
+  if (!m) throw new PipelineError(`a profile key is profile:<slug> (lowercase words joined by hyphens): ${key}`);
+  if (m[1] === "localhost") throw new PipelineError(`a profile key cannot be ${key}: localhost is a host name, not a client slug`);
+  return m[1];
+}
 // {data} is the run's data folder (until the run record moves, the skill folder); {runDir} is under it by host, {pewp} and {work} under {runDir} (one site's evidence is never another's)
 export function makeVars({ url, client, skillDir, data }) {
-  const host = hostOf(url);
+  const slug = profileSlug(url), host = slug ?? hostOf(url);
   if (!data) throw new PipelineError("makeVars needs data, the run's data folder");
   const skill = norm(skillDir);
   data = norm(data);
   const runDir = `${data}/site-checks/${host}`;
-  return { url, client, host, skill, data, runDir, pewp: `${runDir}/.pewp`, work: `${runDir}/work` };
+  return { url: slug ? "" : url, ...(slug ? { key: url } : {}), client, host, skill, data, runDir, pewp: `${runDir}/.pewp`, work: `${runDir}/work` };
 }
 
 // `repo:<path>` is relative to the repository root, anything else to the skill folder; a path that leaves both is no script

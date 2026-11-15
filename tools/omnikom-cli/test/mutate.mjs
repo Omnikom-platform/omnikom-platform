@@ -779,6 +779,11 @@ const MUTANTS = [
   ['seo run: the key does not reach the step from the manifest [partial]', 'lib/seo-run.mjs', 'partialSettles: s.partialSettles === true,', 'partialSettles: false,', 'unit'],
   ['seo run: a PARTIAL step turns the exit code to 1 [partial]', 'commands/seo.mjs', "const fromData = d => result(d.failed === 0, d.failed === 0 ? 'ok' : 'SEO-FAILED', d);", "const fromData = d => result(d.failed === 0 && d.counts.PARTIAL === 0, d.failed === 0 ? 'ok' : 'SEO-FAILED', d);", 'unit'],
   ['seo resume: a PARTIAL step is adopted from its partial file instead of run again [partial]', 'lib/seo-run.mjs', 'if (entries.has(step.id)) return null;', '', 'unit'],
+  ['seo key: run-key.json is not written [nosite-key]', 'lib/seo-run.mjs', 'if (slug && !o.resume) writeFileSync(', 'if (false) writeFileSync(', 'unit'],
+  ['seo key: run-key.json is written for a url run too [nosite-key]', 'lib/seo-run.mjs', 'if (slug && !o.resume) writeFileSync(', 'if (!o.resume) writeFileSync(', 'unit'],
+  ['seo key: a key and another --client are accepted [nosite-key]', 'lib/seo-run.mjs', 'if (slug && client !== slug) throw new Usage(', 'if (false) throw new Usage(', 'unit'],
+  ['seo key: a profile key is refused as not a url [nosite-key]', 'commands/seo.mjs', 'if (profileSlug(url) === null) hostOf(url);', 'hostOf(url);', 'unit'],
+  ['seo key: a slug takes over the folder of a site run [nosite-key]', 'lib/seo-run.mjs', 'if (slug && existsSync(vars.runDir) && !own) throw new Usage(', 'if (false) throw new Usage(', 'unit'],
   // ---- the registry and the thin wrap (P3.3 B1)
   ['[wrap] a time-out (124) comes out as 124', 'lib/wrap.mjs', '  return 1;   // everything else', '  return childExit === 124 ? 124 : 1;   // everything else', 'unit'],
   ['[wrap] a 4 with no SKIPPED: line comes back 0', 'lib/wrap.mjs', "startsWith('SKIPPED:') ? 0 : 1", "startsWith('SKIPPED:') ? 0 : 0", 'unit'],

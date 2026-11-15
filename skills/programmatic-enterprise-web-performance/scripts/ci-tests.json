@@ -20,5 +20,6 @@
   { "file": "test-copy-design.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-copy-gates.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-main.mjs", "plain": [], "mutants": [] },
-  { "file": "test-authority.mjs", "plain": ["--quiet"], "mutants": [] }
+  { "file": "test-authority.mjs", "plain": ["--quiet"], "mutants": [] },
+  { "file": "test-pipeline.mjs", "plain": ["--no-mutants", "--no-scripts"], "mutants": ["--no-mutants", "--no-scripts"] }
 ]

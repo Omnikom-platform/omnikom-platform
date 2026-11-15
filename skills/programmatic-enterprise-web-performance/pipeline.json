@@ -16,6 +16,7 @@
  },
  "vars": {
   "url": "the live site, as given",
+  "key": "the run's key: the site's url, or profile:<client-slug> for a client with no site (then {url} has no value and {host} is the slug)",
   "client": "the client slug (clients/<slug>/ in the Omnikom repo)",
   "host": "the url's hostname without www.",
   "skill": "the skill folder",
@@ -31,7 +32,7 @@
    "what": "which free sources and keys are connected; the latest Common Crawl release",
    "script": "scripts/doctor.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}",
     "--json"
@@ -93,7 +94,7 @@
    "what": "polite snapshot of the site, raw HTML and rendered in real Chrome, phone speed in the lab (a snapshot younger than 7 days is reused; either way snapshots/latest.json says which one this run handed on)",
    "script": "scripts/live-target.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -124,7 +125,7 @@
    "what": "Google's PageSpeed test, phone and desktop, three runs each: every run's raw answer is kept and the median is recorded (medianOf says how many runs it is a median of)",
    "script": "scripts/psi.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}",
     "--strategy",
@@ -163,7 +164,7 @@
    "what": "real-visitor speed from the Chrome UX Report, for the page and its origin on phones and desktops; NO DATA (too little traffic) is a result, not a failure",
    "script": "scripts/crux.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -227,7 +228,7 @@
    "what": "who the client is (business.json): name, address, phone, services, service area, market",
    "script": "scripts/intake.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -280,7 +281,7 @@
    ],
    "kind": "stable",
    "maxAgeDays": null,
-   "brief": "Show the owner business.json as pickable options. On his answer, record it with `node scripts/approve.mjs {url} business --by \"<owner>\" --cwd {skill}`."
+   "brief": "Show the owner business.json as pickable options. On his answer, record it with `node scripts/approve.mjs {key} business --by \"<owner>\" --cwd {skill}`."
   },
   {
    "id": "city-centres",
@@ -288,7 +289,7 @@
    "what": "each service-area city's centre (latitude, longitude, source page, date) read from the coordinates of the city's Wikipedia page, one polite request per city; a city with no coordinates is BLOCKED by name",
    "script": "scripts/local-centres.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -321,7 +322,7 @@
    "what": "search seeds proposed from the business's own words and places; nothing fetched",
    "script": "scripts/research-seeds.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -376,7 +377,7 @@
    ],
    "kind": "stable",
    "maxAgeDays": null,
-   "brief": "Show the owner the seeds as pickable options. Record the answer with `node scripts/approve.mjs {url} seeds --by \"<owner>\" --cwd {skill}`."
+   "brief": "Show the owner the seeds as pickable options. Record the answer with `node scripts/approve.mjs {key} seeds --by \"<owner>\" --cwd {skill}`."
   },
   {
    "id": "demand-bing",
@@ -384,7 +385,7 @@
    "what": "Bing keyword estimates and related keywords for every seed, plain and with the city and state; the client's own site statistics are BLOCKED until the client adds us as a user in Bing Webmaster Tools (the estimates go on)",
    "script": "scripts/research-bing.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--seeds-file",
     "{pewp}/approved/seeds.json",
     "--cwd",
@@ -422,7 +423,7 @@
    "what": "the client's own search data; BLOCKED until the client adds us as a user",
    "script": "scripts/research-gsc.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -453,7 +454,7 @@
    "what": "the research run's plan and the capture requests for the owner's browser (dry run: nothing fetched)",
    "script": "scripts/research.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}",
     "--dry"
@@ -585,7 +586,7 @@
    "what": "index captures become counts: the pages each engine lists for site:<host>, and which services have a listed page",
    "script": "scripts/import-index.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -652,7 +653,7 @@
    "what": "autocomplete captures become sourced demand estimates and new queries",
    "script": "scripts/research-autocomplete.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -718,7 +719,7 @@
    "what": "Trends region tables become ranks: the client's state among the states and its metro, per service",
    "script": "scripts/import-trends.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -781,7 +782,7 @@
    "what": "AI answers beyond Google become counts per engine: questions, how often the business is named (checked against the text), who is named instead, which sources are cited; a blocked engine is a BLOCKED row",
    "script": "scripts/import-ai.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -814,7 +815,7 @@
    "what": "imports the captures and runs clustering, competitors, winners, citations and AI citations; writes targets.json",
    "script": "scripts/research.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -895,7 +896,7 @@
    "script": "scripts/local-grid.mjs",
    "args": [
     "plan",
-    "{url}",
+    "{key}",
     "--n",
     "3",
     "--spacing-km",
@@ -968,7 +969,7 @@
    "what": "competitor sites read the way a crawler reads them: words, sitemap, schema, FAQ, llms.txt, AI crawler access",
    "script": "scripts/research-competitors.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--from-serp",
     "--max",
     "12",
@@ -1027,7 +1028,7 @@
    ],
    "kind": "stable",
    "maxAgeDays": null,
-   "brief": "Show the owner {pewp}/research/competitors-proposed.md, local ones first, as pickable options: the page of {pewp}/research/competitors-proposed.json, the list approve.mjs approves and this step reads. No step of this manifest writes them: `node scripts/competitors-discover.mjs {url} --cwd {skill}` does, from what the discovery agents found (stages/overhaul.md step 4). Record the answer with `node scripts/approve.mjs {url} competitors --by \"<owner>\" --cwd {skill}`."
+   "brief": "Show the owner {pewp}/research/competitors-proposed.md, local ones first, as pickable options: the page of {pewp}/research/competitors-proposed.json, the list approve.mjs approves and this step reads. No step of this manifest writes them: `node scripts/competitors-discover.mjs {key} --cwd {skill}` does, from what the discovery agents found (stages/overhaul.md step 4). Record the answer with `node scripts/approve.mjs {key} competitors --by \"<owner>\" --cwd {skill}`."
   },
   {
    "id": "authority",
@@ -1117,7 +1118,7 @@
    "what": "the link gap ranked into places to earn links, mentions and citations",
    "script": "scripts/authority-classify.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}",
     "--gap-ms",
@@ -1152,7 +1153,7 @@
    "what": "a polite read-only visit to each link opportunity: indexable, follow or nofollow, free or paid",
    "script": "scripts/authority-vet.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--limit",
     "25",
     "--gap-ms",
@@ -1190,7 +1191,7 @@
    "script": "scripts/local-grid.mjs",
    "args": [
     "import",
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -1254,7 +1255,7 @@
    "what": "the local suite: Business Profile, map-pack positions, NAP consistency, review gap",
    "script": "scripts/local-run.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -1320,7 +1321,7 @@
    "what": "review captures become ratings, review counts, newest review and complaints per business and site (no reviewer names ever stored)",
    "script": "scripts/import-reputation.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -1383,7 +1384,7 @@
    "what": "social captures become followers, posts, newest post, active or not, and whether the profile's link works",
    "script": "scripts/import-social.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -1446,7 +1447,7 @@
    "what": "ad library captures become running or not, ad count and since when, per advertiser and library",
    "script": "scripts/import-ads.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--cwd",
     "{skill}"
    ],
@@ -1479,7 +1480,7 @@
    "what": "Reddit mentions of the business and of its services in its city",
    "script": "scripts/research-forums.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--queries-file",
     "{pewp}/approved/seeds.json",
     "--cwd",
@@ -1516,7 +1517,7 @@
    "what": "the six-question report in plain words, every number sourced",
    "script": "scripts/report-live.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--authority",
     "{pewp}/authority.json",
     "--cwd",
@@ -1614,7 +1615,7 @@
    "what": "the client's 8-page copy of this run: one html and one numbers sheet, every number read from a file of the run (the client file holds this client's wording; a draft until it names a contact)",
    "script": "scripts/client-copy.mjs",
    "args": [
-    "{url}",
+    "{key}",
     "--pewp",
     "{pewp}",
     "--client-file",

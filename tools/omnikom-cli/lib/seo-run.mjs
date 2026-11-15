@@ -16,7 +16,7 @@ import { homedir } from 'node:os';
 import { Usage } from './errors.mjs';
 import { importRepo, repoPath } from './repo.mjs';
 import { redact } from './redact.mjs';
-import { isWaiting, makeVars, substitute, covers, resolveScript, globPaths, filesUnder, evidenceState, inputNewer, adoptStep, notCurrent, stepOutcome, outcomeState, stepStop, runOrder, norm, SLACK_MS } from './seo-manifest.mjs';
+import { isWaiting, makeVars, profileSlug, substitute, covers, resolveScript, globPaths, filesUnder, evidenceState, inputNewer, adoptStep, notCurrent, stepOutcome, outcomeState, stepStop, runOrder, norm, SLACK_MS } from './seo-manifest.mjs';
 const { readRun, writeRun } = await importRepo('skills/programmatic-enterprise-web-performance/scripts/lib-run.mjs');
 
 export const STATES = ['RUN', 'SKIPPED', 'BLOCKED', 'WAITING', 'PARTIAL', 'FAILED'];
@@ -182,7 +182,11 @@ export async function runSeo(o) {
     if (client !== undefined && client !== prior.client) throw new Usage(`--client ${client} is not the client of this run (${prior.client})`);
     client = prior.client;
   } else if (prior && prior.client !== client && !o.fresh) throw new Usage(`the run log of ${url} belongs to client '${prior.client}', not '${client}' (run with --fresh to start a new run)`);
+  const slug = profileSlug(url);
+  if (slug && client !== slug) throw new Usage(`the key ${url} belongs to client '${slug}', not '${client}'`);   // the key names the client: nothing is written before this
   const vars = makeVars({ url, client, skillDir, data });
+  const own = (() => { try { return JSON.parse(readFileSync(`${vars.pewp}/run-key.json`, 'utf8')).key === url; } catch { return false; } })();   // this folder already holds this key's own run
+  if (slug && existsSync(vars.runDir) && !own) throw new Usage(`${norm(vars.runDir)} already exists and is not the run of ${url} (it has no run-key.json for it): choose another slug, or put the folder's run-key.json back`);   // ruling 4: a slug never takes over a site's folder; nothing is written before this
   const steps = prepare(o.manifest, vars);
   const byId = new Map(steps.map(s => [s.id, s]));
   const selected = selectSteps(steps, o);
@@ -198,6 +202,7 @@ export async function runSeo(o) {
   const pewp = vars.pewp, logFile = `${pewp}/seo-run.json`;
   mkdirSync(`${pewp}/seo-run`, { recursive: true });
   mkdirSync(vars.work, { recursive: true });
+  if (slug && !o.resume) writeFileSync(`${pewp}/run-key.json`, JSON.stringify({ key: url, client, site: 'none' }, null, 1) + '\n');   // a client with no site: the rule skipWhen (NOSITE-2-SKIP) reads this; a resume finds it there (without it the folder is refused above)
   const runStartMs = prior && Date.parse(prior.runStartedAt) ? Date.parse(prior.runStartedAt) : Date.now();
   const entries = new Map((prior ? prior.steps : []).map(e => [e.id, e]));
   const log = { version: 1, url, client, host: vars.host, runStartedAt: iso(runStartMs), updatedAt: iso(Date.now()), steps: [] };

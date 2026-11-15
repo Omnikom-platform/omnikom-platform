@@ -1,6 +1,6 @@
-// seo run <url> --client <slug> [--only id,id] [--from id] [--module name] [--fresh] [--env-file <f>] [--json]   every mechanical step of a client SEO audit
-// seo resume <url> [--only ..] [--from ..] [--module ..] [--env-file <f>] [--json]                                the same run, from its log (the client is read from it, nothing is redone)
-// seo status <url> [--json]                                                                                       the coverage table from the run log; runs nothing
+// seo run <url or profile:<slug>> --client <slug> [--only id,id] [--from id] [--module name] [--fresh] [--env-file <f>] [--json]   every mechanical step of a client SEO audit
+// seo resume <url or profile:<slug>> [--only ..] [--from ..] [--module ..] [--env-file <f>] [--json]                                the same run, from its log (the client is read from it, nothing is redone)
+// seo status <url or profile:<slug>> [--json]                                                                                       the coverage table from the run log; runs nothing
 // seo vantage status [--json] [--pewp <dir>]                                                                      SEO's vantage.mjs status, its output unchanged; its exit code too, except 4 (SKIPPED) comes back as 3
 // The steps come ONLY from SEO's manifest (skills/programmatic-enterprise-web-performance/pipeline.json, read from this repository, never from ~/.claude):
 // lib/seo-manifest.mjs validates it (a bad manifest is exit 2 with every problem listed) and lib/seo-run.mjs runs it. This file adds no step, rewrites no
@@ -17,7 +17,7 @@ import { SLUG } from '../lib/args.mjs';
 import { importRepo, repoPath } from '../lib/repo.mjs';
 import { redact } from '../lib/redact.mjs';
 import { result } from '../lib/ctx.mjs';
-import { loadManifest as readManifest, validateManifest, hostOf, norm, describe, PipelineError, RUN_OPTIONS } from '../lib/seo-manifest.mjs';
+import { loadManifest as readManifest, validateManifest, hostOf, profileSlug, norm, describe, PipelineError, RUN_OPTIONS } from '../lib/seo-manifest.mjs';
 import { runSeo, statusSeo, STATES, NOT_RUN } from '../lib/seo-run.mjs';
 import { skillCheck } from './skill.mjs';
 
@@ -73,10 +73,10 @@ const seoVerb = async ctx => {
   if (!VERBS.includes(verb)) throw new Usage(`seo takes ${VERBS.join(' | ')}`);
   const skillDir = skillDirOf(ctx);
   if (verb === 'vantage') return vantage(ctx, skillDir);
-  if (ctx.positionals.length < 3) throw new Usage(`seo ${verb} needs the site's url`);
+  if (ctx.positionals.length < 3) throw new Usage(`seo ${verb} needs the site's url (or profile:<slug> for a client with no site)`);
   if (ctx.positionals.length > 3) throw new Usage(`seo ${verb}: unexpected argument '${ctx.positionals[3]}'`);
   const url = ctx.positionals[2];
-  hostOf(url);
+  if (profileSlug(url) === null) hostOf(url);   // the third word is a run key: a url, or profile:<slug> (a malformed one is the engine's PipelineError, exit 2)
   if (f.expect !== undefined) throw new Usage('seo takes no --expect: a run that can be told to match a failure is not a coverage table');
   const allowed = { run: RUN_OPTIONS, resume: ['only', 'from', 'module', 'env-file', 'json', 'client'], status: ['json'] }[verb];
   for (const k of Object.keys(f)) if (!allowed.includes(k)) throw new Usage(`seo ${verb} takes no --${k}${k === 'fresh' ? ' (a resume redoes nothing; use seo run --fresh)' : ''}`);
