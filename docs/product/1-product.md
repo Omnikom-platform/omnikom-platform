@@ -124,7 +124,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | D3 Site build: pages, item pages, sitemap, JSON-LD, gates | WORKS | `factory/build.mjs` |
 | D4 Form posts with no script; site function signs and forwards | WORKS | journey J5 |
 | D5 Form field rendering | WORKS | select, choice, number and reference drawn with no script (`factory/lib/fields.mjs`), seen on the published test site; e2e-crm on staging 2026-11-03 |
-| D6 Capture: signature, consent, idempotent, quotas, paused site refused | WORKS | F:capture-lead |
+| D6 Capture: signature (a signature is taken once), consent, idempotent, quotas, paused site refused | WORKS | F:capture-lead |
 | D7 The test site proves contracts and forms | WORKS | its contact form has real-estate fields (budget, timing, beds, area, buying or selling), published; e2e-crm on staging 2026-11-03 |
 | D8 New-lead alert to the business and the assigned agent | PARTLY | the business's addresses are mailed; recipients are set from the Lead alerts card (B16, proven on staging 2026-11-09 from the settings branch) or the CLI. Missing: nothing reads `sites.alert_assignee`; the assigned agent is mailed only when their address is typed into the list. |
 | D9 Site endpoint settings checked before a deploy | WORKS | `factory/runner/publish.mjs` |

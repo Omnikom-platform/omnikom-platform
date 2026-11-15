@@ -40,7 +40,7 @@ its check where one exists. How sessions and departments work (the head, helpers
 
 ## Calls, keys and secrets
 
-14. Every machine call is signed over method, path, body and a 300 s window; every user call carries a JWT the function
+14. Every machine call is signed over method, path, body and a 300 s window, and a verified signature is accepted once; every user call carries a JWT the function
     verifies. A vendor key is never trusted for authorisation.
 15. No secret value in a tracked file, a log, a reply or a table: names and hashes only. Keys are read by variable name from
     the git-ignored `.env` files and never printed, copied or listed. gitleaks runs on the staged set before every commit and in

@@ -30,10 +30,12 @@ try { dbUrl = stagingDbUrl(process.env); } catch (e) { console.error(e.message);
 const cleanup = createCleanup({ remove: stagingRemover({ url: dbUrl }), report: line });   // every content row this run creates is removed in the finally (slice 5.2b)
 
 // ---- the runner's calls
+let lastT = 0;   // SEC-REPLAY: a signature is taken once, so two calls of one request in one second need two times
+const nextT = () => (lastT = Math.max(lastT + 1, Math.floor(Date.now() / 1000)));
 async function runner(method, name, { query = '', body = '', key = KEY, t, sendBody = body } = {}) {
   const path = `/${name}${query}`;
   const headers = { 'content-type': 'application/json' };
-  if (key) headers['x-runner-signature'] = await sign(key, method, path, body, t);
+  if (key) headers['x-runner-signature'] = await sign(key, method, path, body, t ?? nextT());
   try {
     const res = await fetch(base + path, { method, headers, body: method === 'GET' ? undefined : sendBody, signal: AbortSignal.timeout(60000) });
     const text = await res.text();

@@ -2,7 +2,7 @@
 // The runner is not a person: no JWT (verify_jwt = false in supabase/config.toml), so THIS code is the only wall, and it comes first:
 //   method (405) -> the id in the query, for a GET (404 for one that is not a uuid) -> body cap 256 KiB (413) -> X-Runner-Signature checked with
 //   RUNNER_KEY over `METHOD`, the path with its query (the /functions/v1 prefix is never signed) and the body (a GET signs an empty body), within
-//   300 s (signature.ts) -> a bad or missing signature = 401 SIGNATURE and a security event (kind bad-signature, detail kind 'runner') ->
+//   300 s (signature.ts) -> a bad or missing signature = 401 SIGNATURE and a security event (kind bad-signature, detail kind 'runner') -> a second copy of a verified signature = 401 REPLAY and an event of that code (claimSignature, migration 51) ->
 //   every statement steps down to omnikom_fn (db.ts) -> the registry row of the key is touched (last_used_at) -> a POST body must be a JSON
 //   object (400 BODY) -> the function's own steps -> a refusal from the database becomes its platform code and status -> anything else is a
 //   plain 500 that says nothing about the cause. Every answer is JSON (or 204) and `cache-control: no-store`.
@@ -10,7 +10,7 @@
 // caller that holds the key. Only a call that fails the signature is recorded, because that is somebody else.
 // RUNNER_KEY is read by name from the function secrets and never printed; a missing one is a 500 CONFIG (nobody is accepted).
 import { verify } from './signature.ts';
-import { connect, ConfigError, refusal, type Sql } from './db.ts';
+import { claimSignature, connect, ConfigError, refusal, type Sql } from './db.ts';
 import { MAX_BODY, UUID, problem, sha256Hex } from './http.ts';
 
 export type RunnerCtx = { sql: Sql; fn: string; id: string | null; body: Record<string, unknown> };
@@ -56,6 +56,10 @@ export async function runner(req: Request, o: RunnerOpts, run: (c: RunnerCtx) =>
       try { await sql`select service.record_security_event('bad-signature', 'SIGNATURE', null, null, null, ${ipHash}, ${{ fn: o.fn, kind: o.keyEnv ? 'cron' : 'runner' }}::jsonb)`; }
       catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
       return problem(401, 'SIGNATURE', 'Not accepted.');
+    }
+    if (!await claimSignature(sql, req.headers.get(o.header ?? 'x-runner-signature'))) {   // a signed call is accepted once (migration 51)
+      try { await sql`select service.record_security_event('bad-signature', 'REPLAY', null, null, null, null, ${{ fn: o.fn, kind: o.keyEnv ? 'cron' : 'runner' }}::jsonb)`; } catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
+      return problem(401, 'REPLAY', 'Not accepted.');
     }
     if (!o.keyEnv) await touchKey(sql, key);   // the registry row is the runner key's; the cron key has none
     let body: Record<string, unknown> = {};

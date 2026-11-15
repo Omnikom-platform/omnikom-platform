@@ -16,6 +16,10 @@ export type Who = keyof typeof SUB;
 
 export const env = (k: string): string => { const v = Deno.env.get(k); if (!v) throw new Error(`${k} is not set: run these tests through supabase/functions/test/run.mjs`); return v; };
 
+/** A signed time no earlier call of this test file used (SEC-REPLAY, migration 51): two calls of one request in one second are one signature. Never behind now. */
+let lastT = 0;
+export const freshT = (): number => (lastT = Math.max(lastT + 1, Math.floor(Date.now() / 1000)));
+
 /** a test whose timers and sockets are the functions' own (AbortSignal.timeout, the Postgres client) */
 export const t = (name: string, fn: () => void | Promise<void>) => Deno.test({ name, fn, sanitizeOps: false, sanitizeResources: false });
 

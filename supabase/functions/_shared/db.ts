@@ -122,6 +122,15 @@ export async function recordEvent(sql: Sql, kind: string, code: string, o: { wor
   } catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
 }
 
+/** A signed call is accepted once (migration 51): true for the first copy of this header's signature, false for every later copy. The key is sha256 of the v1 value only (verify also accepts a t with leading zeros, so the header text is no key). Call it only after verify() passed: a forged signature must cost nothing here. A store that errors throws: the caller answers 500 and nothing is taken on trust. */
+export async function claimSignature(sql: Sql, header: string | null): Promise<boolean> {
+  const v1 = /,v1=([0-9a-f]{64})$/.exec((header ?? '').trim())?.[1];
+  if (!v1) return false;
+  const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v1))), b => b.toString(16).padStart(2, '0')).join('');
+  const [r] = await sql`select service.claim_signature(${hash}) as ok`;
+  return r.ok === true;
+}
+
 /** Run `fn` on a transaction that acts as the CALLER under Row Level Security (slice 5.2: lead-export reads leads the way the dashboard would).
  *  The connection has stepped down to omnikom_fn (no table is readable); inside this transaction only, it takes the role `authenticated` and the
  *  caller's verified claims, which is exactly the state a signed-in browser's request has, so every policy answers as it does for that person.

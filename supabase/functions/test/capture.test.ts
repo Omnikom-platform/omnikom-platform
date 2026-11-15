@@ -5,7 +5,7 @@
 // cluster has no Vault, so the test makes the one table the key lookup reads.
 import { handle } from '../capture-lead/index.ts';
 import { sign, verify } from '../_shared/signature.ts';
-import { assert, crmForms, eq, SITE_A, t, WS_A, withSql } from './util.ts';
+import { assert, crmForms, eq, freshT, SITE_A, t, WS_A, withSql } from './util.ts';
 
 const KEY = 'test-site-signing-key-not-a-secret';
 const REF = 'site-test-demo-a-key-1';
@@ -27,7 +27,7 @@ async function seedKey() {
 async function post(body: unknown, key: string = KEY, visitor = ''): Promise<{ status: number; text: string }> {
   const text = JSON.stringify(body);
   const path = `/capture-lead?site=${SITE_A}${visitor ? `&visitor=${visitor}` : ''}`;
-  const res = await handle(new Request(`http://localhost${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': await sign(key, 'POST', path, text) }, body: text }));
+  const res = await handle(new Request(`http://localhost${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': await sign(key, 'POST', path, text, freshT()) }, body: text }));
   return { status: res.status, text: await res.text() };
 }
 
@@ -272,4 +272,58 @@ t('capture-lead [SEC] readUpTo cancels the stream on the cut path and only there
   eq(JSON.stringify(await http.readUpTo(whole.body, 4)), '{"text":"xxxx","cut":false}', 'whole');
   eq(whole.o.cancels, 0, 'a body of at most max bytes: cancel not called');
   eq(whole.o.ended, true, 'the stream ended by itself');
+});
+
+const signedPost = async (body: unknown) => {   // SEC-REPLAY: the returned function sends the SAME signed request each time
+  const text = JSON.stringify(body), path = `/capture-lead?site=${SITE_A}`, header = await sign(KEY, 'POST', path, text, freshT());
+  return async () => { const r = await handle(new Request(`http://localhost${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': header }, body: text })); return { status: r.status, text: await r.text() }; };
+};
+
+t('capture-lead [SEC-REPLAY] a post sent three times with one signature stores one lead, one consent row and one alert set, and every answer is 202', async () => {
+  await seedKey();
+  const old = await withSql(async sql => (await sql`select lead_alert_to::text as v from public.sites where id = ${SITE_A}::uuid`)[0].v as string);
+  try {
+    await withSql(sql => sql`update public.sites set lead_alert_to = array['rp-a@example.test', 'rp-b@example.test'] where id = ${SITE_A}::uuid`);
+    const name = 'Cap Replay ' + crypto.randomUUID().slice(0, 8);
+    const send = await signedPost({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name });
+    const look = () => withSql(async sql => {
+      const [l] = await sql`select count(*)::int as n from public.leads where name = ${name}`;
+      const [c] = await sql`select count(*)::int as n from public.consent_ledger c join public.leads l on l.id = c.lead_id where l.name = ${name}`;
+      const [m] = await sql`select count(*)::int as n from public.mail_outbox o join public.leads l on l.id = o.lead_id where l.name = ${name}`;
+      return { leads: l.n as number, consent: c.n as number, mail: m.n as number };
+    });
+    const first = await send();
+    const a = await look();
+    const second = await send(), third = await send();
+    eq([first.status, second.status, third.status].join(), '202,202,202', 'every answer is 202: ' + first.text + second.text + third.text);
+    const b = await look();
+    eq(b.leads, 1, 'one lead'); eq(b.consent, 1, 'one consent row'); eq(a.mail, 2, 'two alert rows after the first copy'); eq(b.mail, 2, 'still two after the third');
+  } finally { await withSql(sql => sql`update public.sites set lead_alert_to = ${old}::text[] where id = ${SITE_A}::uuid`); }
+});
+
+t('capture-lead [SEC-REPLAY] (control) a post the database refused keeps no claim: refused twice with one signature, then taken once the site is back', async () => {
+  await seedKey();
+  const old = await withSql(async sql => (await sql`select state::text as v from public.sites where id = ${SITE_A}::uuid`)[0].v as string);
+  const name = 'Cap Replay Refused ' + crypto.randomUUID().slice(0, 8);
+  const send = await signedPost({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name });
+  const leads = () => withSql(async sql => (await sql`select count(*)::int as n from public.leads where name = ${name}`)[0].n as number);
+  try {
+    await withSql(sql => sql`update public.sites set state = 'paused'::public.site_state where id = ${SITE_A}::uuid`);
+    const a = await send(), b = await send();
+    eq([a.status, b.status].join(), '409,409', 'a paused site refuses both: ' + a.text + b.text);
+  } finally { await withSql(sql => sql`update public.sites set state = ${old}::public.site_state where id = ${SITE_A}::uuid`); }
+  const c = await send();
+  eq(c.status, 202, 'the site is back: ' + c.text); eq(await leads(), 1, 'taken once');
+});
+
+t('capture-lead [SEC-REPLAY] a post whose signature does not verify (wrong key, or outside the 300 s window) is refused 401 and leaves no claim', async () => {
+  await seedKey();
+  const claims = () => withSql(async sql => (await sql`select count(*)::int as n from private.signature_seen`)[0].n as number);
+  const before = await claims(), body = { form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name: 'Cap Replay Forged' };
+  const wrong = await post(body, 'not-the-site-key');
+  eq(wrong.status, 401, 'wrong key: ' + wrong.text);
+  const text = JSON.stringify(body), path = `/capture-lead?site=${SITE_A}`;
+  const late = await handle(new Request(`http://localhost${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': await sign(KEY, 'POST', path, text, Math.floor(Date.now() / 1000) - 400) }, body: text }));
+  eq(late.status, 401, 'outside the window: ' + await late.text());
+  eq(await claims(), before, 'no claim was taken by a post that did not verify');
 });
