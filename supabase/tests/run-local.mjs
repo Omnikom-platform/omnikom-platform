@@ -1023,6 +1023,33 @@ const MUTANTS = [
   ['alert50: an alert that was not dropped gets the event too', [
     ["      insert into public.lead_events (lead_id, workspace_id, kind, detail) values (o.lead_id, ws, 'alert-failed', jsonb_build_object('to', o.to_text, 'reason', 'suppressed'));", '      null;'],
     ["    if private.is_suppressed(ws, 'email', o.to_text) then", "    insert into public.lead_events (lead_id, workspace_id, kind, detail) values (o.lead_id, ws, 'alert-failed', jsonb_build_object('to', o.to_text, 'reason', 'suppressed'));\n    if private.is_suppressed(ws, 'email', o.to_text) then"]]],
+
+  // ---- C19 (migration 52): the site state; tests T52. Run only these: --only "sitelive52" ----
+  ['sitelive52: any login moves a site', "if not coalesce(private.is_staff(), false) then raise exception 'S-NOT-FOUND: not found'; end if;", 'null;'],   // T52b
+  ['sitelive52: a reason is not asked', "if length(btrim(coalesce(p_reason, ''))) not between 10 and 200 then", 'if false then'],   // T52c
+  ['sitelive52: an unknown site is not refused', 'if s.id is null then', 'if false then'],   // T52f
+  ['sitelive52: live goes back to preview', "('live', 'paused'), ('paused', 'live'), ('paused', 'preview'))", "('live', 'paused'), ('paused', 'live'), ('paused', 'preview'), ('live', 'preview'))"],   // T52d
+  ['sitelive52: paused cannot go back to preview', "('live', 'paused'), ('paused', 'live'), ('paused', 'preview'))", "('live', 'paused'), ('paused', 'live'))"],   // T52e
+  ['sitelive52: a preview is paused', "(('preview', 'live'), ('live', 'paused')", "(('preview', 'live'), ('preview', 'paused'), ('live', 'paused')"],   // T52d
+  ['sitelive52: live goes live again', "('preview', 'live'), ('live', 'paused')", "('preview', 'live'), ('live', 'live'), ('live', 'paused')"],   // T52d
+  ['sitelive52: a suspended business goes live', "if p_state = 'live' and not (w.state in ('trial', 'active')) then", 'if false then'],   // T52e
+  ['sitelive52: a suspended business cannot pause its live site', "if p_state = 'live' and not (w.state", 'if not (w.state'],   // T52e
+  ['sitelive52: a trial business cannot go live', "not (w.state in ('trial', 'active'))", "not (w.state in ('active'))"],   // T52e
+  ['sitelive52: an offboarding business goes live', "(w.state in ('trial', 'active'))", "(w.state in ('trial', 'active', 'offboarding'))"],   // T52e
+  ['sitelive52: a deleted business goes live', "(w.state in ('trial', 'active'))", "(w.state in ('trial', 'active', 'deleted'))"],   // T52e
+  ['sitelive52: a reason of 9 characters is taken', "coalesce(p_reason, ''))) not between 10 and 200", "coalesce(p_reason, ''))) not between 9 and 200"],   // T52c
+  ['sitelive52: a reason of 10 characters is refused', "coalesce(p_reason, ''))) not between 10 and 200", "coalesce(p_reason, ''))) not between 11 and 200"],   // T52d
+  ['sitelive52: a reason of 200 characters is refused', "coalesce(p_reason, ''))) not between 10 and 200", "coalesce(p_reason, ''))) not between 10 and 199"],   // T52d
+  ['sitelive52: the stored reason is not trimmed', "s.state, 'reason', btrim(p_reason)", "s.state, 'reason', p_reason"],   // T52d
+  ['sitelive52: no state is written', 'update public.sites set state = p_state where public.sites.id = p_site;', 'null;'],   // T52a
+  ['sitelive52: every site of the business moves', 'set state = p_state where public.sites.id = p_site;', 'set state = p_state where public.sites.workspace_id = s.workspace_id;'],   // T52a (the other site)
+  ['sitelive52: no audit row', "insert into public.audit_log (workspace_id, actor, action, target, detail) values (s.workspace_id, me, 'site-' || p_state, p_site::text, jsonb_build_object('from', s.state, 'reason', btrim(p_reason)));", 'null;'],   // T52a
+  ['sitelive52: the audit row names another action', "'site-' || p_state", "'site-set'"],   // T52a
+  ['sitelive52: the audit row has no old state', "jsonb_build_object('from', s.state, 'reason', btrim(p_reason))", "jsonb_build_object('reason', btrim(p_reason))"],   // T52a
+  ['sitelive52: the audit row has no reason', "s.state, 'reason', btrim(p_reason)", "s.state, 'reason', ''"],   // T52a
+  ['sitelive52: the audit row has no business', "values (s.workspace_id, me, 'site-'", "values (null, me, 'site-'"],   // T52a
+  ['sitelive52: the call is open to authenticated', 'grant execute on function service.set_site_state(jsonb, uuid, public.site_state, text) to service_role, omnikom_fn;', 'grant execute on function service.set_site_state(jsonb, uuid, public.site_state, text) to service_role, omnikom_fn, authenticated;'],   // T52g
+
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

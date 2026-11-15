@@ -115,7 +115,7 @@ client who refuses: `www` by CNAME plus a bare-domain redirect at their registra
 A preview becomes a live site through one command with a ledger (the SEO skill's `scripts/launch.mjs`, 22 items in four
 groups: before launch, launch day, first 30 days, ongoing). Each item ends PASS with its check's own output line, or BLOCKED
 with an allowed reason (waiting on owner access, a client answer, owner proof, a third-party outage, not yet due). The
-script never deploys, changes DNS or sends anything: those are the owner's clicks. Not built: a ledger screen in the dashboard. Before a live build is signed, `omnikom site search-gate` runs the SEO skill's gate on it, strict, against the signed research plan its manifest names (`search.host`), and is BLOCKED, never a pass, when there is no plan (`tools/golive/README.md`).
+script never deploys, changes DNS or sends anything: those are the owner's clicks. A site's state is moved by `service.set_site_state` (migration 52, staff with MFA inside a window, the approval given as the reason, one audit row); a direct write with the service key is not yet refused; the runner deploys to the live branch only while the state is live, and setting it deploys nothing: the next publish does. Not built: a ledger screen in the dashboard. Before a live build is signed, `omnikom site search-gate` runs the SEO skill's gate on it, strict, against the signed research plan its manifest names (`search.host`), and is BLOCKED, never a pass, when there is no plan (`tools/golive/README.md`).
 
 ## Signed and sealed builds
 

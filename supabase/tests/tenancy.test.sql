@@ -1613,7 +1613,7 @@ do $$ declare t record; n int; begin
       'list_members', 'invite_context',                -- work order 08: owner B and a member in T24
       'site_audit',                                    -- work order 10: member and owner B in T24
       'start_preview',                                 -- book row B15 (migration 42): a member and owner B in T-B15
-      'offboarding_storage', 'staff_open', 'put_back']),   -- work order 37b (migration 26): owner B and staff without MFA in T32e; E11 staff_open (migration 43): staff without MFA, owner A and a login of nothing in T39c
+      'offboarding_storage', 'staff_open', 'put_back', 'set_site_state']),   -- work order 37b (migration 26): owner B and staff without MFA in T32e; E11 staff_open (migration 43): staff without MFA, owner A and a login of nothing in T39c
       'service.' || t.proname || ' takes claims but has no outsider test listed in T14';
   end loop;
 end $$;
@@ -4169,6 +4169,78 @@ do $$ begin
   assert service.deleted_media_path('49000000-0000-4000-8000-000000000003'::uuid) is null,
     'T49c a record gone another way, another action: nothing';
 end $$;
+
+-- ===== T52 (book row C19, migration 52): service.set_site_state is the one way a site goes live, is paused and leaves live =====
+reset role;
+create table test.t52_ws as select id, state from public.workspaces where id = 'aaaaaaaa-0000-0000-0000-000000000000';
+create table test.t52_sites as select id, state from public.sites where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000';
+update public.workspaces set state = 'active' where id = 'aaaaaaaa-0000-0000-0000-000000000000';
+update public.sites set state = 'preview' where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000';
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000052aa', 'staff3@omnikom');
+insert into staff values ('00000000-0000-0000-0000-0000000052aa');   -- staff with MFA and no window
+select service.staff_open(test.cl('00000000-0000-0000-0000-00000000005f', 'aal2'), 'T52 a window for the site state block', 30);
+create function test.t52(p_who text, p_state site_state, p_reason text default 'T52 a good reason', p_site uuid default 'aaaaaaaa-0000-0000-0000-00000000517e') returns void language sql as $$
+  select service.set_site_state(case p_who when 'staff' then test.cl('00000000-0000-0000-0000-00000000005f', 'aal2') when 'staff-aal1' then test.cl('00000000-0000-0000-0000-00000000005f', 'aal1')
+    when 'no-window' then test.cl('00000000-0000-0000-0000-0000000052aa', 'aal2') when 'owner' then test.cl('00000000-0000-0000-0000-00000000000a', 'aal2') when 'member' then test.cl('00000000-0000-0000-0000-0000000000a1', 'aal2')
+    when 'owner-b' then test.cl('00000000-0000-0000-0000-00000000000b', 'aal2') when 'nobody' then test.cl('00000000-0000-0000-0000-00000000000e', 'aal2') end, p_site, p_state, p_reason) $$;
+-- (a) staff with MFA in a window: preview to live, one audit row, the runner's export says live, the business's other site is untouched
+select test.t52('staff', 'live', 'T52 the preview was approved');
+do $$ begin
+  assert (select state from public.sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = 'live', 'T52a staff with MFA in a window move a preview site to live';
+  assert (select state from public.sites where id = 'aaaaaaaa-0000-0000-0000-0000000052e2') = 'preview', 'T52a the business''s other site stays a preview';
+  assert exists (select 1 from audit_log where action = 'site-live' and actor = '00000000-0000-0000-0000-00000000005f' and workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and target = 'aaaaaaaa-0000-0000-0000-00000000517e' and detail ->> 'from' = 'preview' and detail ->> 'reason' = 'T52 the preview was approved'), 'T52a one audit row names the actor, the business, the site, the old state and the reason';
+  assert service.export_bundle(test.id('jobX')) #>> '{site,state}' = 'live', 'T52a the runner''s export of a job of this site now says live';
+end $$;
+-- (b) everyone else is "not found" (an owner and a member even with MFA, another business's owner, a login of nothing, staff without MFA, staff with MFA and no window), no claims is S-AUTH; nothing changed, no audit row
+select test.expect_error($q$select test.t52('staff-aal1', 'paused')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.t52('no-window', 'paused')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.t52('owner', 'paused')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.t52('member', 'paused')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.t52('owner-b', 'paused')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.t52('nobody', 'paused')$q$, 'S-NOT-FOUND');
+select test.expect_error($q$select test.t52('none', 'paused')$q$, 'S-AUTH');
+do $$ begin assert (select state from public.sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = 'live' and (select count(*) from audit_log where target = 'aaaaaaaa-0000-0000-0000-00000000517e' and action in ('site-live', 'site-paused', 'site-preview')) = 1, 'T52b every refusal changed nothing and wrote no audit row'; end $$;
+-- (c) a missing, a 9-character and a 201-character reason are refused in the answer's words (10 and 200 characters are accepted in (d)); nothing changed
+select test.expect_error($q$select test.t52('staff', 'paused', null)$q$, 'I-ANSWER');
+select test.expect_error($q$select test.t52('staff', 'paused', 'T52 short')$q$, 'I-ANSWER');
+select test.expect_error(format($q$select test.t52('staff', 'paused', %L)$q$, repeat('x', 201)), 'I-ANSWER');
+do $$ begin assert (select state from public.sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = 'live' and (select count(*) from audit_log where target = 'aaaaaaaa-0000-0000-0000-00000000517e' and action in ('site-live', 'site-paused', 'site-preview')) = 1, 'T52c a bad reason changed nothing'; end $$;
+-- (d) only the four moves: live to preview, live to live, preview to paused, preview to preview are S-SITE-STATE; live to paused and paused to live work, each audited with the old state
+select test.expect_error($q$select test.t52('staff', 'preview')$q$, 'S-SITE-STATE');
+select test.expect_error($q$select test.t52('staff', 'live')$q$, 'S-SITE-STATE');
+select test.expect_error($q$select test.t52('staff', 'paused', 'T52 a good reason', 'aaaaaaaa-0000-0000-0000-0000000052e2')$q$, 'S-SITE-STATE');
+select test.expect_error($q$select test.t52('staff', 'preview', 'T52 a good reason', 'aaaaaaaa-0000-0000-0000-0000000052e2')$q$, 'S-SITE-STATE');
+select test.t52('staff', 'paused', '  T52 ten ok  ');   -- 10 characters once trimmed: the limit is on the trimmed text, and the stored reason is the trimmed one
+do $$ begin assert (select state from public.sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = 'paused' and exists (select 1 from audit_log where action = 'site-paused' and target = 'aaaaaaaa-0000-0000-0000-00000000517e' and detail ->> 'from' = 'live' and detail ->> 'reason' = 'T52 ten ok'), 'T52d live to paused is allowed and audited, with the 10-character trimmed reason'; end $$;
+select test.t52('staff', 'live', repeat('y', 200));   -- exactly 200 characters
+do $$ begin
+  assert (select state from public.sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = 'live' and exists (select 1 from audit_log where action = 'site-live' and target = 'aaaaaaaa-0000-0000-0000-00000000517e' and detail ->> 'from' = 'paused' and length(detail ->> 'reason') = 200), 'T52d paused to live is allowed and audited, with the 200-character reason';
+  assert (select state from public.sites where id = 'aaaaaaaa-0000-0000-0000-0000000052e2') = 'preview', 'T52d the refused moves of the other site changed nothing';
+end $$;
+-- (e) the business's state: a suspended business's live site can still be paused and put back to preview, but nothing goes live (nor for an offboarding or a deleted business); a trial business may go live
+update public.workspaces set state = 'suspended' where id = 'aaaaaaaa-0000-0000-0000-000000000000';
+select test.t52('staff', 'paused');
+do $$ begin assert (select state from public.sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = 'paused', 'T52e a suspended business''s live site can be paused'; end $$;
+select test.expect_error($q$select test.t52('staff', 'live')$q$, 'S-WORKSPACE-STATE');
+select test.t52('staff', 'preview');
+do $$ begin assert (select state from public.sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = 'preview' and exists (select 1 from audit_log where action = 'site-preview' and target = 'aaaaaaaa-0000-0000-0000-00000000517e' and detail ->> 'from' = 'paused'), 'T52e paused to preview is allowed and audited'; end $$;
+select test.expect_error($q$select test.t52('staff', 'live')$q$, 'S-WORKSPACE-STATE');
+update public.workspaces set state = 'offboarding' where id = 'aaaaaaaa-0000-0000-0000-000000000000';   -- a direct write as the block's superuser: no trigger or check on workspaces guards a state (read in migrations 1 to 50)
+select test.expect_error($q$select test.t52('staff', 'live')$q$, 'S-WORKSPACE-STATE');
+update public.workspaces set state = 'deleted' where id = 'aaaaaaaa-0000-0000-0000-000000000000';
+select test.expect_error($q$select test.t52('staff', 'live')$q$, 'S-WORKSPACE-STATE');
+update public.workspaces set state = 'trial' where id = 'aaaaaaaa-0000-0000-0000-000000000000';
+select test.t52('staff', 'live');
+do $$ begin assert (select state from public.sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e') = 'live', 'T52e a trial business''s site goes live'; end $$;
+-- (f) an unknown site; (g) the grants; (h) six moves, six audit rows, in order, none for a refusal; then the state put back
+select test.expect_error($q$select test.t52('staff', 'live', 'T52 a good reason', 'aaaaaaaa-0000-0000-0000-0000000fffff')$q$, 'S-NOT-FOUND');
+do $$ begin
+  assert not has_function_privilege('anon', 'service.set_site_state(jsonb,uuid,public.site_state,text)', 'execute') and not has_function_privilege('authenticated', 'service.set_site_state(jsonb,uuid,public.site_state,text)', 'execute'), 'T52g set_site_state is closed to anon and authenticated';
+  assert has_function_privilege('service_role', 'service.set_site_state(jsonb,uuid,public.site_state,text)', 'execute') and has_function_privilege('omnikom_fn', 'service.set_site_state(jsonb,uuid,public.site_state,text)', 'execute'), 'T52g service_role and the function role run it';
+  assert (select string_agg(action, ',' order by id) from audit_log where target = 'aaaaaaaa-0000-0000-0000-00000000517e' and action in ('site-live', 'site-paused', 'site-preview')) = 'site-live,site-paused,site-live,site-paused,site-preview,site-live', 'T52h six moves, six audit rows, in order';
+end $$;
+update public.workspaces w set state = t.state from test.t52_ws t where w.id = t.id;
+update public.sites s set state = t.state from test.t52_sites t where s.id = t.id;
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;
