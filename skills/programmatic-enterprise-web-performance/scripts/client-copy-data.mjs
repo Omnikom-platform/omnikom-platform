@@ -214,10 +214,15 @@ export function collect(cfg) {
     put("faq", { marked: marked ? marked.length : 0, of: faqShown }, src("mobile", "page.structuredData[json/@type=FAQPage].json.mainEntity (length)", marked ? marked.length : 0), src("mobile", "page.headings (H3 under the FAQ heading)", faqShown));
   }
   const blocks = get("mobile", "page.structuredData", "array");
-  const sdAt = blocks.findIndex((b) => b && b.json && (b.json.address || b.json.sameAs));
-  if (sdAt < 0) stop(`STOP: ${label(defs.mobile)} has no page.structuredData block with json.address or json.sameAs`);
-  const sameAs = get("mobile", `page.structuredData[${sdAt}].json.sameAs`, "array").length;
-  const siteAddr = get("mobile", `page.structuredData[${sdAt}].json.address.streetAddress`, "text");
+  // the business's own markup: a block's top level, or a member of its @graph (a site that marks itself up as one graph). The profile links (sameAs)
+  // and the street address may sit on different members, so each is found on its own
+  const sdNodes = [];
+  blocks.forEach((b, i) => { const j = b && b.json; if (!j || typeof j !== "object") return; sdNodes.push([`page.structuredData[${i}].json`, j]); if (Array.isArray(j["@graph"])) j["@graph"].forEach((x, k) => sdNodes.push([`page.structuredData[${i}].json.@graph[${k}]`, x])); });
+  const sdSame = (sdNodes.find(([, j]) => j && Array.isArray(j.sameAs)) || [])[0], sdPath = (sdNodes.find(([, j]) => j && j.address && typeof j.address === "object" && j.address.streetAddress) || [])[0];
+  if (!sdSame && !sdPath) stop(`STOP: ${label(defs.mobile)} has no page.structuredData block with json.address or json.sameAs`);
+  if (!sdSame) stop(`STOP: ${label(defs.mobile)} has no page.structuredData block (or @graph member) with a sameAs list`);
+  const sameAs = get("mobile", `${sdSame}.sameAs`, "array").length;
+  const siteAddr = sdPath ? get("mobile", `${sdPath}.address.streetAddress`, "text") : null;   // null: the site's markup names no street address, so the site is no row of the address list
   if (client.promisePattern) {
     const takes = get("rendered", `match:(${client.promisePattern})`, "text");
     put("takes", takes, src("rendered", `the line holding the promise ${client.promisePattern}`, takes));
@@ -317,7 +322,7 @@ export function collect(cfg) {
   }
   const okRows = aiRows.filter((r) => r.status === "ok");
   if (!okRows.length) stop(`STOP: ${label(defs.ai)} has no rows[status=ok]`);
-  const blockedWhy = ["copilot", "gemini"].map((e) => get("ai", `summary.blockedEngines[engine=${e}].reason`, "text"));
+  const blockedWhy = ["copilot", "gemini"].filter((e) => eng[e].status === "blocked").map((e) => get("ai", `summary.blockedEngines[engine=${e}].reason`, "text"));   // an assistant that was read has no reason
   const aiAnswers = get("ai", "summary.questions", "count");
   put("ai", {
     chat: eng.chatgpt, perp: eng.perplexity, sameQuestions: eng.chatgpt.questions_ === eng.perplexity.questions_,
@@ -403,11 +408,12 @@ export function collect(cfg) {
   const bingRow = citeRows.find((r) => /bing/i.test(r.directory) && getMaybe("cites", `[${r.i}].address`, "text") !== null);
   const bAddr = bingRow ? street(get("cites", `[${bingRow.i}].address`, "text"), home) : null;
   const fAddr = hand.filing ? street(get("filing", "match:^\\| State filing \\| ([^|]+?) \\|", "text"), home) : null;
-  const wAddr = street(siteAddr, home);
+  const wAddr = siteAddr === null ? null : street(siteAddr, home);
   const addrRows = [];
   const add = (w2, a) => { const r = addrRows.find((x) => x.address.toLowerCase() === a.toLowerCase()); if (r) r.where.push(w2); else addrRows.push({ where: [w2], address: a }); };
-  const addSrc = [src("mobile", `page.structuredData[${sdAt}].json.address.streetAddress`, wAddr), src("profile", "address", gAddr)];
-  add("Your website", wAddr); add("Google Maps", gAddr);
+  const addSrc = [...(wAddr === null ? [] : [src("mobile", `${sdPath}.address.streetAddress`, wAddr)]), src("profile", "address", gAddr)];
+  if (wAddr !== null) add("Your website", wAddr);
+  add("Google Maps", gAddr);
   if (bingRow) { add(printedName(bingRow.directory), bAddr); addSrc.push(src("cites", `[directory=${bingRow.directory}].address`, bAddr, bingRow.at)); }
   if (fAddr !== null) { add("State filing", fAddr); addSrc.push(src("filing", 'the line "| State filing | ... |"', fAddr)); }
   put("addresses", addrRows, ...addSrc);
@@ -420,7 +426,7 @@ export function collect(cfg) {
   const brokenNames = socialRows.filter((r) => broken.includes(r.url)).map((r) => pName(r.platform));
   put("profiles", { total: socialRows.length, names: socialRows.map((r) => pName(r.platform)), inCard: sameAs, broken: brokenNames },
     src("social", "rows (length), rows[*].platform", socialRows.map((r) => r.platform)), src("social", "summary.linksBroken", broken),
-    src("mobile", `page.structuredData[${sdAt}].json.sameAs (length)`, sameAs));
+    src("mobile", `${sdSame}.sameAs (length)`, sameAs));
 
   // ---- competitors and links
   const approvedRows = get("comp", "approvedRows", "count");
