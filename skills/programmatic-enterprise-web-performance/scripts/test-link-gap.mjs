@@ -22,7 +22,7 @@ const skill = path.dirname(dir);
 if (args.includes("--mutants")) {
   const MUT = [
     { id: "words-back", file: "report-live.mjs", from: "most competitors linked first: ${q4.gapTop", to: "strongest first: ${q4.gapTop", red: "case 1:" },
-    { id: "total-ignored", file: "report-live.mjs", from: "const gapN = Number.isInteger(auth.linkGapTotal) ? auth.linkGapTotal : auth.linkGap.length;", to: "const gapN = auth.linkGap.length;", red: "case 5:" },
+    { id: "total-ignored", file: "report-live.mjs", from: "const gapN = (Number.isInteger(auth.linkGapTotal) ? auth.linkGapTotal : auth.linkGap.length) - gapRelated;", to: "const gapN = auth.linkGap.length - gapRelated;", red: "case 5:" },
     { id: "old-cut-not-flagged", file: "report-live.mjs", from: " && auth.linkGap.length === GAP_CUT ? ", to: " && false ? ", red: "case 6:" },
     { id: "flagged-even-with-total", file: "report-live.mjs", from: "!Number.isInteger(auth.linkGapTotal) && auth.linkGap.length === GAP_CUT", to: "auth.linkGap.length === GAP_CUT", red: "case 8:" },
     { id: "plan-uses-list-length", file: "report-live.mjs", from: "fact(gapN, auth.source", to: "fact(auth.linkGap.length, auth.source", red: "case 5:" },

@@ -106,7 +106,7 @@ if (args.includes("--mutants")) {
     { id: "f85-address-label-first-place-only", file: "client-copy-design.mjs", from: "address shown, ${andList(a.where)}", to: "address shown, ${a.where[0]}", red: "case 19:" },
     { id: "f86-lede-typed", file: "client-copy-design.mjs", from: "rt(client.rivalsLede)", to: "rt(\"x\")", red: "case 21:" },
     { id: "f87-pack-name-read-from-top3", file: "client-copy-data.mjs", from: "points[${i}].pack[${k}].name", to: "points[${i}].top3[${k}].name", red: "case 18:" },
-    { id: "f88-client-name-from-a-point", file: "client-copy-data.mjs", from: "mapsFirstThree(msPts, msQ, ourName)", to: "mapsFirstThree(msPts, msQ, get(\"grid\", `points[${msIdx[msIdx.length - 1]}].ours.name`, \"text\"))", red: "case 18:" },
+    { id: "f88-client-name-from-a-point", file: "client-copy-data.mjs", from: " : msPts, msQ, ourName)", to: " : msPts, msQ, get(\"grid\", `points[${msIdx[msIdx.length - 1]}].ours.name`, \"text\"))", red: "case 18:" },
     { id: "f89-us-links-inverted", file: "client-copy-data.mjs", from: "const usN = ourGraph ? ", to: "const usN = !ourGraph ? ", red: "case 18:" },
     { id: "f90-other-city-for-who-maps-shows", file: "client-copy-data.mjs", from: "s.cityName === home), msQ", to: "s.cityName !== home), msQ", red: "case 18:" },
     { id: "f91-pack-ignored", file: "client-copy-data.mjs", from: "city: gp[i].city, pack: get(", to: "city: gp[i].city, pack: [] || get(", red: "case 18:" },
