@@ -1023,6 +1023,20 @@ const MUTANTS = [
   ['alert50: an alert that was not dropped gets the event too', [
     ["      insert into public.lead_events (lead_id, workspace_id, kind, detail) values (o.lead_id, ws, 'alert-failed', jsonb_build_object('to', o.to_text, 'reason', 'suppressed'));", '      null;'],
     ["    if private.is_suppressed(ws, 'email', o.to_text) then", "    insert into public.lead_events (lead_id, workspace_id, kind, detail) values (o.lead_id, ws, 'alert-failed', jsonb_build_object('to', o.to_text, 'reason', 'suppressed'));\n    if private.is_suppressed(ws, 'email', o.to_text) then"]]],
+  // ---- SEC-REPLAY (migration 51): a signature is taken once; tests T51. Run only these: --only "sig51" ----
+  ['sig51: a second copy is taken too', 'return n = 1;', 'return true;'],
+  ['sig51: a claim lives one minute', "now() + interval '11 minutes'", "now() + interval '1 minute'"],
+  ['sig51: a claim lives a day', "now() + interval '11 minutes'", "now() + interval '1 day'"],
+  ['sig51: old claims are never deleted', 'with old as materialized (select s.hash from private.signature_seen s where s.expires_at < now() order by s.expires_at limit 100 for update skip locked) delete from private.signature_seen d using old where d.hash = old.hash;', ''],
+  ['sig51: the cleanup is the in-subquery form', 'with old as materialized (select s.hash from private.signature_seen s where s.expires_at < now() order by s.expires_at limit 100 for update skip locked) delete from private.signature_seen d using old where d.hash = old.hash;', 'delete from private.signature_seen where hash in (select s.hash from private.signature_seen s where s.expires_at < now() order by s.expires_at limit 100 for update skip locked);'],
+  ['sig51: the cleanup is not bounded','s.expires_at limit 100 for update', 's.expires_at for update'],
+  ['sig51: the cleanup has no index', 'create index signature_seen_expires on private.signature_seen (expires_at);', ''],
+  ['sig51: the hash is not constrained', "check (hash ~ '^[0-9a-f]{64}$')", ''],
+  ['sig51: the key is not unique', 'hash text primary key check', 'hash text check'],
+  ['sig51: row level security is off', 'alter table private.signature_seen enable row level security;', ''],
+  ['sig51: a login may read the claims', 'alter table private.signature_seen enable row level security;', 'alter table private.signature_seen enable row level security; create policy sig51 on private.signature_seen for select to authenticated using (true);'],
+  ['sig51: the function role and service_role write the claims', 'revoke all on private.signature_seen from public, anon, authenticated, service_role, omnikom_fn;', 'grant insert, select, delete on private.signature_seen to omnikom_fn, service_role;'],
+  ['sig51: the claim function is open to anon', 'revoke all on function service.claim_signature(text) from public, anon, authenticated;', 'grant execute on function service.claim_signature(text) to anon;'],
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

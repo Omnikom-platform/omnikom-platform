@@ -7,6 +7,7 @@
 //   5 the same signature after 301 s is refused (401)      6 no signature is refused (401)
 //   7 a garbled signature is refused (401)                 8 an unknown site id is refused (401), a malformed one is 404
 //   9 a lead to a paused site is refused (409) and not stored   10 GET is refused (405)
+//   11 the same signed post twice stores one row (no idempotency key: only the claim of the signature, migration 51, can make it one)
 // The ledgers migration 7 added are counted before and after (read-only). Security events are counted as sum(n) of security_event_counts
 // (migration 20: one bucket per source and minute, n counts every event of it, the first included; a bucket writes one security_events row):
 // a refused signature that needs the key adds one event (kind bad-signature, the site; one that cannot verify adds none), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
@@ -51,10 +52,13 @@ export async function verify(ctx) {
   let r = await post(L);
   add('a signed lead is accepted', '202', r.status, r.status === 202);
   add('an accepted lead has exactly one consent_ledger row', '1 row', r.status, consents(L.idem) === 1, `rows=${consents(L.idem)}`);
-  r = await post(L);
+  r = await post({ ...L, t: ctx.now() + 1 });
   add('the same idempotency key twice stores one row', '202 and 1 row', r.status, r.status === 202 && rows(L.idem) === 1, `rows=${rows(L.idem)}`);
   add('a retry sends no second alert', 'at most 1 alert row', r.status, alerts(L.idem) <= 1, `alerts=${alerts(L.idem)}`);
   add('a retry adds no consent_ledger row', 'still 1 row', r.status, consents(L.idem) === 1, `rows=${consents(L.idem)}`);
+  const K = lead({ idempotencyKey: undefined, name: `verify claim ${ctx.randomUUID().slice(0, 8)}` }), T = ctx.now(), copies = [await post({ ...K, t: T }), await post({ ...K, t: T })];
+  const claimed = () => Number(sql.scalar(`select count(*) from leads where site_id = ${uuidLit(a.id)} and name = ${lit(JSON.parse(K.body).name)}`).value);
+  add('the same signed post twice stores one row', '202, 202 and 1 row', copies[1].status, copies.every(c => c.status === 202) && claimed() === 1, `rows=${claimed()}`);
   L = lead({ consentText: '' });
   r = await post(L);
   add('an empty consent is refused', '400', r.status, r.status === 400 && rows(L.idem) === 0);
@@ -101,6 +105,7 @@ export async function verify(ctx) {
   }
 
   for (const k of created) sql.exec(`delete from leads where idempotency_key = ${uuidLit(k)};`);   // events and messages cascade
+  sql.exec(`delete from leads where site_id = ${uuidLit(a.id)} and name like 'verify claim %';`);
   const lines = checks.map(c => `${c.pass ? 'PASS' : 'FAIL'} ${c.name} (expected ${c.expected}, got ${c.status}${c.extra ? ', ' + c.extra : ''})`);
   const failed = checks.filter(c => !c.pass).length;
   return result(failed === 0, failed === 0 ? 'ok' : 'VERIFY-FAILED', { suite: only, passed: checks.length - failed, failed, lines, checks });

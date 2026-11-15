@@ -2,7 +2,7 @@
 // Called by the site's own /api/lead endpoint (factory/worker/lead-endpoint.mjs) with ?site=<site id> and X-Site-Signature.
 // No user login: verify_jwt = false (supabase/config.toml); first what needs no key (header form, 300 s window, 16 KiB body cap: signatureLooksValid, readCapped), then the signature, checked against the site's active
 // signing keys from the api_keys registry (service.active_key) read out of Vault. Then the body is checked against LeadRequest
-// (specs/openapi.json), stored through service.capture_lead (workspace from the site, consent required, idempotent by key),
+// (specs/openapi.json), stored through service.capture_lead in one transaction with the claim of its signature (claimSignature, migration 51: a copy is answered 202 and stores nothing; a refused call keeps no claim) (workspace from the site, consent required, idempotent by key),
 // and the new-lead alert is queued in mail_outbox, one row per address of sites.lead_alert_to (service.queue_lead_alert; never fails the
 // lead; one alert per lead: a retry of the same idempotency key queues nothing again). The mail-outbox function sends it (product row E4).
 // First proof target (DECISIONS 25): the ELEV8 preview form -> this -> staging database -> the owner's inbox.
@@ -15,7 +15,7 @@
 // parameter a second time, so answers, marketing consent and the security event's detail were stored as JSON strings (jsonb_typeof 'string').
 // Tests: supabase/functions/test/capture.test.ts. This file keeps its own `refusal` (visitor wording and the 'SITE' code differ from _shared/db.ts).
 import { verify } from '../_shared/signature.ts';
-import { answerProblem, connect, type Sql } from '../_shared/db.ts';
+import { answerProblem, claimSignature, connect, type Sql } from '../_shared/db.ts';
 import { readCapped, serve } from '../_shared/http.ts';
 
 const MAX_BODY = 16 * 1024;
@@ -132,18 +132,19 @@ export async function handle(req: Request): Promise<Response> {
     if (!c.ok) return problem(400, c.problems);
     const L = c.lead;
     const ua = (req.headers.get('user-agent') ?? '').slice(0, 400) || null;
-    let row: { id: string };
+    let row: { id: string } | undefined;
     try {
       if (visitor) await sql`select service.count_visitor(${site}::uuid, ${visitor})`;
-      [row] = await sql`select service.capture_lead(${site}::uuid, ${L.form}, ${L.page}, ${L.name}, ${L.email}, ${L.phone},
+      [row] = await sql.begin(async (tx: Sql) => !await claimSignature(tx, header) ? [] : await tx`select service.capture_lead(${site}::uuid, ${L.form}, ${L.page}, ${L.name}, ${L.email}, ${L.phone},
         ${L.answers}::jsonb, ${L.consentText}, ${L.flow}, ${L.cta}, ${L.marketing}::jsonb,
-        ${L.idempotencyKey}::uuid, ${L.assignee}, ${visitor}, ${ua}) as id`;
+        ${L.idempotencyKey}::uuid, ${L.assignee}, ${visitor}, ${ua}) as id`);
     } catch (e) {
       const r = refusal(String(e));
       if (!r) throw e;
       await event(r.kind, r.code);                                  // the refusal's own transaction rolled back; the record is a call of its own
       return problem(r.status, [{ code: r.code, path: r.path ?? '', msg: r.msg }]);
     }
+    if (!row) return new Response(JSON.stringify({ ok: true }), { status: 202, headers: H });   // a copy of a post already taken (migration 51): no second lead, no alert, no key touch; answered as the first was
     await sql`select service.touch_key(${keyId}::uuid)`;
     try { await sql`select service.queue_lead_alert(${site}::uuid, ${row.id}::uuid)`; } catch (e) { console.error('alert not queued', String(e).slice(0, 200)); }
     return new Response(JSON.stringify({ ok: true }), { status: 202, headers: H });

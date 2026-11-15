@@ -163,15 +163,16 @@ export async function cli(argv, env, deps = {}) {
 // function's own kind and code (bad signature: 'bad-signature' SIGNATURE; the database's refusals: refusal() below), a paused site
 // or suspended workspace answers 409, a quota 429, and the consent ledger row is written by service.capture_lead itself (never by
 // the model). With `noSecurityLog` a refusal is not recorded; with `doubleConsent` a second consent row is written for every
-// accepted call (private.record_consent again); with `pausedAs500` a paused site answers 500, as before step 3: each is a broken
-// function that `verify` must catch.
-export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIdem = false, doubleAlert = false, noSecurityLog = false, doubleConsent = false, pausedAs500 = false }) {
+// accepted call (private.record_consent again); with `pausedAs500` a paused site answers 500, as before step 3; with `noClaim` a
+// function takes one signature twice (no claim, as before migration 51): each is a broken function that `verify` must catch.
+export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIdem = false, doubleAlert = false, noSecurityLog = false, doubleConsent = false, pausedAs500 = false, noClaim = false }) {
   const { verify } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'signature.ts')).href);
   const sql = makeSql({ url: dbUrl });
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const lit = v => (v === null || v === undefined ? 'null' : `'${String(v).replace(/'/g, "''")}'`);
   const calls = [];
-  const reply = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
+  const seen = new Set();   // SEC-REPLAY: the signatures this function took (migration 51)
+  const reply =(status, obj) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
   // what the database said no to, as the function's answer (refusal() in supabase/functions/capture-lead/index.ts)
   const refusal = message => {
     if (message.includes('S-SITE-PAUSED')) return { status: 409, code: 'S-SITE-PAUSED', kind: 'suspended' };
@@ -203,6 +204,7 @@ export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIde
     let d;
     try { d = JSON.parse(body); } catch { return reply(400, { problems: [{ code: 'BODY' }] }); }
     if (!d.form || !d.page || typeof d.consentText !== 'string' || d.consentText === '') return reply(400, { problems: [{ code: 'REQUIRED' }] });
+    const sig = /,v1=([0-9a-f]{64})$/.exec(String((init.headers || {})['x-site-signature'] || '').trim())?.[1] ?? ''; if (!noClaim && seen.has(sig)) return reply(202, { ok: true });
     const r = sql.exec(`select service.capture_lead(${lit(site)}::uuid, ${lit(d.form)}, ${lit(d.page)}, ${lit(d.name)}, ${lit(d.email)}, ${lit(d.phone)}, ${lit(JSON.stringify(d.answers || {}))}::jsonb, ${lit(d.consentText)}, ${lit(d.flow)}, ${lit(d.cta)}, ${d.marketingConsent ? lit(JSON.stringify(d.marketingConsent)) : 'null'}::jsonb, ${dropIdem ? 'null' : lit(d.idempotencyKey)}::uuid, null, null, null);`);
     if (!r.ok) {
       const why = pausedAs500 && r.message.includes('S-SITE-PAUSED') ? null : refusal(r.message);
@@ -210,6 +212,7 @@ export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIde
       event(why.kind, why.code);
       return reply(why.status, { problems: [{ code: why.code }] });
     }
+    if (!noClaim) seen.add(sig);
     const leadId = r.out.split(/\r?\n/).filter(Boolean).pop();
     if (doubleConsent) sql.exec(`select private.record_consent((select workspace_id from sites where id = ${lit(site)}::uuid), ${lit(site)}::uuid, ${lit(leadId)}::uuid, ${lit(d.form)}, ${lit(d.page)}, ${lit(d.consentText)}, false, null, null, null, null);`);
     sql.exec(`do $a$ declare ws uuid; t text; begin

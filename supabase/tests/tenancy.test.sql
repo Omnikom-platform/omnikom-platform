@@ -4170,5 +4170,32 @@ do $$ begin
     'T49c a record gone another way, another action: nothing';
 end $$;
 
+-- ===== T51 (SEC-REPLAY, migration 51): service.claim_signature gives a signature once; the table is shut to every client role =====
+-- Own rows only: the test's claims are the hashes a to e and the rows expiring 100 years back (older than any real claim, so a claim's cleanup meets them first); a table that holds other claims (staging) changes nothing here.
+reset role;
+delete from private.signature_seen where hash in (repeat('a', 64), repeat('b', 64), repeat('c', 64), repeat('d', 64), repeat('e', 64)) or expires_at = now() - interval '100 years';
+do $$ begin
+  assert service.claim_signature(repeat('a', 64)) = true, 'T51a the first copy of a signature is taken'; assert service.claim_signature(repeat('a', 64)) = false, 'T51a the second copy is not'; assert service.claim_signature(repeat('b', 64)) = true, 'T51a another signature is taken';
+  assert (select expires_at from private.signature_seen where hash = repeat('a', 64)) = now() + interval '11 minutes', 'T51b a claim lives 11 minutes (the file is one transaction: now() is one instant)';
+end $$;
+update private.signature_seen set expires_at = now() - interval '100 years' where hash = repeat('a', 64);
+do $$ begin
+  assert service.claim_signature(repeat('c', 64)) = true, 'T51c a call after a claim passed its time'; assert service.claim_signature(repeat('a', 64)) = true, 'T51c the claim past its time was deleted, so its signature can be taken again'; assert service.claim_signature(repeat('b', 64)) = false, 'T51c a claim inside its time stays';
+end $$;
+insert into private.signature_seen (hash, expires_at) select md5(i::text) || md5(i::text || 'x'), now() - interval '100 years' from generate_series(1, 150) i;
+analyze private.signature_seen;   -- statistics on a first run too: without them the unbounded in-subquery cleanup passed T51d by accident (found when the second run, after autovacuum, failed)
+select service.claim_signature(repeat('d', 64));
+select test.expect_error($q$select service.claim_signature('not-a-hash')$q$, 'check constraint');
+do $$ begin
+  assert (select count(*) from private.signature_seen where expires_at = now() - interval '100 years') = 50, 'T51d one claim deletes at most 100 old claims (of the test''s own 150)';
+  assert (select relrowsecurity from pg_class where oid = 'private.signature_seen'::regclass), 'T51e row level security is on'; assert (select count(*) from pg_policy where polrelid = 'private.signature_seen'::regclass) = 0, 'T51e no policy for any role';
+  assert exists (select 1 from pg_indexes where schemaname = 'private' and tablename = 'signature_seen' and indexname = 'signature_seen_expires'), 'T51e the cleanup has its index';
+  assert not has_function_privilege('anon', 'service.claim_signature(text)', 'execute') and not has_function_privilege('authenticated', 'service.claim_signature(text)', 'execute'), 'T51e closed to anon and authenticated'; assert has_function_privilege('omnikom_fn', 'service.claim_signature(text)', 'execute'), 'T51e the function role runs it';
+end $$;
+set role omnikom_fn; select test.expect_error($q$select count(*) from private.signature_seen$q$, 'permission denied'); select test.expect_error($q$insert into private.signature_seen (hash, expires_at) values (repeat('e', 64), now())$q$, 'permission denied'); reset role;
+set role service_role; select test.expect_error($q$select count(*) from private.signature_seen$q$, 'permission denied'); select test.expect_error($q$delete from private.signature_seen$q$, 'permission denied'); reset role;
+set role authenticated; select test.expect_error($q$select count(*) from private.signature_seen$q$, 'permission denied'); reset role; set role anon; select test.expect_error($q$select count(*) from private.signature_seen$q$, 'permission denied'); reset role;
+delete from private.signature_seen where hash in (repeat('a', 64), repeat('b', 64), repeat('c', 64), repeat('d', 64), repeat('e', 64)) or expires_at = now() - interval '100 years';
+
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

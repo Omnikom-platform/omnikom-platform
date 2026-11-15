@@ -1,7 +1,7 @@
 // Helpers for the runner function tests (slice 4.3): a signed call the way the build runner makes it, a publish job started in SQL the way
 // service.start_publish is called with owner-a's claims, and a reading of what the fake Storage was asked to sign.
 import { sign } from '../_shared/signature.ts';
-import { env, SITE_A, SUB, withSql, type Answer, type Handle } from './util.ts';
+import { env, freshT, SITE_A, SUB, withSql, type Answer, type Handle } from './util.ts';
 
 export type RunnerOpts = {
   method?: 'GET' | 'POST';
@@ -22,7 +22,7 @@ export async function callRunner(handle: Handle, name: string, o: RunnerOpts = {
   const query = o.query ?? '';
   const text = method === 'POST' ? (o.raw ?? JSON.stringify(o.body ?? {})) : '';
   const headers: Record<string, string> = { 'content-type': 'application/json' };
-  if (!o.unsigned) headers['x-runner-signature'] = o.header ?? await sign(o.key ?? env('RUNNER_KEY'), method, o.signedPath ?? `/${name}${query}`, o.signedBody ?? text, o.t);
+  if (!o.unsigned) headers['x-runner-signature'] = o.header ?? await sign(o.key ?? env('RUNNER_KEY'), method, o.signedPath ?? `/${name}${query}`, o.signedBody ?? text, o.t ?? freshT());
   const res = await handle(new Request(`http://localhost${o.prefix ?? ''}/${name}${query}`, { method, headers, body: method === 'GET' ? undefined : text }));
   const body = await res.text();
   let json: Record<string, unknown> | null = null;

@@ -442,6 +442,21 @@ const MUTANTS = [
   ['SEC-REGEX: sitemap-submit reads the whole sitemap', F + '_shared/sitemap.ts', '(await readUpTo(r.body, SITEMAP_MAX_BYTES)).text', '(await r.text())', 'metrics.test.ts'],
   ['SEC-REGEX: the over-cap note is not said', F + 'metrics-pull/index.ts', "'pagespeed: the sitemap is longer than 5 MiB, only its first 5 MiB were read'", "'pagespeed: the sitemap was not used'", 'metrics.test.ts'],
   ['SEC-REGEX: the over-cap note is always said', F + 'metrics-pull/index.ts', 'if (sm.cut) notes.push(', 'if (true) notes.push(', 'metrics.test.ts'],
+  // ---- SEC-REPLAY: a verified signature is accepted once (each must turn replay.test.ts or capture.test.ts red). Run only these: --only "SEC-REPLAY" ----
+  ['SEC-REPLAY: the runner frame never claims', F + '_shared/runner.ts', "if (!await claimSignature(sql, req.headers.get(o.header ?? 'x-runner-signature'))) {", 'if (false) {', 'replay.test.ts'],
+  ['SEC-REPLAY: a replay is answered with the signature code', F + '_shared/runner.ts', "return problem(401, 'REPLAY', 'Not accepted.');", "return problem(401, 'SIGNATURE', 'Not accepted.');", 'replay.test.ts'],
+  ['SEC-REPLAY: a replay leaves no event of its code', F + '_shared/runner.ts', "select service.record_security_event('bad-signature', 'REPLAY'", "select service.record_security_event('bad-signature', 'SIGNATURE'", 'replay.test.ts'],
+  ['SEC-REPLAY: the claim is the whole header text', F + '_shared/db.ts', 'new TextEncoder().encode(v1)', "new TextEncoder().encode((header ?? '').trim())", 'replay.test.ts'],
+  ['SEC-REPLAY: every claim is granted', F + '_shared/db.ts', 'return r.ok === true;', 'return true;', 'replay.test.ts'],
+  ['SEC-REPLAY: a header with no v1 is taken', F + '_shared/db.ts', 'if (!v1) return false;', 'if (!v1) return true;', 'replay.test.ts'],
+  ['SEC-REPLAY: the claim never asks the database', F + '_shared/db.ts', 'select service.claim_signature(${hash}) as ok', 'select true as ok', 'replay.test.ts'],
+  ['SEC-REPLAY: every signature has one key', F + '_shared/db.ts', 'new TextEncoder().encode(v1)', "new TextEncoder().encode('x')", 'replay.test.ts'],
+  ['SEC-REPLAY: capture-lead never claims', F + 'capture-lead/index.ts', '!await claimSignature(tx, header) ? []', 'false ? []', 'capture.test.ts'],
+  ['SEC-REPLAY: capture-lead answers a copy 401', F + 'capture-lead/index.ts', 'if (!row) return new Response(JSON.stringify({ ok: true }), { status: 202', 'if (!row) return new Response(JSON.stringify({ ok: true }), { status: 401', 'capture.test.ts'],
+  ['SEC-REPLAY: capture-lead claims outside the lead\'s transaction', F + 'capture-lead/index.ts', [['[row] = await sql.begin(async (tx: Sql) => !await claimSignature(tx, header) ? [] : await tx`', '[row] = !await claimSignature(sql, header) ? [] : await sql.begin(async (tx: Sql) => await tx`']], null, 'capture.test.ts'],
+  ['SEC-REPLAY: the claim store failing is let through', F + '_shared/db.ts', 'const [r] = await sql`select service.claim_signature(${hash}) as ok`;', 'let r = { ok: true }; try { [r] = await sql`select service.claim_signature(${hash}) as ok`; } catch { /* open */ }', 'replay.test.ts'],
+  ['SEC-REPLAY: the frame claims a signature it refused', F + '_shared/runner.ts', "return problem(401, 'SIGNATURE', 'Not accepted.');", "await claimSignature(sql, req.headers.get(o.header ?? 'x-runner-signature')); return problem(401, 'SIGNATURE', 'Not accepted.');", 'replay.test.ts'],
+  ['SEC-REPLAY: capture-lead claims a signature it refused', F + 'capture-lead/index.ts', "if (!keyId) { await event('bad-signature', 'SIGNATURE');", "if (!keyId) { await claimSignature(sql, header); await event('bad-signature', 'SIGNATURE');", 'capture.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

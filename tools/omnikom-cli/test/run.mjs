@@ -309,6 +309,7 @@ async function units() {
   const okSig = await verify(seen[0].init.headers['x-site-signature'], siteKey, 'POST', `/capture-lead?site=${UUID_X}`, seen[0].init.body);
   check('lead send: the signature verifies with the site key against the exact body sent', okSig);
   check('lead send: --retry sends the same body (same idempotency key) twice', seen.length === 2 && seen[0].init.body === seen[1].init.body && JSON.parse(seen[0].init.body).idempotencyKey.length === 36);
+  check('lead send: --retry signs each attempt at its own second (a signature is taken once, migration 51), so the retry proves the key and not the claim', seen.length === 2 && seen[0].init.headers['x-site-signature'] !== seen[1].init.headers['x-site-signature'] && Number(/^t=(\d+),/.exec(seen[1].init.headers['x-site-signature'])[1]) > Number(/^t=(\d+),/.exec(seen[0].init.headers['x-site-signature'])[1]));
   check('lead send: --expect 202 matched -> exit 0', r.exit === 0 && r.json.matched === true && r.json.code === '202');
   r = await cli(['lead', 'send', '--site', UUID_X, '--as', 'site:test-demo-a', '--target', 'staging', '--json'], envSend, { fetch: answer(401) });
   check('lead send: a 401 without --expect is exit 1; with --expect 401 it is exit 0',
@@ -1502,7 +1503,7 @@ commit;`;
 
     // ---- verify --only lead, against the model and against a broken model
     r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: model });
-    check('verify --only lead: every check PASSes against the function model', r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length === 16 && /^PASS /.test(r.stderr), r.all.slice(0, 600));
+    check('verify --only lead: every check PASSes against the function model', r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length === 17 && /^PASS /.test(r.stderr), r.all.slice(0, 600));
     check('verify: the ledger checks of migration 7 are in the suite and PASS (refused signatures, suspended, consent once, retry adds none)', ['a refused signature that needs the key is recorded once, one that cannot verify costs no database work', 'the paused refusal is recorded once in security_events as suspended', 'an accepted lead has exactly one consent_ledger row', 'a retry adds no consent_ledger row'].every(n => r.json.data.checks.some(c => c.name === n && c.pass)) && /deltas=1,0,0,0/.test(r.stderr), r.stderr.slice(0, 900));
     check('verify: one line per check on stderr, the real status in it', r.stderr.trim().split('\n').length === r.json.data.checks.length && /got 202/.test(r.stderr));
     check('verify: the paused-site check put the site state back and removed its leads', db.query("select state::text from sites where deploy_target = 'test-site-demo-a'") === 'preview' && db.query("select count(*) from leads where page_path = '/omnikom-cli-test'") === '1');
@@ -1524,6 +1525,8 @@ commit;`;
     check('verify: a function that writes the consent row twice FAILs the consent checks (exit 1)', broken.x.exit === 1 && broken.names === 'an accepted lead has exactly one consent_ledger row|a retry adds no consent_ledger row', broken.x.stderr.slice(0, 900));
     broken = await failedBy('pausedAs500');
     check('verify: a function that answers a paused site with 500 FAILs the tightened paused check and records no suspended event (exit 1)', broken.x.exit === 1 && broken.names === 'a lead to a paused site is not stored|the paused refusal is recorded once in security_events as suspended' && /got 500/.test(broken.x.stderr), broken.x.stderr.slice(0, 900));
+    broken = await failedBy('noClaim');
+    check('verify: a function that takes a signature twice FAILs only the same-signed-post check (exit 1)', broken.x.exit === 1 && broken.names === 'the same signed post twice stores one row', broken.x.stderr.slice(0, 900));
     r = await run(['verify', ...T, '--only', 'lead'], { ...sendEnv, SITE_SIGNING_KEY_TEST_DEMO_B: '' }, { fetch: model });
     check("verify: no key for site B in the environment is BLOCKED (exit 3)", r.exit === 3);
     r = await run(['verify', ...T, '--only', 'job']);

@@ -30,7 +30,7 @@ async function send(ctx) {
   const target = ctx.target({ needDb: false });
   const attempts = [];
   for (let i = 0; i < (f.retry ? 2 : 1); i++) {
-    const r = await callFunction({ base: target.functionsBase, name: 'capture-lead', query: `?site=${site.id}`, body, identity, key, t: ctx.now(), fetchImpl: ctx.fetch });
+    const r = await callFunction({ base: target.functionsBase, name: 'capture-lead', query: `?site=${site.id}`, body, identity, key, t: ctx.now() + i, fetchImpl: ctx.fetch });
     attempts.push({ status: r.status, answer: r.json || r.snippet, ...(r.error ? { error: r.error } : {}) });
   }
   const allOk = attempts.every(a => a.status >= 200 && a.status < 300);

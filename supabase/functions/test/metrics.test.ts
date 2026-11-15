@@ -7,7 +7,7 @@ import { handle as sitemapSubmit } from '../sitemap-submit/index.ts';
 import { handle as jobCallback } from '../job-callback/index.ts';
 import { sign } from '../_shared/signature.ts';
 import { pagespeedDue, pickPages, sitemapLocs } from '../_shared/metrics.ts';
-import { assert, env, eq, SUB, t, withSql, type Answer } from './util.ts';
+import { assert, env, eq, freshT, SUB, t, withSql, type Answer } from './util.ts';
 import { callRunner } from './runner-util.ts';
 
 const fixture = async (name: string) => JSON.parse(await Deno.readTextFile(new URL(`../../../tools/audit/metrics/fixtures/${name}`, import.meta.url)));
@@ -56,7 +56,7 @@ type Cron = { key?: string; unsigned?: boolean; t?: number };
 // the cron signs with CRON_KEY into X-Cron-Signature; callRunner (runner-util.ts) sends X-Runner-Signature only, so the cron's request is built here
 async function cronCall(handle: (r: Request) => Promise<Response>, name: string, query: string, o: Cron = {}): Promise<Answer> {
   const body = '{}', headers: Record<string, string> = { 'content-type': 'application/json' };
-  if (!o.unsigned) headers['x-cron-signature'] = await sign(o.key ?? env('CRON_KEY'), 'POST', `/${name}${query}`, body, o.t);
+  if (!o.unsigned) headers['x-cron-signature'] = await sign(o.key ?? env('CRON_KEY'), 'POST', `/${name}${query}`, body, o.t ?? freshT());
   const res = await handle(new Request(`http://localhost/${name}${query}`, { method: 'POST', headers, body }));
   const text = await res.text();
   let json: Record<string, unknown> | null = null;
@@ -506,6 +506,22 @@ t('metrics [SEC] a sitemap of exactly 5 MiB is read whole, and its last pair is 
       eq(psiPages(seen).join(' '), `https://${s.host}/ https://${s.host}/first/ https://${s.host}/after/`, 'all three pages');
       assert(!((a.json?.notes as string[] ?? []).some(x => /longer than 5 MiB/.test(x))), 'no cut note');
       assert(huge.o.pulled >= 6, `all pieces and the end were asked for: pulled ${huge.o.pulled}`);
+    });
+  });
+});
+
+t('metrics [SEC-REPLAY] metrics-pull: the same signed call twice asks the outside hosts once', async () => {
+  const bing = await fixture('bing.json');
+  await withKeys({ BING_WEBMASTER_KEY: BING_KEY }, async () => {
+    await withSite({ state: 'live', domain: 'client.test' }, async s => {
+      const fake = fakeFetch(u => /GetQueryStats/.test(u) ? bing.queryStats : /GetPageStats/.test(u) ? bing.pageStats : /GetCrawlStats/.test(u) ? bing.crawlStats : 500);
+      const T = Math.floor(Date.now() / 1000);
+      const a = await pullC(s.ws, { fetch: fake.f, now: () => DAY }, { t: T });
+      const asked = fake.seen.length;
+      assert(asked > 0, 'the first call asked the outside hosts');
+      const b = await pullC(s.ws, { fetch: fake.f, now: () => DAY }, { t: T });
+      eq(a.status, 200, a.text); eq(b.status, 401, 'the copy: ' + b.text); eq(b.json?.code, 'REPLAY', 'the code');
+      eq(fake.seen.length, asked, 'the copy asked nobody');
     });
   });
 });
