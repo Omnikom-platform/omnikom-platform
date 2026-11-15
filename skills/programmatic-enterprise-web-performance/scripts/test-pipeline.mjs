@@ -80,6 +80,9 @@ async function scenarios(sdir) {
       ["a step that calls vantage start", (m) => { step(m, "vantage").args = ["start"]; }, /a step must never call vantage start/],
       ["evidence that is neither under an output nor an input", (m) => { step(m, "psi").evidence = ["{pewp}/elsewhere.json"]; }, /evidence '.*elsewhere\.json' is neither inside an output nor an input/],
       ["an input written by a step it does not depend on", (m) => { step(m, "doctor").inputs.push("{pewp}/business.json"); }, /input .*business\.json is written by step intake, which it does not depend on/],
+      ["a skipWhen other than site-none", (m) => { step(m, "psi").skipWhen = "always"; }, /step psi: skipWhen must be "site-none"/],
+      ["an unlessSkipped that names an input the step does not have", (m) => { step(m, "report-live").unlessSkipped = { "{pewp}/nothing.json": "snapshot" }; }, /unlessSkipped names '\{pewp\}\/nothing\.json', which is not one of the step's inputs/],
+      ["an unlessSkipped that names a step without skipWhen", (m) => { step(m, "report-live").unlessSkipped = { "{pewp}/psi/": "doctor" }; }, /unlessSkipped names step 'doctor', which has no skipWhen/],
     ];
     for (const [name, mutate, re] of RULES) {
       const m = clone(); mutate(m);
@@ -356,6 +359,7 @@ async function scenarios(sdir) {
       ["approve-competitors' brief names the page the owner reads, {pewp}/research/competitors-proposed.md, and the script that writes it with the proposed list, competitors-discover.mjs (no step of the manifest writes either), and that script still writes both files (SKILL-APPROVE-1 A3)", (m) => { const b = step(m, "approve-competitors").brief, src = fs.readFileSync(path.join(sdir, "competitors-discover.mjs"), "utf8"); return b.includes("{pewp}/research/competitors-proposed.md") && b.includes("`node scripts/competitors-discover.mjs {key} --cwd {skill}`") && src.includes('"competitors-proposed.md"') && src.includes('"competitors-proposed.json"') && !m.steps.some((x) => x.outputs.some((o) => o.includes("competitors-proposed"))); }, (m) => { step(m, "approve-competitors").brief = "Show the owner the competitor list."; }],
     ];
     FACTS.push(["no step of the manifest takes {url}: a run on profile:<slug> has no url, so every target is {key}", (m) => m.steps.every((x) => !JSON.stringify([x.args, x.inputs, x.outputs, x.evidence, x.brief]).includes("{url}")), (m) => { step(m, "doctor").args.push("{url}"); }]);
+    FACTS.push(["the eight steps a client with no site cannot have are marked skipWhen site-none, and no other step is", (m) => m.steps.filter((x) => x.skipWhen === "site-none").map((x) => x.id).join() === "snapshot,psi,crux,checker,search-console,capture-index,index-import,authority-anchors", (m) => { delete step(m, "capture-index").skipWhen; }]);
     for (const [name, pred, brk] of FACTS) {
       const broken = clone(); brk(broken);
       let ok = false, red = false;
@@ -529,6 +533,10 @@ const MUTANTS = [
   { name: "[nosite-key] a malformed profile word falls into the repo kind", patches: [{ file: "state.mjs", from: "if (!slug && /^profile:/i.test(String(target))) throw new Error(", to: "if (false) throw new Error(" }], expect: [/^K: state\.mjs refuses a word that starts profile:/] },
   { name: "[nosite-key] locate takes profile:localhost", patches: [{ file: "state.mjs", from: "if (slug === \"localhost\") throw new Error(", to: "if (false) throw new Error(" }], expect: [/^K: state\.mjs refuses profile:localhost/] },
   { name: "[nosite-key] {key} has no fallback to {url}", patches: [{ file: LP, from: "const v = k === \"key\" ? (vars?.key ?? vars?.url) : vars?.[k];", to: "const v = vars?.[k];" }], expect: [/^E: \{key\} is \{url\}/] },
+  { name: "[nosite-skip] skipWhen accepts any word", patches: [{ file: LP, from: "\"skipWhen\" in s && s.skipWhen !== \"site-none\"", to: "\"skipWhen\" in s && false" }], expect: [/^V: a skipWhen other than site-none is refused/] },
+  { name: "[nosite-skip] unlessSkipped may name an input the step lacks", patches: [{ file: LP, from: "Array.isArray(s.inputs) && s.inputs.includes(inp)", to: "true" }], expect: [/^V: an unlessSkipped that names an input/] },
+  { name: "[nosite-skip] unlessSkipped may name a step without skipWhen", patches: [{ file: LP, from: "x.id === id && x.skipWhen === \"site-none\"", to: "x.id === id" }], expect: [/^V: an unlessSkipped that names a step/] },
+  { name: "[nosite-skip] the two keys are unknown to the validator", patches: [{ file: LP, from: "\"partialSettles\", \"skipWhen\", \"unlessSkipped\"];", to: "\"partialSettles\"];" }], expect: [/^V: the real pipeline\.json is valid/, /^S: start\.mjs audit-live in plan mode exits 0/] },
 ];
 
 if (isMain(import.meta.url)) {

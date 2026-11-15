@@ -24,7 +24,7 @@
 //
 // Validity rules (rule ids in brackets; a manifest that breaks one is invalid and neither runner runs it):
 //   [top-level] only version (1), name, what, conventions, vars, steps, coverage; a name [vars] vars keys are placeholders [steps] a non-empty list
-//   [step-key] a step has exactly the keys in REQUIRED, plus optionally brief, exit, engines and partialSettles [required-key] [type] every value the right type (kind and maxAgeDays are required on every step)
+//   [step-key] a step has exactly the keys in REQUIRED, plus optionally brief, exit, engines, partialSettles, skipWhen and unlessSkipped [required-key] [type] every value the right type (kind and maxAgeDays are required on every step)
 //   [id] [duplicate-id] ids unique, lower-case words joined by single hyphens [module] the same pattern [kind] stable | time-sensitive | derived [pace] text or null
 //   [placeholder] only {url} {client} {host} {skill} {data} {runDir} {pewp} {work} {key}, in args, inputs, outputs, evidence and brief; none in the script path
 //   [dependsOn] names an id that exists [self-dependency] never itself [cycle] no cycle
@@ -39,9 +39,10 @@
 //   [engines] optional: a non-empty list of engine names known to lib-stops.mjs (google, bing, commoncrawl, ...): while a stop is in force for one of them the runner marks the step
 //             BLOCKED with the stop's until and reason and never starts it (psi and crux are keyed APIs outside the search stop and carry none)
 //   [partialSettles] optional true or false (default false): read by omnikom seo run and by start.mjs audit-live. A dependent of a PARTIAL step whose partialSettles is true may run (the step stays PARTIAL in the table, the log and the stage's own record).
+//   [skip-when] optional skipWhen ("site-none") and unlessSkipped ({input as written: id of a step with skipWhen}): read by omnikom seo run, which never starts a skipWhen step on a run whose run-key.json says site none; start.mjs ignores both
 // Run order: file order, except that a step never comes before a step it depends on (the first step in file order whose dependencies are all placed goes next).
 // Outcome of a step that ran (stepOutcome): exit 0 = done (then its evidence must be done, else fail), or partial when its last line is `PARTIAL: <what is missing>` (then run again to continue);
-// 3 = blocked, and its last line must be `BLOCKED: <what> | unblocks: <what would>` (else fail: a broken contract), or needs-input when the output holds a NEEDS-INPUT line; 4 = skipped with a
+// 3 = blocked, and its last line must be `BLOCKED: <what> | unblocks: <what would>` (that line may end with ` | outside: key`, ` | outside: stop` or ` | outside: source`, which only omnikom seo status reads) (else fail: a broken contract), or needs-input when the output holds a NEEDS-INPUT line; 4 = skipped with a
 // `SKIPPED: <reason>` last line (else fail); 2 = fail (usage: the manifest's args do not fit the script); anything else = fail. The step's own `exit` map is not read.
 // Evidence (evidenceState): every evidence path exists, is not empty, and (when it is inside an output) was written at or after `since` (ms) less SLACK_MS; of a pattern's matches (dated snapshot
 // folders, one capture per search) the newest counts; a path the step only reads (an input) is only checked for existing and not empty. missing = absent or empty, stale = there but older than
@@ -53,7 +54,7 @@ import { KNOWN_ENGINES, isStopped as realIsStopped } from "./lib-stops.mjs";
 export const PLACEHOLDERS = ["url", "client", "host", "skill", "data", "runDir", "pewp", "work", "key"];
 export const TOP_KEYS = ["version", "name", "what", "conventions", "vars", "steps", "coverage"];
 export const REQUIRED = ["id", "module", "what", "script", "args", "inputs", "outputs", "dependsOn", "needsBrowser", "needsAi", "needsPerson", "needsKeys", "heavy", "hits", "pace", "timeoutMinutes", "evidence", "kind", "maxAgeDays"];
-export const OPTIONAL = ["brief", "exit", "engines", "partialSettles"];
+export const OPTIONAL = ["brief", "exit", "engines", "partialSettles", "skipWhen", "unlessSkipped"];
 export const STEP_KEYS = [...REQUIRED, ...OPTIONAL];
 export const BROWSER = ["none", "headless", "owner"];
 export const KINDS = ["stable", "time-sensitive", "derived"];
@@ -237,6 +238,14 @@ export function validateManifest(m, { skillDir = null, repoRoot = null, scriptEx
     if ("pace" in s && s.pace !== null && typeof s.pace !== "string") bad("pace", at, "pace must be a string or null");
     if ("brief" in s && typeof s.brief !== "string") bad("type", at, "brief must be a string");
     if ("kind" in s && !KINDS.includes(s.kind)) bad("kind", at, "kind must be stable, time-sensitive or derived");
+    if ("skipWhen" in s && s.skipWhen !== "site-none") bad("skip-when", at, `skipWhen must be "site-none" (got ${JSON.stringify(s.skipWhen)})`);
+    if ("unlessSkipped" in s) {   // an input the step does not need when the run has no site: { input as written: id of a step that skipWhen skips }
+      if (!isObj(s.unlessSkipped)) bad("skip-when", at, "unlessSkipped must be an object of input -> step id");
+      else for (const [inp, id] of Object.entries(s.unlessSkipped)) {
+        if (!(Array.isArray(s.inputs) && s.inputs.includes(inp))) bad("skip-when", at, `unlessSkipped names '${inp}', which is not one of the step's inputs`);
+        else if (!m.steps.some((x) => isObj(x) && x.id === id && x.skipWhen === "site-none")) bad("skip-when", at, `unlessSkipped names step '${id}', which has no skipWhen`);
+      }
+    }
     if ("maxAgeDays" in s && s.maxAgeDays !== null && !(typeof s.maxAgeDays === "number" && Number.isFinite(s.maxAgeDays) && s.maxAgeDays >= 0)) bad("type", at, "maxAgeDays must be null or a number of 0 or more");
     if ("engines" in s) {
       if (!Array.isArray(s.engines) || !s.engines.length) bad("engines", at, "engines must be a list of strings (at least one engine name)");

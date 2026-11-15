@@ -90,6 +90,7 @@
   },
   {
    "id": "snapshot",
+   "skipWhen": "site-none",
    "module": "technical",
    "what": "polite snapshot of the site, raw HTML and rendered in real Chrome, phone speed in the lab (a snapshot younger than 7 days is reused; either way snapshots/latest.json says which one this run handed on)",
    "script": "scripts/live-target.mjs",
@@ -121,6 +122,7 @@
   },
   {
    "id": "psi",
+   "skipWhen": "site-none",
    "module": "technical",
    "what": "Google's PageSpeed test, phone and desktop, three runs each: every run's raw answer is kept and the median is recorded (medianOf says how many runs it is a median of)",
    "script": "scripts/psi.mjs",
@@ -160,6 +162,7 @@
   },
   {
    "id": "crux",
+   "skipWhen": "site-none",
    "module": "technical",
    "what": "real-visitor speed from the Chrome UX Report, for the page and its origin on phones and desktops; NO DATA (too little traffic) is a result, not a failure",
    "script": "scripts/crux.mjs",
@@ -193,6 +196,7 @@
   },
   {
    "id": "checker",
+   "skipWhen": "site-none",
    "module": "technical",
    "what": "the shipgate checker: ONE coordinator agent groups failures into root causes",
    "script": null,
@@ -419,6 +423,7 @@
   },
   {
    "id": "search-console",
+   "skipWhen": "site-none",
    "module": "visibility",
    "what": "the client's own search data; BLOCKED until the client adds us as a user",
    "script": "scripts/research-gsc.mjs",
@@ -551,6 +556,7 @@
   },
   {
    "id": "capture-index",
+   "skipWhen": "site-none",
    "module": "visibility",
    "what": "index coverage: site: searches on Google and Bing, and whether each service has an indexed page",
    "script": null,
@@ -582,6 +588,7 @@
   },
   {
    "id": "index-import",
+   "skipWhen": "site-none",
    "module": "visibility",
    "what": "index captures become counts: the pages each engine lists for site:<host>, and which services have a listed page",
    "script": "scripts/import-index.mjs",
@@ -1072,6 +1079,7 @@
   },
   {
    "id": "authority-anchors",
+   "skipWhen": "site-none",
    "module": "authority",
    "what": "anchor text and follow/nofollow of the links from the referring domains to the client and its competitors, read from Common Crawl's own copies of the pages (no referring site is requested)",
    "script": "scripts/authority-anchors.mjs",

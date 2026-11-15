@@ -104,7 +104,7 @@ const fromData = d => result(d.failed === 0, d.failed === 0 ? 'ok' : 'SEO-FAILED
 //   seo <run|status>: <url>  client <slug>  host <host>
 //   run began <time>, log <path>
 //   STATE  STEP  MODULE  DETAIL            one row per step of the manifest, in its order; a WAITING row has its brief, inputs and outputs under it
-//   counts: RUN n, SKIPPED n, BLOCKED n, WAITING n, PARTIAL n, FAILED n, NOT RUN n (of N steps)   then one line per module
+//   counts: RUN n, SKIPPED n, BLOCKED n, WAITING n, PARTIAL n, FAILED n, NOT RUN n (of N steps)   then, when a rule skipped a step, SKIPPED by rule n, SKIPPED by script n   then one line per module   then, for seo status only, the last line: finished: yes | finished: yes, n blocked from outside | finished: no (<the count by state>)
 //   an error or a stop before any table: one line   ERROR <message>   (and `unblocks: ...` for a BLOCKED)
 export function seoText(obj, env) {
   const d = obj.data;
@@ -124,7 +124,9 @@ export function seoText(obj, env) {
       for (const m of r.more) out.push(`${' '.repeat(8 + 1 + idw + 1 + mw + 1)}${m}`);
     }
     out.push(`counts: ${[...STATES, NOT_RUN].map(s => `${s} ${d.counts[s]}`).join(', ')} (of ${d.total} steps)`);
+    if (d.skippedBy && d.skippedBy.rule > 0) out.push(`SKIPPED by rule ${d.skippedBy.rule}, SKIPPED by script ${d.skippedBy.script}`);
     for (const [name, m] of Object.entries(d.modules)) out.push(`module ${name}: ${[...STATES, NOT_RUN].filter(s => m[s]).map(s => `${m[s]} ${s}`).join(', ')} (of ${m.total})`);
+    if (obj.command === 'seo status') out.push(d.finished.done ? `finished: yes${d.finished.blockedOutside ? `, ${d.finished.blockedOutside} blocked from outside` : ''}` : `finished: no (${d.finished.open.join(', ')})`);   // ruling 5: the last line of seo status, for every key; seo run prints none
   }
   return redact(out.join('\n'), env) + '\n';
 }

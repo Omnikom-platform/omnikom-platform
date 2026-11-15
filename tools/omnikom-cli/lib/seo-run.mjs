@@ -4,7 +4,7 @@
 // order (a step runs after what it dependsOn is settled: RUN, SKIPPED, or PARTIAL with partialSettles), the pre-checks that never start a script (a missing dependency, key or input file is BLOCKED, by name), the two locks (a host is hit by
 // one step at a time, heavy steps run one at a time through heavy.mjs), the spawning with its timeouts and tree kill, and the run log {pewp}/seo-run.json (the skill's lib-run.mjs reads and
 // writes it), from which the coverage table is read.
-// States: RUN (exit 0 AND every evidence glob holds a non-empty file written after the step started, no input is newer and the engine's notCurrent finds the evidence current: otherwise the step re-runs), SKIPPED (exit 4, the script's own
+// States: RUN (exit 0 AND every evidence glob holds a non-empty file written after the step started, no input is newer and the engine's notCurrent finds the evidence current: otherwise the step re-runs), SKIPPED (the manifest's rule skipWhen on a run whose run-key.json says site none, or exit 4, the script's own
 // `SKIPPED: <reason>` line), BLOCKED (exit 3 with the script's `BLOCKED: <what> | unblocks: <what>` line, or a pre-check, or a stop), WAITING (an owner-browser, AI or person step: it never
 // runs; it is WAITING with its brief until its outputs are written after the run began; a script that exits 3 with a NEEDS-INPUT line is WAITING too, for the owner's answers), PARTIAL (exit 0
 // with `PARTIAL: <what is missing>` as the last line: what was read is kept, a resume runs the step again), FAILED (any other exit, a timeout, exit 0 without evidence). NOT RUN is the seventh
@@ -78,7 +78,7 @@ function prepare(manifest, vars) {
   return runOrder(manifest).steps.map(s => ({
     id: s.id, module: s.module, what: s.what, script: s.script, waiting: isWaiting(s), heavy: s.heavy, hits: s.hits,
     needsKeys: s.needsKeys, dependsOn: s.dependsOn, timeoutMinutes: s.timeoutMinutes, maxAgeDays: s.maxAgeDays, partialSettles: s.partialSettles === true,
-    needsBrowser: s.needsBrowser, needsAi: s.needsAi, needsPerson: s.needsPerson, engines: Array.isArray(s.engines) ? s.engines : [],
+    needsBrowser: s.needsBrowser, needsAi: s.needsAi, needsPerson: s.needsPerson, engines: Array.isArray(s.engines) ? s.engines : [], skipWhen: s.skipWhen ?? null, unlessSkipped: s.unlessSkipped ?? {},
     args: substitute(s.args, vars),
     inputs: substitute(s.inputs, vars), outputs: substitute(s.outputs, vars),
     brief: s.brief ? substitute(s.brief, vars) : null,
@@ -89,6 +89,9 @@ function prepare(manifest, vars) {
 
 // the line the table says is missing when the engine calls an exit 3 or 4 a failure (the engine decides; this is only the sentence)
 const CONTRACT_LINE = { 3: 'BLOCKED: <what> | unblocks: <what>', 4: 'SKIPPED: <reason>' };
+// The head's ruling (NOSITE-2-SKIP 8): a script's own BLOCKED line is from OUTSIDE only when it ENDS with ` | outside: key`, ` | outside: stop` or ` | outside: source` (after its `unblocks:` part); every other line, every other word after `outside:` and the marker anywhere but the end is INSIDE. A claim is never decided from prose.
+const OUTSIDE = / \| outside: (?:key|stop|source)$/;
+export const outsideLine = line => OUTSIDE.test(String(line ?? ''));
 // the state a logged exit code and last line amount to (the evidence is looked at separately)
 const exitState = (step, e) => outcomeState(stepOutcome(step, { code: e.exit, lastLine: e.line ?? '', output: '', evidence: null }));
 
@@ -136,7 +139,7 @@ export function rowOf(step, entry, skillDir, how) {
   else if (state === 'FAILED') detail = entry.timedOut ? `${entry.reason}${entry.line ? `; last line: ${entry.line}` : ''}` : entry.exit !== undefined && entry.exit !== null ? `exit ${entry.exit}${entry.line === null && entry.reason ? '' : `: ${entry.line ?? '(no output)'}`}${entry.reason ? ` [${entry.reason}]` : ''}` : (entry.reason || 'failed');
   else detail = entry.line ?? entry.reason ?? '';   // SKIPPED, BLOCKED: the script's own line, else the pre-check's sentence
   if (how && state !== 'RUN') detail += ` [${how}]`;   // why evidence was not taken
-  return { ...base, state, detail, more, exit: entry.exit, line: entry.line ?? null, reason: entry.reason ?? null, evidence: ev, evidenceCount: entry.evidenceCount ?? ev.length, startedAt: entry.startedAt, endedAt: entry.endedAt, ...(entry.leftover ? { leftover: entry.leftover } : {}), logFile: entry.logFile ? where(skillDir, entry.logFile) : undefined, ...(entry.waiting ? { waiting: { ...entry.waiting, inputs: entry.waiting.inputs.map(p => where(skillDir, p)), outputs: entry.waiting.outputs.map(p => where(skillDir, p)) } } : {}), ...(how ? { how } : {}) };
+  return { ...base, state, detail, more, ...(entry.rule ? { rule: entry.rule } : {}), ...(entry.outside ? { outside: true } : {}), exit: entry.exit, line: entry.line ?? null, reason: entry.reason ?? null, evidence: ev, evidenceCount: entry.evidenceCount ?? ev.length, startedAt: entry.startedAt, endedAt: entry.endedAt, ...(entry.leftover ? { leftover: entry.leftover } : {}), logFile: entry.logFile ? where(skillDir, entry.logFile) : undefined, ...(entry.waiting ? { waiting: { ...entry.waiting, inputs: entry.waiting.inputs.map(p => where(skillDir, p)), outputs: entry.waiting.outputs.map(p => where(skillDir, p)) } } : {}), ...(how ? { how } : {}) };
 }
 
 export function summarize(steps, rows) {
@@ -147,7 +150,10 @@ export function summarize(steps, rows) {
     const m = (modules[r.module] ||= { total: 0, ...Object.fromEntries([...STATES, NOT_RUN].map(s => [s, 0])) });
     m.total++; m[r.state]++;
   }
-  return { counts, modules, total: rows.length };
+  const skippedBy = { rule: rows.filter(r => r.state === 'SKIPPED' && r.rule).length, script: rows.filter(r => r.state === 'SKIPPED' && !r.rule).length };
+  const insideBlocked = rows.filter(r => r.state === 'BLOCKED' && !r.outside).length;   // the BLOCKED that is not from outside is open; the states in the counts line's order
+  const open = ['BLOCKED', 'WAITING', 'PARTIAL', 'FAILED', NOT_RUN].map(s => [s, s === 'BLOCKED' ? insideBlocked : counts[s]]).filter(([, n]) => n > 0);
+  return { counts, modules, total: rows.length, skippedBy, finished: { done: open.length === 0, blockedOutside: rows.filter(r => r.state === 'BLOCKED' && r.outside).length, open: open.map(([s, n]) => `${n} ${s}`) } };
 }
 
 // ---- status: the table from the run log, runs nothing
@@ -203,6 +209,9 @@ export async function runSeo(o) {
   mkdirSync(`${pewp}/seo-run`, { recursive: true });
   mkdirSync(vars.work, { recursive: true });
   if (slug && !o.resume) writeFileSync(`${pewp}/run-key.json`, JSON.stringify({ key: url, client, site: 'none' }, null, 1) + '\n');   // a client with no site: the rule skipWhen (NOSITE-2-SKIP) reads this; a resume finds it there (without it the folder is refused above)
+  const runKey = (() => { try { return JSON.parse(readFileSync(`${pewp}/run-key.json`, 'utf8')); } catch { return null; } })();   // written above for a profile key (NOSITE-1-KEY): the rule skipWhen reads it
+  const siteNone = Boolean(runKey) && runKey.site === 'none' && runKey.key === url;   // ruling 10: the rule holds only for the key this run is for
+  const skipRule = step => siteNone && step.skipWhen === 'site-none';
   const runStartMs = prior && Date.parse(prior.runStartedAt) ? Date.parse(prior.runStartedAt) : Date.now();
   const entries = new Map((prior ? prior.steps : []).map(e => [e.id, e]));
   const log = { version: 1, url, client, host: vars.host, runStartedAt: iso(runStartMs), updatedAt: iso(Date.now()), steps: [] };
@@ -217,7 +226,7 @@ export async function runSeo(o) {
 
   const related = (a, b) => covers(a, b) || covers(b, a);
   const writersOf = raw => steps.filter(t => t.rawOutputs.some(x => related(x, raw))).map(t => t.id);
-  const inputsMissing = step => step.inputs.map((p, i) => ({ p, raw: step.rawInputs[i] })).filter(({ p }) => liveFiles(p).length === 0);
+  const inputsMissing = step => step.inputs.map((p, i) => ({ p, raw: step.rawInputs[i] })).filter(({ p, raw }) => liveFiles(p).length === 0 && !(siteNone && step.unlessSkipped[raw]));
 
   // a runnable step that an earlier run finished: exit 0 in the log AND the evidence, still current
   function doneBefore(step) {
@@ -244,10 +253,16 @@ export async function runSeo(o) {
   }
   const evidenceOf = ev => uniq(ev.files.map(f => f.path));
   const runEntry = (step, ev, extra = {}) => { const all = evidenceOf(ev); return { ...extra, id: step.id, module: step.module, state: 'RUN', evidence: all.slice(0, MAX_EVIDENCE), evidenceCount: all.length }; };
-  const blocked = (step, reason) => ({ id: step.id, module: step.module, state: 'BLOCKED', exit: undefined, line: null, reason, endedAt: iso(Date.now()) });
+  const blocked = (step, reason, outside = false) => ({ id: step.id, module: step.module, state: 'BLOCKED', exit: undefined, line: null, reason, outside, endedAt: iso(Date.now()) });   // outside (ruling 3): a key, an engine stop, or a wait only on steps that are; a missing input file, a missing tool, a step that is not done are inside
+  const skipped = step => {   // the rule skips it: never started; the row says why, and {pewp}/skipped/<id>.json is the fact the client copy reads (it reads files, never the log)
+    mkdirSync(`${pewp}/skipped`, { recursive: true });
+    writeFileSync(`${pewp}/skipped/${step.id}.json`, JSON.stringify({ id: step.id, rule: 'site-none', reason: 'the client has no site', key: runKey && runKey.key }, null, 1) + '\n');
+    return { id: step.id, module: step.module, state: 'SKIPPED', rule: 'site-none', line: 'SKIPPED: the client has no site (run-key.json)', endedAt: iso(Date.now()) };
+  };
 
   // the decision for a step whose dependencies are all settled: { final: { entry, how, store } } or { launch: true }
   function decide(step) {
+    if (skipRule(step)) return { final: { entry: skipped(step), how: null, store: true } };   // before the selection, adoption and --fresh: nothing beats the rule
     if (!selected.has(step.id)) return { final: { entry: entries.get(step.id) || null, how: null, store: false } };   // not selected: neither run nor judged; the table says what the run log says, and the log is not touched
     if (step.waiting) {
       const ev = waitingDone(step);
@@ -265,15 +280,15 @@ export async function runSeo(o) {
     const notRun = step.dependsOn.filter(d => !(stateOf(d) === 'PARTIAL' && byId.get(d).partialSettles) && stateOf(d) !== 'RUN' && stateOf(d) !== 'SKIPPED');   // a SKIPPED step is settled: its dependents run (what they need from it is checked as an input); so is a PARTIAL one whose manifest step says partialSettles
     if (notRun.length) {
       const what = notRun.map(d => `${d} (${stateOf(d)})`).join(', ');
-      return { final: { entry: blocked(step, `BLOCKED: waits for ${what} | unblocks: ${notRun.join(', ')} reaching RUN`), store: true } };
+      return { final: { entry: blocked(step, `BLOCKED: waits for ${what} | unblocks: ${notRun.join(', ')} reaching RUN`, notRun.every(d => settled.get(d).entry?.outside === true)), store: true } };
     }
     // an engine stop (a robot check, a ban): the step never starts and a waiting one is not handed to an agent either
     const stopMode = step.waiting && step.needsBrowser === 'owner' ? 'desktop' : 'script';
     const stop = stepStop(step, { dir: stopsDir, mode: stopMode });
-    if (stop) return { final: { entry: blocked(step, `BLOCKED: ${stop.message}`), store: true } };
+    if (stop) return { final: { entry: blocked(step, `BLOCKED: ${stop.message}`, true), store: true } };
     if (!step.waiting) {
       const lacking = step.needsKeys.filter(k => !keyPresent(k));
-      if (lacking.length) return { final: { entry: blocked(step, `BLOCKED: ${lacking.length === 1 ? 'key' : 'keys'} ${lacking.join(', ')} not set | unblocks: set ${lacking.length === 1 ? 'it' : 'them'} in the environment or pass --env-file with ${lacking.length === 1 ? 'it' : 'them'}`), store: true } };
+      if (lacking.length) return { final: { entry: blocked(step, `BLOCKED: ${lacking.length === 1 ? 'key' : 'keys'} ${lacking.join(', ')} not set | unblocks: set ${lacking.length === 1 ? 'it' : 'them'} in the environment or pass --env-file with ${lacking.length === 1 ? 'it' : 'them'}`, true), store: true } };
     }
     const gone = inputsMissing(step);
     if (gone.length) {
@@ -313,7 +328,7 @@ export async function runSeo(o) {
     const oc = stepOutcome(step, { code, lastLine: [lastLine(err), lastLine(out)].filter(Boolean), output: `${out}\n${err}`, evidence: ev });
     const state = outcomeState(oc), line = clip(oc.line);
     if (state === 'RUN') return { ...runEntry(step, ev, done), exit: code, line };
-    if (state === 'PARTIAL' || state === 'BLOCKED' || state === 'SKIPPED') return { ...done, state, exit: code, line };
+    if (state === 'PARTIAL' || state === 'BLOCKED' || state === 'SKIPPED') return { ...done, state, exit: code, line, ...(state === 'BLOCKED' ? { outside: outsideLine(oc.line) } : {}) };
     // exit 3 and the owner's answers: the step is WAITING for them (the script runs again on the next resume)
     if (state === 'WAITING') return { ...done, state, exit: code, line, waiting: { who: ["the owner's answers"], brief: oc.message, inputs: [], outputs: [], evidence: [], runStartedAt: iso(runStartMs) } };
     // a failure the engine named: exit 3 or 4 without its prefix line breaks the contract, and the table names the line that is missing (never a made-up reason)

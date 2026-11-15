@@ -674,6 +674,71 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
       const gi = join(pewpOf(k), '.gitignore');
       check('seo key: the state file state.mjs wrote for the key sits in a .pewp whose .gitignore is * (the profile kind is not committed like a repo) [nosite-key]', existsSync(gi) && readFileSync(gi, 'utf8') === '*\n', kr.all.slice(0, 200));
     }
+    // ================================================================ a step the run's rule skips is never started; what "finished" says (NOSITE-2-SKIP) [nosite-skip]
+    {
+      const PK = 'profile:demo', pewpOf = x => join(x.skill, 'site-checks', 'demo', '.pewp'), canary = x => join(x.skill, 'site-checks', 'demo', 'work', 'canary.s');
+      const prun = (x, extra = [], env, seo) => go(x, ['run', PK, '--client', 'demo', '--json', ...extra], env, seo), jf = f => { try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return null; } };
+      const ls = d => { try { return readdirSync(d).join(); } catch { return ''; } }, last = t => String(t).trimEnd().split('\n').at(-1);
+      const dat = r => (r.json && r.json.data) || {}, st = r => (dat(r).steps ? states(r) : {}), rw = (r, id) => (dat(r).steps ? row(r, id) : {});
+      const fin = async (x, key = URL_) => last((await go(x, ['status', key])).stdout), put = (x, name, body) => writeFileSync(join(x.skill, 'scripts', name), body);
+      const SK = { skipWhen: 'site-none', args: ['--id', 'sk', '--mark', '{work}/canary.s', '--out', '{pewp}/sk.json'] }, WV = { '{pewp}/sk.json': 'sk' };
+      const M1 = (...more) => M(S('a'), S('sk', SK), S('dep', { dependsOn: ['a', 'sk'], inputs: ['{pewp}/sk.json'], unlessSkipped: WV }), ...more);
+      let k = site(M1()), kr = await prun(k);
+      check('seo skip: on a no-site key a step with skipWhen is never started: SKIPPED with the rule\'s sentence, its canary file absent, its dependent runs, exit 0 [nosite-skip]', kr.exit === 0 && JSON.stringify(st(kr)) === JSON.stringify({ a: 'RUN', sk: 'SKIPPED', dep: 'RUN' }) && rw(kr, 'sk').detail === 'SKIPPED: the client has no site (run-key.json)' && !existsSync(canary(k)) && starts(k, 'sk') === 0 && starts(k, 'dep') === 1, kr.all.slice(0, 400));
+      check('seo skip: {pewp}/skipped/<id>.json says which step, which rule and which key, and only a skipped step has one [nosite-skip]', JSON.stringify(jf(join(pewpOf(k), 'skipped', 'sk.json'))) === JSON.stringify({ id: 'sk', rule: 'site-none', reason: 'the client has no site', key: PK }) && ls(join(pewpOf(k), 'skipped')) === 'sk.json', ls(join(pewpOf(k), 'skipped')));
+      const ku = site(M1()), ur = await run(ku);
+      check('seo skip: the same manifest on a url runs the step: no run-key.json, no skipped folder, none skipped by rule [nosite-skip]', ur.exit === 0 && JSON.stringify(st(ur)) === JSON.stringify({ a: 'RUN', sk: 'RUN', dep: 'RUN' }) && existsSync(join(ku.work, 'canary.s')) && !existsSync(join(ku.pewp, 'skipped')) && !existsSync(join(ku.pewp, 'run-key.json')) && (dat(ur).skippedBy || {}).rule === 0, ur.all.slice(0, 400));
+      const k4 = site(M1()), r4 = await prun(k4, ['--only', 'a']), r4b = await prun(k4, ['--only', 'sk']);
+      check('seo skip: the rule beats --only: a step the filter did not select is SKIPPED, never NOT RUN (an unselected step that is not skipped is), and --only naming it starts nothing [nosite-skip]', r4.exit === 0 && rw(r4, 'sk').state === 'SKIPPED' && rw(r4, 'dep').state === 'NOT RUN' && r4b.exit === 0 && rw(r4b, 'sk').state === 'SKIPPED' && !existsSync(canary(k4)) && starts(k4, 'sk') === 0, JSON.stringify([st(r4), st(r4b)]));
+      const k5 = site(M1()), r5 = await prun(k5, ['--from', 'sk']);
+      check('seo skip: the rule beats --from: the step it names is SKIPPED, its canary file absent [nosite-skip]', r5.exit === 0 && rw(r5, 'sk').state === 'SKIPPED' && !existsSync(canary(k5)) && starts(k5, 'sk') === 0, JSON.stringify(st(r5)));
+      const k6 = site(M1()); await prun(k6); const r6 = await prun(k6, ['--fresh']);
+      check('seo skip: the rule beats --fresh: everything else is redone (a started twice), the skipped step is never started [nosite-skip]', r6.exit === 0 && rw(r6, 'sk').state === 'SKIPPED' && starts(k6, 'a') === 2 && starts(k6, 'sk') === 0 && !existsSync(canary(k6)), JSON.stringify(st(r6)) + starts(k6, 'a'));
+      const k7 = site(M1()); await prun(k7); mkdirSync(pewpOf(k7), { recursive: true });   // the log forgets sk and valid old evidence of it is on disk: adoption would take it
+      const lg = jf(join(pewpOf(k7), 'seo-run.json')) || { version: 1, steps: [] }; lg.steps = lg.steps.filter(x => x.id !== 'sk');
+      writeFileSync(join(pewpOf(k7), 'seo-run.json'), JSON.stringify(lg)); writeFileSync(join(pewpOf(k7), 'sk.json'), '{"old":"evidence"}\n');
+      const r7 = await prun(k7);
+      check('seo skip: the rule beats adoption: a skipped step with valid old evidence on disk and no log entry is SKIPPED, not adopted as RUN [nosite-skip]', r7.exit === 0 && rw(r7, 'sk').state === 'SKIPPED' && !rw(r7, 'sk').how && starts(k7, 'sk') === 0, JSON.stringify(st(r7)));
+      const k8 = site(M1()); mkdirSync(k8.pewp, { recursive: true }); writeFileSync(join(k8.pewp, 'run-key.json'), JSON.stringify({ key: PK, client: 'demo', site: 'none' }));   // another key's run-key.json sits in this url run's folder
+      const r8 = await run(k8);
+      check('seo skip: a run-key.json of another key does not skip the steps of a url run (the rule holds only when its key equals the run\'s key) [nosite-skip]', r8.exit === 0 && JSON.stringify(st(r8)) === JSON.stringify({ a: 'RUN', sk: 'RUN', dep: 'RUN' }) && existsSync(join(k8.work, 'canary.s')) && !existsSync(join(k8.pewp, 'skipped')), JSON.stringify(st(r8)));
+      const k9 = site(M1(S('dep2', { dependsOn: ['sk'], inputs: ['{pewp}/sk.json'] }))), r9 = await prun(k9);
+      check('seo skip: an input waived by unlessSkipped lets its reader run; the same input unwaived BLOCKS the other reader, naming the file and its writer [nosite-skip]', st(r9).dep === 'RUN' && st(r9).dep2 === 'BLOCKED' && rw(r9, 'dep2').detail.includes('sk.json (written by sk)') && starts(k9, 'dep') === 1 && starts(k9, 'dep2') === 0, r9.all.slice(0, 400));
+      const k10 = site(M(S('sk', { skipWhen: 'site-none', script: 'scripts/skipped.mjs', args: ['--id', 'sk'] }), S('dep', { dependsOn: ['sk'], inputs: ['{pewp}/sk.json'], unlessSkipped: WV }))), r10 = await run(k10);
+      check('seo skip: a step SKIPPED by its own script is not skipped by rule: on a url the waiver does not apply (the reader is BLOCKED) and the split counts it by script [nosite-skip]', st(r10).sk === 'SKIPPED' && st(r10).dep === 'BLOCKED' && rw(r10, 'dep').detail.includes('sk.json (written by sk)') && starts(k10, 'dep') === 0 && JSON.stringify(dat(r10).skippedBy) === JSON.stringify({ rule: 0, script: 1 }), r10.all.slice(0, 400));
+      const t11 = await go(k, ['status', PK]), L = t11.stdout.trimEnd().split('\n'), ci = L.findIndex(l => l.startsWith('counts: '));
+      check('seo status: the line "SKIPPED by rule 1, SKIPPED by script 0" follows the counts line and the last line is "finished: yes" [nosite-skip]', t11.exit === 0 && ci > 0 && L[ci + 1] === 'SKIPPED by rule 1, SKIPPED by script 0' && L.at(-1) === 'finished: yes', t11.stdout.slice(-400));
+      // finished (ruling 3): the engine's own causes, each with its case
+      const k12 = site(M(S('kb', { script: 'scripts/keys.mjs', needsKeys: ['FIXTURE_KEY'] }), S('kd', { dependsOn: ['kb'] }), S('ok1'))), r12 = await run(k12), f12 = await fin(k12);
+      check('seo status: a missing key and the step that waits only on it are blocked from outside: "finished: yes, 2 blocked from outside", exit 0 [nosite-skip]', r12.exit === 0 && st(r12).kb === 'BLOCKED' && st(r12).kd === 'BLOCKED' && JSON.stringify(dat(r12).finished) === JSON.stringify({ done: true, blockedOutside: 2, open: [] }) && f12 === 'finished: yes, 2 blocked from outside', f12);
+      const stops = join(root, 'stops-skip'); mkdirSync(stops, { recursive: true });
+      writeFileSync(join(stops, 'google.json'), JSON.stringify({ engine: 'google', hosts: ['google.com'], until: new Date(Date.now() + 3600000).toISOString(), reason: 'robot check: unusual traffic', setBy: 'test', setAt: new Date().toISOString(), evidence: 'x' }));
+      const k13 = site(M(S('g', { engines: ['google'] }), S('ok1'))), r13 = await run(k13, [], {}, { stopsDir: stops }), f13 = await fin(k13);
+      check('seo status: an engine stop is blocked from outside: "finished: yes, 1 blocked from outside" [nosite-skip]', r13.exit === 0 && st(r13).g === 'BLOCKED' && starts(k13, 'g') === 0 && f13 === 'finished: yes, 1 blocked from outside', f13);
+      // the marker at the end of a script's own BLOCKED line (ruling 8): the fixture blocked-line.mjs prints the line it is handed and exits 3
+      const mline = (id, tail) => `BLOCKED: ${id} cannot go on | unblocks: do it${tail}`, BL = (id, line) => S(id, { script: 'scripts/blocked-line.mjs', args: ['--id', id, '--line', line] });
+      const LK = mline('mk', ' | outside: key'), LS = mline('ms', ' | outside: stop'), LO = mline('mo', ' | outside: source'), LU = mline('mu', ' | outside: owner'), LM = 'BLOCKED: mm says | outside: key | inside its reason | unblocks: do it';
+      const outRow = (r, id, line) => { const x = rw(r, id); return x.state === 'BLOCKED' && x.exit === 3 && x.line === line && x.outside === true; }, inRow = (r, id, line) => { const x = rw(r, id); return x.state === 'BLOCKED' && x.exit === 3 && x.line === line && !x.outside; };
+      const kA = site(M(BL('mk', LK), BL('ms', LS), BL('mo', LO), S('ok1'))), rA = await run(kA), fA = await fin(kA);
+      const kB = site(M(S('mn', { script: 'scripts/blocked.mjs' }), BL('mu', LU), BL('mm', LM), S('ok1'))), rB = await run(kB), fB = await fin(kB);
+      check('seo status: a script\'s BLOCKED line that ends with " | outside: key" is blocked from outside, and a marked line is no contract break (state BLOCKED, exit 3, the line quoted whole) [nosite-skip]', outRow(rA, 'mk', LK), JSON.stringify(rw(rA, 'mk')));
+      check('seo status: a script\'s BLOCKED line that ends with " | outside: stop" is blocked from outside [nosite-skip]', outRow(rA, 'ms', LS), JSON.stringify(rw(rA, 'ms')));
+      check('seo status: a script\'s BLOCKED line that ends with " | outside: source" is blocked from outside, and the three together read "finished: yes, 3 blocked from outside" [nosite-skip]', outRow(rA, 'mo', LO) && fA === 'finished: yes, 3 blocked from outside', fA + ' ' + JSON.stringify(rw(rA, 'mo')));
+      check('seo status: a script\'s BLOCKED line with no marker is inside, even when its prose names a key (a claim is never read from prose) [nosite-skip]', inRow(rB, 'mn', 'BLOCKED: the key is not set | unblocks: set the key'), JSON.stringify(rw(rB, 'mn')));
+      check('seo status: a marker with another word after "outside:" is inside [nosite-skip]', inRow(rB, 'mu', LU), JSON.stringify(rw(rB, 'mu')));
+      check('seo status: " | outside: key" standing mid-line, inside the reason, is inside, and the three inside lines read "finished: no (3 BLOCKED)" [nosite-skip]', inRow(rB, 'mm', LM) && fB === 'finished: no (3 BLOCKED)', fB + ' ' + JSON.stringify(rw(rB, 'mm')));
+      const k20 = site(M(S('lonely', { inputs: ['{pewp}/ghost.json'] }), S('hv', { heavy: true }), S('ok1'))), r20 = await run(k20, [], {}, { heavyScript: join(root, 'no-such-heavy.mjs') }), f20 = await fin(k20);
+      check('seo status: a missing input file and a missing heavy.mjs are blocked from INSIDE: "finished: no (2 BLOCKED)" [nosite-skip]', r20.exit === 0 && st(r20).lonely === 'BLOCKED' && st(r20).hv === 'BLOCKED' && f20 === 'finished: no (2 BLOCKED)', f20);
+      const k21 = site(M(S('f', { script: 'scripts/fail.mjs' }), S('fd', { dependsOn: ['f'] }), S('ok1'))), r21 = await run(k21), f21 = await fin(k21);
+      check('seo status: a FAILED step and the step that waits on it are not finished: "finished: no (1 BLOCKED, 1 FAILED)" [nosite-skip]', r21.exit === 1 && f21 === 'finished: no (1 BLOCKED, 1 FAILED)', f21);
+      const f22 = await fin(site(M(S('x1'), S('x2'))));
+      check('seo status: with no run log every step is NOT RUN and the last line is "finished: no (2 NOT RUN)" [nosite-skip]', f22 === 'finished: no (2 NOT RUN)', f22);
+      const k23 = site(M(W('w1'), S('p1', { script: 'scripts/partial.mjs' }))), r23 = await run(k23), f23 = await fin(k23);
+      check('seo status: a WAITING step and a PARTIAL step are open: "finished: no (1 WAITING, 1 PARTIAL)" [nosite-skip]', r23.exit === 0 && f23 === 'finished: no (1 WAITING, 1 PARTIAL)', f23);
+      const t24 = await go(site(M(S('x1'))), ['run', URL_, '--client', 'demo']);
+      check('seo run (text) prints no finished line: its last line is the module line; only seo status ends with finished: [nosite-skip]', t24.exit === 0 && !t24.stdout.includes('finished:') && last(t24.stdout).startsWith('module '), last(t24.stdout));
+    }
+
     // ================================================================ what a resume takes over (SKILL-ADOPT-1) [adopt]
     {
       const D = 86400000, H = 3600000, REC = '{"step":"x","status":"blocked","blocked":"set FIXTURE_KEY"}', how = (r, id) => String((row(r, id) || {}).how || '');
