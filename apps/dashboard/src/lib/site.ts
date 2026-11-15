@@ -279,7 +279,7 @@ export function stepWords(state: JobState): string {
   }
 }
 
-export type Line = { key: string; text: string; at: string; live: boolean };
+export type Line = { key: string; text: string; at: string; live: boolean; done: boolean };   // done: the step has ended
 
 /** One line per step reached, in order, from the job's own events (DP-1.4c-03). The line for `done` is the live line: its Open is the screen's. */
 export function progressLines(events: JobEvent[]): Line[] {
@@ -288,9 +288,10 @@ export function progressLines(events: JobEvent[]): Line[] {
   for (const e of [...events].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))) {
     if (seen.has(e.state) || e.state === 'queued' || e.state === 'failed') continue;
     seen.add(e.state);
-    if (e.state === 'done') lines.push({ key: e.state, text: `${t('DP-1.4c-03', 'Live since')} ${clock(e.at)}.`, at: e.at, live: true });
-    else lines.push({ key: e.state, text: stepWords(e.state), at: e.at, live: false });
+    if (e.state === 'done') lines.push({ key: e.state, text: `${t('DP-1.4c-03', 'Live since')} ${clock(e.at)}.`, at: e.at, live: true, done: true });
+    else lines.push({ key: e.state, text: stepWords(e.state), at: e.at, live: false, done: false });
   }
+  lines.slice(0, -1).forEach(l => { l.done = true; });   // a step is over once a later one has begun; the last one is, only if it is the live line
   return lines;
 }
 

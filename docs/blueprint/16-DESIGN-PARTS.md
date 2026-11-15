@@ -212,7 +212,7 @@ and you get an email."), the spam state, the "Add a lead" form (1.3b), the expor
 | Id | Slice | Element | What it does |
 |---|---|---|---|
 | DP-1.4c-01 | 5.4 | The change list (page or item, who, when) | from `drafts` |
-| DP-1.4c-02 | 5.4 | "Publish these N changes to <site>?" ("Publish this change to <site>?" for one) with Cancel and Publish | `publish` with the pinned versions |
+| DP-1.4c-02 | 5.4 | "Publish these N changes to <site>?" ("Publish this change to <site>?" for one) with Cancel and Publish; once the publish has started, the sheet's one button reads Close | `publish` with the pinned versions |
 | DP-1.4c-03 | 5.4 | The progress list, one line per step as it finishes: Building the site, Checking (one line per check in plain words), Putting it live, "Live since 14:02. Open" | live from `publish_jobs` and its events |
 | DP-1.4c-04 | 5.4 | A failed check: the list stops at that line with one line for each failed check (the page, what is wrong in the check's own words, the rule's id in brackets), Fix (opens the field) and one sentence: nothing went live | from the gate report |
 | DP-1.4c-05 | 5.4 | The Publish button while a job runs: "Publishing" with the step; a toast at the end even on another screen | |

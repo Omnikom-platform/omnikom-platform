@@ -86,6 +86,17 @@
   font-size: var(--text-sm);
 }
 
+/* a step of the progress list: a check in front of it once it has ended; the room is kept for every step, so the words stay in one column */
+.sheet ol[data-plan='DP-1.4c-03'] li::before {
+  display: inline-block;
+  width: 2ch;
+  content: '';
+}
+
+.sheet ol[data-plan='DP-1.4c-03'] li[data-done='true']::before {
+  content: '\2713';
+}
+
 /* everything spans the sheet; the actions, Cancel then Publish, share the last line on the right */
 .sheet > :not(button) {
   grid-column: 1 / -1;

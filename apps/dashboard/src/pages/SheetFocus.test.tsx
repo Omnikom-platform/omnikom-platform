@@ -8,12 +8,17 @@ import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Workspace } from '../data';
+import { SiteContext, type SiteValue } from '../site-context';
+import type { Job, JobEvent } from '../lib/site';
+import type { Site } from '../data';
 import { WorkspaceContext } from '../workspace-context';
 import { DeleteSheet } from './DeleteSheet';
 import { PanelClose } from './LeadPanel';
 import { Ask } from './MediaLibrary';
+import { PublishSheet } from './PublishSheet';
 
 vi.mock('../supabase', () => ({ supabase: {} }));   // no client and no keys in a test
+vi.mock('../api', async importOriginal => ({ ...(await importOriginal<typeof import('../api')>()), publishRows: async () => ({ job: 'j1', state: 'queued', dispatched: true }) }));
 
 const stand = vi.hoisted(() => {   // before any import: react-dom reads window and document when it loads
   const log: string[] = [];
@@ -222,6 +227,30 @@ describe.each(SHEETS)('$name', ({ main, sheet }) => {
   });
 });
 
+const SITE: Site = { id: 's1', preview_host: 'p.pages.dev', domain: 'a.test', state: 'live' };
+const SITE_VALUE = { site: SITE, role: 'owner', teamRow: null, contract: { collections: {}, pageTypes: {}, pages: [], placements: [] }, rows: [], draftsBusy: false, me: { id: 'u1', email: null }, who: () => '',
+  drafts: [{ row: 'r1', collection: 'pages', newest: 1, published: null, editedBy: null, editedAt: '2026-11-01T09:00:00Z' }] } as unknown as SiteValue;
+const RUNNING_STATES = ['queued', 'building', 'gating', 'deploying'];
+const ev = (state: JobEvent['state'], i: number): JobEvent => ({ job_id: 'j1', state, at: `2026-11-01T10:0${i}:00Z` });
+const REPORT = { reason: 'audit failed', audit: { fails: [{ rule: 'MET-001', page: '/', line: 4, what: 'missing-element: the page has no <title> in <head>', source: 'x' }] } };
+
+/** What the browser's click does to a button here: the stand-in has no event dispatch, so the event goes up the node's parents, to the listeners react-dom put on the root. */
+const click = (el: Element) => act(async () => {
+  const e = Object.defineProperty(new Event('click', { bubbles: true }), 'target', { value: el });
+  for (let n: Node | null = el; n; n = n.parentNode) for (const fn of (n as unknown as { listeners?: Map<string, Array<(x: Event) => void>> }).listeners?.get('click') ?? []) fn(e);
+});
+
+/** The sheet over a job in `state` with the events up to it. A finished job is shown only after Publish was pressed in this sheet (PublishSheet.tsx:29-30), so the press is made. */
+async function shown(state: Job['state'], steps: JobEvent['state'][], report: Job['gate_report'] = null) {
+  const job: Job = { id: 'j1', site_id: 's1', requested_by: 'u1', rows: ['r1'], requested: {}, state, gate_report: report, error: null, created_at: '2026-11-01T10:00:00Z', finished_at: null };
+  let jobs = { jobs: [job], events: steps.map((s, i) => ev(s, i)) };
+  const s = open(close => <SiteContext.Provider value={SITE_VALUE}><PublishSheet site={SITE} jobs={jobs} onClose={close} /></SiteContext.Provider>);
+  if (!RUNNING_STATES.includes(state)) await click(s.button('Publish'));
+  // a new job state and its events for the same mounted sheet: `open`'s `Behind` calls its `sheet` function again on every `redraw()` (module level, line 112), which reads `jobs` anew
+  const change = (next: Job['state'], more: JobEvent['state'][], rep: Job['gate_report'] = null) => { jobs = { jobs: [{ ...job, state: next, gate_report: rep }], events: more.map((x, i) => ev(x, i)) }; act(() => redraw()); };
+  return { ...s, change, words: () => buttons(s.host).map(b => b.textContent), marks: () => all(s.host, 'LI').map(l => (l as HTMLElement).getAttribute('data-done')), items: () => all(s.host, 'LI').map(l => l.textContent) };
+}
+
 describe('the open lead', () => {
   it('F8: Esc over a delete sheet on an open lead closes the sheet and leaves the panel', () => {
     const s = open(() => <Lead />);
@@ -232,5 +261,52 @@ describe('the open lead', () => {
     expect(s.dialogOrNull()).toBeNull();
     key();
     expect(stand.navigate).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The publish sheet (N40, F1): its buttons, its finished-step marks and its failed-check lines.
+describe('the publish sheet (N40, F1)', () => {
+  const FULL: JobEvent['state'][] = ['queued', 'building', 'gating', 'deploying', 'done'];
+  const RUN: JobEvent['state'][] = ['queued', 'building', 'gating'];
+  const BAD: JobEvent['state'][] = ['queued', 'building', 'failed'];
+  it('P1: a finished publish has one button, Close', async () => {
+    const s = await shown('done', FULL);
+    expect(s.words()).toEqual(['Close']);
+  });
+  it('P2: a running publish has one button, Close', async () => {
+    const s = await shown('gating', RUN);
+    expect(s.words()).toEqual(['Close']);
+  });
+  it('P3: a failed publish has Fix and Close', async () => {
+    const s = await shown('failed', BAD, REPORT);
+    expect(s.words()).toEqual(['Fix', 'Close']);
+  });
+  it('P4: a failed publish shows the audit object in its words (F1)', async () => {
+    const s = await shown('failed', BAD, REPORT);
+    expect(s.items()).toContain('/: the page has no <title> in <head> (MET-001)');
+    expect(s.items()).toContain('audit failed');
+  });
+  it('P5: the confirm view keeps Cancel and Publish', () => {
+    const s = open(close => <SiteContext.Provider value={SITE_VALUE}><PublishSheet site={SITE} jobs={{ jobs: [], events: [] }} onClose={close} /></SiteContext.Provider>);
+    expect(buttons(s.host).map(b => b.textContent)).toEqual(['Cancel', 'Publish']);
+  });
+  it('P6a: the step the job is in has no mark, the one before has', async () => {
+    const s = await shown('gating', RUN);
+    expect(s.marks()).toEqual(['true', 'false']);
+  });
+  it('P6b: every step of a finished publish is marked', async () => {
+    const s = await shown('done', FULL);
+    expect(s.marks()).toEqual(['true', 'true', 'true', 'true']);
+  });
+  it('P7: a sheet opened on a running job keeps it to its end, as Close', async () => {
+    const s = await shown('gating', RUN);
+    s.change('done', FULL);
+    expect(s.words()).toEqual(['Close']);
+    expect(s.items().some(t => /^Live since \d\d:\d\d\./.test(t ?? ''))).toBe(true);
+  });
+  it('P7b: a sheet opened on a running job that then fails shows Fix and Close', async () => {
+    const s = await shown('gating', RUN);
+    s.change('failed', BAD, REPORT);
+    expect(s.words()).toEqual(['Fix', 'Close']);
   });
 });

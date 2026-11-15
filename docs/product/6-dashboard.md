@@ -65,7 +65,7 @@ runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright
 
 - The publish sheet lists the changes waiting ("Publish these 3 changes to <site>?") and calls `publish` with those exact
   versions. Progress shows one line per step: building, checking (one plain line per check), putting it live, "Live since
-  14:02. Open". A failed check stops at that line with a Fix link and the words "nothing went live". The failed checks are listed one line each: the page, what is wrong, the rule's id. With nothing to publish
+  14:02. Open". A step that has ended is marked with a check. A failed check stops at that line with a Fix link and the words "nothing went live". The failed checks are listed one line each: the page, what is wrong, the rule's id. Once the publish has started, the sheet's one button reads Close: it closes the sheet and the publish goes on; a sheet opened on a running publish keeps showing it to its end. With nothing to publish
   there is no button, only "Nothing to publish".
 - Past publishes (owners and staff, a sheet on the Site screen): each finished publish, live or not, with its checks; "Put the site back to this publish" saves its content as new versions and publishes them (nothing deleted; items added since stay on the site).
 

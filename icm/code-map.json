@@ -73,7 +73,7 @@
     {"path":"apps/dashboard/src/pages/Overview.tsx","owner":"platform-build","exports":["Overview"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/PreviewSite.tsx","owner":"platform-build","exports":["PreviewSite"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/PublishHistory.tsx","owner":"platform-build","exports":["PublishHistory"],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/pages/PublishSheet.tsx","owner":"platform-build","exports":["PublishSheet"],"tests":["apps/dashboard/src/pages/Sheet.test.ts","apps/dashboard/tests/plan-gate.test.mjs","apps/dashboard/tests/site.spec.ts"],"feature":""},
+    {"path":"apps/dashboard/src/pages/PublishSheet.tsx","owner":"platform-build","exports":["PublishSheet"],"tests":["apps/dashboard/src/pages/Sheet.test.ts","apps/dashboard/src/pages/SheetFocus.test.tsx","apps/dashboard/tests/plan-gate.test.mjs","apps/dashboard/tests/site.spec.ts"],"feature":""},
     {"path":"apps/dashboard/src/pages/SearchHealth.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/SearchHealth.tsx","owner":"platform-build","exports":["Read","SearchHealth","SearchHealthView"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Settings.tsx","owner":"platform-build","exports":["Settings"],"tests":["apps/dashboard/src/pages/Sheet.test.ts"],"feature":""},

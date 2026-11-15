@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { publishRows } from '../api';
@@ -27,7 +27,9 @@ export function PublishSheet({ site, jobs, onClose }: { site: Site; jobs: { jobs
   const [wrong, setWrong] = useState<Wrong[]>([]);
   const [notice, setNotice] = useState('');
   const running = jobs.jobs.find(j => j.site_id === site.id && RUNNING.includes(j.state));
-  const job = jobs.jobs.find(j => j.id === (started || running?.id));
+  const seen = useRef('');   // the job this sheet has shown stays shown after it ends, as after a press of Publish
+  if (running) seen.current = running.id;
+  const job = jobs.jobs.find(j => j.id === (started || seen.current));
   const name = site.domain || site.preview_host;
   const nameOfRow = (id: string) => { const r = rows.find(x => x.id === id); return r ? rowTitle(contract, r.collection, r.newest?.data) || contract.collections[r.collection]?.label || '' : ''; };
 
@@ -92,7 +94,7 @@ export function PublishSheet({ site, jobs, onClose }: { site: Site; jobs: { jobs
           <h2 id="publish-title" hidden>{name}</h2>
           <ol data-plan="DP-1.4c-03" data-state={job.state}>
             {lines.map(l => (
-              <li key={l.key}>
+              <li key={l.key} data-done={l.done}>
                 {l.text}
                 {l.live && <> <a href={siteUrl(site)} target="_blank" rel="noopener">Open</a></>}
               </li>
@@ -105,7 +107,7 @@ export function PublishSheet({ site, jobs, onClose }: { site: Site; jobs: { jobs
               <button type="button" onClick={() => fix(job.rows[0] ?? '')}>Fix</button>
             </div>
           )}
-          <button type="button" onClick={onClose}>Cancel</button>
+          <button type="button" onClick={onClose}>Close</button>
         </>
       )}
     </Sheet>

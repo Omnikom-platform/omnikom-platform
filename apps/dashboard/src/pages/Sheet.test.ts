@@ -45,4 +45,8 @@ describe('the one modal sheet', () => {
     expect(match, 'a <Sheet onClose={...} data-plan= call in the file').toBeTruthy();
     expect(src, 'the button that does the same').toContain(`onClick={${match![1]}}`);
   });
+  it('S8: the attribute the publish sheet sets on a finished step is the one its stylesheet draws the mark for', () => {
+    expect(text('pages/PublishSheet.tsx')).toContain('data-done={l.done}');
+    expect(readFileSync(join(SRC, 'pages/PublishSheet.module.css'), 'utf8')).toContain("li[data-done='true']::before");
+  });
 });

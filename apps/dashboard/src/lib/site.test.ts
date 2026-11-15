@@ -179,6 +179,13 @@ describe('the publish progress', () => {
     expect(stepWords('gating')).toBe('Checking');
     expect(stepWords('queued')).toBe('');
   });
+  it('a step is done once a later one has begun and the live line is done; the step a job is in, or failed in, is not', () => {
+    const marks = (states: JobEvent['state'][]) => progressLines(states.map((s, i) => ev(s, `2026-11-01T10:0${i}:00Z`))).map(l => l.done);
+    expect(marks(['queued', 'building', 'gating'])).toEqual([true, false]);
+    expect(marks(['queued', 'building', 'gating', 'deploying', 'done'])).toEqual([true, true, true, true]);
+    expect(marks(['queued', 'building', 'failed'])).toEqual([false]);
+    expect(marks(['queued'])).toEqual([]);
+  });
   it('what a failed check said comes from the report itself', () => {
     expect(failureLines({ gate_report: { factory: 'pass', audit: { exit: 1, fails: ['FAIL MET-003 index.html:4 two h1'] } }, error: 'audit failed' })).toEqual(['FAIL MET-003 index.html:4 two h1']);
     expect(failureLines({ gate_report: { reason: 'build failed', factory: { exit: 1, lines: ['boom'] } }, error: null })).toEqual(['build failed', 'boom']);

@@ -176,6 +176,10 @@ test.describe('the owner\'s Site screen', () => {
     await expect(sheet.getByText('Putting it live')).toBeVisible({ timeout: 240_000 });
     await expect(sheet.getByText(/^Live since \d\d:\d\d\./)).toBeVisible({ timeout: 480_000 });
     await ok(page, { required: ['DP-1.4c-03'] });
+    await expect(sheet.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: 'Cancel' })).toHaveCount(0);
+    await expect(sheet.locator('ol li:not([data-done="true"])'), 'every step of a finished publish is marked').toHaveCount(0);
+    await expect.poll(() => sheet.locator('ol li').first().evaluate(el => getComputedStyle(el, '::before').content), 'the mark is drawn').toBe('"✓"');
     const jobs = await serviceGet<{ state: string }[]>(`/publish_jobs?workspace_id=eq.${WS.a.id}&order=created_at.desc&limit=1&select=state`);
     expect(jobs[0]?.state).toBe('done');
     const res = await fetch('https://preview.test-site-demo-a.pages.dev/contact/', { signal: AbortSignal.timeout(30_000) });
@@ -426,6 +430,7 @@ test.describe('PUB-1 a too-short title is refused at publish and a failed check 
       await expect(page.getByRole('dialog').getByRole('listitem').filter({ hasText: new RegExp(`^/listings/${slug}/: .*\\(DSN-006\\)$`) }).first()).toBeVisible();
       const jobs = await serviceGet<{ state: string }[]>(`/publish_jobs?workspace_id=eq.${WS.a.id}&order=created_at.desc&limit=1&select=state`);
       expect(jobs[0]?.state, 'the newest job failed at the audit').toBe('failed');
+      await expect(page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true })).toBeVisible();   // a failed publish also ends in Close
     } finally {
       const gone = await removeRows([id]);
       expect(gone[0]?.ok, `the pub1 row must be removed: ${gone[0]?.message}`).toBe(true);
