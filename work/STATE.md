@@ -23,11 +23,11 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
   part), a failed check read line by line (B10, B9).
 - Backend and hardening: mail outbox, lead limits, bounces, request ids and alerts, plan limits, pooler, headers, smoke and
   rollback, token path, retention, rich text, staff windows, production script, backups and drill, E13 (part), C11 (part).
-- C19's staff call (migration 52); the publish sheet that tells the truth once started (`814311ca`, `17cd6274`).
+- C19's staff call (migration 52); the publish sheet tells the truth once started; an audit for a client with no site.
 
 ## Not landed
-- `check/platform/sec-replay` (replay guard; its migration lands under the next free number), `check/cli/nosite` (audit
-  for a business with no site), `check/seo/ai-oneshot` (work in progress).
+- `check/platform/sec-replay` (the replay guard, migration 53; a second round after its security review),
+  `check/ops/truth-checks` (the book's proof check), `check/seo/ai-oneshot` (work in progress).
 
 ## Staging, 2026-11-20
 - Reachable; 41 of 42 migrations (52 pending); 32 functions deployed; its function secrets lack
