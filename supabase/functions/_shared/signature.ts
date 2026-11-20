@@ -2,7 +2,7 @@
 // Worker -> capture-lead with that site's own key). Header: X-Runner-Signature (or X-Site-Signature): t=<unix seconds>,v1=<hex>
 //   v1 = HMAC-SHA256(key, `${t}\n${METHOD}\n${path with query}\n${body}`)
 // The method, path and query are signed, so a signature for one job is useless for another; t is accepted for 300 s either way,
-// so a captured request cannot be replayed later (dry run 2, N6); inside the window the caller takes a signature once (db.ts claimSignature, migration 51). Web Crypto only: runs in Deno, Node 20+ and Workers.
+// so a captured request cannot be replayed later (dry run 2, N6); inside the window the caller takes a signature once (db.ts claimSignature, migration 53). Web Crypto only: runs in Deno, Node 20+ and Workers.
 
 const WINDOW_SECONDS = 300;
 const enc = new TextEncoder();

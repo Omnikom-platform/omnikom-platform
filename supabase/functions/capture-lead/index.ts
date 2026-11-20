@@ -2,7 +2,7 @@
 // Called by the site's own /api/lead endpoint (factory/worker/lead-endpoint.mjs) with ?site=<site id> and X-Site-Signature.
 // No user login: verify_jwt = false (supabase/config.toml); first what needs no key (header form, 300 s window, 16 KiB body cap: signatureLooksValid, readCapped), then the signature, checked against the site's active
 // signing keys from the api_keys registry (service.active_key) read out of Vault. Then the body is checked against LeadRequest
-// (specs/openapi.json), stored through service.capture_lead in one transaction with the claim of its signature (claimSignature, migration 51: a copy is answered 202 and stores nothing; a refused call keeps no claim) (workspace from the site, consent required, idempotent by key),
+// (specs/openapi.json), stored through service.capture_lead in one transaction with the claim of its signature (claimSignature, migration 53: a copy is answered 202 and stores nothing; a refused call keeps no claim) (workspace from the site, consent required, idempotent by key),
 // and the new-lead alert is queued in mail_outbox, one row per address of sites.lead_alert_to (service.queue_lead_alert; never fails the
 // lead; one alert per lead: a retry of the same idempotency key queues nothing again). The mail-outbox function sends it (product row E4).
 // First proof target (DECISIONS 25): the ELEV8 preview form -> this -> staging database -> the owner's inbox.
@@ -144,7 +144,7 @@ export async function handle(req: Request): Promise<Response> {
       await event(r.kind, r.code);                                  // the refusal's own transaction rolled back; the record is a call of its own
       return problem(r.status, [{ code: r.code, path: r.path ?? '', msg: r.msg }]);
     }
-    if (!row) return new Response(JSON.stringify({ ok: true }), { status: 202, headers: H });   // a copy of a post already taken (migration 51): no second lead, no alert, no key touch; answered as the first was
+    if (!row) return new Response(JSON.stringify({ ok: true }), { status: 202, headers: H });   // a copy of a post already taken (migration 53): no second lead, no alert, no key touch; answered as the first was
     await sql`select service.touch_key(${keyId}::uuid)`;
     try { await sql`select service.queue_lead_alert(${site}::uuid, ${row.id}::uuid)`; } catch (e) { console.error('alert not queued', String(e).slice(0, 200)); }
     return new Response(JSON.stringify({ ok: true }), { status: 202, headers: H });

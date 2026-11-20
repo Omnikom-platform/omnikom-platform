@@ -164,14 +164,14 @@ export async function cli(argv, env, deps = {}) {
 // or suspended workspace answers 409, a quota 429, and the consent ledger row is written by service.capture_lead itself (never by
 // the model). With `noSecurityLog` a refusal is not recorded; with `doubleConsent` a second consent row is written for every
 // accepted call (private.record_consent again); with `pausedAs500` a paused site answers 500, as before step 3; with `noClaim` a
-// function takes one signature twice (no claim, as before migration 51): each is a broken function that `verify` must catch.
+// function takes one signature twice (no claim, as before migration 53): each is a broken function that `verify` must catch.
 export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIdem = false, doubleAlert = false, noSecurityLog = false, doubleConsent = false, pausedAs500 = false, noClaim = false }) {
   const { verify } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'signature.ts')).href);
   const sql = makeSql({ url: dbUrl });
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const lit = v => (v === null || v === undefined ? 'null' : `'${String(v).replace(/'/g, "''")}'`);
   const calls = [];
-  const seen = new Set();   // SEC-REPLAY: the signatures this function took (migration 51)
+  const seen = new Set();   // SEC-REPLAY: the signatures this function took (migration 53)
   const reply =(status, obj) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
   // what the database said no to, as the function's answer (refusal() in supabase/functions/capture-lead/index.ts)
   const refusal = message => {

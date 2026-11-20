@@ -7,7 +7,7 @@
 //   5 the same signature after 301 s is refused (401)      6 no signature is refused (401)
 //   7 a garbled signature is refused (401)                 8 an unknown site id is refused (401), a malformed one is 404
 //   9 a lead to a paused site is refused (409) and not stored   10 GET is refused (405)
-//   11 the same signed post twice stores one row (no idempotency key: only the claim of the signature, migration 51, can make it one)
+//   11 the same signed post twice stores one row (no idempotency key: only the claim of the signature, migration 53, can make it one)
 // The ledgers migration 7 added are counted before and after (read-only). Security events are counted as sum(n) of security_event_counts
 // (migration 20: one bucket per source and minute, n counts every event of it, the first included; a bucket writes one security_events row):
 // a refused signature that needs the key adds one event (kind bad-signature, the site; one that cannot verify adds none), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
@@ -49,7 +49,7 @@ export async function verify(ctx) {
   const add = (name, expected, status, pass, extra = '') => checks.push({ name, expected, status, pass: Boolean(pass), extra });
 
   let L = lead();
-  const t0 = ctx.now();   // one time for the first post, a later second for its retry: the retry is not a replay (migration 51), so it proves the key
+  const t0 = ctx.now();   // one time for the first post, a later second for its retry: the retry is not a replay (migration 53), so it proves the key
   let r = await post({ ...L, t: t0 });
   add('a signed lead is accepted', '202', r.status, r.status === 202);
   add('an accepted lead has exactly one consent_ledger row', '1 row', r.status, consents(L.idem) === 1, `rows=${consents(L.idem)}`);

@@ -1,4 +1,4 @@
--- Omnikom Platform: SEC-REPLAY (method 6 of the twenty methods), migration 51. Additive to migrations 1 to 50: one table, one function.
+-- Omnikom Platform: SEC-REPLAY (method 6 of the twenty methods), migration 53. Additive to migrations 1 to 52: one table, one function.
 -- A signed machine call (_shared/signature.ts) was accepted for 300 s either side of its time, as often as it was sent. The first copy now claims its signature here; a later copy finds the claim.
 -- The key is sha256 of the 64-hex v1 value (never the header text: verify reads t as a number, so t with leading zeros verifies too). A header is accepted from t - 300 s to t + 300 s: a claim lives 11
 -- minutes, the last 60 s are for two clocks. Each claim first deletes at most 100 claims past their time (index signature_seen_expires; rows another call holds locked are skipped, so no claim waits).

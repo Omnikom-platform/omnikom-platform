@@ -310,7 +310,7 @@ async function units() {
   const okSig = await verify(seen[0].init.headers['x-site-signature'], siteKey, 'POST', `/capture-lead?site=${UUID_X}`, seen[0].init.body);
   check('lead send: the signature verifies with the site key against the exact body sent', okSig);
   check('lead send: --retry sends the same body (same idempotency key) twice', seen.length === 2 && seen[0].init.body === seen[1].init.body && JSON.parse(seen[0].init.body).idempotencyKey.length === 36);
-  check('lead send: --retry signs each attempt at its own second (a signature is taken once, migration 51), so the retry proves the key and not the claim', seen.length === 2 && seen[0].init.headers['x-site-signature'] !== seen[1].init.headers['x-site-signature'] && Number(/^t=(\d+),/.exec(seen[1].init.headers['x-site-signature'])[1]) > Number(/^t=(\d+),/.exec(seen[0].init.headers['x-site-signature'])[1]));
+  check('lead send: --retry signs each attempt at its own second (a signature is taken once, migration 53), so the retry proves the key and not the claim', seen.length === 2 && seen[0].init.headers['x-site-signature'] !== seen[1].init.headers['x-site-signature'] && Number(/^t=(\d+),/.exec(seen[1].init.headers['x-site-signature'])[1]) > Number(/^t=(\d+),/.exec(seen[0].init.headers['x-site-signature'])[1]));
   check('lead send: --expect 202 matched -> exit 0', r.exit === 0 && r.json.matched === true && r.json.code === '202');
   r = await cli(['lead', 'send', '--site', UUID_X, '--as', 'site:test-demo-a', '--target', 'staging', '--json'], envSend, { fetch: answer(401) });
   check('lead send: a 401 without --expect is exit 1; with --expect 401 it is exit 0',

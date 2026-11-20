@@ -122,7 +122,7 @@ export async function recordEvent(sql: Sql, kind: string, code: string, o: { wor
   } catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
 }
 
-/** A signed call is accepted once (migration 51): true for the first copy of this header's signature, false for every later copy. The key is sha256 of the v1 value only (verify also accepts a t with leading zeros, so the header text is no key). Call it only after verify() passed: a forged signature must cost nothing here. A store that errors throws: the caller answers 500 and nothing is taken on trust. */
+/** A signed call is accepted once (migration 53): true for the first copy of this header's signature, false for every later copy. The key is sha256 of the v1 value only (verify also accepts a t with leading zeros, so the header text is no key). Call it only after verify() passed: a forged signature must cost nothing here. A store that errors throws: the caller answers 500 and nothing is taken on trust. */
 export async function claimSignature(sql: Sql, header: string | null): Promise<boolean> {
   const v1 = /,v1=([0-9a-f]{64})$/.exec((header ?? '').trim())?.[1];
   if (!v1) return false;

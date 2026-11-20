@@ -1051,7 +1051,7 @@ const MUTANTS = [
   ['sitelive52: the call is open to authenticated', 'grant execute on function service.set_site_state(jsonb, uuid, public.site_state, text) to service_role, omnikom_fn;', 'grant execute on function service.set_site_state(jsonb, uuid, public.site_state, text) to service_role, omnikom_fn, authenticated;'],   // T52g
 
 
-  // ---- SEC-REPLAY (migration 51): a signature is taken once; tests T51. Run only these: --only "sig51" ----
+  // ---- SEC-REPLAY (migration 53): a signature is taken once; tests T51. Run only these: --only "sig51" ----
   ['sig51: a second copy is taken too', 'return n = 1;', 'return true;'],
   ['sig51: a claim lives one minute', "now() + interval '11 minutes'", "now() + interval '1 minute'"],
   ['sig51: a claim lives a day', "now() + interval '11 minutes'", "now() + interval '1 day'"],

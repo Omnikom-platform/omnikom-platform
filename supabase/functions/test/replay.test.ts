@@ -1,4 +1,4 @@
-// SEC-REPLAY: a verified signature is accepted once (migration 51). Each case sends ONE header twice (callRunner takes the header as given).
+// SEC-REPLAY: a verified signature is accepted once (migration 53). Each case sends ONE header twice (callRunner takes the header as given).
 import { handle as exportPublished } from '../export-published/index.ts'; import { handle as jobCallback } from '../job-callback/index.ts';
 import { connect } from '../_shared/db.ts'; import { sign } from '../_shared/signature.ts';
 import { env, eq, securityEvents, teamRows, t, withSql } from './util.ts'; import { callRunner, jobState, runnerEvents, startJob } from './runner-util.ts';

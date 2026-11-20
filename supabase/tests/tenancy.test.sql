@@ -4242,7 +4242,7 @@ end $$;
 update public.workspaces w set state = t.state from test.t52_ws t where w.id = t.id;
 update public.sites s set state = t.state from test.t52_sites t where s.id = t.id;
 
--- ===== T51 (SEC-REPLAY, migration 51): service.claim_signature gives a signature once; the table is shut to every client role =====
+-- ===== T51 (SEC-REPLAY, migration 53): service.claim_signature gives a signature once; the table is shut to every client role =====
 -- Own rows only: the test's claims are the hashes a to e and the rows expiring 100 years back (older than any real claim, so a claim's cleanup meets them first); a table that holds other claims (staging) changes nothing here.
 reset role;
 delete from private.signature_seen where hash in (repeat('a', 64), repeat('b', 64), repeat('c', 64), repeat('d', 64), repeat('e', 64)) or expires_at = now() - interval '100 years';
