@@ -24,10 +24,10 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
 - Backend and hardening: mail outbox, lead limits, bounces, request ids and alerts, plan limits, pooler, headers, smoke and
   rollback, token path, retention, rich text, staff windows, production script, backups and drill, E13 (part), C11 (part).
 - C19's staff call (migration 52); the publish sheet tells the truth once started; an audit for a client with no site.
+- CI checks the book's proof, its callers, the config and this file (`tools/icm/truth-check.mjs`, rule 36).
 
 ## Not landed
-- `check/platform/sec-replay` (the replay guard, migration 53; a second round after its security review),
-  `check/ops/truth-checks` (the book's proof check), `check/seo/ai-oneshot` (work in progress).
+- `check/platform/sec-replay` (the replay guard, migration 53, in its third round), `check/seo/ai-oneshot`, `omnikom truth`.
 
 ## Staging, 2026-11-20
 - Reachable; 41 of 42 migrations (52 pending); 32 functions deployed; its function secrets lack
