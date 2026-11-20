@@ -193,7 +193,7 @@ export async function mutateRunTests({ check, CLI_ROOT, REPO_ROOT }) {
     'a shard job is a copy of another (job 4 runs 3/6)': ciReal.replace(jobBlock(4), jobBlock(4).replace(/--shard 4\//, '--shard 3/')),
     'N differs from the job count (every run line says /7)': ciReal.replace(/(ci-heavy\.mjs --shard \d+)\/6/g, '$1/7'),
     'a shard job has an extra step': ciReal.replace(jobBlock(5), jobBlock(5) + '      - name: Extra\n        run: node x.mjs\n'),
-    'a shard job has another timeout': ciReal.replace(jobBlock(2), jobBlock(2).replace('timeout-minutes: 45', 'timeout-minutes: 99')),
+    'a shard job has another timeout': ciReal.replace(jobBlock(2), jobBlock(2).replace('timeout-minutes: 60', 'timeout-minutes: 99')),
     'the cli job runs every mutant too (a bare ci-heavy.mjs)': ciReal.replace('ci-heavy.mjs --suite', 'ci-heavy.mjs'),
     'a shard job runs a bare ci-heavy.mjs': ciReal.replace(/ci-heavy\.mjs --shard 1\/6/, 'ci-heavy.mjs'),
     'no shard job at all': ciReal.replace(/cli-mutants-\d+/g, 'cli-other'),

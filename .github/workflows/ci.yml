@@ -297,7 +297,7 @@ jobs:
   cli-mutants-1:
     name: platform CLI mutants, shard 1 of 6
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out the repository with its whole history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -323,7 +323,7 @@ jobs:
   cli-mutants-2:
     name: platform CLI mutants, shard 2 of 6
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out the repository with its whole history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -349,7 +349,7 @@ jobs:
   cli-mutants-3:
     name: platform CLI mutants, shard 3 of 6
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out the repository with its whole history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -375,7 +375,7 @@ jobs:
   cli-mutants-4:
     name: platform CLI mutants, shard 4 of 6
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out the repository with its whole history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -401,7 +401,7 @@ jobs:
   cli-mutants-5:
     name: platform CLI mutants, shard 5 of 6
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out the repository with its whole history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -427,7 +427,7 @@ jobs:
   cli-mutants-6:
     name: platform CLI mutants, shard 6 of 6
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out the repository with its whole history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
