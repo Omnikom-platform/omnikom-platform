@@ -114,6 +114,8 @@ it keeps it, and the hardening steps in `9-blocks.md` bring today's code up to t
     values live at once.
 36. **The book's numbers are computed, never typed.** Every count in `1-product.md` is recomputed from its rows by the
     `tools/icm` check in CI (H0-6); a WORKS row cites a path that exists; every hardening step has an owner and a part E
-    row. A new capability any review names becomes a row the day it is found, so the total grows with the truth. When the
+    row. The same check reads four more things: each WORKS row has a test line in `proof.tsv`, every `service.` function
+    has a caller or an allow line, `config.toml` and `supabase/functions` name the same functions, and `work/STATE.md`
+    agrees with the Counts and the migrations. A new capability any review names becomes a row the day it is found, so the total grows with the truth. When the
     numbers, the code and the text disagree, the session that sees it stops, routes it to the owning department, and the
     owner fixes the text or builds the code.

@@ -1,0 +1,16 @@
+function	row	reason
+activate_addon	-	parked: add-ons are not built or planned until the owner unparks them (1-product.md, 10-expansion.md)
+alert_recipients	-	unplanned: the new-lead alert recipients of a site, written for an alert path no function calls yet
+book	-	parked: bookings and calendar are parked by the owner (1-product.md, 10-expansion.md)
+crm_secret_drop	-	parked: the CRM webhook secret belongs to the automatic CRM push, which the owner ruled out (1-product.md, 5-crm.md)
+crm_secret_put	-	parked: the CRM webhook secret belongs to the automatic CRM push, which the owner ruled out (1-product.md, 5-crm.md)
+crm_target	-	parked: the CRM webhook target belongs to the automatic CRM push, which the owner ruled out (1-product.md, 5-crm.md)
+crm_tested	-	parked: the CRM webhook test outcome belongs to the automatic CRM push, which the owner ruled out (1-product.md, 5-crm.md)
+job_site	-	unplanned: the site and deploy target of a job made for job-callback, which does not call it
+lead_event	-	parked: the migration says push-lead and capture-lead write it; push-lead is not built and the CRM push is ruled out (1-product.md)
+lead_sms_stop	C11	the SMS STOP intake is the missing half of C11
+set_addon_state	-	parked: add-ons are not built or planned until the owner unparks them (1-product.md, 10-expansion.md)
+set_booking_state	-	parked: bookings and calendar are parked by the owner (1-product.md, 10-expansion.md)
+set_crm_webhook	-	parked: the CRM webhook belongs to the automatic CRM push, which the owner ruled out (1-product.md, 5-crm.md)
+set_site_state	C19	the staff call that moves a site is C19; no staff screen calls it yet
+webhook_received	-	parked: provider callbacks belong to the add-ons the owner parked (1-product.md, 10-expansion.md)

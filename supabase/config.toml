@@ -33,10 +33,6 @@ verify_jwt = false           # pg_cron through pg_net (service.mail_outbox_tick)
 [functions.mail-events]
 verify_jwt = false           # Resend's webhook: verifies svix-signature with RESEND_WEBHOOK_SECRET in code
 
-# planned: W6.3 (05-BUILD-PLAN.md; no folder under supabase/functions yet)
-[functions.push-lead]
-verify_jwt = false           # pg_cron / queue: verifies the internal cron secret header in code
-
 # Work order 44 (2026-11-11): the daily metrics pull and the sitemap submit. Machine calls: each verifies X-Cron-Signature (HMAC with CRON_KEY) in code.
 [functions.metrics-pull]
 verify_jwt = false           # pg_cron through pg_net (service.metrics_pull_all): verifies X-Cron-Signature in code; one workspace per call

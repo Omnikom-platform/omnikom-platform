@@ -4,8 +4,8 @@ Rewritten in place, never appended, under 60 lines; last 2026-11-20 by the head 
 state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. Getting back in: `resume\RESUME.md`.
 
 ## Now
-- Product: 73 of 98 rows WORK, 25 PARTLY, 0 MISSING (checked by CI). CRM 23, 3, 0 of 26; dashboard 15, 8, 0 of 23;
-  backend 15, 3, 0 of 18; factory 9, 1, 0 of 10; hardening 11, 10, 0 of 21.
+- Product: 72 of 98 rows WORK, 26 PARTLY, 0 MISSING (checked by CI). CRM 23, 3, 0 of 26; dashboard 15, 8, 0 of 23;
+  backend 14, 4, 0 of 18; factory 9, 1, 0 of 10; hardening 11, 10, 0 of 21.
 - The states were read from the code on 2026-11-20; the readers ran no test, so a staging proof is the book's record.
   Production does not exist (one Supabase project, staging).
 - The order (owner, 2026-11-20): clusters, each done in one go, in this order: 1 the book tells the truth;

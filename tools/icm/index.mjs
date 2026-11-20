@@ -11,6 +11,7 @@ import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, realpa
 import { join, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkBook } from './book-check.mjs';
+import { checkTruth } from './truth-check.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SKIP_DIRS = new Set(['node_modules', '.git', 'film', 'creds and accounts login', '.secrets', 'archive']);
@@ -334,7 +335,7 @@ function entryDiff(rel, key, oldText, fresh) {
 export function check(root) {
   root = resolve(root);
   const b = build(root);
-  const lines = [...b.problems, ...checkBook(root)];
+  const lines = [...b.problems, ...checkBook(root), ...checkTruth(root)];
   const keys = { 'icm/index.json': ['docs', b.docs], 'icm/code-map.json': ['files', b.files] };
   for (const [rel, text] of Object.entries(b.outputs)) {
     const abs = join(root, rel);

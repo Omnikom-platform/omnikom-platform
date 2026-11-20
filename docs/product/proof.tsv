@@ -1,0 +1,160 @@
+row	kind	path	token
+A1	test	apps/dashboard/src/lib/leads.test.ts	lists the newest first and breaks a tie by id
+A1	test	apps/dashboard/tests/flows.spec.ts	appears without a reload within 15 s
+A2	test	apps/dashboard/tests/plan-gate.spec.ts	Leads, a lead, Add a lead
+A2	test	apps/dashboard/src/lib/crm.test.ts	the record lists every field in order
+A3	test	apps/dashboard/tests/flows.spec.ts	search, a filter on an industry column, sort by budget, edit a field
+A3	test	supabase/tests/e2e-crm.mjs	owner-a edits a core and an industry field
+A3	test	supabase/functions/test/crm.test.ts	lead-update fields: the owner edits a core and an industry field
+A5	test	supabase/tests/tenancy.test.sql	the owner reassigned the lead
+A5	test	supabase/functions/test/leads.test.ts	lead-update: a member cannot hand a lead to someone else
+A5	test	apps/dashboard/tests/flows.spec.ts	two marked leads go to member-a1 in one call
+A6	test	supabase/tests/tenancy.test.sql	the note is in the timeline
+A6	test	supabase/functions/test/crm20.test.ts	a note carries its author
+A7	test	supabase/tests/e2e-crm.mjs	two edited events on the timeline
+A7	test	apps/dashboard/src/lib/crm.test.ts	the timeline has an edited line
+A8	test	apps/dashboard/tests/flows.spec.ts	and Add a lead makes one that is theirs
+A8	test	supabase/functions/test/leads.test.ts	add-lead: owner-a adds a lead by hand (201) and the consent is on the record
+A9	test	apps/dashboard/tests/flows.spec.ts	the two are deleted through the sheet after a Cancel that sends nothing
+A9	test	supabase/tests/e2e-crm.mjs	bulk delete without the confirm flag is refused (409 S-CONFIRM)
+A9	test	supabase/functions/test/crm.test.ts	leads-bulk: status on two, all or nothing with a foreign id
+A10	test	apps/dashboard/tests/flows.spec.ts	search, a filter on an industry column, sort by budget, edit a field
+A10	test	apps/dashboard/src/lib/crm.test.ts	a search under 2 characters is not sent; 2 or more is, trimmed
+A11	test	apps/dashboard/tests/flows.spec.ts	search, a filter on an industry column, sort by budget, edit a field
+A11	test	supabase/tests/e2e-crm.mjs	filter: budget 700000 to 900000 finds the edited lead only
+A11	test	apps/dashboard/src/lib/crm.test.ts	a number range sends numbers and only the ends that are filled
+A12	test	apps/dashboard/tests/flows.spec.ts	search, a filter on an industry column, sort by budget, edit a field
+A12	test	supabase/tests/e2e-crm.mjs	sort: budget ascending as numbers
+A12	test	apps/dashboard/src/lib/crm.test.ts	a tap on the sorted heading reverses it, another heading starts ascending
+A13	test	apps/dashboard/tests/flows.spec.ts	pick and reorder the columns (the address keeps them)
+A13	test	supabase/functions/test/crm3b.test.ts	view-save: 200 { view }; the view is the caller
+A14	test	apps/dashboard/tests/flows.spec.ts	pick and reorder the columns (the address keeps them)
+A14	test	supabase/functions/test/crm3b.test.ts	view-delete: 204 for the caller
+A15	test	apps/dashboard/tests/flows.spec.ts	two marked leads go to member-a1 in one call
+A15	test	supabase/tests/e2e-crm.mjs	bulk status on two leads
+A15	test	supabase/functions/test/crm.test.ts	leads-bulk: status on two, all or nothing with a foreign id
+A16	test	supabase/tests/e2e-crm-a16.mjs	call-back without a date is 400 on status_date
+A16	test	apps/dashboard/tests/flows.spec.ts	a status that needs a date asks for it, shows the server
+A16	test	supabase/functions/test/crm20.test.ts	a status needing a date is 400 on status_date without one, 204 with it
+A16	test	apps/dashboard/src/lib/crm.test.ts	the Status cell is the label the list gives, then what the status carries
+A17	test	apps/dashboard/tests/flows.spec.ts	set a follow-up and find it with Due, add and finish a task
+A17	test	supabase/functions/test/crm3b.test.ts	lead-update follow_up: set, change and clear (204)
+A18	test	apps/dashboard/tests/flows.spec.ts	see the duplicate mark and its filter
+A18	test	supabase/functions/test/crm3b.test.ts	duplicates the flagged ones
+A19	test	apps/dashboard/tests/flows.spec.ts	search, a filter on an industry column, sort by budget, edit a field
+A19	test	supabase/tests/tenancy.test.sql	agent one sees exactly their own mark
+A19	test	supabase/functions/test/lead-read.test.ts	lead-update read: true alone marks the lead read for the caller, once
+A21	test	apps/dashboard/tests/flows.spec.ts	the searched view exported in a saved layout has the layout
+A21	test	supabase/functions/test/import.test.ts	lead-export with a template: the caller
+A22	test	apps/dashboard/tests/flows.spec.ts	a file with a bad line offers no import and writes nothing
+A22	test	supabase/functions/test/import.test.ts	lead-import: a dry run reports and writes nothing
+A23	test	supabase/tests/tenancy.test.sql	agent one sees the lead assigned to them
+A23	test	apps/dashboard/tests/flows.spec.ts	member-a1 sees exactly the leads assigned to them
+A23	test	supabase/functions/test/crm.test.ts	a member only its own
+A24	test	supabase/tests/e2e-crm.mjs	read back typed: budget and beds are numbers
+A24	test	apps/dashboard/tests/flows.spec.ts	search, a filter on an industry column, sort by budget, edit a field
+A24	test	supabase/functions/test/crm.test.ts	lead-list: the owner gets typed columns in form order
+A25	test	supabase/tests/tenancy.test.sql	the ledger holds the hash of the exact wording
+A25	test	supabase/functions/test/capture.test.ts	a captured lead stores answers and marketing consent as JSON OBJECTS
+B1	test	apps/dashboard/tests/plan-gate.spec.ts	sign in, expired link, check your email, no password form
+B1	test	supabase/auth-emails/body.test.mjs	const S1A = ['mailer_otp_exp'
+B3	test	apps/dashboard/tests/flows.spec.ts	member-a2, freshly signed in, ends every session
+B3	test	apps/dashboard/tests/plan-gate.spec.ts	Settings: only Your account and Sign out everywhere
+B5	test	apps/dashboard/tests/site.spec.ts	an agent sees Add only on the collections marked own
+B5	test	apps/dashboard/src/lib/site.test.ts	Add is for owners and staff everywhere and for an agent only on a collection marked own
+B7	test	apps/dashboard/tests/site.spec.ts	a field over its limit turns the counter red and keeps Save off
+B7	test	supabase/tests/tenancy.test.sql	one private.save_version only: the old signature was dropped
+B7	test	supabase/functions/test/save-base.test.ts	save base: a save that names the newest version is accepted
+B8	test	apps/dashboard/tests/site.spec.ts	Restore and its Undo are new versions too
+B8	test	apps/dashboard/src/lib/site.test.ts	an item comes back as a new version, or at its newest when that holds the content
+B9	test	apps/dashboard/src/lib/site.test.ts	a title under 20 and a description under 50 characters are short
+B9	test	apps/dashboard/tests/site.spec.ts	a short title saves, the sheet refuses it with I-MIN and Fix
+B10	test	apps/dashboard/tests/site.spec.ts	an invalid draft stops the sheet at the failed check with Fix
+B10	test	apps/dashboard/src/lib/site.test.ts	what a failed check said comes from the report itself
+B10	test	contracts/test/run.mjs	seo minimum: a 19 letter title is I-MIN at seo.title in publish
+B11	test	apps/dashboard/tests/site.spec.ts	an earlier publish comes back as new versions and goes live
+B12	test	apps/dashboard/tests/site.spec.ts	taken off, marked, published away, the address answers 404, put back
+B12	test	supabase/functions/test/unpublish.test.ts	unpublish [B12]: the owner deletes a published listing
+B12	test	supabase/tests/tenancy.test.sql	T41a no removal of another workspace is offered
+B13	test	apps/dashboard/tests/media.spec.ts	a photo drawn here becomes the logo
+B13	test	factory/runner/test/run.mjs	media: no output carries EXIF, XMP, an ICC profile or the GPS bytes
+B13	test	supabase/functions/test/upload.test.ts	upload-finish [E9]: owner-a sets rights_confirmed
+B13	test	supabase/functions/test/publish.test.ts	publish: a photo must be processed, rights-ticked and wide enough
+B14	test	apps/dashboard/tests/media.spec.ts	the new photo goes into both items that used the old one
+B14	test	apps/dashboard/src/lib/media.test.ts	flags a photo with no alt text
+B14	test	supabase/functions/test/media-manage.test.ts	media-manage: delete is 409 S-MEDIA-IN-USE
+B16	test	apps/dashboard/tests/flows.spec.ts	owner-a sees the five cards, edits the alert addresses and reads them back
+B16	test	supabase/functions/test/settings.test.ts	settings-save alerts: the owner saves the list
+B17	test	supabase/functions/test/team.test.ts	team-list: the owner gets every member of the workspace
+B17	test	supabase/functions/test/invite.test.ts	invite-member: a new person gets a login from Auth
+B17	test	apps/dashboard/tests/flows.spec.ts	owner-a invites a person, sees them in the list and removes them through the sheet
+B17	test	supabase/tests/e2e-settings.mjs	team-list by owner-a is 200, owners first
+B20	test	apps/dashboard/src/lib/overview.test.ts	O1: this week starts on Monday 00:00 in the local zone
+B20	test	apps/dashboard/tests/plan-gate.spec.ts	the cards, the title, and the Overview tab as the place the owner is in
+B25	test	supabase/functions/test/runner.test.ts	media-process-callback: a file deleted while its job made the sizes is 404
+B25	test	supabase/tests/tenancy.test.sql	T49a a deleted file: its original
+C1	test	supabase/tests/tenancy.test.sql	RLS off on
+C1	test	apps/dashboard/tests/flows.spec.ts	member-a1 gets Not found for B
+C2	test	supabase/tests/tenancy.test.sql	T39a staff with MFA and no window read none of A
+C2	test	supabase/functions/test/auth.test.ts	auth: the claims handed to SQL are exactly sub, aal, role, email
+C3	test	supabase/functions/test/auth.test.ts	auth: an expired token is refused
+C3	test	supabase/functions/test/cors.test.ts	cors: Allow-Origin is never *
+C3	test	supabase/functions/test/db.test.ts	db: refusal() maps the platform codes to statuses and never echoes the database message
+C4	test	supabase/functions/test/save.test.ts	save: a locked field changed by the owner is 403 S-LOCKED
+C5	test	contracts/test/run.mjs	item: good listing publishes clean
+C5	test	supabase/functions/test/save.test.ts	save: an invalid row is 422 with an I- code and the path
+C6	test	supabase/functions/test/publish.test.ts	publish [E9]: owner-a publishes a team row at its saved version
+C6	test	supabase/functions/test/runner.test.ts	job-callback: building -> gating -> deploying -> done is 204 each
+C6	test	apps/dashboard/tests/site.spec.ts	the publish sheet: the progress comes in live, the job ends done
+C7	test	supabase/tests/tenancy.test.sql	a missing required value is a problem
+C7	test	supabase/functions/test/publish.test.ts	publish: an item that is not ready is 422 and every problem carries its row id
+C8	test	supabase/functions/test/upload.test.ts	upload-start: owner-a gets a media id
+C8	test	supabase/functions/test/runner.test.ts	media-process-callback: exifStripped false
+C8	test	factory/runner/test/run.mjs	media: no output carries EXIF, XMP, an ICC profile or the GPS bytes
+C8	test	supabase/tests/tenancy.test.sql	T30a the media bucket caps a file at 26214400 bytes
+C9	test	supabase/tests/tenancy.test.sql	the deletion is in the audit log
+C10	test	supabase/tests/tenancy.test.sql	staff with MFA see the registry
+C12	test	supabase/tests/tenancy.test.sql	jobs and leads stream through Realtime
+C12	test	supabase/tests/tenancy.test.sql	lead_reads is in the Realtime publication
+C13	test	supabase/functions/test/invite.test.ts	invite-member: a new person gets a login from Auth
+C13	test	supabase/functions/test/outbox.test.ts	mail-outbox [E4] O1: a due alert goes to Resend once
+C14	test	tools/client-infra/test/onboard-run.mjs	new client: workspace, details, owner profile
+C15	test	supabase/tests/test-apply.mjs	an edited applied migration is refused
+C18	test	tools/omnikom-cli/test/journey.mjs	journey: a report with the named test passed is a PASS
+C18	test	supabase/tests/mutant-lists.test.mjs	sound lists have no problem
+D1	test	contracts/industry-run/run.mjs	${ok ? 'PASS' : 'FAIL'} ${ind.id.padEnd(16)}
+D2	test	contracts/test/run.mjs	form fields: column and editable default to true; false stays false
+D3	test	factory/test/run.mjs	build: every page has canonical = origin + path
+D4	test	factory/worker/test/run.mjs	a good lead is forwarded, signed, and answered sent
+D4	test	supabase/tests/e2e-crm.mjs	the published contact form has timing (select)
+D5	test	factory/test/run.mjs	form fields: buying or selling is two radio buttons named
+D5	test	supabase/tests/e2e-crm.mjs	the published contact form has timing (select)
+D6	test	supabase/functions/test/capture.test.ts	capture-lead [E5]: past its hourly limit one visitor is refused 429
+D6	test	supabase/functions/test/capture.test.ts	the security event of a bad signature carries its detail as a JSON object
+D6	test	supabase/functions/test/capture.test.ts	a retry of the same submission queues nothing more
+D6	test	supabase/tests/tenancy.test.sql	'I agree')$q$, 'S-SITE-PAUSED'
+D7	test	supabase/tests/e2e-crm.mjs	two leads posted through the published form endpoint
+D9	test	factory/runner/test/run.mjs	lead settings: all three on the preview environment = allowed
+D10	test	supabase/tests/e2e-crm.mjs	read back typed: budget and beds are numbers
+D10	test	supabase/functions/test/capture.test.ts	capture-lead (work order 01): answers are typed by the form
+E4	test	supabase/functions/test/outbox.test.ts	mail-outbox [E4] O2: a Resend error leaves the message queued
+E4	test	supabase/tests/tenancy.test.sql	T25 exactly one job named reap-stale-jobs is scheduled
+E6	test	supabase/functions/test/db.test.ts	db [E6]: 8 parallel calls and a post to the lead function open no connection
+E7	test	apps/dashboard/src/ErrorScreen.test.tsx	shows no error text, stack or path
+E7	test	apps/dashboard/src/router.test.ts	the root route carries the error screen
+E7	test	apps/dashboard/src/lib/live.test.ts	L1: two readers share one channel
+E7	test	apps/dashboard/tests/realtime.spec.ts	the Leads screen joins leads and no jobs channel while nothing publishes
+E10	test	supabase/functions/test/upload.test.ts	upload-start: image/gif is 415 before the database
+E10	test	supabase/tests/tenancy.test.sql	T30a the media bucket caps a file at 26214400 bytes
+E10	test	supabase/tests/e2e-media-limits.mjs	a PUT of a text/html body to the signed URL is refused
+E12	test	supabase/tests/tenancy.test.sql	T42 every rule names a table that exists
+E12	test	supabase/ops/test/alerts.test.mjs	table-over-budget: fires for exactly the table over its budget
+E14	test	supabase/tests/tenancy.test.sql	T32 the lead is gone
+E14	test	tools/client-infra/test/offboard-run.mjs	full run: offboarding, the person erased and the ticket done
+E15	test	tools/client-infra/test/run.mjs	second run changes nothing and writes nothing
+E17	test	tools/test/test-dep-scan.mjs	a MAL- id fails and the line says it is never allowed
+E18	test	contracts/test/run.mjs	rich text: every allowed tag, class and link form passes
+E18	test	supabase/tests/e2e-functions.mjs	save with a script in rich text is 422 and names I-RICHTEXT (E18)
+E19	test	tools/migration-lint/test/run.mjs	fixtures: base.sql alone has no finding
+E19	test	tools/migration-lint/test/apply-proof.mjs	PATCHED script: an edited no-transaction file is refused by the hash check
+E20	test	tools/icm/test/book.mjs	pass: a consistent book
