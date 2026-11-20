@@ -41,7 +41,7 @@ function run({ api: mutateApi = null, toml: mutateToml = null, extraFunction = n
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 const patchToml = (from, to) => t => { const n = t.split(from).length - 1; if (n !== 1) throw new Error(`config.toml patch target found ${n} times: ${from.slice(0, 50)}`); return t.split(from).join(to); };
-const PLANNED_TOML = ['push-lead'];   // metrics-pull and sitemap-submit are real since work order 44
+const PLANNED_TOML = [];   // none since 2026-11-20: push-lead left config.toml (the automatic CRM push is ruled out; tools/icm/truth-check.mjs CONFIG refuses a table with no folder)
 const plannedLine = name => toml.split(/\r?\n/).find((l, i, all) => all[i + 1] === `[functions.${name}]` && /^#\s*planned:/.test(l));
 
 let bad = 0;
@@ -66,15 +66,17 @@ red('an x-planned mark that names no step is caught', { api: a => { a.paths['/gh
 red('a stale x-planned mark on a path that has a folder is caught', { api: a => { a.paths['/drafts']['x-planned'] = 'W9.9'; } }, '/drafts is marked x-planned but supabase/functions/drafts exists');
 
 // ---- a config.toml table with no folder (follow-on)
-check(PLANNED_TOML.every(n => plannedLine(n) && !deployed.includes(n)), `config.toml marks ${PLANNED_TOML.join(', ')} planned, directly above their tables, and none has a folder`);
+check(PLANNED_TOML.every(n => plannedLine(n) && !deployed.includes(n)) && !/^#\s*planned:/m.test(toml) === !PLANNED_TOML.length, `config.toml marks ${PLANNED_TOML.join(', ') || 'no table'} planned, directly above their tables, and none has a folder`);
 for (const n of PLANNED_TOML) {
   red(`config.toml [functions.${n}] loses its planned line and is caught`, { toml: patchToml(`${plannedLine(n)}\n[functions.${n}]`, `[functions.${n}]`) }, `[functions.${n}] has no folder supabase/functions/${n} and is not marked planned`);
 }
-red('a planned line that is NOT directly above the table (a blank line between) is caught', { toml: patchToml(`${plannedLine('push-lead')}\n[functions.push-lead]`, `${plannedLine('push-lead')}\n\n[functions.push-lead]`) }, '[functions.push-lead] has no folder');
+// no table of the real file is planned any more, so the planned mark is proven on a planted one: accepted directly above, caught one line higher
+{ const r = run({ toml: t => `${t}\n# planned: W9.9\n[functions.ghost]\nverify_jwt = true\n` }); check(r.exit === 0, 'planted: a planned line directly above a table with no folder is accepted', r.exit === 0 ? '' : `exit ${r.exit}: ${last(r)}`); }
+red('a planned line that is NOT directly above the table (a blank line between) is caught', { toml: t => `${t}\n# planned: W9.9\n\n[functions.ghost]\nverify_jwt = true\n` }, '[functions.ghost] has no folder');
 red('a new [functions.ghost] table with no folder is caught', { toml: t => `${t}\n[functions.ghost]\nverify_jwt = true\n` }, '[functions.ghost] has no folder supabase/functions/ghost');
 red('a stale planned line above a table that has a folder is caught', { toml: patchToml('[functions.save]', '# planned: W9.9\n[functions.save]') }, '[functions.save] is marked planned but supabase/functions/save exists');
 red('a config.toml with no function tables is caught (the rule must not pass on nothing)', { toml: () => '# empty\n' }, 'no [functions.<name>] table found');
 
-const total = deployed.length + 2 + 1 + PLANNED_PATHS.length + 3 + 1 + PLANNED_TOML.length + 4 + 1;
+const total = deployed.length + 2 + 1 + PLANNED_PATHS.length + 3 + 1 + PLANNED_TOML.length + 1 + 4 + 1;
 console.log(`\n${bad ? 'FAILED' : 'PASS'}: check-specs drift rules, ${total} checks, ${bad} problem(s)`);
 process.exit(bad ? 1 : 0);

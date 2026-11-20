@@ -736,7 +736,7 @@
     {"path":"tools/icm/test/fixture/supabase/functions/capture/index.ts","owner":"head-of-operations","exports":["default"],"tests":[],"feature":"lead-capture"},
     {"path":"tools/icm/test/mutate.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
     {"path":"tools/icm/test/run.mjs","owner":"head-of-operations","exports":[],"tests":[],"feature":""},
-    {"path":"tools/icm/truth-check.mjs","owner":"head-of-operations","exports":["checkTruth","readTsv"],"tests":["tools/icm/test/book.mjs","tools/icm/test/mutate.mjs"],"feature":""},
+    {"path":"tools/icm/truth-check.mjs","owner":"head-of-operations","exports":["checkTruth","readTsv"],"tests":["docs/blueprint/specs/check-specs.test.mjs","tools/icm/test/book.mjs","tools/icm/test/mutate.mjs"],"feature":""},
     {"path":"tools/lib/bank.mjs","owner":"cli-and-testing","exports":["bank"],"tests":["tools/test/mutate-secret-receiver.mjs"],"feature":""},
     {"path":"tools/migration-lint/lib/apply-patch.mjs","owner":"cli-and-testing","exports":["REPLACEMENT","TARGET","patchApplier"],"tests":["tools/migration-lint/test/apply-proof.mjs","tools/migration-lint/test/run.mjs"],"feature":""},
     {"path":"tools/migration-lint/lib/rules.mjs","owner":"cli-and-testing","exports":["FILE_NAME","NO_TRANSACTION","RULES","RULE_IDS","lintFiles"],"tests":["tools/migration-lint/test/mutate.mjs","tools/migration-lint/test/run.mjs"],"feature":""},
