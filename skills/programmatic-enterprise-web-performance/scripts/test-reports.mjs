@@ -146,14 +146,19 @@ async function runScenarios(skill, groups = null) {
       const r = run("plan-picture.mjs", [pewp, "--out-dir", outDir]);
       const cdp = await import(pathToFileURL(path.join(scripts, "cdp-measure.mjs")).href + `?t=${Date.now()}`);
       const png = path.join(outDir, "page-plan.png");
-      if (cdp.CHROME_PATH) {
-        const b = fs.existsSync(png) ? fs.readFileSync(png) : Buffer.alloc(0);
+      // A Chrome that is found may still refuse to start (GitHub's runner, 2026-11-20: "Chrome did not open its DevTools port"):
+      // the branch is what the tool itself reported, never only whether a binary exists.
+      const refused = cdp.CHROME_PATH ? /PNG BLOCKED: (?!no Chrome)[^;]+; SVG and table written/.exec(r.stdout) : null;
+      const b = fs.existsSync(png) ? fs.readFileSync(png) : Buffer.alloc(0);
+      if (cdp.CHROME_PATH && !refused) {
         const sig = b.length > 24 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
         check("N", `[branch: Chrome found at ${path.basename(cdp.CHROME_PATH)}] page-plan.png is a PNG (signature bytes), 1400 px wide, and the run did not print BLOCKED`, r.status === 0 && sig && b.readUInt32BE(16) === 1400 && !/PNG BLOCKED/.test(r.stdout), `${r.stdout} ${r.stderr} size ${b.length}`);
+      } else if (cdp.CHROME_PATH) {
+        check("N", `[branch: Chrome found at ${path.basename(cdp.CHROME_PATH)} but it did not start] the BLOCKED line names the reason, SVG and table written, no PNG with content, exit 0`, r.status === 0 && b.length === 0 && fs.existsSync(path.join(outDir, "page-plan.svg")), `${r.stdout} ${r.stderr} size ${b.length}`);
       } else {
         check("N", "[branch: no Chrome on this machine] the BLOCKED line is printed, SVG and table written, no PNG, exit 0", r.status === 0 && r.stdout.includes("PNG BLOCKED: no Chrome (set CHROME_PATH); SVG and table written") && !fs.existsSync(png) && fs.existsSync(path.join(outDir, "page-plan.svg")), r.stdout + r.stderr);
       }
-      results[results.length - 1].branch = cdp.CHROME_PATH ? "chrome" : "no-chrome";
+      results[results.length - 1].branch = cdp.CHROME_PATH ? (refused ? "chrome-refused" : "chrome") : "no-chrome";
     }
   }
 
@@ -531,7 +536,7 @@ if (isMain(import.meta.url)) {
   for (const r of main) console.log(`${r.ok ? "PASS" : "FAIL"} ${r.name}${r.ok ? "" : `\n     ${r.detail.slice(0, 700)}`}`);
   let failed = main.filter((r) => !r.ok).length;
   const branch = main.find((r) => r.branch)?.branch;
-  console.log(`PNG branch taken on this machine: ${branch === "chrome" ? "Chrome found, a real PNG was rendered and checked" : branch === "no-chrome" ? "no Chrome, the BLOCKED line was checked" : "not run"}`);
+  console.log(`PNG branch taken on this machine: ${branch === "chrome" ? "Chrome found, a real PNG was rendered and checked" : branch === "chrome-refused" ? "Chrome found but it did not start, the BLOCKED line and the SVG were checked, NO PNG was rendered" : branch === "no-chrome" ? "no Chrome, the BLOCKED line was checked" : "not run"}`);
   console.log(failed ? `REPORTS TEST FAIL: ${failed} of ${main.length}` : `REPORTS TEST PASS: ${main.length} of ${main.length}`);
   if (!failed && !A.includes("--no-mutants")) {
     console.log("\nWatched-fail mutants (each must turn the named assertions red; the unmutated tree is green above):");
