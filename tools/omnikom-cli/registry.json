@@ -2,6 +2,33 @@
   "note": "Every tool the CLI wraps: lib/wrap.mjs starts the row's script, passes its output back and maps its exit code; the CLI adds no logic. A row's script and test are tracked files; its summary, usage, args, flags, exits, output and example are its help. engines lists commands/*.mjs, the commands whose logic lives in the CLI. Checked by test/registry.mjs.",
   "engines": ["apply", "audit", "ci", "content", "contract", "helper", "hooks","impact", "journey", "key", "land", "lead", "mfa", "privacy", "publish", "seed", "seo", "session", "skill","status", "tools", "usage", "verify"],
   "commands": {
+    "map page": {
+      "script": "tools/icm/map-page.mjs", "test": "tools/icm/test/map.mjs",
+      "summary": "Write the progress map as one self-contained HTML page (the head publishes it)",
+      "usage": "omnikom map page --out <file> [--truth <file>] [--date <YYYY-MM-DD>]",
+      "args": "none; the page comes from the book's rows, proof.tsv and the four tables of work/map/; --truth takes an `omnikom truth --json` file",
+      "flags": {
+        "out": { "value": true, "help": "the HTML file to write: a new path in an existing folder; refused when anything is already there and when it is inside the repository" },
+        "truth": { "value": true, "help": "a file holding omnikom truth --json output, shown as a section" },
+        "date": { "value": true, "help": "the generated date, YYYY-MM-DD (left out of the page when not given)" }
+      },
+      "exits": { "0": "the page is written", "1": "a data problem in the tables, a bad --truth file, an unwritable --out, an --out where anything already is, or an --out inside the repository; nothing written", "2": "wrong command line" },
+      "output": "wrote <file> (<bytes> bytes); a refusal is one line per problem",
+      "example": "omnikom map page --out /work/map.html --date 2026-11-21"
+    },
+    "map progress": {
+      "script": "tools/icm/progress.mjs", "test": "tools/icm/test/map.mjs",
+      "summary": "Append one landing line (counts from the book's rows and the parts table) to the progress file",
+      "usage": "omnikom map progress [--commit <sha>] [--date <YYYY-MM-DD>]",
+      "args": "none; the commit defaults to the first 8 characters of HEAD, the date to today (UTC)",
+      "flags": {
+        "commit": { "value": true, "help": "the commit, 8 to 40 lowercase hex characters" },
+        "date": { "value": true, "help": "the landing date, YYYY-MM-DD" }
+      },
+      "exits": { "0": "the line is appended and printed", "1": "refused (a data problem, a commit already there, a date going back); nothing changed", "2": "wrong command line" },
+      "output": "the appended line: date, commit, works, partly, built, total (TAB separated)",
+      "example": "omnikom map progress --commit 0a1b2c3d --date 2026-11-21"
+    },
     "site sign": {
       "script": "tools/site-sign/sign-site.mjs", "test": "tools/site-sign/sign-site.test.mjs",
       "summary": "Sign a clean site build into a new folder as a draft, live or handed-over copy",

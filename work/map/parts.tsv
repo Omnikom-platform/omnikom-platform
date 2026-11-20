@@ -1,0 +1,245 @@
+id	part	what	verdict	owner	cluster	rows
+GL.B12a	Take an item off the site: the staging flow	nothing	BUILT			B12
+GL.B12b	A removed page answered 200 at its old address (edge cache); the smoke never reads a removed address (also N2)	the smoke itself still reads only the home page and its hash (publish.mjs:285-316); a removed address is not smoked. Not needed for the 404 to hold, but unchecked at publish	BUILT		7	B12
+GL.B14c	Media library Replace and Delete flows	nothing	BUILT			B14
+GL.B15b	Preview site flow	nothing	BUILT		2	B15
+GL.B15c	Before-and-after screenshots in the preview	all of it; not a gate for a first client	NOT BUILT		2	B15
+GL.B18	"Ask Omnikom" address on the Websites card	the address itself; the production build (bring-up inherits the env)	HALF			B18
+GL.B21a	Search Console numbers on the Overview	the Omnikom Search Console account/service account and a verified property per live site; never run live	HALF	6	9	B21
+GL.B21b	AI answers: no runtime writer	stays parked by ruling	NOT BUILT	6	9	B21
+GL.B21c	Overview numbers: staging run of the plan-gate and styles flows	the B21 cell's wording only	BUILT	6	9	B21
+GL.B24a	Search health: AI questions (prompt map stored per site)	table or contract field, function, page part	NOT BUILT	6	9	B24
+GL.B24b	Search health: the monthly report	stored-reports table, monthly job, page part	NOT BUILT	6	9	B24
+GL.B25	Photo sizes left behind by a delete	two by-choice gaps named in the book (job dying before callback; upload landing after delete)	BUILT			B25
+GL.C11	Privacy requests, suppressions, alert drop event	no screen or function takes a person's request; know, correct, opt-out not carried out; the commands run on staging only and are UNPROVEN there; nothing lifts a suppression	HALF	5	2	C11
+GL.C16a	Search Console pull and sitemap submit, live	the account (same as B21a); sitemap-submit never driven (no production publish on staging)	HALF	6 21	9	C16
+GL.C16b	Bing: no site verified for the key	each live site verified in Bing	HALF	6 21	9	C16
+GL.C16c	IndexNow key file and ping	the build never writes a key file, so the ping never fires	HALF	6 21	9	C16
+GL.C16d	sitemap-submit driven on a production publish	first live publish	BUILT-UNPROVEN	6 21	9	C16
+GL.E1a	Backup public certificate in the repository	the certificate	NOT BUILT		3	E1
+GL.E1b	Two backup buckets and keys	buckets and keys	NOT BUILT		3	E1
+GL.E1c	Staging backups switched on	never run for real: needs E1a and E1b	BUILT-UNPROVEN		3	E1
+GL.E1d	Monthly restore drill	a drill against a real stored production copy	BUILT		3	E1
+GL.E1e	A stored dump opened with the owner's own key	the first nightly backup must exist	NOT BUILT		3	E1
+GL.E1f	Production backup	production repository and project do not exist; variable off	HALF		3	E1
+GL.E1g	An alert when no backup lands in the buckets	alert on the newest object's age	NOT BUILT		3	E1
+GL.E2a	KNOWN-6 staging ledger repair before the first promote (also N4c)	the head's repair script was never run	NOT BUILT	1 8	4	E2
+GL.E2b	Staging caught up with master	migration 52 and the C19 functions on staging cannot be told from the tree	HALF	1 8	4	E2
+GL.E2c	Staging bring-up dry run	a real dry run, then --apply, then 0 changes	BUILT-UNPROVEN	1 8	4	E2
+GL.E2d	The production database project	the project	NOT BUILT	1 8	6	E2
+GL.E2e	Production connection strings (pooler vs direct)	production compose path; which form each script needs is UNPROVEN	NOT BUILT	1 8	6	E2
+GL.E2f	Private repository `omnikom-platform-prod`	repository	NOT BUILT	1 8	6	E2
+GL.E2g	Production repository shape (default branch `production`, five workflow files, CI off)	the repository and the by-hand steps; the publish and media workflows are not in the production folder	NOT BUILT	1 8	6	E2
+GL.E2h	Production secret values by name in the master `.env`	which names are set	CANNOT TELL	1 8	6	E2
+GL.E2i	One dispatch token name for production	retire the repository_dispatch branch (3 files)	NOT BUILT	1 8	6	E2
+GL.E2j	Production bring-up run	the run, after E2d, E2f, E2h	BUILT-UNPROVEN	1 8	6	E2
+GL.E2k	DNS `app.omnikom.ai` to the production dashboard	the record	NOT BUILT	1 8	6	E2
+GL.E2l	First promote to production	production repository, bring-up first (cron.schedule calls skip without pg_cron), the certificate	BUILT-UNPROVEN	1 8	6	E2
+GL.E2m	Vault entries on production (`project_url`, `metrics_cron_key`, `mail_outbox_key`)	a scripted, tested write by name only	NOT BUILT	1 8	6	E2
+GL.E2n	Keepalive for a Free production project	production keepalive, or take Pro (O1)	NOT BUILT	1 8	6	E2
+GL.E2o	Keep the production branch's workflow files in step with master	script or check	NOT BUILT	1 8	6	E2
+GL.E2p	A way to prove production end to end	a production test workspace and site, a narrow proof command	NOT BUILT	1 8	6	E2
+GL.E2q	A real staff login with second factor on production	script that makes the user, row and TOTP factor on production	NOT BUILT	1 8	6	E2
+GL.E3a	Alert mail delivery to a test inbox on staging	the secret `ALERTS_TO` and one run	BUILT-UNPROVEN		4	E3
+GL.E3b	Hourly alerts need migration 46 on staging	the alert count in the book is nine (E3) and eight (E12); not reconciled	BUILT		4	E3
+GL.E3c	The production alert address	the address	NOT BUILT		4	E3
+GL.E3d	Uptime of sites, dashboard and form endpoint	checker plus alert	NOT BUILT		4	E3
+GL.E3e	Status page host	host	HALF		4	E3
+GL.E4	New-lead alert outbox	the book's C13 row (:112) and E4 now agree	BUILT		4	E4
+GL.E5a	Edge hold of a refused visitor (60 s)	nothing for E5-b	BUILT			E5
+GL.E5b	Bot check, other limits	stays parked	NOT BUILT			E5
+GL.E8a	Publish smoke by content hash on Pages	a recorded `STEP smoke` line on a real Pages deploy	BUILT-UNPROVEN		7	E8
+GL.E8b	The real rollback of a live deploy	cannot be shown until a live site exists	BUILT-UNPROVEN		7	E8
+GL.E8c	A first live deploy has nothing to roll back to; attach the domain last	nothing enforces "domain after the first main deploy passed"	HALF		7	E8
+GL.E9a	Workflow-only dispatch token, platform repository	the token	NOT BUILT	1	4	E9
+GL.E9b	Deploy callers, set V2, unset the old secret, journey again	the run sheet	BUILT-UNPROVEN	1	4	E9
+GL.E9c	Protect master	import	NOT BUILT	1	4	E9
+GL.E9d	Per-project Cloudflare tokens, OIDC	H2, about 50 tenants	NOT BUILT	1	4	E9
+GL.E9e	Two runner keys at once	accept two keys during a rotation	NOT BUILT	1	4	E9
+GL.E11a	Staff windows and Auth settings on staging	production's settings come with bring-up	BUILT	8		E11
+GL.E11b	Logins that end after a set or idle time	Supabase Pro	NOT BUILT	8		E11
+GL.E12a	Growth budgets: migration 46 and the first measure	nothing	BUILT			E12
+GL.E12b	Partitioning	stays parked	NOT BUILT			E12
+GL.E13a	Scale measure at 50,000 leads (also N5)	a run on GitHub's runner with verdict lines	HALF		4	E13
+GL.E13b	Parts b, c, e (side table, RLS helpers, streamed export)	only if E13a prints OVER; the next free migration number is 53 (52 in tree, 51 on a branch, N3)	NOT BUILT		5	E13
+GL.E13c	Duplicate check on lead insert (also N3a)	an insert verdict in the measure	HALF		4	E13
+GL.E13d	Three foreign keys with no index (also N3b)	nothing	BUILT		4	E13
+GL.E16a	Plan limits: staging run	the through-the-functions run	BUILT		4	E16
+GL.E16b	Prices and the payment account	the plan, the price, the payment account	NOT BUILT		4	E16
+GL.E16c	Billing code	everything	NOT BUILT		4	E16
+GL.E16d	A plan that sets caps per workspace	plan table and column read by `limit_for`	NOT BUILT		4	E16
+GL.E21a	Mail provider's webhook for staging	the webhook at Resend	NOT BUILT	5	4	E21
+GL.E21b	Bounce and complaint proof	the staging run needs E21a	BUILT-UNPROVEN	5	4	E21
+GL.E21c	The same webhook for production	after production exists	NOT BUILT	5	4	E21
+GL.N1a	A failed audit shows the owner no reason	nothing	BUILT			
+GL.N1b	SEO title or description under the minimum accepted at save	whether the editor counter shows the minimum (not opened)	BUILT			
+GL.N4a	`omnikom test walls --target staging` red	T52 (migration 52) not shown on staging	BUILT		4	
+GL.N4b	Walls past T25 hold untied reads	nothing found	BUILT			
+GL.G1	Onboard a real client on production	production mode with the owner's click and a real invite	NOT BUILT		8	
+GL.G2	Provision a client's site on production	production target and key mint	NOT BUILT		8	
+GL.G3	A client's real domain on production	owner-click path for a real domain	NOT BUILT		8	
+GL.G4	Something sets `sites.state = 'live'`	no command for a person; no refusal without a domain and a green preview (the migration has none); no staging proof	HALF		7	
+GL.G5	Platform builds are not signed	decide, then wire (the tool itself improved: commit 0bd0cd03)	NOT BUILT		7	
+GL.G6	Cloudflare token with Zone Edit and DNS Edit	the token	NOT BUILT		8	
+GL.G7	A tool that adds a client's zone and reports the name servers	the tool	NOT BUILT		8	
+GL.G8	The platform's own mail sender on omnikom.ai	address, domain, a Resend key that can add domains	NOT BUILT			
+GL.G9	DNS records for that sender	write the records from Resend's domain page, run, wait for Verified	NOT BUILT			
+GL.G10	Send and receive proof from the new sender	the proof	NOT BUILT			
+GL.G11	Production repository's Actions minutes	measure	CANNOT TELL			
+GL.G12	The platform's own website on omnikom.ai	the site	NOT BUILT			
+GL.G13	Branch rules on the private production repository	GitHub Team	NOT BUILT		6	
+GL.G14	Restore to any second	Supabase Pro add-on	NOT BUILT		3	
+GL.K1p	elev8 onto the platform	look folder, content load, the two contract fields	NOT BUILT		8	
+GL.K1o	elev8: the client's items	answers, agreement, the split decision, registrar access, licences	NOT BUILT		8	
+GL.K1d	elev8: domain and live	the sheet	NOT BUILT		8	
+GL.K1l	elev8: swap the sheet path for `capture-lead`	change function, import the sheet's rows	NOT BUILT		8	
+GL.K2p	eli onto the platform	all	NOT BUILT		8	
+GL.K2o	eli: the client's items	answers, agreement, legal wording	NOT BUILT		8	
+GL.K2d	eli: domain and live	map, access, zone	NOT BUILT		8	
+GL.K3p	paragon onto the platform	all	NOT BUILT		8	
+GL.K3o	paragon: the client's items	contact, agreement, audit word	NOT BUILT		8	
+GL.K3d	paragon: domain and live	after the agreement	NOT BUILT		8	
+GL.K4p	rainmaker onto the platform	look folder, content load, hosting model (Workers static assets vs a Pages project)	NOT BUILT		8	
+GL.K4o	rainmaker: the client's items	who holds that zone; legal blanks; compliance OK	NOT BUILT		8	
+GL.K4d	rainmaker: domain and live	decide who holds the zone, then the sheet	NOT BUILT		8	
+GL.K4l	rainmaker: swap the sheet for `capture-lead`	the swap	NOT BUILT		8	
+GL.K5p	vtv onto the platform	look folder, content load	NOT BUILT		8	
+GL.K5o	vtv: the client's items	answers, plan, broker, legal wording	NOT BUILT		8	
+GL.K5d	vtv: domain and live	redirects map, access, switch	NOT BUILT		8	
+GL.K0c	Each client's CRM layout	each client's own headers and map	HALF			
+GL.N1	Standalone-route tools: `omnikom site sign|seal|seal-check|deploy|project` (Pages project, secrets, a signed or sealed folder, live upload with `--to production --i-mean-production`)	no recorded real upload; this is the route K1l and K4l assume for the two standalone-ready sites (the lead goes to a sheet)	BUILT-UNPROVEN		7	
+GL.N2	The go-live pipeline's manifest and strict search gate (`golive.site.json`, `omnikom site search-gate`)	not wired into the platform runner (it is the standalone route's gate)	BUILT		7	
+GL.N3	Migration 51 is missing from the tree: replay protection (a verified signature accepted once) is on an unlanded branch, while migration 52 is on master	if 52 is applied anywhere before 51 lands, `promote-check` refuses with R-ORDER (promote-check.mjs:110,116), the same class as KNOWN-6. Land 51 first or renumber	NOT BUILT		1	
+GL.N4	Monthly key-age check (`key-rotation.yml`, `supabase/ops/key-ages.mjs`)	no production counterpart in `.github/production/`	HALF			
+GL.N5	The Data API's exposed schemas on production	bring-up does not set or judge it for production; a fresh production project keeps Supabase's default (the staging read showed `public,graphql_public`)	NOT BUILT		6	
+GL.N6	Offboarding a client on production	production mode	NOT BUILT		6	
+GL.N7	Browser flows on GitHub's runner	staging only; production has no flow path (E2p)	BUILT		6	
+GL.N8	A private production alerts and backup are the only production workflows; publish and media are not there	`publish.yml`, `media.yml` for production; whether GitHub starts publish.yml when the functions dispatch `ref: master` while the default branch is `production` is CANNOT TELL (supabase/functions/_shared/dispatch.ts:13)	NOT BUILT		6	
+AU.D-1	doctor	nothing	BUILT		10	
+AU.D-2	vantage	cannot give a result without an allowed US address; no step depends on it	BUILT		10	
+AU.D-3	snapshot	none	BUILT		10	
+AU.D-4	psi	BLOCKED without PSI_API_KEY	BUILT		10	
+AU.D-5	crux	BLOCKED without CRUX_API_KEY	BUILT		10	
+AU.D-6	checker (AI coordinator)	on master as a brief and a worker launcher; the engine never runs it. The measurable rules exist as a program (tools/audit/live.mjs) but no adapter feeds `causes.json` from it (searched S/scripts/report-live.mjs and S/pipeline.json: no such option)	HALF		10	
+AU.D-7	intake	owner-only fields need the owner's answers	BUILT		10	
+AU.D-8	approve-business	by design a person act; delegation stamp accepted by approve.mjs but nothing writes one	BUILT		10	
+AU.D-9	city-centres	none	BUILT		10	
+AU.D-10	seeds	no test file named for seeds found (research-seeds covered only inside test-research.mjs, unopened)	BUILT		10	
+AU.D-11	approve-seeds	person act	BUILT		10	
+AU.D-12	demand-bing	no test seen of the whole call path	BUILT-UNPROVEN		10	
+AU.D-13	search-console	stays BLOCKED for a prospect	BUILT		10	
+AU.D-14	research-plan	none	BUILT		10	
+AU.D-15	capture-google	importer on master; the page reading is a session in the owner's Edge, no program	HALF		10	
+AU.D-16	capture-bing	as D-15	HALF		10	
+AU.D-17	capture-index	as D-15	HALF		10	
+AU.D-18	index-import	none	BUILT		10	
+AU.D-19	capture-autocomplete	as D-15	HALF		10	
+AU.D-20	autocomplete-import	no test of that name found	BUILT-UNPROVEN		10	
+AU.D-21	capture-trends	as D-15	HALF		10	
+AU.D-22	trends-import	none	BUILT		10	
+AU.D-23	capture-ai	the one-prompt method (one engineered prompt per assistant, one follow-up, counts with no model) is NOT on master: branch check/seo/ai-oneshot (3 commits, S/scripts/ai-oneshot.mjs 379 lines, test-ai-oneshot.mjs). Manifest on master has no ai-oneshot (grep of pipeline.json: none). Still needs a session to paste into the owner's browser	HALF		10	
+AU.D-24	ai-import	none	BUILT		10	
+AU.D-25	research	no `--yes` in manifest, so a plan above 150 stops for a person's signature	BUILT		10	
+AU.D-26	targets-validate	none	BUILT		10	
+AU.D-27	local-grid-plan	no test named for the grid plan found (test-local-nap.mjs is another thing)	BUILT		10	
+AU.D-28	capture-maps	the writer from saved page text to capture file is now a skill script (old fault 12 closed); pages still read in the owner's Edge	HALF		10	
+AU.D-29	competitors	no test of that name found	BUILT		10	
+AU.D-30	approve-competitors	the signer works (and teammate/brokerage exclusion, commit f9068c9b); the proposer script is not a manifest step and reads agents' tables, never searches itself	HALF		10	
+AU.D-31	authority	15 GB disk; one laptop	BUILT		10	
+AU.D-32	authority-anchors	source can stop for 24 h	BUILT		10	
+AU.D-33	authority-classify	no test of that name found	BUILT-UNPROVEN		10	
+AU.D-34	authority-vet	no test of that name found	BUILT-UNPROVEN		10	
+AU.D-35	local-grid-import	none	BUILT		10	
+AU.D-36	capture-directories	as D-15; a dependency of client-copy	HALF		10	
+AU.D-37	local	none	BUILT		10	
+AU.D-38	capture-reputation	as D-15	HALF		10	
+AU.D-39	reputation-import	none	BUILT		10	
+AU.D-40	capture-social	as D-15	HALF		10	
+AU.D-41	social-import	none	BUILT		10	
+AU.D-42	capture-ads	as D-15	HALF		10	
+AU.D-43	ads-import	none	BUILT		10	
+AU.D-44	forums	no test of that name found; BLOCKED without the token; no step reads its output (not re-checked)	BUILT-UNPROVEN		10	
+AU.D-45	report-live	cannot start without the checker and every capture importer; old fault 9 (map grid, listing, directories, autocomplete, link opportunities not read by the report) is not re-checked: the copy reads those files itself (S/pipeline.json:1612 inputs list them)	BUILT		10	
+AU.D-46	verify (fresh AI agent)	a brief only; no program re-reads facts (tools/audit README per old map); engine never runs it	HALF		10	
+AU.D-47	client-copy: the 8-page copy of the run	`{pewp}/client-copy.json` (this client's wording) is hand-written, no writer; `contact` null = a draft; hand-read inputs (`handReads`: leadPath, mail, domain, trust, filing)	BUILT		10	
+AU.D-48	client-copy-pdf: print and check	headless Chrome on the laptop (heavy)	BUILT		10	
+SS.B-1	a business gives URL and email with consent	the own site, an audit-request lead type, a trigger to B-2	NOT BUILT		11	
+SS.B-2	the audit as a job: record, queue, worker, state off the laptop	table, queue, worker workflow, state adapter	NOT BUILT		11	
+SS.B-3	audit: technical read	runner, Chrome there, keys as secrets	HALF		11	
+SS.B-4	audit: checker	adapter from tools/audit summary to `causes.json`, still absent (report-live reads only `causes.json`: S/scripts/report-live.mjs:83-85)	HALF		10	
+SS.B-5	audit: business definition	a form for owner-only fields; nothing issues a stamp	HALF		11	
+SS.B-6	audit: seeds	automatic approval absent	HALF		10	
+SS.B-7	audit: the 11 captures	no optional dependency, no unattended source	HALF		11	
+SS.B-8	audit: research, competitors, links, local, reputation, social, ads	`competitors-propose` step, auto signatures	HALF		10	
+SS.B-9	audit: report-live	trigger and storage for the output	BUILT		11	
+SS.B-10	audit: verify	a program re-reading facts	HALF		11	
+SS.B-11	the client document	`client-copy.json` per client has no writer; contact line open; the copy has not been shown run end to end by a test on a real run (no run folder opened)	HALF		10	
+SS.B-12	the audit goes out by email	prospect outbox, template, consent text	NOT BUILT		11	
+SS.B-13	sign-up	public function with signed token	NOT BUILT		11	
+SS.B-14	payment	everything	NOT BUILT		11	
+SS.B-15	workspace, site row, contract, pages, Pages project, key	production allowed; system caller instead of staff MFA; workflow	BUILT-UNPROVEN		11	
+SS.B-16	page plan and approvals	run in the job; signatures	HALF		11	
+SS.B-17	contract from the approved plan	writer of entities.json	HALF		11	
+SS.B-18	words of the site and client facts	a wording job, 12 questions in a form	NOT BUILT		11	
+SS.B-19	the look	a look library or generator keyed to contract sections	HALF		11	
+SS.B-20	the draft	system caller; sign and seal in the runner (owner rule 2026-11-12)	HALF		11	
+SS.B-21	the client is told the draft is ready	template, link refresh	NOT BUILT		11	
+SS.B-22	review and sign-off	approval screen, ledger record	HALF		11	
+SS.B-23	domain and go live	production DNS, the launch ledger work	HALF		11	
+CO.S1	Sign-in by magic link	nothing	BUILT			
+CO.S2	Password form on the sign-in screen	whether any login in staging holds a password is a database read, not done	BUILT			
+CO.S3	Sign in with Google or another provider	by design absent	NOT BUILT			
+CO.S4	Staff sign-in needs a second factor	nothing	BUILT			
+CO.G1	Search Console numbers per site, daily (service account, no client OAuth)	(1) no live proof at Google: book `1-product.md:115` says still BLOCKED on staging; (2) no code adds the service-account email to a property or verifies a domain (grep `siteverification`/`google-site-verification` in tools, supabase, factory: no hit); (3) CANNOT TELL whether `GOOGLE_SERVICE_ACCOUNT_JSON` is set as a function secret on staging or production (would need `supabase secrets list`, a read of the project)	HALF		9	
+CO.G2	Tell Google a sitemap changed after a live publish	same as G1: no property verified, live UNPROVEN (`1-product.md:115`: "sitemap-submit is not driven on staging")	HALF		9	
+CO.G3	A client connects its own Google account by OAuth	only for a client property Omnikom does not own, or G7	NOT BUILT			
+CO.G4	Bing Webmaster numbers per site	no per-site verification step; no line in `tools/client-infra/provision.mjs` (grep: none)	HALF		9	
+CO.G5	PageSpeed and CrUX numbers	CrUX has no record for the two test origins yet (data, not code)	BUILT			
+CO.G6	IndexNow ping on publish	a key per site, the key file in the built site, the dependency from job-callback	HALF		9	
+CO.G7	Google Business Profile	owner decision first	NOT BUILT			
+CO.G8	Cloudflare Web Analytics / uptime source	collector, a Cloudflare read secret on the function side	NOT BUILT			
+CO.G9	AI answers writer (`ai-answers`)	endpoint plus ruling on who runs the model	NOT BUILT		9	
+CO.C1	Leads to a client's CRM by export in its layout; import back	the Google layout's headers are not checked against a real export (map said, `5-crm.md:150`)	BUILT			
+CO.C2	Live push of a lead to a client's CRM	by decision (`5-crm.md:6,128`); dead config entry `config.toml:37` should go or the function be built	NOT BUILT			
+CO.C3	Inbound events from a CRM	receiver, processor	NOT BUILT			
+CO.C4	OmniSuite follow-up connection	needs OmniSuite to be an API	NOT BUILT			
+CO.C5	Add-ons wizard and state machine	wizard, functions, screens (parked by `10-expansion.md:63-64`)	HALF			
+CO.M1	Sign-in and invite mail through Resend SMTP	production sender `PROD_MAIL_FROM` (owner's pick)	BUILT			
+CO.M2	New-lead alert to the business	agent recipient (book D8 `1-product.md:129` says "and the assigned agent" works: it does not by the code); HTML body with brand	HALF		2	
+CO.M3	System alerts to the operator	the address	BUILT-UNPROVEN			
+CO.M4	Bounces and complaints (Resend webhook)	the webhook at Resend; Auth mail and operator mail bounces suppress nothing (scope limit in `m31`)	HALF			
+CO.M5	A report or document mailed to a client	table of reports, render job, signed download, outbox for non-lead mail, owner click	NOT BUILT		11	
+CO.M6	"Audit ready" / "draft ready" mail	template, outbox columns, trigger	NOT BUILT		11	
+CO.P1	Payment provider	everything	NOT BUILT		11	
+CO.P2	Plan limits per workspace	`apply_plan` writer, plan table	HALF			
+CO.P3	Add-on state driven by a payment	receiver, base-plan state path (`m43` / `20261115000052_site_state.sql:4` moves a site's state by staff, not by payment)	HALF			
+CO.J1	pg_cron jobs	nothing	BUILT			
+CO.J2	Publish job: dispatch, runner, signed export and callback	the new token path (K4)	BUILT			
+CO.J3	Media job	retry or reaper for a failed media dispatch	HALF			
+CO.J4	GitHub scheduled and manual workflows	the backup itself has never run: nothing is backed up off the platform today	HALF		3	
+CO.J5	A new automated job (audit for a sign-up, build the draft)	table, workflow, functions, reaper clause	NOT BUILT		11	
+CO.J6	Stale-job reaper	covers publish jobs only	BUILT			
+CO.K1	Machine-call signing	two live runner keys at once (H2-11)	BUILT			
+CO.K2	API key registry	verifier for client keys	HALF			
+CO.K3	A client's system or OmniSuite calls the platform by key	verifier, endpoints, mint screen	NOT BUILT			
+CO.K4	GitHub dispatch token	CANNOT TELL whether the V2 token is set in the function secrets	BUILT-UNPROVEN		4	
+CO.K5	Names of secrets and Vault entries	nothing	BUILT			
+CO.K6	Cloudflare account token (Pages, DNS)	per-project tokens and OIDC (H2-5) not built	BUILT-UNPROVEN			
+CO.A1	The product's own calls to a model	nothing	BUILT			
+CO.A2	Model calls the operator skill makes (Gemini)	free-tier refusal history (map)	BUILT-UNPROVEN			
+CO.A3	Parked model features	all	NOT BUILT			
+CO.N1	Supabase Management API (Auth settings, function secrets, extensions, deploy)	production bring-up never run (production does not exist: `work/STATE.md:49`)	BUILT			
+CO.N2	GitHub API and `gh` (repository secrets, ruleset, CI)	master ruleset import is an owner item (`work/STATE.md:66`)	BUILT-UNPROVEN			
+CO.N3	Cloudflare DNS API (Resend records, client CNAME)	allow list is empty	BUILT			
+CO.N4	Cloudflare Pages deploy (wrangler) and project API	none	BUILT			
+CO.N5	Supabase Storage (private bucket `media`, signed URLs)	none	BUILT			
+CO.N6	Backup storage: Cloudflare R2 plus a second S3 provider	the real dump has never run	HALF		3	
+CO.N7	Google PageSpeed API and CrUX API	none	BUILT			
+CO.N8	Operator-tier read sources: Search Console API as the operator, Reddit, Common Crawl, Google Trends	none for the platform	BUILT-UNPROVEN			
+CO.N9	Dashboard "Ask us" address	the address	HALF			
+CO.N10	Report-copy address printed in sealed drafts	someone reads that mailbox	BUILT			
+CO.N11	Signing of builds (draft, live, handover)	NOT wired into the platform's own publish: grep `site-sign|sign-site|seal-site` in `factory/runner`, `supabase`, `.github`: no hit (only the CLI `tools/omnikom-cli/lib/sign.mjs`, `commands/key.mjs`, `registry.json`). A publish by the dashboard produces an unsigned build; signing is an operator command. Planned, not built: keyed ed25519 proof (`tools/site-sign/README.md` "Planned (not built)")	BUILT		7	
+CO.N12	Sealing of drafts (encrypted pages, key from `/omk-key`)	`/omk-key` serves any request: "the key function answers any request" (book `7-sites.md` same section); the only code serving `/omk-key` is the generated `omk-key.js` inside `tools/site-sign` (grep `omk-key` outside that folder: none)	BUILT		7	
+CO.N13	Host allow list	the list is one host baked into the loader and judged in the visitor's browser; the server (`omk-key`) does not check the host, so a copier can fetch the key	HALF		7	
+CO.N14	Kill flag	a switch served from our side that makes `omk-key` answer nothing	NOT BUILT		7	
+CO.N15	Unknown-host report	a report endpoint and a table	NOT BUILT		7	

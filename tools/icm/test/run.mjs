@@ -167,6 +167,9 @@ try {
     const bk = spawnSync(process.execPath, [join(TOOLS, 'test', 'book.mjs')], { encoding: 'utf8', timeout: 170000 });
     const red = ((bk.stdout || '').match(/^FAIL .*$/gm) || []).slice(0, 3).map(l => l.slice(5, 120));
     check('book: test/book.mjs passes', bk.status === 0, red.join(' | ') || bk.stderr);
+    const mp = spawnSync(process.execPath, ['--max-old-space-size=512', join(TOOLS, 'test', 'map.mjs')], { encoding: 'utf8', timeout: 170000 });
+    const mred = ((mp.stdout || '').match(/^FAIL .*$/gm) || []).slice(0, 3).map(l => l.slice(5, 120));
+    check('map: test/map.mjs passes', mp.status === 0, mred.join(' | ') || mp.stderr);
   }
 } finally {
   for (const x of dirs) rmSync(x, { recursive: true, force: true });

@@ -116,6 +116,7 @@ it keeps it, and the hardening steps in `9-blocks.md` bring today's code up to t
     `tools/icm` check in CI (H0-6); a WORKS row cites a path that exists; every hardening step has an owner and a part E
     row. The same check reads four more things: each WORKS row has a test line in `proof.tsv`, every `service.` function
     has a caller or an allow line, `config.toml` and `supabase/functions` name the same functions, and `work/STATE.md`
-    agrees with the Counts and the migrations. A new capability any review names becomes a row the day it is found, so the total grows with the truth. When the
+    agrees with the Counts and the migrations. The parts table, the clusters, the owner list and the progress file under
+    `work/map/` are checked the same way: well formed, and every row, cluster and owner item they name exists. A new capability any review names becomes a row the day it is found, so the total grows with the truth. When the
     numbers, the code and the text disagree, the session that sees it stops, routes it to the owning department, and the
     owner fixes the text or builds the code.

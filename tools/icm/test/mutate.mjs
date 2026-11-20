@@ -2,7 +2,7 @@
 // suite must go red on a named check. Pattern of tools/departments/test/mutate.mjs: [name, file, exactText, replacement], applied
 // with split/join, the target text must occur exactly once, one child process per mutant with a timeout. A mutant
 // of book-check.mjs (or of the call to it) runs test/book.mjs; every other mutant runs test/run.mjs (optional fifth field).
-//   node tools/icm/test/mutate.mjs      exit 0 = every mutant caught (--book: only the book-check mutants; --match <text>: only mutants whose name has it)
+//   node tools/icm/test/mutate.mjs      exit 0 = every mutant caught (--book: only the book-check mutants; --map: only the map mutants; --match <text>: only mutants whose name has it)
 import { readFileSync, writeFileSync, mkdtempSync, cpSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const TOOLS = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BOOK = 'book.mjs';
+const MAP = 'map.mjs';
 const MUTANTS = [
   ['the shortest prefix wins, not the longest', 'index.mjs', 'o.path.length > best.path.length', 'o.path.length < best.path.length'],
   ['an except clause is ignored', 'index.mjs', 'o.except.some(x => under(path, x))', 'false'],
@@ -36,7 +37,7 @@ const MUTANTS = [
   ['a hand edit of the markdown is not stale', 'index.mjs', "else lines.push(`STALE ${rel}: differs from what the tree generates`);", ''],
   ['a missing icm/ file passes', 'index.mjs', 'if (!existsSync(abs)) { lines.push(`MISSING ${rel}: run node tools/icm/index.mjs`); continue; }', 'if (!existsSync(abs)) continue;'],
   // the book check (H0-6); test/book.mjs
-  ['the book check is not called by --check', 'index.mjs', '[...b.problems, ...checkBook(root), ...checkTruth(root)]', '[...b.problems, ...checkTruth(root)]', BOOK],
+  ['the book check is not called by --check', 'index.mjs', '[...b.problems, ...checkBook(root), ...checkTruth(root), ...checkMap(root)]', '[...b.problems, ...checkTruth(root), ...checkMap(root)]', BOOK],
   ['a part count is not compared with its rows', 'book-check.mjs', 'if (c.nums.join() !== got.join()) out.push(', 'if (false) out.push(', BOOK],
   ['the Total row is not compared with the parts', 'book-check.mjs', 'else if (total.nums.join() !== sum.join())', 'else if (false)', BOOK],
   ['a part with no Counts row passes', 'book-check.mjs', 'if (!c) { out.push(', 'if (!c) { [].push(', BOOK],
@@ -56,7 +57,7 @@ const MUTANTS = [
   ['a missing steps table passes', 'book-check.mjs', 'if (!found) out.push(', 'if (false) out.push(', BOOK],
   ['one missing book file passes', 'book-check.mjs', 'if (!hasB) return [', 'if (false) return [', BOOK],
   // the truth checks (truth-check.mjs: proof.tsv, callers, config, STATE); test/book.mjs
-  ['the truth check is not called by --check', 'index.mjs', '[...b.problems, ...checkBook(root), ...checkTruth(root)]', '[...b.problems, ...checkBook(root)]', BOOK],
+  ['the truth check is not called by --check', 'index.mjs', '[...b.problems, ...checkBook(root), ...checkTruth(root), ...checkMap(root)]', '[...b.problems, ...checkBook(root), ...checkMap(root)]', BOOK],
   ['a WORKS row with no test line passes', 'truth-check.mjs', "state === 'WORKS' && !proved.has(id)", 'false', BOOK],
   ['a code line counts as proof of WORKS', 'truth-check.mjs', "if (kind === 'test') proved.add(id);", 'proved.add(id);', BOOK],
   ['a token that is not in the file passes', 'truth-check.mjs', 'if (!text(root, path).includes(token)) return', 'if (false) return', BOOK],
@@ -104,11 +105,56 @@ const MUTANTS = [
   ['a path in a comment of the gates file is a gate', 'truth-check.mjs', "l.replace(/\\/\\/.*/, '')", 'l', BOOK],
   ['a token under 8 characters passes', 'truth-check.mjs', "if (token.length < 8) return", 'if (false) return', BOOK],
   ['a token only in a comment passes', 'truth-check.mjs', '!COMMENT_LINE.test(l.trim())', 'true', BOOK],
+  // the map and the progress (map-check.mjs, progress.mjs, map-page.mjs); test/map.mjs
+  ['the map check is not called by --check', 'index.mjs', '[...b.problems, ...checkBook(root), ...checkTruth(root), ...checkMap(root)]', '[...b.problems, ...checkBook(root), ...checkTruth(root)]', MAP],
+  ['a missing parts file passes', 'map-check.mjs', 'if (!existsSync(p)) return { rows: [], problems: [`${label}: ${file} is missing`], ok: false };', 'if (!existsSync(p)) return { rows: [], problems: [], ok: false };', MAP],
+  ['a changed header passes (map tables)', 'truth-check.mjs', 'if (lines[0] !== header.join(TAB)) problems.push(', 'if (false) problems.push(', MAP],
+  ['a bad id spelling passes', 'map-check.mjs', 'if (!ID_RE.test(id)) out.PARTS.push(', 'if (false) out.PARTS.push(', MAP],
+  ['a duplicate part id passes', 'map-check.mjs', 'else if (seen.has(id)) out.PARTS.push(', 'else if (false) out.PARTS.push(', MAP],
+  ['an unknown verdict passes', 'map-check.mjs', 'if (!VERDICTS.includes(verdict)) out.PARTS.push(', 'if (false) out.PARTS.push(', MAP],
+  ['an owner item that does not exist passes', 'map-check.mjs', 'if (ownerSet && !ownerSet.has(Number(o))) out.push(', 'if (false) out.push(', MAP],
+  ['a cluster that does not exist passes', 'map-check.mjs', 'else if (clusterSet && !clusterSet.has(Number(cluster))) out.PARTS.push(', 'else if (false) out.PARTS.push(', MAP],
+  ['a row that does not exist passes', 'map-check.mjs', 'else if (bookRows && !bookRows.has(r)) out.PARTS.push(', 'else if (false) out.PARTS.push(', MAP],
+  ['two clusters in one cell pass', 'map-check.mjs', 'if (!WHOLE.test(cluster)) out.PARTS.push(', 'if (false) out.PARTS.push(', MAP],
+  ['cluster numbers may skip', 'map-check.mjs', 'else if (Number(c) !== n - 1) out.push(', 'else if (false) out.push(', MAP],
+  ['an unknown size passes', 'map-check.mjs', 'if (!SIZES.includes(size)) out.CLUSTERS.push(', 'if (false) out.CLUSTERS.push(', MAP],
+  ['an unknown kind passes', 'map-check.mjs', 'if (!KINDS.includes(kind)) out.OWNER.push(', 'if (false) out.OWNER.push(', MAP],
+  ['an answered item with no answer passes', 'map-check.mjs', "else if (state === 'answered' && answer === '') out.OWNER.push(", 'else if (false) out.OWNER.push(', MAP],
+  ['a calendar-invalid date passes', 'map-check.mjs', '.slice(0, 10) === s;', ".slice(0, 10) !== '';", MAP],
+  ['an uppercase commit passes', 'map-check.mjs', 'export const COMMIT_RE = /^[0-9a-f]{8,40}$/;', 'export const COMMIT_RE = /^[0-9a-fA-F]{8,40}$/;', MAP],
+  ['built above total passes', 'map-check.mjs', 'Number(built) > Number(total)', 'false', MAP],
+  ['a date going backwards passes', 'map-check.mjs', 'if (above && isDate(date) && date < above) out.PROGRESS.push(', 'if (false) out.PROGRESS.push(', MAP],
+  ['a duplicate commit passes', 'map-check.mjs', 'if (same) out.PROGRESS.push(', 'if (false) out.PROGRESS.push(', MAP],
+  ['the progress line counts the Counts table, not the rows', 'progress.mjs', "rows.filter(r => r.state === 'WORKS').length", "parseProduct(readFileSync(join(root, 'docs/product/1-product.md'), 'utf8')).counts.find(c => c.label === 'Total').nums[0]", MAP],
+  ['built counts BUILT-UNPROVEN too', 'progress.mjs', "map.parts.filter(p => p.verdict === 'BUILT').length", "map.parts.filter(p => p.verdict.startsWith('BUILT')).length", MAP],
+  ['the progress line is written despite a data problem', 'progress.mjs', 'if (map.problems.length) refuse(...map.problems);', "if (map.problems.length) say(map.problems.join('\\n'));", MAP],
+  ['an existing commit is appended again', 'progress.mjs', 'if (same) refuse(', 'if (false) refuse(', MAP],
+  ['a date before the last line is appended', 'progress.mjs', 'if (last && date < last.date) refuse(', 'if (false) refuse(', MAP],
+  ['the pace takes the last two lines, not the first and the last', 'map-page.mjs', 'const a = rows[0], b = rows[rows.length - 1],', 'const a = rows[rows.length - 2], b = rows[rows.length - 1],', MAP],
+  ['the pace per week uses days, not weeks', 'map-page.mjs', '/ days * 7', '/ days', MAP],
+  ['an unescaped part text is written', 'map-page.mjs', ".replace(/</g, '&lt;')", ".replace(/</g, '<')", MAP],
+  ['the dark theme guard is dropped', 'map-page.mjs', '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){', '@media (prefers-color-scheme: dark){:root{', MAP],
+  ['a script tag is written', 'map-page.mjs', '</head>', '<script>1</script></head>', MAP],
+  ['a truth file with a wrong state passes', 'map-page.mjs', '!SHOWN.includes(o.state)', 'false', MAP],
+  ['a bad out folder is created', 'map-page.mjs', "try { writeFileSync(opt.out, html, { flag: 'wx' }); }", "try { (await import('node:fs')).mkdirSync(dirname(opt.out), { recursive: true }); writeFileSync(opt.out, html, { flag: 'wx' }); }", MAP],
+  ['the page is not written to the --out path', 'map-page.mjs', "writeFileSync(opt.out, html, { flag: 'wx' })", "writeFileSync(opt.out + '.x', html, { flag: 'wx' })", MAP],
+  ['an existing out path is overwritten', 'map-page.mjs', 'if (there) refuse(', 'if (false) refuse(', MAP],
+  ['a failed data check still writes the page', 'map-page.mjs', 'if (map.problems.length) refuse(...map.problems);', "if (map.problems.length) say(map.problems.join('\\n'));", MAP],
+  ['the rows count test lines of every kind', 'map-page.mjs', "if (r.cells[1] === 'test') tests.set(", 'if (true) tests.set(', MAP],
+  ['an out path inside the repository is written', 'map-page.mjs', "if (rel === '' || (rel !== '..' && !rel.startsWith('..' + sep) && !isAbsolute(rel))) refuse(", 'if (false) refuse(', MAP],
+  ['a number with a leading zero passes', 'map-check.mjs', 'const WHOLE = /^(0|[1-9][0-9]*)$/;', 'const WHOLE = /^\\d+$/;', MAP],
+  ['a commit given longer is appended again', 'map-check.mjs', '(a.startsWith(b) || b.startsWith(a))', '(a === b)', MAP],
+  ['a refused progress run still appends', 'progress.mjs', "const refuse = (...ls) => { say(ls.join('\\n')); process.exit(1); };", "const refuse = (...ls) => { appendFileSync(join(root, 'work/map/progress.tsv'), 'x\\n'); say(ls.join('\\n')); process.exit(1); };", MAP],
+  ['a reference to a table that did not parse is checked', 'map-check.mjs', '(t.problems.length === 0 ? new Set(t.rows.map((_, i) => i + 1)) : null)', 'new Set(t.rows.map((_, i) => i + 1))', MAP],
+  ['a cell of spaces is not empty', 'map-check.mjs', "if (part.trim() === '') out.PARTS.push(", "if (part === '') out.PARTS.push(", MAP],
+  ['a row that does not exist in closes passes', 'map-check.mjs', 'bookRefs(closes, bookRows, out.CLUSTERS, at);', 'void 0;', MAP],
+  ['an owner item named twice passes', 'map-check.mjs', 'if (named.has(o)) out.push(', 'if (false) out.push(', MAP],
 ];
 let survived = 0, missing = 0;
 const onlyBook = process.argv.includes('--book'); // only the mutants that run test/book.mjs
+const onlyMap = process.argv.includes('--map'); // only the mutants that run test/map.mjs
 const mi = process.argv.indexOf('--match'); // only the mutants whose name contains this text
-const RUN = MUTANTS.filter(m => (!onlyBook || m[4] === BOOK) && (mi < 0 || m[0].includes(process.argv[mi + 1])));
+const RUN = MUTANTS.filter(m => (!onlyBook || m[4] === BOOK) && (!onlyMap || m[4] === MAP) && (mi < 0 || m[0].includes(process.argv[mi + 1])));
 for (const [name, file, find, repl, testFile = 'run.mjs'] of RUN) {
   const dir = mkdtempSync(join(tmpdir(), 'omnikom-icm-mut-'));
   try {
