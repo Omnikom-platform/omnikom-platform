@@ -11,7 +11,7 @@
 #   PROD_SUPABASE_REF      the production project ref (function deploy and smoke checks)
 #   SUPABASE_ACCESS_TOKEN  a Supabase access token scoped to Edge Functions of the production project
 #   CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET    the first backup copy (Cloudflare R2; the endpoint is built from the account id)
-#   BACKUP2_ENDPOINT, BACKUP2_ACCESS_KEY_ID, BACKUP2_SECRET_ACCESS_KEY, BACKUP2_BUCKET   the second copy, at another provider
+#   BACKUP2_ENDPOINT, BACKUP2_ACCESS_KEY_ID, BACKUP2_SECRET_ACCESS_KEY, BACKUP2_BUCKET   the second copy, at another provider (OPTIONAL: not set, no second copy)
 # The backup is encrypted to the PUBLIC certificate supabase/ops/backup-recipient.pem (the owner's private half stays offline).
 #
 # Order, and why: every read-only gate first, the backup point next, the migrations and functions last. Nothing after the backup is
@@ -94,7 +94,7 @@ jobs:
           BACKUP2_BUCKET: ${{ secrets.BACKUP2_BUCKET }}
         run: |
           missing=""
-          for n in PROD_DB_URL STAGING_DB_URL PROD_SUPABASE_REF SUPABASE_ACCESS_TOKEN CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET BACKUP2_ENDPOINT BACKUP2_ACCESS_KEY_ID BACKUP2_SECRET_ACCESS_KEY BACKUP2_BUCKET; do
+          for n in PROD_DB_URL STAGING_DB_URL PROD_SUPABASE_REF SUPABASE_ACCESS_TOKEN CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET; do
             if [ -z "${!n}" ]; then missing="$missing $n"; fi
           done
           if [ -n "$missing" ]; then
@@ -152,9 +152,9 @@ jobs:
           BACKUP2_BUCKET: ${{ secrets.BACKUP2_BUCKET }}
         run: |
           export R2_ENDPOINT="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          node supabase/ops/backup.mjs --db PROD_DB_URL --privileges --name "production-pre-${INPUT_COMMIT:0:7}" \
-            --to "s3://${R2_BUCKET}/production/promote" --env R2 \
-            --to "s3://${BACKUP2_BUCKET}/production/promote" --env BACKUP2
+          to=(--to "s3://${R2_BUCKET}/production/promote" --env R2)
+          if [ -n "${BACKUP2_BUCKET}" ]; then to+=(--to "s3://${BACKUP2_BUCKET}/production/promote" --env BACKUP2); fi
+          node supabase/ops/backup.mjs --db PROD_DB_URL --privileges --name "production-pre-${INPUT_COMMIT:0:7}" "${to[@]}"
 
       - name: Apply the pending migrations to production (the script staging was proven with)
         env:

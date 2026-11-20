@@ -8,7 +8,7 @@
 // function secret (staging: the same name; production: PROD_<NAME>, except the shared RESEND_API_KEY, PSI_API_KEY, CRUX_API_KEY and
 // BING_WEBMASTER_KEY and GOOGLE_SERVICE_ACCOUNT_JSON, LEAD_ALERT_FROM from PROD_MAIL_FROM; DASHBOARD_URL and DASHBOARD_ORIGINS come from environments.json); for
 // production also PROD_MAIL_FROM, PROD_GITHUB_REPO and the source of every secret the production workflows name (PROD_ALERTS_TO is
-// optional). SUPABASE_API_BASE and CLOUDFLARE_API_BASE exist for the tests' local fake server only.
+// optional, and so are the four BACKUP2_* names together: none set = skipped with one line, some set = the others are missing). SUPABASE_API_BASE and CLOUDFLARE_API_BASE exist for the tests' local fake server only.
 // It prints names, counts and short states, never a value: every line passes backup.mjs's scrubber, fed with every value read.
 // Last line: `DRY RUN: <n> would change`, `BRING-UP OK: <n> changed` or `BRING-UP FAILED: <area> <what>: <reason>` (the first failure
 // stops the run). Exit 0 ok, 1 failed, 2 usage, 3 BLOCKED (a variable is missing; nothing was read or changed).
@@ -27,6 +27,7 @@ const USAGE = 'usage: bring-up.mjs --env staging|production [--apply] [--i-mean-
 const EXTENSIONS = ['pg_cron', 'pg_net', 'pgmq', 'pg_stat_statements'];
 const SEAMS = ['JWKS_URL', 'GITHUB_API_BASE'];   // test seams of the functions (dashboard.ts, dispatch.ts), never a secret
 const SHARED = ['RESEND_API_KEY', 'PSI_API_KEY', 'CRUX_API_KEY', 'BING_WEBMASTER_KEY', 'GOOGLE_SERVICE_ACCOUNT_JSON'];   // one key for staging and production
+const SECOND = ['BACKUP2_ENDPOINT', 'BACKUP2_BUCKET', 'BACKUP2_ACCESS_KEY_ID', 'BACKUP2_SECRET_ACCESS_KEY'];   // the second backup provider: optional as a group (owner 2026-11-20)
 const WRANGLER_VERSION = '4.152.0';   // the pin of tools/pages-project.mjs
 const sha256hex = s => createHash('sha256').update(s).digest('hex');
 class Stop extends Error { constructor(code, message) { super(message); this.code = code; } }
@@ -100,9 +101,10 @@ export async function bringUp(argv, env = process.env, deps = {}) {
     const fnSource = name => (!prod || SHARED.includes(name) ? name : name === 'LEAD_ALERT_FROM' ? 'PROD_MAIL_FROM' : `PROD_${name}`);
     const repoList = prod ? repoNames(root) : [];
     const repoSource = name => (/^(PROD|STAGING)_/.test(name) ? name : { RUNNER_KEY: 'PROD_RUNNER_KEY', ALERTS_TO: 'PROD_ALERTS_TO', LEAD_ALERT_FROM: 'PROD_MAIL_FROM' }[name] || name);
+    const noSecond = prod && !SECOND.some(x => env[x]);   // none of the four set: skipped; some set: the others are missing
     const needed = [`${P}SUPABASE_REF`, `${P}DB_URL`, `${P}SUPABASE_PUBLISHABLE_KEY`, 'SUPABASE_ACCESS_TOKEN', 'CLOUDFLARE_PAGES_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'RESEND_API_KEY',
       ...fnNames.filter(x => !(x in derived)).map(fnSource),
-      ...(prod ? ['PROD_MAIL_FROM', 'PROD_GITHUB_REPO', ...repoList.filter(x => x !== 'PLATFORM_FUNCTIONS_BASE' && x !== 'ALERTS_TO').map(repoSource)] : [])];
+      ...(prod ? ['PROD_MAIL_FROM', 'PROD_GITHUB_REPO', ...repoList.filter(x => x !== 'PLATFORM_FUNCTIONS_BASE' && x !== 'ALERTS_TO' && !(noSecond && SECOND.includes(x))).map(repoSource)] : [])];
     const missing = [...new Set(needed)].filter(x => !env[x]);
     if (missing.length) throw new Stop(3, `missing variables (by name): ${missing.join(', ')}`);
     needed.forEach(v);   // every value read feeds the scrubber
@@ -186,7 +188,8 @@ export async function bringUp(argv, env = process.env, deps = {}) {
         return JSON.parse(r.stdout);
       });
       const present = new Set(listed.map(s => s.name));
-      for (const name of repoList) {
+      if (noSecond) say('second backup provider: not set, BACKUP2_* skipped');
+      for (const name of repoList.filter(x => !(noSecond && SECOND.includes(x)))) {
         const value = name === 'PLATFORM_FUNCTIONS_BASE' ? fnBase : v(repoSource(name));
         if (!present.has(name) && !value) { say(`skip    repo ${name} (${repoSource(name)} not set)`); continue; }
         await step('repo', name, present.has(name), () => guard(`repo ${name}`, () => {

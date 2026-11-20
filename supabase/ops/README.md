@@ -107,13 +107,16 @@ with a test; tell the owner when it lasted over an hour.
 
 ## Owner batch (nothing below is created by a session)
 - Make the key pair and commit `supabase/ops/backup-recipient.pem` (above).
-- R2 enabled, a private bucket, a key for that bucket only (the size check reads each copy back); a second provider's bucket and a
-  key for that bucket only (Backblaze B2, Wasabi, ...).
-- Repository secrets: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `BACKUP2_ENDPOINT`, `BACKUP2_BUCKET`,
-  `BACKUP2_ACCESS_KEY_ID`, `BACKUP2_SECRET_ACCESS_KEY`; the same set plus `PROD_DB_URL`, `PROD_SUPABASE_REF` and
+- R2 enabled, a private bucket, a key for that bucket only (the size check reads each copy back). No second provider for now (owner,
+  2026-11-20): the four `BACKUP2_*` secrets are optional, left unset, and the workflows and `bring-up.mjs` skip them; set all four later
+  and the second copy starts, nothing else changes.
+- Repository secrets: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (optional: `BACKUP2_ENDPOINT`, `BACKUP2_BUCKET`,
+  `BACKUP2_ACCESS_KEY_ID`, `BACKUP2_SECRET_ACCESS_KEY`); the same set plus `PROD_DB_URL`, `PROD_SUPABASE_REF` and
   `PROD_SUPABASE_SECRET_KEY` (the media copy; `bring-up.mjs` sets every name of `.github/production/`) in the production repository. Variable
   `BACKUP_ENABLED = true` when ready; `ALERTS_RED = true` to make a firing alert also turn the alerts job red. The alert mail needs the
   secrets `RESEND_API_KEY`, `LEAD_ALERT_FROM` and `ALERTS_TO` (the on-call address) in each repository.
-- Bucket lifecycle rule: keep 30 days (not a workflow step).
+- Bucket lifecycle rules (not workflow steps), set on the R2 bucket: `staging/` 30 days, `production/` 30 days, `monthly/` 365 days,
+  `probe/` 1 day. The nightly copies are kept 30 days; on UTC day 01 the workflows also write the dump and the Vault copy under
+  `monthly/staging` and `monthly/production`, kept one year.
 - A status page host (11-OPERATIONS D5): not chosen. Alerts send through the Resend sender that exists (`supabase/auth-settings.md`);
   production's on-call address is the owner's.

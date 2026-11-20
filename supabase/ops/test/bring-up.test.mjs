@@ -2,7 +2,7 @@
 // API and the Cloudflare Pages API and counts every write; the database (deps.sql), gh (deps.gh), the dashboard deploy (deps.deploy) and
 // the commit (deps.head) are recorders, and deps.fetch refuses any address but the fake's. No cluster, no network, no account: every
 // value is a test string. Every case passes repoRoot = the real repository root (case 12 a temp copy of the files it reads, see there).
-//   node supabase/ops/test/bring-up.test.mjs              the suite (12 checks)
+//   node supabase/ops/test/bring-up.test.mjs              the suite (15 checks)
 //   node supabase/ops/test/bring-up.test.mjs --mutants    the suite, then every seeded fault (in a copy of the script): each must go red for its named check
 // Exit 0 = every check passed (and, with --mutants, every fault was caught).
 import { createServer } from 'node:http';
@@ -40,8 +40,11 @@ const SHARED = ['RESEND_API_KEY', 'PSI_API_KEY', 'CRUX_API_KEY', 'BING_WEBMASTER
 const PROD_NEEDED = ['PROD_SUPABASE_REF', 'PROD_DB_URL', 'PROD_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_ACCESS_TOKEN', 'CLOUDFLARE_PAGES_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
   'RESEND_API_KEY', 'BING_WEBMASTER_KEY', 'PROD_CRON_KEY', 'CRUX_API_KEY', 'PROD_DB_POOLER_URL', 'PROD_GITHUB_DISPATCH_TOKEN', 'PROD_GITHUB_DISPATCH_TOKEN_V2',
   'GOOGLE_SERVICE_ACCOUNT_JSON', 'PROD_GITHUB_REPO', 'PROD_MAIL_FROM', 'PROD_MAIL_OUTBOX_KEY', 'PSI_API_KEY', 'PROD_RESEND_WEBHOOK_SECRET', 'PROD_RUNNER_KEY',
-  'STAGING_DB_URL', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET', 'BACKUP2_ENDPOINT', 'BACKUP2_ACCESS_KEY_ID', 'BACKUP2_SECRET_ACCESS_KEY', 'BACKUP2_BUCKET',
+  'STAGING_DB_URL', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET',
   'PROD_SUPABASE_SECRET_KEY'];
+// the second backup provider is optional as a group (owner 2026-11-20); the world still sets all four, so cases 4 to 7 stay as they were
+const BACKUP2 = ['BACKUP2_ENDPOINT', 'BACKUP2_ACCESS_KEY_ID', 'BACKUP2_SECRET_ACCESS_KEY', 'BACKUP2_BUCKET'];
+const SECOND_LINE = 'second backup provider: not set, BACKUP2_* skipped';
 const STAGING_NEEDED = ['STAGING_SUPABASE_REF', 'STAGING_DB_URL', 'STAGING_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_ACCESS_TOKEN', 'CLOUDFLARE_PAGES_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
   ...FN_SECRETS.filter(n => !n.startsWith('DASHBOARD_'))];
 // production: where each function secret's value comes from (the head's ruling in the brief)
@@ -97,7 +100,7 @@ async function world(kind) {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   w.base = `http://127.0.0.1:${server.address().port}`;
   w.close = () => new Promise(r => { server.closeAllConnections(); server.close(() => r()); });
-  const names = kind === 'production' ? [...PROD_NEEDED, 'PROD_DB_URL_DIRECT', 'PROD_ALERTS_TO'] : STAGING_NEEDED;
+  const names = kind === 'production' ? [...PROD_NEEDED, ...BACKUP2, 'PROD_DB_URL_DIRECT', 'PROD_ALERTS_TO'] : STAGING_NEEDED;
   w.env = { ...Object.fromEntries(names.map(n => [n, val(n)])), ...(kind === 'production' ? { PROD_MAIL_FROM: MAIL_FROM } : {}), SUPABASE_API_BASE: w.base, CLOUDFLARE_API_BASE: w.base };
   w.ref = w.env[kind === 'production' ? 'PROD_SUPABASE_REF' : 'STAGING_SUPABASE_REF'];
   w.acct = w.env.CLOUDFLARE_ACCOUNT_ID;
@@ -161,7 +164,7 @@ async function suite() {
       const r = await run(w, ['--env', 'production'], {});
       const m = r.lines.length === 1 ? /^missing variables \(by name\): (.+)$/.exec(r.lines[0]) : null;
       const list = m ? m[1].split(', ') : [];
-      return [r.exit === 3 && m && PROD_NEEDED.every(n => list.includes(n)) && !list.includes('PROD_ALERTS_TO') && !list.includes('PROD_DB_URL_DIRECT') && untouched(w),
+      return [r.exit === 3 && m && PROD_NEEDED.every(n => list.includes(n)) && !list.includes('PROD_ALERTS_TO') && !list.includes('PROD_DB_URL_DIRECT') && !BACKUP2.some(n => list.includes(n)) && untouched(w),
         `${show(r)}\nnot named: ${PROD_NEEDED.filter(n => !list.includes(n)).join(', ')}`];
     });
 
@@ -305,6 +308,48 @@ async function suite() {
       const r = await run(w, prodArgs, env, root);
       return [r.exit === 0 && r.lines.includes('skip    repo ALERTS_TO (PROD_ALERTS_TO not set)') && /^BRING-UP OK: \d+ changed$/.test(r.last) && !ghSets(w).some(g => g.args[2] === 'ALERTS_TO'), show(r)];
     });
+
+    await check('13 production with every name set except the four BACKUP2_*: not BLOCKED, one skip line, none of the four set as a repository secret', async () => {
+      const w = await make('production');
+      const env = { ...w.env };
+      for (const n of BACKUP2) delete env[n];
+      const r = await run(w, prodArgs, env);
+      const repo = repoNames(ROOT).filter(n => !BACKUP2.includes(n));
+      const sets = ghSets(w).map(g => g.args[2]);
+      return [r.exit === 0 && r.lines.filter(l => l === SECOND_LINE).length === 1 && /^BRING-UP OK: \d+ changed$/.test(r.last)
+        && sets.join() === repo.join() && !sets.some(n => BACKUP2.includes(n)) && !r.lines.some(l => /^skip\s+repo BACKUP2/.test(l)), show(r)];
+    });
+
+    await check('14 a still-required name missing (R2_BUCKET), BACKUP2_* absent: exit 3 naming only R2_BUCKET; and BACKUP2_BUCKET alone set: exit 3 naming the other three', async () => {
+      const w = await make('production');
+      const a = { ...w.env };
+      for (const n of BACKUP2) delete a[n];
+      delete a.R2_BUCKET;
+      const ra = await run(w, ['--env', 'production'], a);
+      const b = { ...w.env };
+      for (const n of BACKUP2) if (n !== 'BACKUP2_BUCKET') delete b[n];
+      const rb = await run(w, ['--env', 'production'], b);
+      return [ra.exit === 3 && ra.text === 'missing variables (by name): R2_BUCKET' && rb.exit === 3
+        && rb.text === 'missing variables (by name): BACKUP2_ACCESS_KEY_ID, BACKUP2_ENDPOINT, BACKUP2_SECRET_ACCESS_KEY' && untouched(w), `${show(ra)}\n--\n${show(rb)}`];
+    });
+
+    await check('15 the workflows: every BACKUP2 target is passed only when BACKUP2_BUCKET is set, the nightly dump and Vault also write monthly/<env> on UTC day 01', async () => {
+      const bad = [];
+      for (const [file, env] of [['.github/workflows/backup.yml', 'staging'], ['.github/production/backup.yml', 'production'], ['.github/production/promote.yml', 'production']]) {
+        const text = readFileSync(join(ROOT, ...file.split('/')), 'utf8');
+        for (const line of text.split('\n')) {
+          if (/--env BACKUP2/.test(line) && !/BACKUP2_BUCKET/.test(line) && !/^\s*if \[ -n "\$\{BACKUP2_BUCKET\}" \]/.test(line)) bad.push(`${file}: unguarded ${line.trim()}`);
+        }
+        const targets = [...text.matchAll(/--to "s3:\/\/\$\{BACKUP2_BUCKET\}[^"]*" --env BACKUP2/g)];
+        const guarded = [...text.matchAll(/if \[ -n "\$\{BACKUP2_BUCKET\}" \]; then [^\n]*--env BACKUP2[^\n]*; fi/g)];
+        if (targets.length !== guarded.length) bad.push(`${file}: ${targets.length} BACKUP2 targets, ${guarded.length} guarded`);
+        if (/\$\{BACKUP2_BUCKET\}" \\$/m.test(text) || /BACKUP2_BUCKET BACKUP2_ACCESS/.test(text) || /for n in [^\n]*BACKUP2/.test(text)) bad.push(`${file}: BACKUP2 still required or passed unconditionally`);
+        const monthly = [...text.matchAll(/if \[ "\$\(date -u \+%d\)" = "01" \]; then [^\n]*--to "s3:\/\/\$\{R2_BUCKET\}\/monthly\/(\w+)" --env R2[^\n]*; fi/g)];
+        if (file.endsWith('backup.yml') && (monthly.length !== 2 || monthly.some(m => m[1] !== env))) bad.push(`${file}: ${monthly.length} monthly targets (2 expected: dump and Vault), envs ${monthly.map(m => m[1]).join()}`);
+        if (file.endsWith('promote.yml') && /monthly\//.test(text)) bad.push(`${file}: a promote copy must not be monthly`);
+      }
+      return [!bad.length, bad.join('\n')];
+    });
   } finally {
     for (const w of worlds) await w.close();
   }
@@ -321,6 +366,7 @@ const MUTANTS = [
   ['6 a missing variable is not BLOCKED', [['if (missing.length) throw new Stop(3,', 'if (false) throw new Stop(3,']], /^2 /],
   ['7 any API base is taken', [[String.raw`if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(base)) throw new Stop(2,`, 'if (false) throw new Stop(2,']], /^3 /],
   ['8 SUPABASE_ names and the test seams are kept', [['.filter(n => !/^SUPABASE_/.test(n) && !SEAMS.includes(n))', '.filter(n => true)']], /^10 /],
+  ['9 the four BACKUP2_* names are required again', [['const noSecond = prod && !SECOND.some(x => env[x]);', 'const noSecond = false;']], /^13 /],
 ];
 
 let exit = 0;
