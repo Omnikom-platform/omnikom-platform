@@ -153,7 +153,7 @@ function stripJs(src) {
   }
   return out;
 }
-function stripCode(src, name) {
+export function stripCode(src, name) {
   if (/\.sql$/i.test(name)) return stripSqlComments(src);
   if (/\.ya?ml$/i.test(name)) return src.replace(/(^|[ \t])#.*$/gm, '$1');
   return stripJs(src);

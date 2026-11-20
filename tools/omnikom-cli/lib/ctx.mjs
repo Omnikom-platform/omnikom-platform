@@ -30,6 +30,8 @@ export function makeCtx({ command, positionals, flags, deps = {} }) {
     sleep: deps.sleep || (ms => new Promise(r => setTimeout(r, ms))),
     open: deps.open,   // session start: a test hands a fake (name, launcher); no window opens
     run: deps.run,     // helper run: a test hands a fake runLimited (cmd, args, opts); nothing starts
+    truthStatus: deps.truthStatus,       // truth: a test hands a fake for the status of staging
+    truthTimeoutMs: deps.truthTimeoutMs, // truth: a test shortens the limit of the child run of tools/icm/index.mjs
     warnings: [],
     targetName: flags.target || 'local',
     _target: null, _sql: null,

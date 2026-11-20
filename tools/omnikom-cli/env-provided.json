@@ -1,0 +1,17 @@
+{
+  "functions": ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_DB_URL", "SUPABASE_JWKS", "SUPABASE_PUBLISHABLE_KEYS", "SUPABASE_SECRET_KEYS"],
+  "workflows": ["GITHUB_TOKEN"],
+  "scripts": [
+    "PATH", "PATHEXT", "HOME", "USERPROFILE", "TEMP", "TMP", "APPDATA", "LOCALAPPDATA", "PGPASSWORD", "CLAUDE_PROJECT_DIR",
+    "CI", "GITHUB_ACTIONS", "GITHUB_ENV", "GITHUB_OUTPUT", "GITHUB_PATH", "GITHUB_REF", "GITHUB_REF_NAME", "GITHUB_REPOSITORY", "GITHUB_RUN_ID",
+    "GITHUB_SERVER_URL", "GITHUB_SHA", "GITHUB_STEP_SUMMARY", "GITHUB_WORKSPACE", "RUNNER_OS", "RUNNER_TEMP"
+  ],
+  "optional": {
+    "functions": {
+      "GITHUB_API_BASE": "supabase/functions/_shared/dispatch.ts:12 reads it with a default (https://api.github.com); it is for the tests' fake server",
+      "GITHUB_DISPATCH_TOKEN_V2": "supabase/functions/_shared/dispatch.ts:9 falls back to GITHUB_DISPATCH_TOKEN when it is absent",
+      "JWKS_URL": "supabase/functions/_shared/dashboard.ts:21 falls back to SUPABASE_URL's /auth/v1/.well-known/jwks.json when it is absent",
+      "SUPABASE_SECRET_KEY": "the functions read SUPABASE_SERVICE_ROLE_KEY first (invite-member:26, upload-start:24, storage.ts:12) and use this name only as the fallback"
+    }
+  }
+}
