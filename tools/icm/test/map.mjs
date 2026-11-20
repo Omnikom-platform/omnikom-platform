@@ -350,10 +350,11 @@ const truthFile = body => { const f = join(bare(), 'truth.json'); writeFileSync(
   // the page is never written inside the repository: a data file, its upper-case spelling, another file, a new file
   const bytes = rel => readFileSync(join(ok, rel));
   for (const [name, out, rel] of [['a data file', join(ok, 'work/map/parts.tsv'), 'work/map/parts.tsv'], ['the upper-case spelling of a data file', join(ok, 'work/MAP/Parts.TSV'), 'work/map/parts.tsv'], ['docs/product/proof.tsv', join(ok, 'docs/product/proof.tsv'), 'docs/product/proof.tsv'], ['a new file name', join(ok, 'new-page.html'), null]]) {
-    const before = rel && bytes(rel), dx = run('--out', out);
+    // where the file system tells letter case apart (the runner), the upper-case spelling is a new path, not the data file
+    const there = existsSync(out), before = rel && bytes(rel), dx = run('--out', out);
     // an existing file is refused first as "exists already"; only a new path inside the repository reaches the "inside" refusal
-    const msg = rel ? `MAP: ${out} exists already (the page is written only to a new path)\n` : `MAP: ${out} is inside the repository\n`;
-    check(`G12 page: --out ${name} inside the repository exits 1, writes nothing`, dx.status === 1 && dx.out === msg && (rel ? bytes(rel).equals(before) : !existsSync(out)), `${dx.status} ${dx.out}`);
+    const msg = there ? `MAP: ${out} exists already (the page is written only to a new path)\n` : `MAP: ${out} is inside the repository\n`;
+    check(`G12 page: --out ${name} inside the repository exits 1, writes nothing`, dx.status === 1 && dx.out === msg && (!rel || bytes(rel).equals(before)) && (there || !existsSync(out)), `${dx.status} ${dx.out}`);
   }
   { // X nothing is ever overwritten: a plain file, a dangling link into the root, a hard link to a file in the root
     const exMsg = f => `MAP: ${f} exists already (the page is written only to a new path)\n`;
