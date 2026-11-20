@@ -4,17 +4,17 @@ Rewritten in place, never appended, under 60 lines; last 2026-11-20 by the head 
 state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. Getting back in: `resume\RESUME.md`.
 
 ## Now
-- Product: 74 of 98 rows WORK, 24 PARTLY, 0 MISSING (checked by CI). CRM 24, 2, 0 of 26; dashboard 15, 8, 0 of 23;
+- Product: 73 of 98 rows WORK, 25 PARTLY, 0 MISSING (checked by CI). CRM 23, 3, 0 of 26; dashboard 15, 8, 0 of 23;
   backend 15, 3, 0 of 18; factory 9, 1, 0 of 10; hardening 11, 10, 0 of 21.
 - The states were read from the code on 2026-11-20; the readers ran no test, so a staging proof is the book's record.
   Production does not exist (one Supabase project, staging).
-- The order (owner, 2026-11-20): clusters, each done in one go, in the order of `CLUSTERS.md`: 1 the book tells the truth;
+- The order (owner, 2026-11-20): clusters, each done in one go, in this order: 1 the book tells the truth;
   2 small product gaps, code only; 3 backups for real; 4 staging caught up and proven; 5 large tenant; 6 production
   exists; 7 protected publish and go-live; 8 the first client live; 9 search numbers and AI answers; 10 the audit by one
   command; 11 self-serve (parked by the plan).
-- The method stays: one hand-over per job (its row, its done-test), the test first and seen red, the least code, one
-  builder per job in its worktree who only stages, the head's intake, one landing by `omnikom land` on a tree that passed
-  CI. A row is WORKS only on proof seen on staging. A second lane runs the search audits; product lands first.
+- The method stays: one hand-over per job, the test first and seen red, the least code, one builder per job in its
+  worktree who only stages, the head's intake, one landing by `omnikom land` on a tree that passed CI. WORKS = a test or
+  journey step shows it; what staging has not shown says UNPROVEN. A second lane runs the audits; product lands first.
 
 ## Landed since the build reopened (owner, 2026-11-12)
 - CRM (A15, A16, A21, A22): bulk owner and delete, the business's own statuses, export in a saved layout, import.
