@@ -68,7 +68,7 @@ const submitC = (job: string, deps: Parameters<typeof sitemapSubmit>[1], o: Cron
 
 const cronEvents = () => withSql(async sql => {
   const [r] = await sql`select coalesce(sum(c.n), 0)::int as n from public.security_event_counts c join public.security_events e on e.id = c.event_id
-    where c.kind = 'bad-signature' and c.code = 'SIGNATURE' and e.detail ->> 'kind' = 'cron'`;
+    where c.kind = 'bad-signature' and c.code = 'SIGNATURE' and (e.detail ->> 'kind' = 'cron' or (c.overflow and c.fn in ('metrics-pull', 'sitemap-submit')))`;   // an overflow bucket (a full minute) has no detail kind: its fn says which
   return r.n as number;
 });
 

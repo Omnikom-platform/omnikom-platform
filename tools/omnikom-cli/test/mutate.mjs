@@ -68,8 +68,8 @@ const MUTANTS = [
   ['verify does not check that a retry stored one row', 'commands/verify.mjs', 'r.status === 202 && rows(L.idem) === 1,', 'r.status === 202,', 'db'],
   ['verify does not check that a retry alerts once', 'commands/verify.mjs', 'r.status, alerts(L.idem) <= 1,', 'r.status, true,', 'db'],
   ['verify does not check that a copy stores one row', 'commands/verify.mjs', 'copies.every(c => c.status === 202) && claimed() === 1,', 'copies.every(c => c.status === 202),', 'db'],
-  ['verify sends its retry in the same second', 'commands/verify.mjs', 'r = await post({ ...L, t: ctx.now() + 1 });', 'r = await post(L);', 'db'],
-  ['lead send --retry signs every attempt at one time', 'commands/lead.mjs', 't: ctx.now() + i,', 't: ctx.now(),', 'db'],
+  ['verify sends its retry in the same second', 'commands/verify.mjs', 'r = await post({ ...L, t: t0 + 1 });', 'r = await post({ ...L, t: t0 });', 'db'],
+  ['lead send --retry signs every attempt at one time', 'commands/lead.mjs', 't: t0 + i,', 't: t0,', 'unit'],
   // ---- rule 5: the canonical signature
   ['the signature is not the endpoint\'s', 'lib/sign.mjs', 'export const sign = endpoint.sign;', 'export const sign = (key, method, p, body, t) => endpoint.sign(key, method, p, body, t + 1);', 'unit'],
   ['a site signs with the runner header', 'lib/sign.mjs', "name: 'x-site-signature'", "name: 'x-runner-signature'", 'unit'],

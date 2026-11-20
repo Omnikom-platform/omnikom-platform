@@ -4255,13 +4255,13 @@ do $$ begin
   assert service.claim_signature(repeat('c', 64)) = true, 'T51c a call after a claim passed its time'; assert service.claim_signature(repeat('a', 64)) = true, 'T51c the claim past its time was deleted, so its signature can be taken again'; assert service.claim_signature(repeat('b', 64)) = false, 'T51c a claim inside its time stays';
 end $$;
 insert into private.signature_seen (hash, expires_at) select md5(i::text) || md5(i::text || 'x'), now() - interval '100 years' from generate_series(1, 150) i;
-analyze private.signature_seen;   -- statistics on a first run too: without them the unbounded in-subquery cleanup passed T51d by accident (found when the second run, after autovacuum, failed)
 select service.claim_signature(repeat('d', 64));
 select test.expect_error($q$select service.claim_signature('not-a-hash')$q$, 'check constraint');
 do $$ begin
   assert (select count(*) from private.signature_seen where expires_at = now() - interval '100 years') = 50, 'T51d one claim deletes at most 100 old claims (of the test''s own 150)';
   assert (select relrowsecurity from pg_class where oid = 'private.signature_seen'::regclass), 'T51e row level security is on'; assert (select count(*) from pg_policy where polrelid = 'private.signature_seen'::regclass) = 0, 'T51e no policy for any role';
   assert exists (select 1 from pg_indexes where schemaname = 'private' and tablename = 'signature_seen' and indexname = 'signature_seen_expires'), 'T51e the cleanup has its index';
+  assert (select prosrc from pg_proc where oid = 'service.claim_signature(text)'::regprocedure) like '%as materialized%' and (select prosrc from pg_proc where oid = 'service.claim_signature(text)'::regprocedure) not like '%hash in (select%', 'T51e the cleanup keeps its materialized form: the in-subquery form deleted every expired row once the planner stopped hashing it (seen 2026-11-14 after vacuum analyze, not reproducible on a first run)';
   assert not has_function_privilege('anon', 'service.claim_signature(text)', 'execute') and not has_function_privilege('authenticated', 'service.claim_signature(text)', 'execute'), 'T51e closed to anon and authenticated'; assert has_function_privilege('omnikom_fn', 'service.claim_signature(text)', 'execute'), 'T51e the function role runs it';
 end $$;
 set role omnikom_fn; select test.expect_error($q$select count(*) from private.signature_seen$q$, 'permission denied'); select test.expect_error($q$insert into private.signature_seen (hash, expires_at) values (repeat('e', 64), now())$q$, 'permission denied'); reset role;

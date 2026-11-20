@@ -28,9 +28,9 @@ async function send(ctx) {
   if (!isUuid(idempotencyKey)) throw new Usage('--key must be a uuid');
   const body = JSON.stringify({ ...fixture, form: f.form || fixture.form || 'contact', idempotencyKey });
   const target = ctx.target({ needDb: false });
-  const attempts = [];
+  const attempts = [], t0 = ctx.now();   // attempt i is signed at t0 + i: a retry is a new signed second, not a replay (migration 51)
   for (let i = 0; i < (f.retry ? 2 : 1); i++) {
-    const r = await callFunction({ base: target.functionsBase, name: 'capture-lead', query: `?site=${site.id}`, body, identity, key, t: ctx.now() + i, fetchImpl: ctx.fetch });
+    const r = await callFunction({ base: target.functionsBase, name: 'capture-lead', query: `?site=${site.id}`, body, identity, key, t: t0 + i, fetchImpl: ctx.fetch });
     attempts.push({ status: r.status, answer: r.json || r.snippet, ...(r.error ? { error: r.error } : {}) });
   }
   const allOk = attempts.every(a => a.status >= 200 && a.status < 300);

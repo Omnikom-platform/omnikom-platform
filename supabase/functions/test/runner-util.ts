@@ -60,7 +60,7 @@ export async function runnerEvents(fn: string): Promise<number> {
   return await withSql(async sql => {
     // events, not rows (migration 20): n of every bucket of this function; the runner marks its first event's detail kind = 'runner'
     const [r] = await sql`select coalesce(sum(c.n), 0)::int as n from public.security_event_counts c join public.security_events e on e.id = c.event_id
-      where c.kind = 'bad-signature' and c.code = 'SIGNATURE' and c.fn = ${fn} and e.detail ->> 'kind' = 'runner'`;
+      where c.kind = 'bad-signature' and c.code = 'SIGNATURE' and c.fn = ${fn} and (e.detail ->> 'kind' = 'runner' or c.overflow)`;   // an event folded into the minute's overflow bucket (more than 10 sources) has an event row with no detail kind; the bucket still carries code and fn
     return r.n;
   });
 }

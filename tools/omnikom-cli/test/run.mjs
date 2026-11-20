@@ -1503,8 +1503,11 @@ commit;`;
     check('job wait: a finished job that never was in the wanted state is JOB-DONE (exit 1), not a hang', r.exit === 1 && r.json.code === 'JOB-DONE');
 
     // ---- verify --only lead, against the model and against a broken model
-    r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: model });
-    check('verify --only lead: every check PASSes against the function model', r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length === 17 && /^PASS /.test(r.stderr), r.all.slice(0, 600));
+    const sigs = [];   // the signature of every capture-lead post of this run, in order
+    const spied = (u, i) => { if (/capture-lead/.test(String(u))) sigs.push(i.headers['x-site-signature']); return model(u, i); };
+    r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: spied });
+    check('verify: the retry of the same key is signed at another second than the first post (a true replay would prove the claim, not the key)', sigs.length >= 2 && Boolean(sigs[0]) && sigs[0] !== sigs[1], `first ${String(sigs[0]).slice(0, 24)} retry ${String(sigs[1]).slice(0, 24)}`);
+    check('verify --only lead: every check PASSes against the function model',r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length === 17 && /^PASS /.test(r.stderr), r.all.slice(0, 600));
     check('verify: the ledger checks of migration 7 are in the suite and PASS (refused signatures, suspended, consent once, retry adds none)', ['a refused signature that needs the key is recorded once, one that cannot verify costs no database work', 'the paused refusal is recorded once in security_events as suspended', 'an accepted lead has exactly one consent_ledger row', 'a retry adds no consent_ledger row'].every(n => r.json.data.checks.some(c => c.name === n && c.pass)) && /deltas=1,0,0,0/.test(r.stderr), r.stderr.slice(0, 900));
     check('verify: one line per check on stderr, the real status in it', r.stderr.trim().split('\n').length === r.json.data.checks.length && /got 202/.test(r.stderr));
     check('verify: the paused-site check put the site state back and removed its leads', db.query("select state::text from sites where deploy_target = 'test-site-demo-a'") === 'preview' && db.query("select count(*) from leads where page_path = '/omnikom-cli-test'") === '1');

@@ -49,10 +49,11 @@ export async function verify(ctx) {
   const add = (name, expected, status, pass, extra = '') => checks.push({ name, expected, status, pass: Boolean(pass), extra });
 
   let L = lead();
-  let r = await post(L);
+  const t0 = ctx.now();   // one time for the first post, a later second for its retry: the retry is not a replay (migration 51), so it proves the key
+  let r = await post({ ...L, t: t0 });
   add('a signed lead is accepted', '202', r.status, r.status === 202);
   add('an accepted lead has exactly one consent_ledger row', '1 row', r.status, consents(L.idem) === 1, `rows=${consents(L.idem)}`);
-  r = await post({ ...L, t: ctx.now() + 1 });
+  r = await post({ ...L, t: t0 + 1 });
   add('the same idempotency key twice stores one row', '202 and 1 row', r.status, r.status === 202 && rows(L.idem) === 1, `rows=${rows(L.idem)}`);
   add('a retry sends no second alert', 'at most 1 alert row', r.status, alerts(L.idem) <= 1, `alerts=${alerts(L.idem)}`);
   add('a retry adds no consent_ledger row', 'still 1 row', r.status, consents(L.idem) === 1, `rows=${consents(L.idem)}`);

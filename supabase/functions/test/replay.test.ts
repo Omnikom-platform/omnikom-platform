@@ -1,7 +1,7 @@
 // SEC-REPLAY: a verified signature is accepted once (migration 51). Each case sends ONE header twice (callRunner takes the header as given).
 import { handle as exportPublished } from '../export-published/index.ts'; import { handle as jobCallback } from '../job-callback/index.ts';
 import { connect } from '../_shared/db.ts'; import { sign } from '../_shared/signature.ts';
-import { env, eq, securityEvents, teamRows, t, withSql } from './util.ts'; import { callRunner, jobState, startJob } from './runner-util.ts';
+import { env, eq, securityEvents, teamRows, t, withSql } from './util.ts'; import { callRunner, jobState, runnerEvents, startJob } from './runner-util.ts';
 const now = () => Math.floor(Date.now() / 1000), hdr = (method: 'GET' | 'POST', path: string, body: string, at: number) => sign(env('RUNNER_KEY'), method, path, body, at);
 const newJob = async () => await startJob([(await teamRows()).two], [1]);
 const exportWith = (job: string, header: string) => callRunner(exportPublished, 'export-published', { query: `?job=${job}`, header });
@@ -66,6 +66,19 @@ t('replay [SEC-REPLAY] the claim store failing is a 500 and nothing is taken on 
     eq(a.status, 500, 'the claim store is down: ' + a.text);
     eq((await jobState(job)).state, 'queued', 'nothing was read or changed');
   } finally { await rename('claim_signature_off', 'claim_signature'); await finish(job); }
+});
+
+// CI 43663036477: more than 10 anonymous bad-signature buckets in one minute fold the next into an overflow bucket whose event row carries no detail kind, so a counter that joins on it read 0
+t('replay [SEC-REPLAY] the counter of the runner tests still sees a refusal that folded into the overflow bucket of a full minute', async () => {
+  const id = crypto.randomUUID();
+  await withSql(async sql => {
+    for (let i = 0; i < 12; i++) await sql`select service.record_security_event('bad-signature', 'FILL', null, null, null, ${'fill-' + i}, ${{ fn: 'fill' }}::jsonb)`;
+    await sql`delete from public.security_event_counts where kind = 'bad-signature' and code = 'SIGNATURE' and fn = 'export-published' and minute = date_trunc('minute', now())`;
+  });
+  const before = await runnerEvents('export-published');
+  const a = await callRunner(exportPublished, 'export-published', { query: `?job=${id}`, unsigned: true });
+  eq(a.status, 401, 'unsigned: ' + a.text);
+  eq((await runnerEvents('export-published')) - before, 1, 'the refusal is counted although it folded into the overflow bucket');
 });
 
 const claimRows = () => withSql(async sql => (await sql`select count(*)::int as n from private.signature_seen`)[0].n as number);
