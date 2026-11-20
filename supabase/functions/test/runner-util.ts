@@ -15,13 +15,14 @@ export type RunnerOpts = {
   signedBody?: string;               // sign THIS text instead of the body that is sent
   signedPath?: string;               // sign this path (with its query) instead of the one that is called
   prefix?: string;                   // "/functions/v1" as the gateway may present it
+  headers?: Record<string, string>;  // more request headers (cf-connecting-ip)
 };
 
 export async function callRunner(handle: Handle, name: string, o: RunnerOpts = {}): Promise<Answer> {
   const method = o.method ?? 'GET';
   const query = o.query ?? '';
   const text = method === 'POST' ? (o.raw ?? JSON.stringify(o.body ?? {})) : '';
-  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  const headers: Record<string, string> = { 'content-type': 'application/json', ...o.headers };
   if (!o.unsigned) headers['x-runner-signature'] = o.header ?? await sign(o.key ?? env('RUNNER_KEY'), method, o.signedPath ?? `/${name}${query}`, o.signedBody ?? text, o.t ?? freshT());
   const res = await handle(new Request(`http://localhost${o.prefix ?? ''}/${name}${query}`, { method, headers, body: method === 'GET' ? undefined : text }));
   const body = await res.text();

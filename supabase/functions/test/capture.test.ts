@@ -274,10 +274,38 @@ t('capture-lead [SEC] readUpTo cancels the stream on the cut path and only there
   eq(whole.o.ended, true, 'the stream ended by itself');
 });
 
-const signedPost = async (body: unknown) => {   // SEC-REPLAY: the returned function sends the SAME signed request each time
-  const text = JSON.stringify(body), path = `/capture-lead?site=${SITE_A}`, header = await sign(KEY, 'POST', path, text, freshT());
-  return async () => { const r = await handle(new Request(`http://localhost${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': header }, body: text })); return { status: r.status, text: await r.text() }; };
+const signedPost = async (body: unknown, o: { visitor?: string; ip?: string } = {}) => {   // SEC-REPLAY: the returned function sends the SAME signed request each time
+  const text = JSON.stringify(body), path = `/capture-lead?site=${SITE_A}${o.visitor ? `&visitor=${o.visitor}` : ''}`, header = await sign(KEY, 'POST', path, text, freshT());
+  return async () => { const r = await handle(new Request(`http://localhost${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': header, ...(o.ip ? { 'cf-connecting-ip': o.ip } : {}) }, body: text })); return { status: r.status, text: await r.text() }; };
 };
+
+t('capture-lead [SEC-REPLAY] a replayed post is recorded: one lead, the second answer equals the first, and exactly one new REPLAY event that carries the caller\'s address hash', async () => {
+  await seedKey();
+  const name = 'Cap Replay Event ' + crypto.randomUUID().slice(0, 8), ip = '198.51.100.' + (1 + Math.floor(Math.random() * 250));
+  const want = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${SITE_A}:${ip}`))), b => b.toString(16).padStart(2, '0')).join('');
+  const send = await signedPost({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name }, { ip });
+  await withSql(sql => sql`delete from public.security_event_counts where kind = 'bad-signature' and minute = date_trunc('minute', now())`);   // a full minute folds new buckets into an overflow bucket with no address
+  const events = () => withSql(async sql => (await sql`select coalesce(sum(n), 0)::int as n from public.security_event_counts where code = 'REPLAY' and ip_hash = ${want}`)[0].n as number);
+  const first = await send(), before = await events(), second = await send();
+  eq(second.status, first.status, 'same status'); eq(second.text, first.text, 'same body');
+  eq(await events() - before, 1, 'one new REPLAY event for this caller');
+  const [l] = await withSql(sql => sql`select count(*)::int as n from public.leads where name = ${name}`) as { n: number }[];
+  eq(l.n, 1, 'one lead');
+  const [e] = await withSql(sql => sql`select kind, detail ->> 'fn' as fn from public.security_events where code = 'REPLAY' and ip_hash = ${want}`) as { kind: string; fn: string }[];
+  eq(e.kind, 'bad-signature', 'the runner\'s kind'); eq(e.fn, 'capture-lead', 'the function named in the detail');
+});
+
+t('capture-lead [SEC-REPLAY] copies of one post do not spend the visitor\'s hourly limit: replayed past the limit, a NEW honest post of the same visitor is accepted', async () => {
+  await seedKey();
+  const V = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('');
+  const name = 'Cap Replay Visitor ' + crypto.randomUUID().slice(0, 8);
+  const send = await signedPost({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name }, { visitor: V });
+  const limit = await withSql(async sql => (await sql`select private.limit_for(${WS_A}::uuid, 'leads_per_hour_visitor') as v`)[0].v as number);
+  eq(limit, 5, 'the default per-visitor limit');
+  for (let i = 0; i <= limit + 2; i++) { const r = await send(); eq(r.status, 202, 'copy ' + i + ': ' + r.text); }
+  const honest = await post({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name: name + ' honest' }, KEY, V);
+  eq(honest.status, 202, 'a new post of the same visitor: ' + honest.text);
+});
 
 t('capture-lead [SEC-REPLAY] a post sent three times with one signature stores one lead, one consent row and one alert set, and every answer is 202', async () => {
   await seedKey();

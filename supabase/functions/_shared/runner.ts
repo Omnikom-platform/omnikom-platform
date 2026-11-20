@@ -4,7 +4,7 @@
 //   RUNNER_KEY over `METHOD`, the path with its query (the /functions/v1 prefix is never signed) and the body (a GET signs an empty body), within
 //   300 s (signature.ts) -> a bad or missing signature = 401 SIGNATURE and a security event (kind bad-signature, detail kind 'runner') -> a second copy of a verified signature = 401 REPLAY and an event of that code (claimSignature, migration 53) ->
 //   every statement steps down to omnikom_fn (db.ts) -> the registry row of the key is touched (last_used_at) -> a POST body must be a JSON
-//   object (400 BODY) -> the function's own steps -> a refusal from the database becomes its platform code and status -> anything else is a
+//   object (400 BODY; a refused call spends no signature, so the claim above is taken here, after this check, with the address hash in its event) -> the function's own steps -> a refusal from the database becomes its platform code and status -> anything else is a
 //   plain 500 that says nothing about the cause. Every answer is JSON (or 204) and `cache-control: no-store`.
 // A refusal of an authenticated runner (S-JOB-BUSY, S-JOB-STATE, S-NOT-FOUND) is NOT a security event: it is the state machine speaking to a
 // caller that holds the key. Only a call that fails the signature is recorded, because that is somebody else.
@@ -50,16 +50,12 @@ export async function runner(req: Request, o: RunnerOpts, run: (c: RunnerCtx) =>
   let sql: Sql | null = null;
   try {
     sql = await connect();
+    const ip = req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
+    const ipHash = ip ? await sha256Hex(`${o.fn}:${ip}`) : null;
     if (!signed) {
-      const ip = req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
-      const ipHash = ip ? await sha256Hex(`${o.fn}:${ip}`) : null;
       try { await sql`select service.record_security_event('bad-signature', 'SIGNATURE', null, null, null, ${ipHash}, ${{ fn: o.fn, kind: o.keyEnv ? 'cron' : 'runner' }}::jsonb)`; }
       catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
       return problem(401, 'SIGNATURE', 'Not accepted.');
-    }
-    if (!await claimSignature(sql, req.headers.get(o.header ?? 'x-runner-signature'))) {   // a signed call is accepted once (migration 53)
-      try { await sql`select service.record_security_event('bad-signature', 'REPLAY', null, null, null, null, ${{ fn: o.fn, kind: o.keyEnv ? 'cron' : 'runner' }}::jsonb)`; } catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
-      return problem(401, 'REPLAY', 'Not accepted.');
     }
     if (!o.keyEnv) await touchKey(sql, key);   // the registry row is the runner key's; the cron key has none
     let body: Record<string, unknown> = {};
@@ -68,6 +64,10 @@ export async function runner(req: Request, o: RunnerOpts, run: (c: RunnerCtx) =>
       try { parsed = JSON.parse(text); } catch { return problem(400, 'BODY', 'Send the request as JSON.'); }
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return problem(400, 'BODY', 'Send the request as a JSON object.');
       body = parsed as Record<string, unknown>;
+    }
+    if (!await claimSignature(sql, req.headers.get(o.header ?? 'x-runner-signature'))) {   // a signed call is accepted once (migration 53), after its body is accepted, before the work
+      try { await sql`select service.record_security_event('bad-signature', 'REPLAY', null, null, null, ${ipHash}, ${{ fn: o.fn, kind: o.keyEnv ? 'cron' : 'runner' }}::jsonb)`; } catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
+      return problem(401, 'REPLAY', 'Not accepted.');
     }
     try {
       return await run({ sql, fn: o.fn, id, body });

@@ -174,7 +174,7 @@ node factory/runner/media.mjs                                                   
 ## 6. The platform side of the runner (slice 4.3): `supabase/functions/{export-published,job-callback,media-export,media-process-callback}/`
 Every call carries `X-Runner-Signature: t=<unix>,v1=<hex>` (section 5), verified with the function secret `RUNNER_KEY` before anything else; a bad,
 missing or stale (older or newer than 300 s) signature is `401 { code: 'SIGNATURE' }` and one security event (kind bad-signature, detail kind
-runner). Every answer is JSON (or 204) and `cache-control: no-store`; an error body is `{ code, message }`. A refusal of the state machine
+runner); a second copy of a good signature is `401 { code: 'REPLAY' }` (migration 53). Every answer is JSON (or 204) and `cache-control: no-store`; an error body is `{ code, message }`. A refusal of the state machine
 (409, 404) is not a security event. The shared frame is `supabase/functions/_shared/runner.ts`, the Storage signing `_shared/storage.ts`.
 
 | call | answer |

@@ -91,3 +91,39 @@ t('replay [SEC-REPLAY] a signature that does not verify (wrong key, or outside t
   eq(old.status, 401, 'outside the window: ' + old.text); eq(old.json?.code, 'SIGNATURE', 'outside the window: the code');
   eq(await claimRows(), before, 'no claim was taken by a call that did not verify');
 });
+
+// ---- round 2 (five gaps a fresh reviewer found) ----
+const sha = async (s: string) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))), b => b.toString(16).padStart(2, '0')).join('');
+
+t('replay [SEC-REPLAY] the runner frame: the replay event carries the caller\'s address hash (the hash the first call would have had)', async () => {
+  const job = await newJob(), ip = '203.0.113.' + (1 + Math.floor(Math.random() * 250)), want = await sha('export-published:' + ip);
+  const h = await hdr('GET', '/export-published?job=' + job, '', now() + 6), headers = { 'cf-connecting-ip': ip };
+  // more than 10 anonymous buckets of one kind in a minute fold into an overflow bucket with no address (the test above fills it): start this minute empty
+  await withSql(sql => sql`delete from public.security_event_counts where kind = 'bad-signature' and minute = date_trunc('minute', now())`);
+  try {
+    const a = await callRunner(exportPublished, 'export-published', { query: `?job=${job}`, header: h, headers });
+    const b = await callRunner(exportPublished, 'export-published', { query: `?job=${job}`, header: h, headers });
+    eq(a.status, 200, 'first copy: ' + a.text); eq(b.json?.code, 'REPLAY', 'second copy: ' + b.text);
+    const rows = await withSql(sql => sql`select ip_hash from public.security_events where code = 'REPLAY' and ip_hash = ${want}`) as unknown[];
+    eq(rows.length, 1, 'one REPLAY event row carries the hash of the caller');
+  } finally { await finish(job); }
+});
+
+t('replay [SEC-REPLAY] the runner frame: a signed call whose body the frame refuses (400) spends no signature: the same call again is 400 again, never REPLAY, and no claim row is left', async () => {
+  // the signature covers the body, so "the same header with a correct body" cannot be built: the test is that a 400 leaves no claim row
+  const job = await newJob(), body = [1, 2], text = JSON.stringify(body), h = await hdr('POST', '/job-callback', text, now() + 7), before = await claimRows();
+  try {
+    const a = await callRunner(jobCallback, 'job-callback', { method: 'POST', raw: text, header: h });
+    const b = await callRunner(jobCallback, 'job-callback', { method: 'POST', raw: text, header: h });
+    eq(a.status, 400, 'first: ' + a.text); eq(b.status, 400, 'again: ' + b.text); eq(b.json?.code, 'BODY', 'the same refusal, not REPLAY');
+    eq(await claimRows(), before, 'a refused body took no claim');
+  } finally { await finish(job); }
+});
+
+t('replay [SEC-REPLAY] the claim outlives the signature window by at least the window plus a minute: both numbers read from their source files', async () => {
+  const sig = await Deno.readTextFile(new URL('../_shared/signature.ts', import.meta.url));
+  const mig = await Deno.readTextFile(new URL('../../migrations/20261120000053_signature_once.sql', import.meta.url));
+  const win = Number(/const WINDOW_SECONDS = (\d+);/.exec(sig)?.[1]), life = Number(/now\(\) \+ interval '(\d+) minutes'/.exec(mig)?.[1]) * 60;
+  eq(Number.isFinite(win) && win > 0, true, 'the window constant was found'); eq(Number.isFinite(life) && life > 0, true, 'the claim life was found');
+  eq(life >= 2 * win + 60, true, `a signature lives ${2 * win} s (the window each way); its claim must live at least ${2 * win + 60} s, it lives ${life} s`);
+});

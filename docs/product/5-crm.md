@@ -37,7 +37,7 @@ sequenceDiagram
    (the hash is sha256 of the site id and the visitor's address, never the address). After capture-lead answers 429 for a visitor, the function answers that visitor 429 itself for 60 s, from the Cloudflare data center's cache, with no call (row E5-b). Its Pages
    project holds `SITE_ID`, `PLATFORM_BASE` and the secret `SITE_SIGNING_KEY`.
 3. **Signature.** `X-Site-Signature: t=<unix>,v1=<hex>`, HMAC-SHA256 over time, method, path with the site id and the visitor, and body;
-   300 s window. Site A's signature fails on site B. A revoked key fails.
+   300 s window, and a signature is accepted only once (migration 53). Site A's signature fails on site B. A revoked key fails.
 4. **Capture.** `service.capture_lead` takes the workspace from the site, never from the body. Refused: no consent text (400),
    unknown site (404), paused site or suspended workspace (409), over the hourly quota (60 a workspace by default, 429),
    past one visitor's 5 an hour (429).

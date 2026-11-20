@@ -116,8 +116,8 @@ export async function handle(req: Request): Promise<Response> {
   // the visitor: sha256 of "<site id>:<address>" from the site's own endpoint, inside the signed path (product row E5). Absent (an endpoint published before
   // that row) or not 64 lower-case hex: no visitor, so no visitor limit and no stored hash. The security events below keep the caller's own hash (ipHash).
   const v = url.searchParams.get('visitor') ?? '', visitor = VISITOR.test(v) ? v : null;
-  const event = async (kind: string, code: string, workspace: string | null = null) => {
-    try { await sql`select service.record_security_event(${kind}, ${code}, ${workspace}::uuid, ${site}::uuid, null, ${ipHash}, ${{ path: url.pathname }}::jsonb)`; }
+  const event = async (kind: string, code: string, workspace: string | null = null, detail: Record<string, string> = { path: url.pathname }) => {
+    try { await sql`select service.record_security_event(${kind}, ${code}, ${workspace}::uuid, ${site}::uuid, null, ${ipHash}, ${detail}::jsonb)`; }
     catch (e) { console.error('security event not recorded', String(e).slice(0, 200)); }
   };
   try {
@@ -134,16 +134,17 @@ export async function handle(req: Request): Promise<Response> {
     const ua = (req.headers.get('user-agent') ?? '').slice(0, 400) || null;
     let row: { id: string } | undefined;
     try {
-      if (visitor) await sql`select service.count_visitor(${site}::uuid, ${visitor})`;
-      [row] = await sql.begin(async (tx: Sql) => !await claimSignature(tx, header) ? [] : await tx`select service.capture_lead(${site}::uuid, ${L.form}, ${L.page}, ${L.name}, ${L.email}, ${L.phone},
+      // the claim first, then the visitor's count, then the lead, all in one transaction: a copy is stopped at the claim and spends none of the visitor's hour, and a refusal rolls all three back
+      [row] = await sql.begin(async (tx: Sql) => !await claimSignature(tx, header) ? [] : (visitor && await tx`select service.count_visitor(${site}::uuid, ${visitor})`, await tx`select service.capture_lead(${site}::uuid, ${L.form}, ${L.page}, ${L.name}, ${L.email}, ${L.phone},
         ${L.answers}::jsonb, ${L.consentText}, ${L.flow}, ${L.cta}, ${L.marketing}::jsonb,
-        ${L.idempotencyKey}::uuid, ${L.assignee}, ${visitor}, ${ua}) as id`);
+        ${L.idempotencyKey}::uuid, ${L.assignee}, ${visitor}, ${ua}) as id`));
     } catch (e) {
       const r = refusal(String(e));
       if (!r) throw e;
       await event(r.kind, r.code);                                  // the refusal's own transaction rolled back; the record is a call of its own
       return problem(r.status, [{ code: r.code, path: r.path ?? '', msg: r.msg }]);
     }
+    if (!row) await event('bad-signature', 'REPLAY', null, { fn: 'capture-lead', kind: 'site' });   // recorded like the runner's replay; the answer below is the first post's, so a replay is not told from a first post
     if (!row) return new Response(JSON.stringify({ ok: true }), { status: 202, headers: H });   // a copy of a post already taken (migration 53): no second lead, no alert, no key touch; answered as the first was
     await sql`select service.touch_key(${keyId}::uuid)`;
     try { await sql`select service.queue_lead_alert(${site}::uuid, ${row.id}::uuid)`; } catch (e) { console.error('alert not queued', String(e).slice(0, 200)); }

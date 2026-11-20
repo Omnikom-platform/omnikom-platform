@@ -28,7 +28,7 @@ Base URL: `https://<projectRef>.supabase.co/functions/v1` (staging and productio
 Machine-called functions run with `verify_jwt = false` and check their own credential in code first.
 
 **The signature (all `X-*-Signature` headers).** Header value: `t=<unix seconds>,v1=<hex>`. `v1` is HMAC-SHA256 of
-`t`, newline, METHOD, newline, path with query, newline, body. It is accepted for 300 seconds either side of now. The method,
+`t`, newline, METHOD, newline, path with query, newline, body. It is accepted for 300 seconds either side of now, and only once (a second copy is answered 202 for a lead and stores nothing; migration 53). The method,
 path and query are signed, so a signature for one call is useless for another. Code and tests:
 `supabase/functions/_shared/signature.ts`, `signature.test.mjs`. A site's key is its own: one key per site, held as a Worker
 secret and in Vault. It never reaches the browser, a log, a file in a client folder, or this repo.
@@ -113,7 +113,7 @@ and open for W2.4. The 5xx case is not in `openapi.json` yet; add it when `captu
 - The server should store the key with the lead, unique per site. A repeat key answers 202 again and stores nothing.
   **NOT BUILT:** `leads` has no such column and `service.capture_lead` does not take the key. It needs an additive migration
   (W2.4, expand then migrate, `10-DELIVERY.md`). Until then a retry can store a second lead. UNPROVEN.
-- Two other protections already specified: the signature window (300 s) stops a captured request being replayed later; the
+- Two other protections already specified: the signature window (300 s) stops a captured request being replayed later, and a signature is also accepted only once (migration 53); the
   push to the CRM sends `X-Idempotency-Key = lead id` (`07-SPECS.md`), so the CRM does not create a second contact.
 
 ## 3. Content publish and build (the site is the output, not the caller)

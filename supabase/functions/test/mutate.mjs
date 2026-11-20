@@ -453,9 +453,14 @@ const MUTANTS = [
   ['SEC-REPLAY: every signature has one key', F + '_shared/db.ts', 'new TextEncoder().encode(v1)', "new TextEncoder().encode('x')", 'replay.test.ts'],
   ['SEC-REPLAY: capture-lead never claims', F + 'capture-lead/index.ts', '!await claimSignature(tx, header) ? []', 'false ? []', 'capture.test.ts'],
   ['SEC-REPLAY: capture-lead answers a copy 401', F + 'capture-lead/index.ts', 'if (!row) return new Response(JSON.stringify({ ok: true }), { status: 202', 'if (!row) return new Response(JSON.stringify({ ok: true }), { status: 401', 'capture.test.ts'],
-  ['SEC-REPLAY: capture-lead claims outside the lead\'s transaction', F + 'capture-lead/index.ts', [['[row] = await sql.begin(async (tx: Sql) => !await claimSignature(tx, header) ? [] : await tx`', '[row] = !await claimSignature(sql, header) ? [] : await sql.begin(async (tx: Sql) => await tx`']], null, 'capture.test.ts'],
+  ['SEC-REPLAY: capture-lead claims outside the lead\'s transaction', F + 'capture-lead/index.ts', [['[row] = await sql.begin(async (tx: Sql) => !await claimSignature(tx, header) ? [] : (', '[row] = !await claimSignature(sql, header) ? [] : await sql.begin(async (tx: Sql) => (']], null, 'capture.test.ts'],
   ['SEC-REPLAY: the claim store failing is let through', F + '_shared/db.ts', 'const [r] = await sql`select service.claim_signature(${hash}) as ok`;', 'let r = { ok: true }; try { [r] = await sql`select service.claim_signature(${hash}) as ok`; } catch { /* open */ }', 'replay.test.ts'],
   ['SEC-REPLAY: the frame claims a signature it refused', F + '_shared/runner.ts', "return problem(401, 'SIGNATURE', 'Not accepted.');", "await claimSignature(sql, req.headers.get(o.header ?? 'x-runner-signature')); return problem(401, 'SIGNATURE', 'Not accepted.');", 'replay.test.ts'],
+  ['SEC-REPLAY: a replayed lead post leaves no event', F + 'capture-lead/index.ts', 'if (!row) await event(', 'if (false) await event(', 'capture.test.ts'],
+  ['SEC-REPLAY: a copy spends the visitor\'s hour (counted before the claim)', F + 'capture-lead/index.ts', [['!await claimSignature(tx, header) ? []', '!(visitor && await tx`select service.count_visitor(${site}::uuid, ${visitor})`, await claimSignature(tx, header)) ? []'], ['(visitor && await tx`select service.count_visitor(${site}::uuid, ${visitor})`, await tx`select service.capture_lead(', '(await tx`select service.capture_lead(']], null, 'capture.test.ts'],
+  ['SEC-REPLAY: the runner\'s replay event has no address hash', F + '_shared/runner.ts', "'REPLAY', null, null, null, ${ipHash}", "'REPLAY', null, null, null, null", 'replay.test.ts'],
+  ['SEC-REPLAY: the frame claims a signature before it refuses the body', F + '_shared/runner.ts', "return problem(400, 'BODY', 'Send the request as a JSON object.');", "{ await claimSignature(sql, req.headers.get(o.header ?? 'x-runner-signature')); return problem(400, 'BODY', 'Send the request as a JSON object.'); }", 'replay.test.ts'],
+  ['SEC-REPLAY: the signature window is raised past the claim\'s life', F + '_shared/signature.ts', 'const WINDOW_SECONDS = 300;', 'const WINDOW_SECONDS = 600;', 'replay.test.ts'],
   ['SEC-REPLAY: capture-lead claims a signature it refused', F + 'capture-lead/index.ts', "if (!keyId) { await event('bad-signature', 'SIGNATURE');", "if (!keyId) { await claimSignature(sql, header); await event('bad-signature', 'SIGNATURE');", 'capture.test.ts'],
 ];
 
@@ -473,6 +478,7 @@ mkdirSync(join(work, 'tools'));
 symlinkSync(join(REPO, 'tools', 'crm-map'), join(work, 'tools', 'crm-map'), 'junction');   // work order 02: _shared/crm-map.ts imports tools/crm-map
 mkdirSync(join(work, 'tools', 'audit'));
 symlinkSync(join(REPO, 'tools', 'audit', 'metrics'), join(work, 'tools', 'audit', 'metrics'), 'junction');   // work order 44: _shared/metrics.ts imports tools/audit/metrics
+symlinkSync(join(REPO, 'supabase', 'migrations'), join(work, 'supabase', 'migrations'), 'junction');   // SEC-REPLAY: replay.test.ts reads the claim's life from migration 53
 cpSync(join(REPO, 'deno.json'), join(work, 'deno.json'));
 const testDir = join(work, 'supabase', 'functions', 'test');
 
