@@ -1,0 +1,49 @@
+{
+  "skill_name": "site-legal",
+  "evals": [
+    {
+      "id": 1,
+      "name": "ca-brokerage-two-missing-facts",
+      "prompt": "Draft the legal pages and the lead-form consent line for TEST Harbor Street Realty (made-up) from skills/site-legal/examples/test-harbor-street/facts.json. Put them next to the facts file.",
+      "files": ["skills/site-legal/examples/test-harbor-street/facts.json"],
+      "expected_output": "Six Markdown pages and summary.json; the brokerage licence number and the privacy mailing address are MISSING markers and questions, never filled.",
+      "assertions": [
+        "every .md output starts with the 'DRAFT - not legal advice' box",
+        "the text '[MISSING: licences[0].number' appears in industry-lines.md and the field is in summary.json missing_facts",
+        "the text '[MISSING: privacy_contact.mailing_address' appears in privacy-policy.md or privacy-choices.md and the field is in summary.json missing_facts",
+        "no output contains a California DRE licence number other than the test value TEST-00000001",
+        "the office address is not used as the privacy mailing address",
+        "every footnote id used in a page has a definition naming a rule id that exists in references/ with a URL and a read date",
+        "summary.json decisions answer D1 (CCPA) as does-not-apply with the revenue and selling/sharing facts named",
+        "privacy-choices.md states the 45-day answer and one 45-day extension as the business's own promise, not as California law (offer_to_everyone, CCPA not applicable)",
+        "form-consent.md names the business, says automated technology, says consent is not a condition of buying, and says Reply STOP",
+        "form-consent.md footnotes 'Message and data rates may apply' and the frequency to US-CTIA-MESSAGING as an industry code, not a law",
+        "privacy-choices.md offers see, delete, correct and an opt-out request (worded as stopping marketing contact, since nothing is sold or shared) and has an in-progress message",
+        "summary.json missing_facts holds exactly the two deliberate gaps; anything else a page needed is in schema_gaps"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "insurance-agency-with-ad-pixel-escalates",
+      "prompt": "We're putting up a site for a small California insurance agency. They have a Meta pixel running for retargeting and the quote form asks for date of birth and health conditions for life quotes. Can you do the privacy policy, cookie banner and the consent text under the quote form? Their facts are in clients/test-insurance/facts.json (make one marked as a test if it isn't there).",
+      "files": [],
+      "expected_output": "Escalations listed for the lawyer (sharing for ads via the pixel; health data; GLBA exemption question); CCPA undecided or applies via sharing count, never 'we do not sell or share'; drafts still produced for the rest.",
+      "assertions": [
+        "summary.json escalations names the ad pixel as possible sharing, the health data as sensitive, and the financial-data exemption question",
+        "no page says the agency does not sell or share personal information",
+        "the cookie notice does not treat a banner alone as the opt-out of sale or sharing",
+        "the licence number line is marked [CHECK: ...] for website wording or [MISSING: ...] if no number is given"
+      ]
+    }
+  ],
+  "trigger_queries": [
+    { "query": "can you write the privacy policy and terms for the harbor street realty site before we send the preview to Jordan", "should_trigger": true },
+    { "query": "what should the little text under the contact form say so we're ok to text people back", "should_trigger": true },
+    { "query": "we need a 'your privacy choices' page with a delete-my-data request form for the insurance client in fresno", "should_trigger": true },
+    { "query": "footer links for the new client site: privacy, terms, cookies, plus the DRE number line", "should_trigger": true },
+    { "query": "review this vendor DPA from our SMS provider and tell me what to push back on", "should_trigger": false },
+    { "query": "someone emailed asking us to delete their data under CCPA, draft the reply to them", "should_trigger": false },
+    { "query": "triage this NDA from the brokerage that wants to partner with us", "should_trigger": false },
+    { "query": "audit the site for SEO and tell me why it isn't ranking for homes for sale in rocklin", "should_trigger": false }
+  ]
+}

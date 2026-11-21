@@ -1,0 +1,260 @@
+{
+  "skill": "site-legal",
+  "skill_rules_checked_on": "2026-11-21",
+  "drafted_on": "2026-11-21",
+  "test": true,
+  "business": {
+    "legal_name": "TEST Harbor Street Realty, Inc. (made-up)",
+    "public_name": "TEST Harbor Street Realty (made-up)",
+    "website": "https://harbor-street-test.example"
+  },
+  "facts_file": "skills/site-legal/examples/test-harbor-street/facts.json",
+  "status": "DRAFT - for a licensed lawyer's read; not legal advice",
+  "rules_freshness": "Every rule file says 'checked on 2026-11-21', the day of this run, so none is older than 6 months. Dates inside the rules: the CCPA revenue figure must be re-read after 2026-12-31 (D1 uses it today); FCC Order 26-67 becomes effective about 2026-11-25 by calculation (not yet passed, UNCONFIRMED as a stated date). Nothing was re-read on the web in this run.",
+  "official_plugin": "NOT AVAILABLE in this session: the official legal plugin (1.3.0) is not installed here, so compliance-check was NOT RUN on these drafts and legal-risk-assessment was NOT RUN (no escalations to assess). Install it (README.md) and run compliance-check on this file and the six drafts; any difference goes into the open questions, never over a sourced rule.",
+  "pages": [
+    { "file": "privacy-policy.md", "route": "/privacy", "missing": 4, "check": 4 },
+    { "file": "terms-of-use.md", "route": "/terms", "missing": 0, "check": 4 },
+    { "file": "cookie-notice.md", "route": "/cookies (and the map's click-to-load line and the Cookie settings panel)", "missing": 0, "check": 2 },
+    { "file": "privacy-choices.md", "route": "/privacy-choices (page, request form, emails and texts)", "missing": 1, "check": 3 },
+    { "file": "form-consent.md", "route": "under the contact form and the home-value form", "missing": 2, "check": 1 },
+    { "file": "industry-lines.md", "route": "footer, about page, team pages, listing pages", "missing": 2, "check": 4 }
+  ],
+  "decisions": [
+    {
+      "id": "D0",
+      "question": "Escalations?",
+      "answer": "does-not-apply",
+      "reason": "No escalation trigger is true: sensitive_data is empty, sells_personal_info and shares_for_cross_context_ads are false, no children, real estate (not a lender or insurer), no customers outside the US, no prerecorded or AI voice, and an automated texting platform is used WITH a signed tick-box consent flow. The lawyer questions below are not escalations.",
+      "facts_used": ["sensitive_data", "sells_personal_info", "shares_for_cross_context_ads", "children", "industry", "business.customers_outside_us", "after_form.prerecorded_or_ai_voice"],
+      "rules": []
+    },
+    {
+      "id": "D1",
+      "question": "Does the CCPA apply?",
+      "answer": "does-not-apply",
+      "reason": "Revenue band 'under 10,000,000' is below the $26,625,000 threshold; nothing is bought, sold or shared (sells false, shares false), so the 100,000-consumer test is at 0 (the client's 1,800 estimate is far below it anyway); 0% of revenue comes from selling or sharing. Caveat for the lawyer: the Google map is a third-party recipient (see questions).",
+      "facts_used": ["size.annual_gross_revenue_usd", "size.california_consumers_per_year", "size.revenue_share_from_selling_or_sharing_data", "sells_personal_info", "shares_for_cross_context_ads"],
+      "rules": ["CA-CCPA-THRESHOLD", "CA-CCPA-SHARING-ADS"]
+    },
+    {
+      "id": "D1a",
+      "question": "Is part of the data exempt as financial data?",
+      "answer": "does-not-apply",
+      "reason": "industry is real-estate, not insurance, mortgage or finance. The CCPA is not judged to apply at all (D1), and no exemption is stated on any page.",
+      "facts_used": ["industry"],
+      "rules": ["CA-CCPA-GLBA-EXEMPT", "CA-CCPA-INSURANCE"]
+    },
+    {
+      "id": "D2",
+      "question": "Does CalOPPA apply?",
+      "answer": "applies",
+      "reason": "states_served is California and the site has lead forms that collect personal details from California residents.",
+      "facts_used": ["business.states_served", "collects"],
+      "rules": ["CA-CALOPPA-CONTENT"]
+    },
+    {
+      "id": "D3",
+      "question": "Does another state's privacy law apply?",
+      "answer": "does-not-apply",
+      "reason": "states_served lists California only, so no other state's entry was needed.",
+      "facts_used": ["business.states_served", "size.residents_per_year_by_state", "size.sba_small_business"],
+      "rules": []
+    },
+    {
+      "id": "D4",
+      "question": "Do we need opt-out links and the GPC paragraph?",
+      "answer": "does-not-apply",
+      "reason": "D1 does not apply, and nothing is sold or shared. The pages still state what the site does with Global Privacy Control and Do Not Track (both false in the facts).",
+      "facts_used": ["sells_personal_info", "shares_for_cross_context_ads", "sensitive_data", "honors_global_privacy_control", "honors_do_not_track"],
+      "rules": ["CA-CCPA-OPTOUT-LINK", "CA-CCPA-GPC", "CA-CCPA-OPTOUT-15", "CA-CCPA-COOKIE-BANNER"]
+    },
+    {
+      "id": "D5",
+      "question": "Which request rules does the privacy-choices page state?",
+      "answer": "applies",
+      "reason": "D1 does not apply but privacy_request_handling.offer_to_everyone is true: the see, delete, correct and opt-out requests, the 10-business-day confirmation, the 45-day answer and one 45-day extension are written as the business's own promise ('we offer'), each footnote ending 'Modelled on; the business's own promise'. The opt-out is worded as stopping marketing calls, texts and emails.",
+      "facts_used": ["privacy_request_handling.offer_to_everyone", "privacy_request_handling.verification_method"],
+      "rules": ["CA-CCPA-RIGHTS", "CA-CCPA-TIMELINE", "CA-CCPA-METHODS", "CA-CCPA-VERIFY", "CA-CCPA-AGENTS", "CA-CCPA-NONDISCRIMINATION"]
+    },
+    {
+      "id": "D6",
+      "question": "Shine the Light?",
+      "answer": "does-not-apply",
+      "reason": "9 employees (under 20), and no recipient gets details for its own marketing.",
+      "facts_used": ["size.employees", "recipients[].role"],
+      "rules": ["CA-SHINE-THE-LIGHT"]
+    },
+    {
+      "id": "D7",
+      "question": "Children?",
+      "answer": "does-not-apply",
+      "reason": "Not directed to children under 13 and no knowing collection under 16, so the general-audience line is used; no escalation.",
+      "facts_used": ["children.directed_to_children_under_13", "children.knowingly_collects_under_16", "children.action_on_discovery"],
+      "rules": ["US-COPPA-SCOPE", "CA-CCPA-MINORS"]
+    },
+    {
+      "id": "D8",
+      "question": "Calls and texts consent?",
+      "answer": "applies",
+      "reason": "Calls and texts follow the form and go through an automated texting platform; prerecorded or AI voice is false. The full prior-express-written-consent line is written for calls and texts.",
+      "facts_used": ["after_form.calls", "after_form.texts", "after_form.automated_dialing_or_texting_platform", "after_form.prerecorded_or_ai_voice", "after_form.stop_keyword_works", "after_form.text_frequency", "after_form.text_sender_number"],
+      "rules": ["US-TCPA-PEWC", "US-TCPA-TEXTS-ARE-CALLS", "US-TCPA-REVOCATION", "US-TCPA-HOURS-DNC", "US-TCPA-ONE-TO-ONE", "US-CTIA-MESSAGING"]
+    },
+    {
+      "id": "D9",
+      "question": "Marketing email?",
+      "answer": "applies",
+      "reason": "marketing_email is true (TEST MailCo, unsubscribe link and postal address in every email). The postal address itself is missing (privacy_contact.mailing_address).",
+      "facts_used": ["after_form.marketing_email", "after_form.marketing_email_service", "after_form.unsubscribe_link_in_every_email", "after_form.postal_address_in_every_email", "privacy_contact.mailing_address"],
+      "rules": ["US-CANSPAM"]
+    },
+    {
+      "id": "D10",
+      "question": "Cookie banner?",
+      "answer": "does-not-apply",
+      "reason": "Cloudflare Web Analytics sets no cookies; the Google map sets non-essential cookies but loads only after consent and is not an ad tracker. So: a short notice with a 'Cookie settings' link and the map's click-to-load line, no site-wide banner. US law read here does not require opt-in for these (lawyer to confirm).",
+      "facts_used": ["trackers_on_build", "build.cookie_settings_available", "build.map_loads_only_after_consent"],
+      "rules": ["CA-CCPA-COOKIE-BANNER", "CA-CALOPPA-CONTENT"]
+    },
+    {
+      "id": "D11",
+      "question": "Industry lines?",
+      "answer": "applies",
+      "reason": "Real estate in California: DRE licence and broker lines, Fair Housing and Equal Housing lines, listing and estimate disclaimers.",
+      "facts_used": ["industry", "licences", "business.states_served", "terms.content_disclaimers"],
+      "rules": ["CA-DRE-FIRST-CONTACT", "CA-DRE-DESIGNATION", "US-FHA-ADVERTISING", "US-FHA-LOGO"]
+    },
+    {
+      "id": "D12",
+      "question": "Truthfulness of the policy itself",
+      "answer": "applies",
+      "reason": "Every statement of practice in the pages comes from a fact in the file. Where a practice is not in the file, the page carries a marker instead.",
+      "facts_used": ["all"],
+      "rules": ["US-FTC-PRIVACY-PROMISES"]
+    }
+  ],
+  "laws_applied": [
+    { "law": "California Consumer Privacy Act (CCPA/CPRA)", "answer": "does-not-apply", "decision": "D1" },
+    { "law": "California Online Privacy Protection Act (CalOPPA)", "answer": "applies", "decision": "D2" },
+    { "law": "Other states' privacy laws", "answer": "does-not-apply", "decision": "D3" },
+    { "law": "California Shine the Light", "answer": "does-not-apply", "decision": "D6" },
+    { "law": "COPPA (general-audience line only)", "answer": "does-not-apply", "decision": "D7" },
+    { "law": "TCPA (calls and texts)", "answer": "applies", "decision": "D8" },
+    { "law": "CAN-SPAM", "answer": "applies", "decision": "D9" },
+    { "law": "California DRE advertising rules and the federal Fair Housing Act", "answer": "applies", "decision": "D11" },
+    { "law": "FTC Act, privacy promises", "answer": "applies", "decision": "D12" }
+  ],
+  "facts_used": [
+    { "field": "business.legal_name", "value": "TEST Harbor Street Realty, Inc. (made-up)", "source": "made-up for the test" },
+    { "field": "business.public_name", "value": "TEST Harbor Street Realty (made-up)", "source": "no source needed" },
+    { "field": "business.entity_type / formed_in_state", "value": "California corporation / California", "source": "made-up for the test" },
+    { "field": "business.office_address", "value": "100 Test Harbor Street, Suite 2, Exampleville, CA 00000 (made-up)", "source": "made-up for the test" },
+    { "field": "business.phone / general_email / website", "value": "(555) 010-0100 / hello@harbor-street-test.example / https://harbor-street-test.example", "source": "no source needed" },
+    { "field": "licences[1].number", "value": "TEST-00000001", "source": "made-up for the test (a real run: DRE public licence lookup, URL and date)" },
+    { "field": "privacy_contact.email / toll_free_phone / web_form", "value": "privacy@harbor-street-test.example / (800) 555-0100 / https://harbor-street-test.example/privacy-choices", "source": "no source needed" },
+    { "field": "size.annual_gross_revenue_usd", "value": "under 10,000,000 (client's band for 2025)", "source": "made-up for the test (a real run: the client's signed answer)" },
+    { "field": "size.california_consumers_per_year", "value": 1800, "source": "client's estimate" },
+    { "field": "size.employees", "value": 9, "source": "no source needed" },
+    { "field": "collects[0-2]", "value": "contact and home-value form details; call, text and email notes; visit data", "source": "the facts file (no source needed)" },
+    { "field": "recipients[0-6]", "value": "Omnikom, Cloudflare, Supabase, Resend, TEST TextCo, Google, TEST MailCo", "source": "docs/product/2-architecture.md for the first four; made-up for the test for the rest" },
+    { "field": "sells_personal_info / shares_for_cross_context_ads", "value": "false / false", "source": "made-up for the test (a real run: the client's signed answer plus the build scan)" },
+    { "field": "trackers_on_build", "value": "Cloudflare Web Analytics (no cookies); Google Maps embed (cookies)", "source": "build scan, scanned_on 2026-11-21 (made-up scan); docs/product/7-sites.md for Cloudflare" },
+    { "field": "honors_global_privacy_control / honors_do_not_track", "value": "false / false", "source": "made-up for the test (a real run: the build check)" },
+    { "field": "security_measures", "value": "HTTPS only; only the business's team can sign in to the lead inbox", "source": "made-up for the test" },
+    { "field": "after_form.*", "value": "calls, texts, automated platform, no prerecorded voice, marketing email via TEST MailCo, STOP works, up to 4 texts a month, from (555) 010-0199, unsubscribe link and postal address in every email", "source": "made-up for the test where a source is needed" },
+    { "field": "children.*", "value": "not directed to under 13; no knowing collection under 16; delete on discovery", "source": "no source needed" },
+    { "field": "terms.*", "value": "California law; courts in Example County, California (made-up); two disclaimers", "source": "no source needed (disputes is a lawyer's choice)" },
+    { "field": "privacy_request_handling.*", "value": "offer to everyone; 6-digit code; Dana Example (made-up) handles; secure link for 7 days; purchase, sale and lease records kept after delete", "source": "made-up for the test (a real run: the client, reasons confirmed by the lawyer)" },
+    { "field": "build.cookie_settings_available / map_loads_only_after_consent", "value": "true / true", "source": "made-up for the test (a real run: the build check)" }
+  ],
+  "missing_facts": [
+    {
+      "field": "licences[0].number",
+      "pages": ["industry-lines.md"],
+      "question": "What is the brokerage's California DRE corporation licence number, from the DRE public licence lookup?",
+      "client_topic": "Regulated identity"
+    },
+    {
+      "field": "privacy_contact.mailing_address",
+      "pages": ["privacy-policy.md", "privacy-choices.md"],
+      "question": "Which postal address receives privacy requests and goes in the marketing emails? (The office address is not used unless the client says so.)",
+      "client_topic": "Legal sign-off"
+    }
+  ],
+  "schema_gaps": [
+    { "field": "privacy.material_change_notice", "pages": ["privacy-policy.md"], "why": "CalOPPA asks the policy to say how visitors are told of material changes; the facts template has no field for it" },
+    { "field": "collects[] rows for the consent record and the privacy-request record", "pages": ["privacy-policy.md"], "why": "the platform stores the consent wording, time, hashed IP address and browser with each lead (consent_ledger, docs/product/3-database.md) and the details of each privacy request; collects[] has no row for either, and the policy must say what is kept and for how long" },
+    { "field": "after_form.help_keyword_works (and the HELP contact)", "pages": ["form-consent.md"], "why": "the carriers' code asks for HELP; only stop_keyword_works has a field, so 'Reply HELP' cannot be stated as a practice" },
+    { "field": "team[] (agents named on the site and each one's DRE licence number)", "pages": ["industry-lines.md"], "why": "the DRE rule puts each named agent's number beside the name; licences[] lists only the brokerage and the broker-officer" },
+    { "field": "business.fictitious_name_licensed (and any team name)", "pages": ["industry-lines.md"], "why": "the website name differs from the licence name by ', Inc.'; the DRE's fictitious-name rules were not researched" },
+    { "field": "forms[] (each lead form's real fields and button text)", "pages": ["privacy-policy.md", "form-consent.md"], "why": "collects[] gives one set of fields for two forms; a home-value form may ask for more; facts.md calls these 'the build's check' but the template has no field" },
+    { "field": "terms.content_owner", "pages": ["terms-of-use.md"], "why": "the 'Our content' section says who owns the text, photos and design; the facts do not say" },
+    { "field": "privacy_request_handling.opt_out_scope", "pages": ["privacy-choices.md"], "why": "whether a Stop marketing request also ends contact about a purchase or sale already in progress" },
+    { "field": "trackers_on_build[].operator and build.visit_counting_switchable", "pages": ["cookie-notice.md"], "why": "the notice's 'Run by' column and the settings panel need them; the 'Run by' value was read from the tracker name" }
+  ],
+  "check_facts": [
+    { "field": "licences[0] (holder, kind, name_on_licence)", "why": "given with no source entry; the number is null; the name is to be matched against the DRE record" },
+    { "field": "licences[1].number", "why": "the only source is 'made-up for the test', not a dated public lookup; accepted for the test, a real run needs the DRE lookup. TEST-00000001 is also not an eight-digit DRE number." },
+    { "field": "collects[2].kept_for", "why": "'as set by Cloudflare' is not a period; used word for word" },
+    { "field": "collects[0].what", "why": "one set of fields for both forms; the home-value form's fields are not confirmed" },
+    { "field": "records_kept_after_delete", "why": "the facts themselves say the lawyer confirms the legal reason and how long" }
+  ],
+  "questions": [
+    { "to": "client", "topic": "Regulated identity", "question": "What is the brokerage's California DRE corporation licence number? (Our research task first: the DRE public lookup.)", "fact": "licences[0].number" },
+    { "to": "client", "topic": "Legal sign-off", "question": "Which postal address should receive privacy requests and appear in every marketing email?", "fact": "privacy_contact.mailing_address" },
+    { "to": "build", "question": "Which fields do the contact form and the home-value form really collect, and what are their button names?", "fact": "forms[]" },
+    { "to": "build", "question": "Does replying HELP get an automatic reply, and what contact does it give?", "fact": "after_form.help_keyword_works" },
+    { "to": "build", "question": "What does the platform keep for a consent record and a privacy request, and for how long?", "fact": "collects[]" },
+    { "to": "build", "question": "How long does Cloudflare Web Analytics keep visit data, as a period? Can visit counting be switched off?", "fact": "collects[2].kept_for" },
+    { "to": "build", "question": "Where does a requester enter the 6-digit code, and what happens when a requester gives only a phone number for a 'See my details' request (the copy goes by email)?", "fact": "privacy_request_handling.verification_method" },
+    { "to": "lawyer", "question": "Confirm the CCPA does not apply (revenue band, nothing sold or shared), and that the Google map, which receives the visitor's IP address and sets cookies, is neither a sale nor sharing.", "decision": "D1" },
+    { "to": "lawyer", "question": "Wording of the CalOPPA paragraph about other parties collecting activity across websites, given the Google map.", "decision": "D2" },
+    { "to": "lawyer", "question": "Is TEST TextCo (made-up) an automatic telephone dialing system, are the calls and texts marketing, and is a tick box plus the Send button enough as the signature?", "decision": "D8" },
+    { "to": "lawyer", "question": "What records may be kept after a delete request, the legal reason and the period? Does a Stop marketing request end contact about a deal in progress?", "decision": "D5" },
+    { "to": "lawyer", "question": "Confirm no cookie banner is required for a non-essential, consent-gated map cookie.", "decision": "D10" },
+    { "to": "lawyer", "question": "Terms: no-agreement wording, limits of liability, courts in Example County (made-up), ownership of content.", "decision": "D11" },
+    { "to": "lawyer", "question": "Fair Housing wording, California's extra protected classes, the Equal Housing logo, and whether 'TEST Harbor Street Realty (made-up)' needs a licensed fictitious business name.", "decision": "D11" },
+    { "to": "lawyer", "question": "Whether to name a complaint route in the refused message, now that the CCPA is not judged to apply.", "decision": "D5" }
+  ],
+  "escalations": [],
+  "rules_cited": [
+    { "id": "CA-CCPA-THRESHOLD", "url": "https://cppa.ca.gov/pdf/20260101_ccpa_statute.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "figure adjusted 2025-01-01; re-read https://cppa.ca.gov/regulations/cpi_adjustment.html after 2026-12-31" },
+    { "id": "CA-CCPA-SHARING-ADS", "url": "https://cppa.ca.gov/pdf/20260101_ccpa_statute.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "definitions and the Attorney General's position only" },
+    { "id": "CA-CCPA-GLBA-EXEMPT", "url": "https://cppa.ca.gov/pdf/20260101_ccpa_statute.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "text only; not used on a page" },
+    { "id": "CA-CCPA-INSURANCE", "url": "https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "not used on a page" },
+    { "id": "CA-CCPA-RIGHTS", "url": "https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "modelled on; the business's own promise" },
+    { "id": "CA-CCPA-NOTICE-AT-COLLECTION", "url": "https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "modelled on; not required (D1)" },
+    { "id": "CA-CCPA-METHODS", "url": "https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "modelled on; the business's own promise" },
+    { "id": "CA-CCPA-TIMELINE", "url": "https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "modelled on; the business's own promise" },
+    { "id": "CA-CCPA-OPTOUT-15", "url": "https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "not used on a page (nothing sold or shared)" },
+    { "id": "CA-CCPA-VERIFY", "url": "https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "7060 only; 7061-7062 details UNCONFIRMED; modelled on" },
+    { "id": "CA-CCPA-AGENTS", "url": "https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "modelled on; the business's own promise" },
+    { "id": "CA-CCPA-OPTOUT-LINK", "url": "https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "not used on a page (D4)" },
+    { "id": "CA-CCPA-GPC", "url": "https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "CPPA proposed text of 2026-10-08 is PROPOSED ONLY" },
+    { "id": "CA-CCPA-COOKIE-BANNER", "url": "https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "not used on a page (D4, D10)" },
+    { "id": "CA-CCPA-NONDISCRIMINATION", "url": "https://cppa.ca.gov/pdf/20260101_ccpa_statute.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "modelled on; the business's own promise" },
+    { "id": "CA-CCPA-MINORS", "url": "https://cppa.ca.gov/pdf/20260101_ccpa_statute.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "not used on a page (D7)" },
+    { "id": "CA-CALOPPA-CONTENT", "url": "https://www.leginfo.ca.gov/pub/13-14/bill/asm/ab_0351-0400/ab_370_bill_20130927_chaptered.htm", "read_on": "2026-11-21", "status": "UNCONFIRMED", "note": "CONFIRMED for the 2013 text; UNCONFIRMED that 22575 is unchanged since" },
+    { "id": "CA-SHINE-THE-LIGHT", "url": "https://leginfo.ca.gov/pub/03-04/bill/sen/sb_0001-0050/sb_27_bill_20030925_chaptered.pdf", "read_on": "2026-11-21", "status": "UNCONFIRMED", "note": "2003 text only; not used on a page (D6)" },
+    { "id": "US-COPPA-SCOPE", "url": "https://www.ecfr.gov/api/renderer/v1/content/enhanced/current/title-16?part=312&section=312.3", "read_on": "2026-11-21", "status": "CONFIRMED" },
+    { "id": "US-TCPA-PEWC", "url": "https://www.ecfr.gov/api/renderer/v1/content/enhanced/current/title-47?part=64&section=64.1200", "read_on": "2026-11-21", "status": "CONFIRMED" },
+    { "id": "US-TCPA-TEXTS-ARE-CALLS", "url": "https://docs.fcc.gov/public/attachments/FCC-23-107A1.txt", "read_on": "2026-11-21", "status": "CONFIRMED" },
+    { "id": "US-TCPA-ONE-TO-ONE", "url": "https://docs.fcc.gov/public/attachments/DA-25-621A1.txt", "read_on": "2026-11-21", "status": "CONFIRMED" },
+    { "id": "US-TCPA-REVOCATION", "url": "https://docs.fcc.gov/public/attachments/FCC-26-67A1.txt", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "effective date of FCC 26-67 (2026-11-25 by calculation) UNCONFIRMED as a stated date" },
+    { "id": "US-TCPA-HOURS-DNC", "url": "https://www.ecfr.gov/api/renderer/v1/content/enhanced/current/title-47?part=64&section=64.1200", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "operating note, not page text; the (f)(5) 18-month rule UNCONFIRMED in exact words" },
+    { "id": "US-CANSPAM", "url": "https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business", "read_on": "2026-11-21", "status": "CONFIRMED" },
+    { "id": "US-FTC-PRIVACY-PROMISES", "url": "https://www.ftc.gov/business-guidance/privacy-security", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "15 USC 45 itself not opened; the reason no practice is stated without a fact" },
+    { "id": "US-CTIA-MESSAGING", "url": "https://api.ctia.org/wp-content/uploads/2023/05/230523-CTIA-Messaging-Principles-and-Best-Practices-FINAL.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "an industry code, NOT a law" },
+    { "id": "CA-DRE-FIRST-CONTACT", "url": "https://www.dre.ca.gov/files/pdf/relaw/WhatsNew/Title%2010%20Calif%20Code%20of%20Regulations%20Section%202773%20(AMENDED%20TEXT)%203-28-2019.pdf", "read_on": "2026-11-21", "status": "UNCONFIRMED", "note": "CONFIRMED for the 2019 text; UNCONFIRMED that sec. 2773 is unchanged since" },
+    { "id": "CA-DRE-DESIGNATION", "url": "https://dre.ca.gov/files/pdf/forms/re559.pdf", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "team-name and fictitious-name rules UNCONFIRMED" },
+    { "id": "US-FHA-ADVERTISING", "url": "https://www.law.cornell.edu/uscode/text/42/3604", "read_on": "2026-11-21", "status": "CONFIRMED", "note": "California's extra protected classes UNCONFIRMED" },
+    { "id": "US-FHA-LOGO", "url": "https://www.ecfr.gov/api/renderer/v1/content/enhanced/current/title-24?part=110", "read_on": "2026-11-21", "status": "UNCONFIRMED", "note": "poster and HUD withdrawal CONFIRMED; any website-logo requirement UNCONFIRMED" }
+  ],
+  "next_steps": [
+    "Run the official legal plugin's compliance-check on these drafts and summary.json (plugin not installed in this session)",
+    "Client answers the two questions (DRE corporation licence number: DRE lookup first; privacy mailing address); the build answers its questions; re-run the skill",
+    "Licensed lawyer reads and approves; client's sign-off person (Jordan Example (made-up), designated broker-officer) approves",
+    "Site builder removes the review box and notes, refuses any page with [MISSING or [CHECK"
+  ]
+}

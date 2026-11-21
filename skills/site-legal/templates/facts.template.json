@@ -1,0 +1,87 @@
+{
+  "test": false,
+  "facts_version": 1,
+  "prepared_on": null,
+  "business": {
+    "legal_name": null,
+    "public_name": null,
+    "entity_type": null,
+    "formed_in_state": null,
+    "website": null,
+    "office_address": null,
+    "phone": null,
+    "general_email": null,
+    "states_served": [],
+    "customers_outside_us": null
+  },
+  "industry": null,
+  "licences": [
+    { "holder": null, "name_on_licence": null, "role": null, "kind": null, "state": null, "number": null }
+  ],
+  "privacy_contact": {
+    "email": null,
+    "mailing_address": null,
+    "toll_free_phone": null,
+    "web_form": null,
+    "sign_off_person": null
+  },
+  "size": {
+    "annual_gross_revenue_usd": null,
+    "california_consumers_per_year": null,
+    "residents_per_year_by_state": {},
+    "revenue_share_from_selling_or_sharing_data": null,
+    "employees": null,
+    "sba_small_business": null
+  },
+  "collects": [
+    { "what": null, "from": null, "why": null, "kept_for": null }
+  ],
+  "sensitive_data": [],
+  "recipients": [
+    { "who": null, "role": null, "gets": null, "why": null }
+  ],
+  "sells_personal_info": null,
+  "shares_for_cross_context_ads": null,
+  "trackers_on_build": [
+    { "name": null, "kind": null, "sets_cookies": null, "purpose": null, "strictly_necessary": null, "scanned_on": null }
+  ],
+  "honors_global_privacy_control": null,
+  "honors_do_not_track": null,
+  "security_measures": [],
+  "after_form": {
+    "calls": null,
+    "texts": null,
+    "automated_dialing_or_texting_platform": null,
+    "prerecorded_or_ai_voice": null,
+    "text_frequency": null,
+    "text_sender_number": null,
+    "postal_address_in_every_email": null,
+    "marketing_email": null,
+    "marketing_email_service": null,
+    "unsubscribe_link_in_every_email": null,
+    "who_contacts": null,
+    "stop_keyword_works": null
+  },
+  "children": {
+    "directed_to_children_under_13": null,
+    "knowingly_collects_under_16": null,
+    "action_on_discovery": null
+  },
+  "build": {
+    "cookie_settings_available": null,
+    "map_loads_only_after_consent": null
+  },
+  "terms": {
+    "governing_state": null,
+    "disputes": null,
+    "content_disclaimers": []
+  },
+  "privacy_request_handling": {
+    "offer_to_everyone": null,
+    "access_delivery_method": null,
+    "records_kept_after_delete": null,
+    "verification_method": null,
+    "who_handles": null
+  },
+  "sources": {}
+}

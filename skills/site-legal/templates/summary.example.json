@@ -1,0 +1,53 @@
+{
+  "skill": "site-legal",
+  "skill_rules_checked_on": "2026-11-21",
+  "drafted_on": "YYYY-MM-DD",
+  "test": false,
+  "business": { "legal_name": "...", "public_name": "...", "website": "..." },
+  "facts_file": "path/to/facts.json",
+  "status": "DRAFT - for a licensed lawyer's read; not legal advice",
+  "pages": [
+    { "file": "privacy-policy.md", "route": "/privacy", "missing": 0, "check": 0 }
+  ],
+  "decisions": [
+    {
+      "id": "D1",
+      "question": "Does the CCPA apply?",
+      "answer": "applies | does-not-apply | undecided",
+      "reason": "one line from the facts",
+      "facts_used": ["size.annual_gross_revenue_usd"],
+      "rules": ["CA-CCPA-THRESHOLD"]
+    }
+  ],
+  "laws_applied": [
+    { "law": "California Consumer Privacy Act (CCPA/CPRA)", "answer": "undecided", "decision": "D1" }
+  ],
+  "facts_used": [
+    { "field": "business.legal_name", "value": "...", "source": "..." }
+  ],
+  "missing_facts": [
+    { "field": "licences[0].number", "pages": ["industry-lines.md"], "question": "What is ... ?", "client_topic": "Regulated identity" }
+  ],
+  "schema_gaps": [
+    { "field": "a.new.field", "pages": ["..."], "why": "a page needed this fact and the facts template has no field for it" }
+  ],
+  "check_facts": [
+    { "field": "...", "why": "value given without the source this field needs" }
+  ],
+  "questions": [
+    { "to": "client", "topic": "Legal sign-off", "question": "...", "fact": "privacy_contact.mailing_address" },
+    { "to": "lawyer", "question": "...", "decision": "D1" }
+  ],
+  "escalations": [
+    { "what": "...", "why": "...", "official_plugin_risk_level": null }
+  ],
+  "rules_cited": [
+    { "id": "CA-CCPA-THRESHOLD", "url": "https://...", "read_on": "2026-11-21", "status": "CONFIRMED | UNCONFIRMED" }
+  ],
+  "next_steps": [
+    "Run the official legal plugin's compliance-check on these drafts and summary.json",
+    "Client answers the questions; re-run the skill",
+    "Licensed lawyer reads and approves; client's sign-off person approves",
+    "Site builder removes the review box and notes, refuses any page with [MISSING or [CHECK"
+  ]
+}

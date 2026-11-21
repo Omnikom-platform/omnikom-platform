@@ -1,0 +1,207 @@
+{
+  "test": true,
+  "facts_version": 1,
+  "prepared_on": "2026-11-21",
+  "business": {
+    "legal_name": "TEST Harbor Street Realty, Inc. (made-up)",
+    "public_name": "TEST Harbor Street Realty (made-up)",
+    "entity_type": "California corporation",
+    "formed_in_state": "California",
+    "website": "https://harbor-street-test.example",
+    "office_address": "100 Test Harbor Street, Suite 2, Exampleville, CA 00000 (made-up)",
+    "phone": "(555) 010-0100",
+    "general_email": "hello@harbor-street-test.example",
+    "states_served": [
+      "California"
+    ],
+    "customers_outside_us": false
+  },
+  "industry": "real-estate",
+  "licences": [
+    {
+      "holder": "TEST Harbor Street Realty, Inc. (made-up)",
+      "role": "the brokerage (corporation licence)",
+      "kind": "real estate broker, corporation",
+      "state": "California",
+      "number": null,
+      "name_on_licence": "TEST Harbor Street Realty, Inc. (made-up)"
+    },
+    {
+      "holder": "Jordan Example (made-up)",
+      "role": "designated broker-officer of the corporation",
+      "kind": "real estate broker",
+      "state": "California",
+      "number": "TEST-00000001",
+      "name_on_licence": "Jordan Example (made-up)"
+    }
+  ],
+  "privacy_contact": {
+    "email": "privacy@harbor-street-test.example",
+    "mailing_address": null,
+    "toll_free_phone": "(800) 555-0100",
+    "web_form": "https://harbor-street-test.example/privacy-choices",
+    "sign_off_person": "Jordan Example (made-up), designated broker-officer"
+  },
+  "size": {
+    "annual_gross_revenue_usd": "under 10,000,000 (client's band for 2025)",
+    "california_consumers_per_year": 1800,
+    "residents_per_year_by_state": {},
+    "revenue_share_from_selling_or_sharing_data": 0,
+    "employees": 9,
+    "sba_small_business": true
+  },
+  "collects": [
+    {
+      "what": "name, email, phone, the message, and what the person is looking for (buy, sell, rent; area; price range)",
+      "from": "the website's contact and home-value forms",
+      "why": "to answer the person and help them buy, sell or rent",
+      "kept_for": "3 years after the last contact, then deleted"
+    },
+    {
+      "what": "notes of calls, texts and emails with the person",
+      "from": "the business's own team",
+      "why": "to keep track of the person's search or sale",
+      "kept_for": "3 years after the last contact, then deleted"
+    },
+    {
+      "what": "pages visited, browser type, approximate area from the IP address (no cookies)",
+      "from": "Cloudflare Web Analytics on the website",
+      "why": "to count visits and fix the website",
+      "kept_for": "as set by Cloudflare"
+    }
+  ],
+  "sensitive_data": [],
+  "recipients": [
+    {
+      "who": "Omnikom (the company that builds and hosts the website and the lead inbox)",
+      "role": "service-provider",
+      "gets": "form submissions and website analytics",
+      "why": "to run the website and deliver leads to the business"
+    },
+    {
+      "who": "Cloudflare (website hosting and visit counting)",
+      "role": "service-provider",
+      "gets": "technical data of each visit",
+      "why": "to serve the website and count visits"
+    },
+    {
+      "who": "Supabase (the database that stores the lead inbox)",
+      "role": "service-provider",
+      "gets": "form submissions",
+      "why": "to store them for the business"
+    },
+    {
+      "who": "Resend (the email service that sends new-lead alerts)",
+      "role": "service-provider",
+      "gets": "the lead's name and contact details in the alert",
+      "why": "to tell the business a new lead arrived"
+    },
+    {
+      "who": "TEST TextCo (made-up texting platform)",
+      "role": "service-provider",
+      "gets": "phone number and text messages",
+      "why": "to send and receive texts with the person"
+    },
+    {
+      "who": "Google (the map on the contact page)",
+      "role": "third-party",
+      "gets": "the visitor's IP address and Google's own cookies when the map loads",
+      "why": "to show the office on a map"
+    },
+    {
+      "who": "TEST MailCo (made-up email marketing service)",
+      "role": "service-provider",
+      "gets": "name and email address",
+      "why": "to send the monthly market update the person asked for"
+    }
+  ],
+  "sells_personal_info": false,
+  "shares_for_cross_context_ads": false,
+  "trackers_on_build": [
+    {
+      "name": "Cloudflare Web Analytics",
+      "kind": "script",
+      "sets_cookies": false,
+      "purpose": "counts visits without cookies",
+      "strictly_necessary": false,
+      "scanned_on": "2026-11-21"
+    },
+    {
+      "name": "Google Maps embed (contact page)",
+      "kind": "embedded map",
+      "sets_cookies": true,
+      "purpose": "shows the office location",
+      "strictly_necessary": false,
+      "scanned_on": "2026-11-21"
+    }
+  ],
+  "honors_global_privacy_control": false,
+  "after_form": {
+    "calls": true,
+    "texts": true,
+    "automated_dialing_or_texting_platform": true,
+    "prerecorded_or_ai_voice": false,
+    "marketing_email": true,
+    "who_contacts": "the business's own agents",
+    "stop_keyword_works": true,
+    "text_frequency": "up to 4 texts a month, more while we are working together on a purchase or sale",
+    "marketing_email_service": "TEST MailCo (made-up)",
+    "unsubscribe_link_in_every_email": true,
+    "text_sender_number": "(555) 010-0199",
+    "postal_address_in_every_email": true
+  },
+  "children": {
+    "directed_to_children_under_13": false,
+    "knowingly_collects_under_16": false,
+    "action_on_discovery": "we delete the details"
+  },
+  "terms": {
+    "governing_state": "California",
+    "disputes": "the state and federal courts in Example County, California (made-up)",
+    "content_disclaimers": [
+      "Listing information is deemed reliable but not guaranteed and may change.",
+      "A home-value estimate is not an appraisal or an offer."
+    ]
+  },
+  "privacy_request_handling": {
+    "offer_to_everyone": true,
+    "verification_method": "a 6-digit code sent to the email address or phone number given in the request",
+    "who_handles": "the office manager (made-up: Dana Example)",
+    "access_delivery_method": "a secure link by email that works for 7 days",
+    "records_kept_after_delete": [
+      "records of a purchase, sale or lease we handled for you (the lawyer confirms the legal reason and how long)"
+    ]
+  },
+  "sources": {
+    "business.legal_name": "made-up for the test (a real run: California Secretary of State business search, URL and date)",
+    "business.entity_type": "made-up for the test",
+    "business.formed_in_state": "made-up for the test",
+    "business.office_address": "made-up for the test",
+    "licences[1].number": "made-up for the test (a real run: DRE public licence lookup, URL and date)",
+    "size.annual_gross_revenue_usd": "made-up for the test (a real run: the client's signed answer)",
+    "recipients": "Omnikom, Cloudflare, Supabase, Resend: docs/product/2-architecture.md table 'Part / Runs on'; TEST TextCo and the map: made-up for the test",
+    "sells_personal_info": "made-up for the test (a real run: the client's signed answer)",
+    "shares_for_cross_context_ads": "made-up for the test (a real run: the client's signed answer plus the build scan)",
+    "trackers_on_build": "Cloudflare Web Analytics without cookies: docs/product/7-sites.md \"Search and analytics\"; the map embed: made-up for the test; both entries scanned_on 2026-11-21 (made-up scan; a real run: the build's tracker scan)",
+    "honors_global_privacy_control": "made-up for the test (a real run: the build check)",
+    "after_form.stop_keyword_works": "made-up for the test (a real run: the texting platform's settings)",
+    "honors_do_not_track": "made-up for the test (a real run: the build check)",
+    "security_measures": "made-up for the test (a real run: the build and the dashboard sign-in settings)",
+    "after_form.marketing_email_service": "made-up for the test",
+    "after_form.unsubscribe_link_in_every_email": "made-up for the test (a real run: the email service settings)",
+    "after_form.text_sender_number": "made-up for the test (a real run: the texting platform)",
+    "after_form.postal_address_in_every_email": "made-up for the test (a real run: the email service template)",
+    "privacy_request_handling.access_delivery_method": "made-up for the test (a real run: the platform)",
+    "privacy_request_handling.records_kept_after_delete": "made-up for the test (a real run: the client, reasons confirmed by the lawyer)",
+    "build": "made-up for the test (a real run: the build check)"
+  },
+  "honors_do_not_track": false,
+  "security_measures": [
+    "the website is served only over an encrypted (HTTPS) connection",
+    "only the business's own team can sign in to the lead inbox"
+  ],
+  "build": {
+    "cookie_settings_available": true,
+    "map_loads_only_after_consent": true
+  }
+}
