@@ -78,7 +78,7 @@ flowchart TB
 | Builds, photo processing, checks | GitHub Actions | heavy work cannot run in an Edge Function |
 | Mail | Resend | sign-in links (Supabase Auth SMTP) and new-lead alerts |
 | Domains | the client's registrar points its nameservers at a zone in Omnikom's Cloudflare account | the client keeps ownership; leaving is pointing the nameservers back |
-| Omnikom's own domain `omnikom.ai` | registrar Namecheap, nameservers `chuck.ns.cloudflare.com` and `lila.ns.cloudflare.com` (Custom DNS), zone on the work Cloudflare account, active 2026-11-20 | SSL strict, always-use-HTTPS on, minimum TLS 1.2, automatic HTTPS rewrites and TLS 1.3 on; AI crawlers not blocked; every record in `work/dns-omnikom-ai.tsv`; `alerts@` and `hello@` are Cloudflare Email Routing forwards (no Workspace domain); `app` is held until the production dashboard's Pages project exists, so no name points at nothing |
+| Omnikom's own domain `omnikom.ai` | registrar Namecheap, nameservers `chuck.ns.cloudflare.com` and `lila.ns.cloudflare.com` (Custom DNS), zone on the work Cloudflare account, active 2026-11-20 | SSL strict, always-use-HTTPS on, minimum TLS 1.2, automatic HTTPS rewrites and TLS 1.3 on; AI crawlers not blocked; every record in `work/dns-omnikom-ai.tsv`; `alerts@` and `hello@` are Cloudflare Email Routing forwards (no Workspace domain); `app` is a proxied CNAME to the production dashboard's Pages project `omnikom-app.pages.dev` (added 2026-11-21) |
 
 Omnikom holds the running accounts (hosting, deploys, Search Console). The client keeps the domain, content and leads.
 
@@ -129,7 +129,7 @@ kept 30 days, with the Vault copy nightly and the media copy weekly beside the d
 certificate in `supabase/ops/`; the owner keeps the private key offline. The monthly restore drill runs in CI on staging
 (`restore-drill.yml`) with a throwaway key pair, into a throwaway local Postgres; the owner opens a stored copy once with his own
 key. A restore goes into a new project, never over production without the owner. A bad release is fixed forward and promoted the
-same way. `backup.yml` is ready and waits on the owner's bucket and key clicks. The runbooks are in `supabase/ops/README.md`.
+same way. `backup.yml` runs nightly (the variable `BACKUP_ENABLED` was set on 2026-11-21). The runbooks are in `supabase/ops/README.md`.
 
 ## Targets
 

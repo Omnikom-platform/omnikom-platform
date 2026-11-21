@@ -1,4 +1,5 @@
 type	name	content	ttl	proxied	note
+CNAME	app.omnikom.ai	omnikom-app.pages.dev	auto	yes	added 2026-11-21 by the owner's yes; https://app.omnikom.ai/ answers HTTP 200 with the same page as https://omnikom-app.pages.dev/
 CNAME	rsend.notify.omnikom.ai	rsend-euw1.forge.rmta.net	auto	no	copied from Namecheap 2026-11-20
 CNAME	rsend.omnikom.ai	rsend-euw1.forge.rmta.net	auto	no	copied from Namecheap 2026-11-20
 CNAME	send.notify.omnikom.ai	send.forge.rmta.net	auto	no	copied from Namecheap 2026-11-20
@@ -14,6 +15,5 @@ TXT	resend._domainkey.notify.omnikom.ai	p=(the DKIM public key; read it from DNS
 TXT	resend._domainkey.omnikom.ai	p=(the DKIM public key; read it from DNS: nslookup -type=TXT resend._domainkey.omnikom.ai)	auto	no	copied from Namecheap 2026-11-20
 forward	alerts@omnikom.ai	-> the CTO inbox	-	-	Cloudflare Email Routing rule, active; owner M178 (split)
 forward	hello@omnikom.ai	-> the shared hello inbox	-	-	Cloudflare Email Routing rule, added 2026-11-21 (destination confirmed 2026-11-20); owner M178 (split)
-held	app.omnikom.ai	(the production dashboard's Pages project)	-	-	NOT ADDED: no production Pages project exists, a CNAME now would dangle (takeover risk); added with the production cluster
 removed	www.omnikom.ai	Namecheap parking CNAME (parkingpage.namecheap.com)	-	-	gone before the move, owner M179 (2026-11-20); dns1 answered NXDOMAIN
 removed	omnikom.ai	Namecheap URL redirect to www	-	-	gone before the move, owner M179 (2026-11-20); dns1 answered no A

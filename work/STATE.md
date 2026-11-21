@@ -7,7 +7,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
 - Product: 72 of 98 rows WORK, 26 PARTLY, 0 MISSING (checked by CI). CRM 23, 3, 0 of 26; dashboard 15, 8, 0 of 23;
   backend 14, 4, 0 of 18; factory 9, 1, 0 of 10; hardening 11, 10, 0 of 21.
 - The states were read from the code on 2026-11-20; the readers ran no test, so a staging proof is the book's record.
-  Production is an empty Supabase project (2026-11-20): nothing is deployed to it, `bring-up` has not run.
+  Production: `bring-up` ran 2026-11-21 (`BRING-UP OK: 37 changed`); no tables, data or functions yet, the first promote waits on him.
 - The order (owner, 2026-11-20): clusters, each done in one go, in this order: 1 the book tells the truth;
   2 small product gaps, code only; 3 backups for real; 4 staging caught up and proven; 5 large tenant; 6 production
   exists; 7 protected publish and go-live; 8 the first client live; 9 search numbers and AI answers; 10 the audit by one
@@ -29,9 +29,9 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
 ## Not landed
 - `check/platform/sec-replay` (the replay guard, migration 53, in its third round), `check/seo/ai-oneshot`.
 
-## Staging, 2026-11-20
-- Reachable; 41 of 42 migrations (52 pending); 32 functions deployed. Set on 2026-11-20: `GOOGLE_SERVICE_ACCOUNT_JSON`,
-  `RESEND_WEBHOOK_SECRET`, `GITHUB_DISPATCH_TOKEN_V2`. The nightly backup is still skipped (variable BACKUP_ENABLED not set).
+## Staging, 2026-11-21
+- Reachable; 42 of 42 migrations (52 applied 2026-11-21); 32 functions deployed (2026-11-20). Set on 2026-11-20: `GOOGLE_SERVICE_ACCOUNT_JSON`,
+  `RESEND_WEBHOOK_SECRET`, `GITHUB_DISPATCH_TOKEN_V2`. The nightly backup is ON (`BACKUP_ENABLED` = true, 2026-11-21); restore run done.
 
 ## Migrations
 - An unlanded migration takes the next free number above every file in the tree and lands in number order (staging applies
@@ -54,6 +54,6 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
 
 ## Open owner items
 - Done: the sitting of 2026-11-20 (accounts, DNS, R2) and the owner list of 2026-11-21: self-serve reopened for three parts
-  (after the audit), the head signs the audit's approvals up to 150 requests, the backup key pair made, its public half committed.
-- Still his: the word for `bring-up`; the restore run with his private key; later go's: the first promote, each client's
-  domain switch and sign-offs. Every item: `work/map/owner.tsv`.
+  (after the audit), the head signs the audit's approvals up to 150 requests, the backup key pair, the restore run with his key,
+  `bring-up` on production and `app.omnikom.ai` in DNS (his yes).
+- Still his: later go's: the first promote, each client's domain switch and sign-offs. Every item: `work/map/owner.tsv`.

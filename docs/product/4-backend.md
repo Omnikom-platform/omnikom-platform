@@ -125,7 +125,7 @@ of the workspace (`export-published`, `factory/runner/publish.mjs` step 2), so a
 | `media.yml` | `workflow_dispatch` from `upload-finish` (`repository_dispatch` media while only the old token is set) | photo processing |
 | `keepalive.yml` | Mondays 06:00 UTC | one read-only CLI `status` so the free staging project is not paused |
 | `alerts.yml` | hourly | alert queries on staging, mailed to ALERTS_TO when its secrets are set |
-| `backup.yml` | nightly | encrypted dump of staging to two buckets; skipped until the owner sets up the buckets and key |
+| `backup.yml` | nightly | encrypted dump of staging to R2 (and to a second provider only when `BACKUP2_BUCKET` is set); skipped unless the variable `BACKUP_ENABLED` is `true`, which it is since 2026-11-21 |
 | `key-rotation.yml` | monthly | red when an active key is over 90 days old or expires within 14 days |
 | `flows.yml` | by hand only (`gh workflow run`, master or a `check/` branch), one at a time | one dashboard flow of `apps/dashboard/tests` against staging; the result line in the log and the job summary; the output sealed with `FLOWS_REPORT_KEY` for 7 days, no artifact without it. First runs 2026-11-13: 43362508531 (1 passed), 43363096511 (red with its seeded fault), two refusals (a flow that sends a lead with no signing key set; a grep outside the allowed letters), the seal opened with the key and refused a wrong one |
 
@@ -152,7 +152,7 @@ a Vault name. A script reads a key by its variable name from the git-ignored `.e
 | Resend key, alert sender | function environment | lead alert, sign-in mail through Supabase Auth SMTP |
 | Mail outbox key | function environment and Vault `mail_outbox_key` | pg_cron to `mail-outbox` |
 | Resend webhook signing secret | function environment | `mail-events` |
-| Backup bucket key (`R2_API_TOKEN`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`, `R2_BUCKET`; bucket `omnikom-backups`, private, location WNAM, on the work Cloudflare account; Object Read and Write on that bucket only, no expiry, 2026-11-20) | the master env file; the workflows read `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` as repository secrets (not set yet) and build the endpoint from `CLOUDFLARE_ACCOUNT_ID` | `backup.yml`; no second provider (`BACKUP2_*` unset) |
+| Backup bucket key (`R2_API_TOKEN`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`, `R2_BUCKET`; bucket `omnikom-backups`, private, location WNAM, on the work Cloudflare account; Object Read and Write on that bucket only, no expiry, 2026-11-20) | the master env file; the workflows read `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` as repository secrets (set 2026-11-21) and build the endpoint from `CLOUDFLARE_ACCOUNT_ID` | `backup.yml`; no second provider (`BACKUP2_*` unset) |
 | Cloudflare admin token (`CLOUDFLARE_ADMIN_TOKEN`, with `CLOUDFLARE_ADMIN_R2_ACCESS_KEY_ID` and `CLOUDFLARE_ADMIN_R2_SECRET_ACCESS_KEY`; the work account, full account and zone access, no expiry) | the head's laptop only; never a CI secret, never a function secret (CI keeps `CLOUDFLARE_PAGES_TOKEN` and `CLOUDFLARE_DNS_TOKEN`, both the work account's; the legacy DNS token is dead) | the head, for Omnikom platform V2 and omnikom.ai work |
 | Flows report key (`FLOWS_REPORT_KEY`) | the master env file and, with the owner's yes, a GitHub secret | `flows.yml` seals its output with it (no artifact without it); the head opens it on the laptop |
 

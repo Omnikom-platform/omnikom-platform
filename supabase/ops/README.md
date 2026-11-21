@@ -13,11 +13,19 @@ and `openssl`. Keys and database URLs are read from the environment BY NAME (`no
 | `bring-up.mjs`, `environments.json` | Row E2: `--env staging\|production [--apply] [--i-mean-production]` reads a project and its dashboard and changes only what differs: extensions, every Auth setting, the function secrets the code reads, the Pages project, domain and build, and (production) the production repository's secrets. A dry run unless `--apply`; a second run changes nothing; prints names and short states, never a value. `environments.json` holds the wanted values that are not secrets (Pages project, domain, dashboard address, allowed origins). Test: `test/bring-up.test.mjs --mutants` (local fakes, no network). |
 | `inbox-state.mjs` | Read only, staging only: for one address given on the command line, whether a login exists, whether it is confirmed, its number of memberships, and whether each test site's alert list is exactly that address. Prints no address. Test: `test/inbox-state.test.mjs --mutants`. |
 | `test/backup.test.mjs`, `test/alerts.test.mjs`, `test/6b-drill.test.mjs` | The tests. `test/6b-mutate.mjs` runs each of them against broken copies of the script and requires red. `test/6b-cluster.mjs`, `test/6b-fake-s3.mjs`: helpers. |
-| `../../.github/workflows/backup.yml` | Nightly the dump and the Vault copy, weekly (Sundays) the media copy, staging only, skipped until `BACKUP_ENABLED` is `true`. |
+| `../../.github/workflows/backup.yml` | Nightly the dump and the Vault copy, weekly (Sundays) the media copy, staging only, skipped unless `BACKUP_ENABLED` is `true` (set on 2026-11-21: it runs nightly). |
 | `../../.github/workflows/restore-drill.yml` | Monthly and by hand, staging: the three copies made to a key pair made in the job, restored by `restore-drill.mjs --media --vault`, then the copies and the key deleted. Last line `DRILL PASS: 9 phases, <time>`. |
 | `../../.github/production/backup.yml` | The same for production; goes into the production repository (it never runs here). |
 | `../../.github/workflows/alerts.yml` | Hourly, staging, skipped while `STAGING_DB_URL` is absent. |
 | `../../sites/omnikom-status/` | The status page draft (`index.html` reads `status.json`). No host is chosen. |
+
+## Running these scripts from the head's laptop (measured 2026-11-21)
+Two things are needed when a script that calls the Supabase or Cloudflare API (`bring-up.mjs` and the other ops scripts) runs from this
+laptop; GitHub's runners need neither.
+1. `NODE_OPTIONS=--network-family-autoselection-attempt-timeout=2000`. Node's default wait of 250 ms per address made `fetch` fail with
+   `ETIMEDOUT` in about 600 ms on this link.
+2. The variable `PROD_DB_URL_DIRECT` must be absent from the environment: the direct host resolves only over IPv6, which this laptop does
+   not have. The pooler URL `PROD_DB_URL` works.
 
 ## The recipient certificate (made 2026-11-21, committed, nothing here can decrypt)
 `backup-recipient.pem` is the PUBLIC half of a key pair the owner made on his own machine on 2026-11-21 (CN omnikom-backup, 4096 bit, valid to
@@ -108,15 +116,18 @@ with a test; tell the owner when it lasted over an hour.
 `retention_rules_purged`, one migration), partitioning, or a higher budget with the reason in `source`.
 
 ## Owner batch (nothing below is created by a session)
-- Done 2026-11-21: the key pair is made and `supabase/ops/backup-recipient.pem` is committed (above). Still owed: the variable
-  `BACKUP_ENABLED`, the first nightly backup, and one restore run with the owner and his private key (owner item 25).
+- Done 2026-11-21: the key pair is made and `supabase/ops/backup-recipient.pem` is committed (above); the variable `BACKUP_ENABLED` = `true`
+  is set on the platform repository and two runs by hand were green (run 44930777625, `dump: 1541488 bytes, 1384 entries`; run 44932886784,
+  `dump: 1544512 bytes, 1386 entries`): each stored the database dump, the Vault copy and the media copy (35 objects) under `staging/` in R2,
+  encrypted to `backup-recipient.pem`, `size verified`. The restore run with the owner is done too (owner item 25): the three stored copies of the second run were opened with his
+  own key and the drill passed on them (`node supabase/ops/restore-drill.mjs --dump <opened dump> --media <opened tar> --vault <opened json>`).
 - R2 enabled, a private bucket, a key for that bucket only (the size check reads each copy back). No second provider for now (owner,
   2026-11-20): the four `BACKUP2_*` secrets are optional, left unset, and the workflows and `bring-up.mjs` skip them; set all four later
   and the second copy starts, nothing else changes.
 - Repository secrets (the three R2 names are set on the platform repository since 2026-11-21): `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (optional: `BACKUP2_ENDPOINT`, `BACKUP2_BUCKET`,
   `BACKUP2_ACCESS_KEY_ID`, `BACKUP2_SECRET_ACCESS_KEY`); the same set plus `PROD_DB_URL`, `PROD_SUPABASE_REF` and
   `PROD_SUPABASE_SECRET_KEY` (the media copy; `bring-up.mjs` sets every name of `.github/production/`) in the production repository. Variable
-  `BACKUP_ENABLED = true` when ready; `ALERTS_RED = true` to make a firing alert also turn the alerts job red. The alert mail needs the
+  `BACKUP_ENABLED = true` (set 2026-11-21 on the platform repository); `ALERTS_RED = true` to make a firing alert also turn the alerts job red. The alert mail needs the
   secrets `RESEND_API_KEY`, `LEAD_ALERT_FROM` and `ALERTS_TO` (the on-call address) in each repository.
 - Bucket lifecycle rules (not workflow steps), set on the R2 bucket: `staging/` 30 days, `production/` 30 days, `monthly/` 365 days,
   `probe/` 1 day. The nightly copies are kept 30 days; on UTC day 01 the workflows also write the dump and the Vault copy under

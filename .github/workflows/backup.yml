@@ -3,10 +3,13 @@
 # (10-DELIVERY section 5, 11-OPERATIONS section 3, 18-BUDGET-ARCHITECTURE 2.4). The work is supabase/ops/backup.mjs (its header says how).
 # The second provider is OPTIONAL: no BACKUP2_* secret is needed (owner 2026-11-20: none for now). R2 is on, the bucket omnikom-backups and its
 # key exist (2026-11-20).
-# BLOCKED: R2 is ready (2026-11-21) but the job stays off until the repository variable BACKUP_ENABLED = true is set and the first run is watched:
-#   (1) done 2026-11-21: the owner made the key pair offline; only the public certificate is committed as supabase/ops/backup-recipient.pem (supabase/ops/README.md);
-#   (2) done 2026-11-21: the repository secrets R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET are set by name (CLOUDFLARE_ACCOUNT_ID exists);
-#   (3) NOT DONE: the repository variable BACKUP_ENABLED = true is set, then the first run by hand, then the restore run with the owner (owner item 25).
+# The job is ON: the repository variable BACKUP_ENABLED = true was set on 2026-11-21 and it runs nightly. Without that variable it is skipped
+# (BLOCKED: R2 would then get no copy at all). Done 2026-11-21:
+#   (1) the owner made the key pair offline; only the public certificate is committed as supabase/ops/backup-recipient.pem (supabase/ops/README.md);
+#   (2) the repository secrets R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET are set by name (CLOUDFLARE_ACCOUNT_ID exists);
+#   (3) two runs by hand were green: run 44930777625 (dump: 1541488 bytes, 1384 entries) and run 44932886784 (dump: 1544512 bytes, 1386 entries),
+#       each storing the dump, the Vault copy and the media copy (35 objects) under staging/, size verified; the restore run with the owner
+#       (owner item 25) is done: his key opened the copies of the second run and the drill passed on them.
 # Nightly the dump and the Vault copy; weekly (Sundays 03:37 UTC) the media copy (backup.mjs --what vault|media), all under staging/.
 # Nothing here can decrypt a backup: the dump is encrypted to the public certificate and the private key stays with the owner.
 # Retention (30 days) is a lifecycle rule on each bucket, not a step here. The production dump is the production repository's own workflow

@@ -18,32 +18,35 @@ GL.C16b	Bing: no site verified for the key	each live site verified in Bing	HALF	
 GL.C16c	IndexNow key file and ping	the build never writes a key file, so the ping never fires	HALF	6 21	9	C16
 GL.C16d	sitemap-submit driven on a production publish	first live publish	BUILT-UNPROVEN	6 21	9	C16
 GL.E1a	Backup public certificate in the repository	nothing: the owner made the key pair himself on 2026-11-21 and the public certificate is committed as `supabase/ops/backup-recipient.pem` (CN omnikom-backup, 4096 bit, valid to 2036-11-18); the private half stays with him and no session reads it	BUILT		3	E1
-GL.E1b	Two backup buckets and keys	the R2 bucket and its key exist and a write was read back (2026-11-20); R2's three keys (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`) are repository secrets since 2026-11-21, not yet used by a workflow run; no second provider (optional, owner 2026-11-20)	BUILT-UNPROVEN		3	E1
-GL.E1c	Staging backups switched on	never run for real: the certificate (E1a) and R2's three keys (E1b) are in place since 2026-11-21; still missing: the repository variable `BACKUP_ENABLED`, then a first nightly backup watched	BUILT-UNPROVEN		3	E1
-GL.E1d	Monthly restore drill	a drill against a real stored production copy	BUILT		3	E1
-GL.E1e	A stored dump opened with the owner's own key	the first nightly backup must exist (the variable `BACKUP_ENABLED` is not set yet); then one restore run with the owner and his private key, him present (owner item 25)	NOT BUILT		3	E1
+GL.E1b	Two backup buckets and keys	nothing: the R2 bucket and its key exist and a write was read back (2026-11-20); R2's three keys (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`) are repository secrets since 2026-11-21 and two backup runs used them (E1c); no second provider (optional, owner 2026-11-20)	BUILT		3	E1
+GL.E1c	Staging backups switched on	nothing: the repository variable `BACKUP_ENABLED` = `true` was set on 2026-11-21 and the job runs nightly; two runs by hand were green: run 44930777625 (`dump: 1541488 bytes, 1384 entries`) and run 44932886784 (`dump: 1544512 bytes, 1386 entries`), each stored the database dump, the Vault copy and the media copy (35 objects) under `staging/` in R2, encrypted to `supabase/ops/backup-recipient.pem`, `size verified`; no scheduled night's run is recorded here yet	BUILT		3	E1
+GL.E1d	Monthly restore drill	a drill against a real stored production copy (production holds no data yet); 2026-11-21 it passed on the stored copies of staging's second backup (E1e) and on a fresh dump of staging with 42 of 42 migrations: `DRILL PASS: 7 phases, 6 min 3 s`	BUILT		3	E1
+GL.E1e	A stored dump opened with the owner's own key	nothing: done 2026-11-21 (owner item 25): the owner opened the three stored copies of the second backup with his own private key and passphrase in his own window (3 of 3 opened, the dump listed 1386 entries); the head then ran `node supabase/ops/restore-drill.mjs --dump <opened dump> --media <opened tar> --vault <opened json>` and got `DRILL PASS: 9 phases, 26.7 s` (37 public tables all with row level security on; walls: `ALL TENANCY TESTS PASSED on the restored schema`; media copy 35 files; build: 6 pages with real media; vault copy 8 entries, all 5 references present). A first try the same evening on the earlier copy failed only in the walls phase because staging was one migration behind (E2b)	BUILT		3	E1
 GL.E1f	Production backup	the production repository and project exist and are empty (2026-11-20); variable off; the public certificate is committed since 2026-11-21 (promote refuses a commit without it); the production repository's own backup secrets are not checked	HALF		3	E1
 GL.E1g	An alert when no backup lands in the buckets	alert on the newest object's age	NOT BUILT		3	E1
+GL.E1h	The restore as one `omnikom` command	today it is three hand-run steps: `fetch-backup.mjs` (read-only fetch of named `.cms` objects from R2, using `signV4` and `regionOf` exported by `supabase/ops/backup.mjs`) and `open-backup.ps1` (run by the owner only: asks his passphrase, opens the `.cms` copies with `openssl cms -decrypt -binary -inform DER`), both only in `E:\Omnikom Platform\head-of-operations\tools\`, outside the repository, then `supabase/ops/restore-drill.mjs` on the opened copies. Wanted: one command that fetches the newest stored copies from R2, hands the owner one line to open them with his key, runs the drill on the opened copies and deletes them (owner's standing rule: every mechanical tool is wired into the Omnikom CLI)	NOT BUILT		3	E1
 GL.E2a	KNOWN-6 staging ledger repair before the first promote (also N4c)	the head's repair script was never run	NOT BUILT	1 8	4	E2
-GL.E2b	Staging caught up with master	migration 52 and the C19 functions on staging cannot be told from the tree	HALF	1 8	4	E2
+GL.E2b	Staging caught up with master	migration 52 (`20261115000052_site_state.sql`) was applied on 2026-11-21 by `omnikom apply --target staging` (`OK: applied 1 of 42`; a dry run after: `DRY RUN: 0 pending of 42`), so staging has 42 of 42; the C19 functions on staging cannot be told from the tree	HALF	1 8	4	E2
 GL.E2c	Staging bring-up dry run	a real dry run, then --apply, then 0 changes	BUILT-UNPROVEN	1 8	4	E2
 GL.E2d	The production database project	nothing (the project `omnikom-production` exists on the free plan, empty, proven with psql 2026-11-20; its `PROD_*` names are stored)	BUILT	1 8	6	E2
-GL.E2e	Production connection strings (pooler vs direct)	no tool composes production's connection strings (the head composed them by hand 2026-11-20; `PROD_DB_URL`, the session pooler, is proven with psql exit 0); `PROD_DB_URL_DIRECT` is IPv6 only and does not resolve from the laptop (GitHub's runners reach it), so from the laptop use `PROD_DB_URL` or `PROD_DB_POOLER_URL`; which form each script needs is UNPROVEN	BUILT-UNPROVEN	1 8	6	E2
+GL.E2e	Production connection strings (pooler vs direct)	no tool composes production's connection strings (the head composed them by hand 2026-11-20; `PROD_DB_URL`, the session pooler, is proven with psql exit 0); `PROD_DB_URL_DIRECT` is IPv6 only and does not resolve from the laptop (GitHub's runners reach it), so from the laptop it must be absent from the environment and `PROD_DB_URL` is used: the production bring-up ran so on 2026-11-21 (`supabase/ops/README.md`)	BUILT-UNPROVEN	1 8	6	E2
 GL.E2f	Private repository `omnikom-platform-prod`	nothing (exists since 2026-10-29, private, empty, Actions off)	BUILT	1 8	6	E2
 GL.E2g	Production repository shape (default branch `production`, five workflow files, CI off)	default branch, workflow files, the by-hand steps; the publish and media workflows are not in the production folder	NOT BUILT	1 8	6	E2
-GL.E2h	Production secret values by name in the master `.env`	the dry run of 2026-11-20 missed only the backup names, and R2's were stored later that night; not run again since	BUILT-UNPROVEN	1 8	6	E2
+GL.E2h	Production secret values by name in the master `.env`	nothing: the production bring-up of 2026-11-21 ran with these names (E2j)	BUILT	1 8	6	E2
 GL.E2i	One dispatch token name for production	retire the repository_dispatch branch (3 files); production now holds the same value under `PROD_GITHUB_DISPATCH_TOKEN_V2` and `PROD_GITHUB_DISPATCH_TOKEN` (2026-11-20; production repository only, Actions read and write, no expiration, rotation date not set)	NOT BUILT	1 8	6	E2
-GL.E2j	Production bring-up run	the run, after E2d, E2f, E2h	BUILT-UNPROVEN	1 8	6	E2
-GL.E2k	DNS `app.omnikom.ai` to the production dashboard	the record; held on purpose (2026-11-20): no production Pages project exists yet, so a CNAME now would dangle (takeover risk); bring-up adds it with the project	NOT BUILT	1 8	6	E2
-GL.E2l	First promote to production	production repository, bring-up first (cron.schedule calls skip without pg_cron), the certificate	BUILT-UNPROVEN	1 8	6	E2
+GL.E2j	Production bring-up run	nothing: ran on 2026-11-21 by the owner's yes after he saw its plan: `node supabase/ops/bring-up.mjs --env production --apply --i-mean-production` printed `BRING-UP OK: 37 changed` (3 extensions pg_cron, pg_net, pgmq; `auth 14 keys`; 16 function secrets; the Pages project `omnikom-app`, its domain `app.omnikom.ai` and a deploy of commit `de0c4b68de8c`; 14 secrets in the production repository); a second dry run right after: `DRY RUN: 0 would change`; skipped by design: `skip repo ALERTS_TO (PROD_ALERTS_TO not set)` (E3c). No tables, no data and no functions exist on production yet	BUILT	1 8	6	E2
+GL.E2k	DNS `app.omnikom.ai` to the production dashboard	nothing: on 2026-11-21, by the owner's yes, `CNAME app.omnikom.ai -> omnikom-app.pages.dev` was added on omnikom.ai in Cloudflare, proxied (`work/dns-omnikom-ai.tsv`); `https://app.omnikom.ai/` answers HTTP 200 with the same page as `https://omnikom-app.pages.dev/`	BUILT	1 8	6	E2
+GL.E2l	First promote to production	bring-up ran first (2026-11-21, E2j; pg_cron is on); still to come: no tables, data or functions exist on production, the first promote waits on the owner (owner item 17); the production repository; the certificate	BUILT-UNPROVEN	1 8	6	E2
 GL.E2m	Vault entries on production (`project_url`, `metrics_cron_key`, `mail_outbox_key`)	a scripted, tested write by name only	NOT BUILT	1 8	6	E2
 GL.E2n	Keepalive for a Free production project	production keepalive, or take Pro (O1)	NOT BUILT	1 8	6	E2
 GL.E2o	Keep the production branch's workflow files in step with master	script or check	NOT BUILT	1 8	6	E2
 GL.E2p	A way to prove production end to end	a production test workspace and site, a narrow proof command	NOT BUILT	1 8	6	E2
 GL.E2q	A real staff login with second factor on production	script that makes the user, row and TOTP factor on production	NOT BUILT	1 8	6	E2
+GL.E2r	The ops scripts set their own connection wait	from the head's laptop they need `NODE_OPTIONS=--network-family-autoselection-attempt-timeout=2000` from the caller, because Node's default 250 ms per address made `fetch` fail with `ETIMEDOUT` in about 600 ms on this link (GitHub's runners are not affected); wanted: the scripts set the wait themselves, so a slow link does not fail a read in 250 ms	NOT BUILT		6	E2
+GL.E2s	`psqlReadOnly` swallows a closing semicolon after a last-line comment	in `supabase/ops/promote-check.mjs` a query whose last line is a `--` comment with no semicolon would have its closing semicolon swallowed; no caller has one today	NOT BUILT		6	E2
 GL.E3a	Alert mail delivery to a test inbox on staging	the secret `ALERTS_TO` and one run	BUILT-UNPROVEN		4	E3
 GL.E3b	Hourly alerts need migration 46 on staging	the alert count in the book is nine (E3) and eight (E12); not reconciled	BUILT		4	E3
-GL.E3c	The production alert address	the address is decided (alerts@omnikom.ai, owner item 9) and its Cloudflare forward is live since 2026-11-20; `PROD_ALERTS_TO` is not stored yet and `ALERTS_TO` is not set on staging	HALF		4	E3
+GL.E3c	The production alert address	the address is decided (alerts@omnikom.ai, owner item 9) and its Cloudflare forward is live since 2026-11-20; the name `PROD_ALERTS_TO` is not in the master env yet and must be added before the first promote (the production repository then gets `ALERTS_TO`: the bring-up of 2026-11-21 skipped it by design with `skip repo ALERTS_TO (PROD_ALERTS_TO not set)`); `ALERTS_TO` is not set on staging	HALF		4	E3
 GL.E3d	Uptime of sites, dashboard and form endpoint	checker plus alert	NOT BUILT		4	E3
 GL.E3e	Status page host	host	HALF		4	E3
 GL.E4	New-lead alert outbox	the book's C13 row (:112) and E4 now agree	BUILT		4	E4
@@ -57,7 +60,7 @@ GL.E9b	Deploy callers, set V2, unset the old secret, journey again	the run sheet
 GL.E9c	Protect master	an unchecked push being refused was not tried (the ruleset `protect master`, id 27752725, enforcement active since 2026-11-20 with 9 checks and no deletion or force push; the allowed path is proven by stack C's landing)	BUILT-UNPROVEN	1	4	E9
 GL.E9d	Per-project Cloudflare tokens, OIDC	H2, about 50 tenants	NOT BUILT	1	4	E9
 GL.E9e	Two runner keys at once	accept two keys during a rotation	NOT BUILT	1	4	E9
-GL.E11a	Staff windows and Auth settings on staging	production's settings come with bring-up	BUILT	8		E11
+GL.E11a	Staff windows and Auth settings on staging	production's settings were set by the production bring-up on 2026-11-21 (`auth 14 keys`)	BUILT	8		E11
 GL.E11b	Logins that end after a set or idle time	Supabase Pro	NOT BUILT	8		E11
 GL.E12a	Growth budgets: migration 46 and the first measure	nothing	BUILT			E12
 GL.E12b	Partitioning	stays parked	NOT BUILT			E12
@@ -71,7 +74,7 @@ GL.E16c	Billing code	everything	NOT BUILT		4	E16
 GL.E16d	A plan that sets caps per workspace	plan table and column read by `limit_for`	NOT BUILT		4	E16
 GL.E21a	Mail provider's webhook for staging	a real bounce through it (made 2026-11-20; an unsigned call is refused with 401)	BUILT-UNPROVEN	5	4	E21
 GL.E21b	Bounce and complaint proof	the staging run needs E21a	BUILT-UNPROVEN	5	4	E21
-GL.E21c	The same webhook for production	the webhook and its secret exist (2026-11-20); the function it calls is not deployed: bring-up has not run	HALF	5	4	E21
+GL.E21c	The same webhook for production	the webhook and its secret exist (2026-11-20); the function it calls is not deployed: no functions exist on production until the first promote	HALF	5	4	E21
 GL.N1a	A failed audit shows the owner no reason	nothing	BUILT			
 GL.N1b	SEO title or description under the minimum accepted at save	whether the editor counter shows the minimum (not opened)	BUILT			
 GL.N4a	`omnikom test walls --target staging` red	T52 (migration 52) not shown on staging	BUILT		4	
@@ -90,6 +93,7 @@ GL.G11	Production repository's Actions minutes	nothing (Actions are off on the p
 GL.G12	The platform's own website on omnikom.ai	the page lives only on the dev address omnikom-ai-soon.pages.dev (a waitlist form: name, email, industry; built to the PEWP rules; owner M179; the waitlist proven end to end there), outside the repository (a drafts folder), not in `code/main` and not on omnikom.ai; its DNS records join the zone list when it ships	HALF			
 GL.G13	Branch rules on the private production repository	GitHub Team	NOT BUILT		6	
 GL.G14	Restore to any second	Supabase Pro add-on	NOT BUILT		3	
+GL.G15	The legal skill's open points (`skills/site-legal`)	nine facts have no template field; `references/platform.md` and the email-footer rule were added after the last proof run; the official plugin's `compliance-check` was never run on a draft; 14 of 66 rules are marked UNCONFIRMED; Indiana is BLOCKED (its source is a JavaScript-only site); every output still needs a licensed lawyer's read	NOT BUILT		8	
 GL.K1p	elev8 onto the platform	look folder, content load, the two contract fields	NOT BUILT		8	
 GL.K1o	elev8: the client's items	answers, agreement, the split decision, registrar access, licences	NOT BUILT		8	
 GL.K1d	elev8: domain and live	the sheet	NOT BUILT		8	
@@ -222,7 +226,7 @@ CO.P3	Add-on state driven by a payment	receiver, base-plan state path (`m43` / `
 CO.J1	pg_cron jobs	nothing	BUILT			
 CO.J2	Publish job: dispatch, runner, signed export and callback	the new token path (K4)	BUILT			
 CO.J3	Media job	retry or reaper for a failed media dispatch	HALF			
-CO.J4	GitHub scheduled and manual workflows	the backup itself has never run: nothing is backed up off the platform today	HALF		3	
+CO.J4	GitHub scheduled and manual workflows	the staging backup ran green twice by hand on 2026-11-21 (runs 44930777625 and 44932886784) and now runs nightly; no scheduled night's run is recorded here yet	HALF		3	
 CO.J5	A new automated job (audit for a sign-up, build the draft)	table, workflow, functions, reaper clause	NOT BUILT		11	
 CO.J6	Stale-job reaper	covers publish jobs only	BUILT			
 CO.K1	Machine-call signing	two live runner keys at once (H2-11)	BUILT			
@@ -234,12 +238,12 @@ CO.K6	Cloudflare account token (Pages, DNS)	per-project tokens and OIDC (H2-5) n
 CO.A1	The product's own calls to a model	nothing	BUILT			
 CO.A2	Model calls the operator skill makes (Gemini)	free-tier refusal history (map)	BUILT-UNPROVEN			
 CO.A3	Parked model features	all	NOT BUILT			
-CO.N1	Supabase Management API (Auth settings, function secrets, extensions, deploy)	production bring-up never run (the production project exists and is empty, 2026-11-20)	BUILT			
+CO.N1	Supabase Management API (Auth settings, function secrets, extensions, deploy)	the production bring-up ran on 2026-11-21 (`BRING-UP OK: 37 changed`, a second dry run `0 would change`); production holds no tables, data or functions yet	BUILT			
 CO.N2	GitHub API and `gh` (repository secrets, ruleset, CI)	the master ruleset is on (2026-11-20, 9 checks; the landing of 44eab161 went through it); that an unchecked push is refused was not tried	BUILT-UNPROVEN			
 CO.N3	Cloudflare DNS API (Resend records, client CNAME)	allow list is empty	BUILT			
 CO.N4	Cloudflare Pages deploy (wrangler) and project API	none	BUILT			
 CO.N5	Supabase Storage (private bucket `media`, signed URLs)	none	BUILT			
-CO.N6	Backup storage: Cloudflare R2 plus a second S3 provider	the real dump has never run (R2's bucket and key exist since 2026-11-20, its three keys are repository secrets and the certificate is committed since 2026-11-21; the second provider is optional)	HALF		3	
+CO.N6	Backup storage: Cloudflare R2 plus a second S3 provider	the real dump ran twice by hand on 2026-11-21 (staging, runs 44930777625 and 44932886784), was stored in R2 and opened with the owner's key; the second provider is optional and none is set	HALF		3	
 CO.N7	Google PageSpeed API and CrUX API	none	BUILT			
 CO.N8	Operator-tier read sources: Search Console API as the operator, Reddit, Common Crawl, Google Trends	none for the platform	BUILT-UNPROVEN			
 CO.N9	Dashboard "Ask us" address	the address	HALF			
