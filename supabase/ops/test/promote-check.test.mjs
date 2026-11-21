@@ -163,6 +163,14 @@ async function suite({ integration }) {
   try { mod.psqlReadOnly(withPw(B.url), 'select 1', echoing); } catch (e) { scrubbed = e.message; }
   t('the error text of an unreachable database is scrubbed of the URL and the password (a fake psql that echoes both)', scrubbed.includes('<db url>') && !scrubbed.includes(PW) && !scrubbed.includes(String(B.port)), scrubbed);
 
+  // the text psql is handed: the query and `commit;` must be separate statements, whether or not the caller ended its query with ";"
+  const handed = sql => { let input = ''; const fakePsql = (cmd, args, opts) => { input = String(opts.input); return { status: 0, stdout: '', stderr: '' }; }; mod.psqlReadOnly(B.url, sql, fakePsql); return input; };
+  const statements = input => input.split(';').map(x => x.trim()).filter(Boolean);
+  const bare = handed("select 'x'"), ended = handed("select 'x';"), spaced = handed("select 'x';  \n\n"), multi = handed('select 1; select 2');
+  t('a query without a trailing semicolon is closed: psql gets begin, the query and commit as three separate statements', JSON.stringify(statements(bare)) === JSON.stringify(['begin read only', "select 'x'", 'commit']) && bare === "begin read only;\nselect 'x';\ncommit;\n", JSON.stringify(bare));
+  t('a query that already ends with a semicolon (also with trailing spaces or newlines) gets no second one: no ";;", no empty statement', ended === "begin read only;\nselect 'x';\ncommit;\n" && spaced === ended && !/;\s*;/.test(ended + spaced), JSON.stringify([ended, spaced]));
+  t('a multi-statement query keeps its own semicolons and is closed once', JSON.stringify(statements(multi)) === JSON.stringify(['begin read only', 'select 1', 'select 2', 'commit']), JSON.stringify(multi));
+
   // the function list is the real folder's: always asked of the real script (a mutant copy lives in the temp folder)
   const fl = spawnSync(process.execPath, [REAL, 'functions'], { encoding: 'utf8', timeout: 30000, windowsHide: true });
   // whole folder names: a function called team-list is a function; only the folders named exactly _shared and test are not
@@ -189,6 +197,7 @@ const MUTANTS = [
   ['a changed file is let through (target side)', [['if (d === true) refusals.push(`R-CONTENT-TARGET', 'if (false) refusals.push(`R-CONTENT-TARGET']], /R-CONTENT-TARGET/],
   ['the hash comparison always says equal', [['return entry.sha256 !== file.sha;', 'return false;']], /R-CONTENT: b differs/],
   ['the statements comparison always says equal', [['return norm(entry.statements) !== file.norm;', 'return false;']], /R-CONTENT \(statements\)/],
+  ['a query without a trailing semicolon is handed to psql unclosed', [['q.endsWith(\';\') ? q : `${q};`', 'q']], /query without a trailing semicolon is closed/],
   ['the read-only transaction is dropped', [['begin read only;', 'begin;']], /refuses a write/],
   ['the same-database guard is dropped', [['provenUrl === targetUrl && !dry', 'false']], /same database on both sides is refused/],
   ['the URL and password scrub is dropped', [["msg = msg.split(url).join('<db url>').replace(/postgres(ql)?:\\/\\/\\S+/g, '<db url>');", ''], ["if (pass.length >= 3) msg = msg.split(pass).join('<password>');", '']], /unreachable database/],

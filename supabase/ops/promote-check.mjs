@@ -47,9 +47,11 @@ export function readRepoMigrations(dir) {
 export class DbError extends Error {}
 
 // One read-only round trip. The SQL goes on stdin inside `begin read only`, so a write fails with "read-only transaction".
+// The query is closed with exactly one ";" when it has none, so "commit;" below is never glued onto it as one statement.
 export function psqlReadOnly(url, sql, spawn = spawnSync) {
+  const q = String(sql).replace(/\s+$/, '');
   const r = spawn('psql', [url, '-X', '-q', '-t', '-A', '-v', 'ON_ERROR_STOP=1'], {
-    input: `begin read only;\n${sql}\ncommit;\n`, encoding: 'utf8', timeout: 60000, windowsHide: true,
+    input: `begin read only;\n${q.endsWith(';') ? q : `${q};`}\ncommit;\n`, encoding: 'utf8', timeout: 60000, windowsHide: true,
     env: { ...process.env, PGCONNECT_TIMEOUT: '15' },
   });
   if (r.error || r.status !== 0) {

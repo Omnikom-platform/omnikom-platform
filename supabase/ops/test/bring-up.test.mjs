@@ -2,7 +2,7 @@
 // API and the Cloudflare Pages API and counts every write; the database (deps.sql), gh (deps.gh), the dashboard deploy (deps.deploy) and
 // the commit (deps.head) are recorders, and deps.fetch refuses any address but the fake's. No cluster, no network, no account: every
 // value is a test string. Every case passes repoRoot = the real repository root (case 12 a temp copy of the files it reads, see there).
-//   node supabase/ops/test/bring-up.test.mjs              the suite (15 checks)
+//   node supabase/ops/test/bring-up.test.mjs              the suite (16 checks)
 //   node supabase/ops/test/bring-up.test.mjs --mutants    the suite, then every seeded fault (in a copy of the script): each must go red for its named check
 // Exit 0 = every check passed (and, with --mutants, every fault was caught).
 import { createServer } from 'node:http';
@@ -333,6 +333,14 @@ async function suite() {
         && rb.text === 'missing variables (by name): BACKUP2_ACCESS_KEY_ID, BACKUP2_ENDPOINT, BACKUP2_SECRET_ACCESS_KEY' && untouched(w), `${show(ra)}\n--\n${show(rb)}`];
     });
 
+    await check('16 the extensions read hands its reader ONE complete statement: it ends with ";" and holds no other (psqlReadOnly appends "commit;")', async () => {
+      const w = await make('staging');
+      const r = await run(w, ['--env', 'staging']);
+      const reads = w.rec.sql.filter(s => /from pg_extension/.test(s.text));
+      const text = reads.length ? reads[0].text.trim() : '';
+      return [reads.length === 1 && text.endsWith(';') && text.indexOf(';') === text.length - 1, `${show(r)}\nreads ${reads.length}: ${text}`];
+    });
+
     await check('15 the workflows: every BACKUP2 target is passed only when BACKUP2_BUCKET is set, the nightly dump and Vault also write monthly/<env> on UTC day 01', async () => {
       const bad = [];
       for (const [file, env] of [['.github/workflows/backup.yml', 'staging'], ['.github/production/backup.yml', 'production'], ['.github/production/promote.yml', 'production']]) {
@@ -367,6 +375,7 @@ const MUTANTS = [
   ['7 any API base is taken', [[String.raw`if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(base)) throw new Stop(2,`, 'if (false) throw new Stop(2,']], /^3 /],
   ['8 SUPABASE_ names and the test seams are kept', [['.filter(n => !/^SUPABASE_/.test(n) && !SEAMS.includes(n))', '.filter(n => true)']], /^10 /],
   ['9 the four BACKUP2_* names are required again', [['const noSecond = prod && !SECOND.some(x => env[x]);', 'const noSecond = false;']], /^13 /],
+  ['10 the extensions read loses its semicolon', [["']);`", "'])`"]], /^16 /],
 ];
 
 let exit = 0;

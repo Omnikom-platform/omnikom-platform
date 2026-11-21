@@ -132,7 +132,7 @@ export async function bringUp(argv, env = process.env, deps = {}) {
       await act(); say(`change  ${area} ${what}`); };
 
     { // X extensions (the statement of tools/staging-extensions.mjs)
-      const have = String(await guard('extensions read', () => read(dbUrl, `select coalesce(string_agg(extname, ','), '') from pg_extension where extname = any(array['${EXTENSIONS.join("','")}'])`))).split(',');
+      const have = String(await guard('extensions read', () => read(dbUrl, `select coalesce(string_agg(extname, ','), '') from pg_extension where extname = any(array['${EXTENSIONS.join("','")}']);`))).split(',');
       for (const e of EXTENSIONS) {
         const schema = e === 'pg_cron' || e === 'pgmq' ? '' : ' with schema extensions';
         await step('extensions', e, have.includes(e), () => guard(`extensions ${e}`, () => write(dbUrl, `create extension if not exists ${e}${schema} cascade`)));
