@@ -19,9 +19,11 @@ and `openssl`. Keys and database URLs are read from the environment BY NAME (`no
 | `../../.github/workflows/alerts.yml` | Hourly, staging, skipped while `STAGING_DB_URL` is absent. |
 | `../../sites/omnikom-status/` | The status page draft (`index.html` reads `status.json`). No host is chosen. |
 
-## The recipient certificate (owner batch, nothing here can decrypt)
-`backup-recipient.pem` is the PUBLIC half of a key pair the owner makes on his own machine. The private key never enters the repository, a
-workflow or a session. We commit only the certificate; `backup.mjs` refuses a file that contains `PRIVATE KEY`.
+## The recipient certificate (made 2026-11-21, committed, nothing here can decrypt)
+`backup-recipient.pem` is the PUBLIC half of a key pair the owner made on his own machine on 2026-11-21 (CN omnikom-backup, 4096 bit, valid to
+2036-11-18) and it is committed here. The private key never enters the repository, a workflow or a session; he holds it, with its passphrase,
+in places of his own. We commit only the certificate; `backup.mjs` refuses a file that contains `PRIVATE KEY`. The command below is how the pair
+is made again (a rotation).
 ```
 openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -subj "/CN=omnikom-backup" -keyout backup-private.pem -out backup-recipient.pem
 ```
@@ -106,11 +108,12 @@ with a test; tell the owner when it lasted over an hour.
 `retention_rules_purged`, one migration), partitioning, or a higher budget with the reason in `source`.
 
 ## Owner batch (nothing below is created by a session)
-- Make the key pair and commit `supabase/ops/backup-recipient.pem` (above).
+- Done 2026-11-21: the key pair is made and `supabase/ops/backup-recipient.pem` is committed (above). Still owed: the variable
+  `BACKUP_ENABLED`, the first nightly backup, and one restore run with the owner and his private key (owner item 25).
 - R2 enabled, a private bucket, a key for that bucket only (the size check reads each copy back). No second provider for now (owner,
   2026-11-20): the four `BACKUP2_*` secrets are optional, left unset, and the workflows and `bring-up.mjs` skip them; set all four later
   and the second copy starts, nothing else changes.
-- Repository secrets: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (optional: `BACKUP2_ENDPOINT`, `BACKUP2_BUCKET`,
+- Repository secrets (the three R2 names are set on the platform repository since 2026-11-21): `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (optional: `BACKUP2_ENDPOINT`, `BACKUP2_BUCKET`,
   `BACKUP2_ACCESS_KEY_ID`, `BACKUP2_SECRET_ACCESS_KEY`); the same set plus `PROD_DB_URL`, `PROD_SUPABASE_REF` and
   `PROD_SUPABASE_SECRET_KEY` (the media copy; `bring-up.mjs` sets every name of `.github/production/`) in the production repository. Variable
   `BACKUP_ENABLED = true` when ready; `ALERTS_RED = true` to make a firing alert also turn the alerts job red. The alert mail needs the

@@ -9,6 +9,44 @@ The owner: every mechanical, no-AI step of a client audit should run from one CL
 The head of operations ruled that there is ONE step list: the skill's own `start.mjs` audit-live mode reads the same manifest,
 its own audit-live sequence is removed, and a test fails if the two ever differ.
 
+## Owner's plan and rulings (2026-11-20 and 2026-11-21)
+Source: his words M173, M174 (2026-11-20) and M195, M196 (2026-11-21) in `head-of-operations/01-owner-words.md`; the cluster is
+`work/map/clusters.tsv` line 10. Status words below were checked in this worktree on 2026-11-21; "not checked" means I did not look.
+- STATIONS (plan). The audit's commands are grouped into stations. At each station an agent judges only what was skipped, blocked
+  or glitched, and fixes that. The bulk of the run uses no model. Today: `pipeline.json` has no station key (grep: 0 hits), so the
+  grouping, a short station sheet and a gate are NOT BUILT; the checker's grouping becomes a rule-based adapter to `causes.json`
+  (the adapter is still absent, parts AU.D-6 and SS.B-4).
+- WORK BROWSER (plan). A browser on a debugging port with its own seeded profile and its own work account, so the clicks are
+  scripted and the agent is an employee who only checks at stations. First for the four assistants, Bing, Maps and the site reads.
+  Google is tried with ONE page first. A robot check stays a hard stop and is never bypassed (measured 2026-11-11: a fresh
+  signed-out profile over CDP hit Google's robot check; a used signed-in profile is UNPROVEN). His older word of 2026-11-11 (no
+  scripts for Google) changes only as far as he said it here. Built today: the profile seed against the Windows lockouts
+  (`scripts/lib-browser-profile.mjs`); the work browser with a work account and the scripted captures are NOT BUILT (the capture steps
+  are still read in his Edge). The browser extension of M158 is only a fallback for hand driving, not built now.
+- AI ANSWERS (M174). The assistants' station is the two engineered prompts in one chat per assistant: the one-shot, then the
+  follow-up by name; counts with no model. NOT LANDED: the branch `check/seo/ai-oneshot` exists and is not in this tree's HEAD, and
+  `pipeline.json` has no ai-oneshot step.
+- POOL AND PROFILE (plan). The gathered data is pooled into one organized PROFILE per client, filled from the stations.
+- MODEL JUDGE (plan). A model judges the profile and writes the JSON that becomes the analysis and the client PDF. No script of
+  that name was found in `scripts/` (names listed, contents not read): NOT BUILT.
+- GUARDS (plan). Nothing is said or implied about a source that was not read. Every number the model writes must point to a
+  gathered fact, and a script refuses it otherwise. Nearest built piece: `client-copy-data.mjs` reads every number of the hand-built
+  copy through one function and stops when a field is missing; whether it can check a model's JSON is not checked.
+- INTERNAL SHEET (plan). It lists what was not gathered and why. It is never shown to the client. NOT BUILT.
+- MISSING SOURCES (his rule, M195). An audit with every source read is always approved. When some were not gathered (his
+  example: 9 sources read), the client gets the analysis of what was gathered and is told nothing about what was not read. Missing
+  data never makes an audit impossible. This replaces the idea that an entry report waits for the 11 captures from his Edge.
+- FLOOR (his rule, M196). A report goes to a client only if what was gathered fills an honest report of at least 5 pages; if not it
+  stays an internal draft. BUILT: the 5 to 8 sections gate of the client copy (`scripts/client-copy-gates.mjs:25`). NOT BUILT: the
+  decision "is what was gathered enough for 5 honest pages" made before the copy is written.
+- SIGN-OFFS (his ruling, M195). The head signs the business, the seeds, the competitors and any research plan up to 150 requests,
+  by this written rule, recorded as delegated. "Cost" means the number of requests to free sources; money is always 0. Above 150
+  the run stops for him. Built: `approve.mjs` accepts a delegation stamp and `research` has no `--yes` in the manifest, so a plan
+  above 150 stops for a person's signature; NOT BUILT: nothing writes the stamp for this rule yet (part AU.D-8). The contact line
+  on the client's copy and his read of each PDF stay with him (owner item 20).
+- ORDER. After the coming-soon page and the owner list, he and the head finish the audit end to end (skill, tools, scripts, CLI);
+  the self-serve path (request form, mailing the audit, sign-up from its link) comes after the audit and before clients go live.
+
 ## Where
 - The skill's outside copy, its own git repo: `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance`. The head of
   SEO wrote the draft `pipeline.json` there: 36 steps, with conventions agreed with HEAD_CLI-and-testing_2026-11-09. Read it

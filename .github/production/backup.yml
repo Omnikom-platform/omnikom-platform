@@ -8,8 +8,8 @@
 # including supabase/ops/backup-recipient.pem (the PUBLIC certificate; promote puts the proven commit there). UNPROVEN: how the files get
 # into the production repository is the promote workflow's concern (6A); this job only needs them in the checked-out tree.
 # The second provider is OPTIONAL: no BACKUP2_* secret is needed (owner 2026-11-20: none for now). The production Supabase project exists (Free),
-# and so do R2 and its bucket omnikom-backups (use another prefix than staging's). Until these are done the job is skipped: the owner makes the key
-# pair offline and commits only the certificate; the production repository holds the secrets PROD_DB_URL, CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+# and so do R2 and its bucket omnikom-backups (use another prefix than staging's). Until these are done the job is skipped: the key pair was made by the owner offline
+# (2026-11-21) and only the certificate is committed; the production repository holds the secrets PROD_DB_URL, CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID,
 # R2_SECRET_ACCESS_KEY, R2_BUCKET (a key for that bucket only), PROD_SUPABASE_REF and PROD_SUPABASE_SECRET_KEY (the media copy; bring-up.mjs sets
 # both); and the repository variable BACKUP_ENABLED = true is set.
 # Nightly the dump and the Vault copy; weekly (Sundays 04:07 UTC) the media copy (backup.mjs --what vault|media), all under production/.

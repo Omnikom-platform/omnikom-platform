@@ -11,17 +11,18 @@ GL.B21c	Overview numbers: staging run of the plan-gate and styles flows	the B21 
 GL.B24a	Search health: AI questions (prompt map stored per site)	table or contract field, function, page part	NOT BUILT	6	9	B24
 GL.B24b	Search health: the monthly report	stored-reports table, monthly job, page part	NOT BUILT	6	9	B24
 GL.B25	Photo sizes left behind by a delete	two by-choice gaps named in the book (job dying before callback; upload landing after delete)	BUILT			B25
-GL.C11	Privacy requests, suppressions, alert drop event	no screen or function takes a person's request; know, correct, opt-out not carried out; the commands run on staging only and are UNPROVEN there; nothing lifts a suppression	HALF	5	2	C11
+GL.C11	Privacy requests, suppressions, alert drop event	no screen or function takes a person's request; know, correct, opt-out not carried out; the commands run on staging only and are UNPROVEN there; nothing lifts a suppression; the person's request intake is part GL.C11b	HALF	5	2	C11
+GL.C11b	Privacy-request intake: a small form a visitor can send	the form and what takes the request in; ruled 2026-11-21 (owner item 14): a small form now, its wording drafted with the official Claude legal plugin (installed 2026-11-21, to be customised) and a human legal read before it goes live; nothing built	NOT BUILT	14	2	C11
 GL.C16a	Search Console pull and sitemap submit, live	the Search Console account of our own exists and holds omnikom.ai since 2026-11-20, no client domain yet (same as B21a); sitemap-submit never driven (no production publish on staging)	HALF	6 21	9	C16
 GL.C16b	Bing: no site verified for the key	each live site verified in Bing	HALF	6 21	9	C16
 GL.C16c	IndexNow key file and ping	the build never writes a key file, so the ping never fires	HALF	6 21	9	C16
 GL.C16d	sitemap-submit driven on a production publish	first live publish	BUILT-UNPROVEN	6 21	9	C16
-GL.E1a	Backup public certificate in the repository	the certificate	NOT BUILT		3	E1
-GL.E1b	Two backup buckets and keys	the R2 bucket and its key exist and a write was read back (2026-11-20); its keys are not repository secrets yet; no second provider (optional, owner 2026-11-20)	HALF		3	E1
-GL.E1c	Staging backups switched on	never run for real: needs E1a and E1b	BUILT-UNPROVEN		3	E1
+GL.E1a	Backup public certificate in the repository	nothing: the owner made the key pair himself on 2026-11-21 and the public certificate is committed as `supabase/ops/backup-recipient.pem` (CN omnikom-backup, 4096 bit, valid to 2036-11-18); the private half stays with him and no session reads it	BUILT		3	E1
+GL.E1b	Two backup buckets and keys	the R2 bucket and its key exist and a write was read back (2026-11-20); R2's three keys (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`) are repository secrets since 2026-11-21, not yet used by a workflow run; no second provider (optional, owner 2026-11-20)	BUILT-UNPROVEN		3	E1
+GL.E1c	Staging backups switched on	never run for real: the certificate (E1a) and R2's three keys (E1b) are in place since 2026-11-21; still missing: the repository variable `BACKUP_ENABLED`, then a first nightly backup watched	BUILT-UNPROVEN		3	E1
 GL.E1d	Monthly restore drill	a drill against a real stored production copy	BUILT		3	E1
-GL.E1e	A stored dump opened with the owner's own key	the first nightly backup must exist	NOT BUILT		3	E1
-GL.E1f	Production backup	the production repository and project exist and are empty (2026-11-20); variable off	HALF		3	E1
+GL.E1e	A stored dump opened with the owner's own key	the first nightly backup must exist (the variable `BACKUP_ENABLED` is not set yet); then one restore run with the owner and his private key, him present (owner item 25)	NOT BUILT		3	E1
+GL.E1f	Production backup	the production repository and project exist and are empty (2026-11-20); variable off; the public certificate is committed since 2026-11-21 (promote refuses a commit without it); the production repository's own backup secrets are not checked	HALF		3	E1
 GL.E1g	An alert when no backup lands in the buckets	alert on the newest object's age	NOT BUILT		3	E1
 GL.E2a	KNOWN-6 staging ledger repair before the first promote (also N4c)	the head's repair script was never run	NOT BUILT	1 8	4	E2
 GL.E2b	Staging caught up with master	migration 52 and the C19 functions on staging cannot be told from the tree	HALF	1 8	4	E2
@@ -47,7 +48,7 @@ GL.E3d	Uptime of sites, dashboard and form endpoint	checker plus alert	NOT BUILT
 GL.E3e	Status page host	host	HALF		4	E3
 GL.E4	New-lead alert outbox	the book's C13 row (:112) and E4 now agree	BUILT		4	E4
 GL.E5a	Edge hold of a refused visitor (60 s)	nothing for E5-b	BUILT			E5
-GL.E5b	Bot check, other limits	stays parked	NOT BUILT			E5
+GL.E5b	Bot check, other limits	Cloudflare's invisible bot check on every client-site form is WANTED (owner 2026-11-21, item 28, ruling 3 changed), beside our own protections (per-visitor limit, hidden field `hp`, the 60 s edge hold); no visible puzzle for a visitor; NOT BUILT (the book's rule 30 and rows E5 and KNOWN-1 are reworded); the other limits (a limit before the first refusal, one shared across data centers) stay parked	NOT BUILT			E5
 GL.E8a	Publish smoke by content hash on Pages	a recorded `STEP smoke` line on a real Pages deploy	BUILT-UNPROVEN		7	E8
 GL.E8b	The real rollback of a live deploy	cannot be shown until a live site exists	BUILT-UNPROVEN		7	E8
 GL.E8c	A first live deploy has nothing to roll back to; attach the domain last	nothing enforces "domain after the first main deploy passed"	HALF		7	E8
@@ -79,7 +80,7 @@ GL.G1	Onboard a real client on production	production mode with the owner's click
 GL.G2	Provision a client's site on production	production target and key mint	NOT BUILT		8	
 GL.G3	A client's real domain on production	owner-click path for a real domain	NOT BUILT		8	
 GL.G4	Something sets `sites.state = 'live'`	no command for a person; no refusal without a domain and a green preview (the migration has none); no staging proof	HALF		7	
-GL.G5	Platform builds are not signed	decide, then wire (the tool itself improved: commit 0bd0cd03)	NOT BUILT		7	
+GL.G5	Platform builds are not signed	decided 2026-11-21 (owner item 13): yes, platform-published builds are signed and sealed like the previews, in the go-live work; the wiring is not done (the tool itself improved: commit 0bd0cd03)	NOT BUILT	13	7	
 GL.G6	Cloudflare token with Zone Edit and DNS Edit	a full key for our Cloudflare account exists on the laptop only (2026-11-20), none in CI; the clients' zones are not in our account	HALF		8	
 GL.G7	A tool that adds a client's zone and reports the name servers	the tool	NOT BUILT		8	
 GL.G8	The platform's own mail sender on omnikom.ai	send proof (G10), and the swap of the platform files and the staging sender, which still name notify.omnikom.io (CO.M1); the sender is picked (`login@notify.omnikom.ai`, `PROD_MAIL_FROM`) and its domain is verified at Resend	BUILT-UNPROVEN			
@@ -122,14 +123,14 @@ AU.D-4	psi	BLOCKED without PSI_API_KEY	BUILT		10
 AU.D-5	crux	BLOCKED without CRUX_API_KEY	BUILT		10	
 AU.D-6	checker (AI coordinator)	on master as a brief and a worker launcher; the engine never runs it. The measurable rules exist as a program (tools/audit/live.mjs) but no adapter feeds `causes.json` from it (searched S/scripts/report-live.mjs and S/pipeline.json: no such option)	HALF		10	
 AU.D-7	intake	owner-only fields need the owner's answers	BUILT		10	
-AU.D-8	approve-business	by design a person act; delegation stamp accepted by approve.mjs but nothing writes one	BUILT		10	
+AU.D-8	approve-business	owner ruled 2026-11-21 (item 22): the head signs the business, the seeds, the competitors and any research plan up to 150 requests by a written rule (`work/41-audit-pipeline/CONTEXT.md`), recorded as delegated; `approve.mjs` accepts a delegation stamp but nothing writes one for this rule	HALF	22	10	
 AU.D-9	city-centres	none	BUILT		10	
 AU.D-10	seeds	no test file named for seeds found (research-seeds covered only inside test-research.mjs, unopened)	BUILT		10	
-AU.D-11	approve-seeds	person act	BUILT		10	
+AU.D-11	approve-seeds	owner ruled 2026-11-21 (item 22): the head signs under the same written rule (ceiling 150 requests); the stamp is not written by anything yet	HALF	22	10	
 AU.D-12	demand-bing	no test seen of the whole call path	BUILT-UNPROVEN		10	
 AU.D-13	search-console	stays BLOCKED for a prospect	BUILT		10	
 AU.D-14	research-plan	none	BUILT		10	
-AU.D-15	capture-google	importer on master; the page reading is a session in the owner's Edge, no program	HALF		10	
+AU.D-15	capture-google	importer on master; the page reading is a session in the owner's Edge, no program. Ruled 2026-11-20 and 21 (M173, item 22): the reads become scripted clicks in a work browser (debugging port, own seeded profile, own work account) run by stations, Google tried with one page first, a robot check a hard stop; until that is built they are read in his Edge, and a report goes out with what was gathered (a missing read no longer blocks it)	HALF		10	
 AU.D-16	capture-bing	as D-15	HALF		10	
 AU.D-17	capture-index	as D-15	HALF		10	
 AU.D-18	index-import	none	BUILT		10	
@@ -137,14 +138,14 @@ AU.D-19	capture-autocomplete	as D-15	HALF		10
 AU.D-20	autocomplete-import	no test of that name found	BUILT-UNPROVEN		10	
 AU.D-21	capture-trends	as D-15	HALF		10	
 AU.D-22	trends-import	none	BUILT		10	
-AU.D-23	capture-ai	the one-prompt method (one engineered prompt per assistant, one follow-up, counts with no model) is NOT on master: branch check/seo/ai-oneshot (3 commits, S/scripts/ai-oneshot.mjs 379 lines, test-ai-oneshot.mjs). Manifest on master has no ai-oneshot (grep of pipeline.json: none). Still needs a session to paste into the owner's browser	HALF		10	
+AU.D-23	capture-ai	the one-prompt method (one engineered prompt per assistant, one follow-up, counts with no model) is NOT on master: branch check/seo/ai-oneshot (3 commits, S/scripts/ai-oneshot.mjs 379 lines, test-ai-oneshot.mjs). Manifest on master has no ai-oneshot (grep of pipeline.json: none). Still needs a session to paste into the owner's browser. The assistants' station is these two prompts in one chat per assistant (owner M174); branch still not in this tree's HEAD (checked 2026-11-21)	HALF		10	
 AU.D-24	ai-import	none	BUILT		10	
-AU.D-25	research	no `--yes` in manifest, so a plan above 150 stops for a person's signature	BUILT		10	
+AU.D-25	research	no `--yes` in manifest, so a plan above 150 stops for a person's signature. Owner ruling 2026-11-21 (item 22): "cost" is the number of requests to free sources, money is 0; the head signs a plan up to 150 requests, above 150 it stops for him	BUILT	22	10	
 AU.D-26	targets-validate	none	BUILT		10	
 AU.D-27	local-grid-plan	no test named for the grid plan found (test-local-nap.mjs is another thing)	BUILT		10	
-AU.D-28	capture-maps	the writer from saved page text to capture file is now a skill script (old fault 12 closed); pages still read in the owner's Edge	HALF		10	
+AU.D-28	capture-maps	the writer from saved page text to capture file is now a skill script (old fault 12 closed); pages still read in the owner's Edge until the work browser exists (ruled 2026-11-20 and 21, as D-15)	HALF		10	
 AU.D-29	competitors	no test of that name found	BUILT		10	
-AU.D-30	approve-competitors	the signer works (and teammate/brokerage exclusion, commit f9068c9b); the proposer script is not a manifest step and reads agents' tables, never searches itself	HALF		10	
+AU.D-30	approve-competitors	the signer works (and teammate/brokerage exclusion, commit f9068c9b); the proposer script is not a manifest step and reads agents' tables, never searches itself. The head now signs the competitors under the written rule (owner 2026-11-21, item 22); the stamp is not written by anything yet	HALF	22	10	
 AU.D-31	authority	15 GB disk; one laptop	BUILT		10	
 AU.D-32	authority-anchors	source can stop for 24 h	BUILT		10	
 AU.D-33	authority-classify	no test of that name found	BUILT-UNPROVEN		10	
@@ -163,20 +164,25 @@ AU.D-45	report-live	cannot start without the checker and every capture importer;
 AU.D-46	verify (fresh AI agent)	a brief only; no program re-reads facts (tools/audit README per old map); engine never runs it	HALF		10	
 AU.D-47	client-copy: the 8-page copy of the run	`{pewp}/client-copy.json` (this client's wording) is hand-written, no writer; `contact` null = a draft; hand-read inputs (`handReads`: leadPath, mail, domain, trust, filing)	BUILT		10	
 AU.D-48	client-copy-pdf: print and check	headless Chrome on the laptop (heavy)	BUILT		10	
-SS.B-1	a business gives URL and email with consent	the own site, an audit-request lead type, a trigger to B-2	NOT BUILT		11	
+AU.S-1	Stations: the audit's commands grouped; at each an agent judges only what was skipped, blocked or glitched and fixes that	the grouping in the manifest (`pipeline.json` has no station key), a short station sheet, a gate; the bulk runs with no model (owner M173, 2026-11-20)	NOT BUILT	22	10	
+AU.S-2	Work browser: a debugging port, its own seeded profile, its own work account, clicks scripted	the profile seed against the Windows lockouts exists (`lib-browser-profile.mjs`); the port, the work account signed in once and the scripted captures do not; Google tried with one page first, a robot check stays a hard stop (owner M173)	HALF		10	
+AU.S-3	The profile: gathered data pooled into one organized profile per client, filled from the stations	the pool and its shape (owner M195, 2026-11-21)	NOT BUILT		10	
+AU.S-4	The model judge and its number gate: a model reads the profile and writes the JSON of the analysis and the client PDF	the judge, and a script that refuses any number the model writes that does not point to a gathered fact, and any word about a source that was not read (owner M195, M196)	NOT BUILT		10	
+AU.S-5	The internal sheet: what was not gathered and why, never shown to the client	the sheet (owner M195)	NOT BUILT		10	
+SS.B-1	a business gives URL and email with consent	the own site, an audit-request lead type, a trigger to B-2. REOPENED 2026-11-21 (owner item 16): the audit request form on omnikom.ai; built after the audit work and before clients go live	NOT BUILT	16	11	
 SS.B-2	the audit as a job: record, queue, worker, state off the laptop	table, queue, worker workflow, state adapter	NOT BUILT		11	
 SS.B-3	audit: technical read	runner, Chrome there, keys as secrets	HALF		11	
 SS.B-4	audit: checker	adapter from tools/audit summary to `causes.json`, still absent (report-live reads only `causes.json`: S/scripts/report-live.mjs:83-85)	HALF		10	
 SS.B-5	audit: business definition	a form for owner-only fields; nothing issues a stamp	HALF		11	
 SS.B-6	audit: seeds	automatic approval absent	HALF		10	
-SS.B-7	audit: the 11 captures	no optional dependency, no unattended source	HALF		11	
+SS.B-7	audit: the 11 captures	the reads are ruled to be scripted in a work browser by stations (2026-11-20, 21; as AU.D-15) and not built; until then read in his Edge; a missing read no longer holds a report (owner item 22: the client is told nothing about what was not read)	HALF	22	11	
 SS.B-8	audit: research, competitors, links, local, reputation, social, ads	`competitors-propose` step, auto signatures	HALF		10	
 SS.B-9	audit: report-live	trigger and storage for the output	BUILT		11	
 SS.B-10	audit: verify	a program re-reading facts	HALF		11	
-SS.B-11	the client document	`client-copy.json` per client has no writer; contact line open; the copy has not been shown run end to end by a test on a real run (no run folder opened)	HALF		10	
-SS.B-12	the audit goes out by email	prospect outbox, template, consent text	NOT BUILT		11	
-SS.B-13	sign-up	public function with signed token	NOT BUILT		11	
-SS.B-14	payment	everything	NOT BUILT		11	
+SS.B-11	the client document	`client-copy.json` per client has no writer; contact line open; the copy has not been shown run end to end by a test on a real run (no run folder opened). Owner ruling 2026-11-21 (item 22): a report goes to a client only if what was gathered fills an honest report of at least 5 pages, else it stays an internal draft; the 5 to 8 sections gate exists (`client-copy-gates.mjs`), the decision before the copy is written and the internal sheet of what was not gathered do not	HALF		10	
+SS.B-12	the audit goes out by email	prospect outbox, template, consent text. REOPENED 2026-11-21 (owner item 16): mailing the audit to the person who asked; built after the audit work and before clients go live	NOT BUILT	16	11	
+SS.B-13	sign-up	public function with signed token. REOPENED 2026-11-21 (owner item 16): sign-up from the link in the audit mail; built after the audit work and before clients go live	NOT BUILT	16	11	
+SS.B-14	payment	everything; stays parked (owner 2026-11-21, items 15 and 16: reopening self-serve did not include payment)	NOT BUILT	15	11	
 SS.B-15	workspace, site row, contract, pages, Pages project, key	production allowed; system caller instead of staff MFA; workflow	BUILT-UNPROVEN		11	
 SS.B-16	page plan and approvals	run in the job; signatures	HALF		11	
 SS.B-17	contract from the approved plan	writer of entities.json	HALF		11	
@@ -200,7 +206,7 @@ CO.G7	Google Business Profile	owner decision first	NOT BUILT
 CO.G8	Cloudflare Web Analytics / uptime source	collector, a Cloudflare read secret on the function side	NOT BUILT			
 CO.G9	AI answers writer (`ai-answers`)	endpoint plus ruling on who runs the model	NOT BUILT		9	
 CO.C1	Leads to a client's CRM by export in its layout; import back	the Google layout's headers are not checked against a real export (map said, `5-crm.md:150`)	BUILT			
-CO.C2	Live push of a lead to a client's CRM	by decision (`5-crm.md:6,128`); dead config entry `config.toml:37` should go or the function be built	NOT BUILT			
+CO.C2	Live push of a lead to a client's CRM	by decision (`5-crm.md:6,128`); dead config entry `config.toml:37` should go or the function be built; not reopened with self-serve (owner 2026-11-21, item 16)	NOT BUILT			
 CO.C3	Inbound events from a CRM	receiver, processor	NOT BUILT			
 CO.C4	OmniSuite follow-up connection	needs OmniSuite to be an API	NOT BUILT			
 CO.C5	Add-ons wizard and state machine	wizard, functions, screens (parked by `10-expansion.md:63-64`)	HALF			
@@ -210,7 +216,7 @@ CO.M3	System alerts to the operator	the address	BUILT-UNPROVEN
 CO.M4	Bounces and complaints (Resend webhook)	a real bounce through the staging webhook (made 2026-11-20); Auth mail and operator mail bounces suppress nothing (scope limit in `m31`)	HALF			
 CO.M5	A report or document mailed to a client	table of reports, render job, signed download, outbox for non-lead mail, owner click	NOT BUILT		11	
 CO.M6	"Audit ready" / "draft ready" mail	template, outbox columns, trigger	NOT BUILT		11	
-CO.P1	Payment provider	everything	NOT BUILT		11	
+CO.P1	Payment provider	everything; stays parked (owner 2026-11-21, item 15)	NOT BUILT		11	
 CO.P2	Plan limits per workspace	`apply_plan` writer, plan table	HALF			
 CO.P3	Add-on state driven by a payment	receiver, base-plan state path (`m43` / `20261115000052_site_state.sql:4` moves a site's state by staff, not by payment)	HALF			
 CO.J1	pg_cron jobs	nothing	BUILT			
@@ -233,7 +239,7 @@ CO.N2	GitHub API and `gh` (repository secrets, ruleset, CI)	the master ruleset i
 CO.N3	Cloudflare DNS API (Resend records, client CNAME)	allow list is empty	BUILT			
 CO.N4	Cloudflare Pages deploy (wrangler) and project API	none	BUILT			
 CO.N5	Supabase Storage (private bucket `media`, signed URLs)	none	BUILT			
-CO.N6	Backup storage: Cloudflare R2 plus a second S3 provider	the real dump has never run (R2's bucket and key exist since 2026-11-20; the second provider is optional)	HALF		3	
+CO.N6	Backup storage: Cloudflare R2 plus a second S3 provider	the real dump has never run (R2's bucket and key exist since 2026-11-20, its three keys are repository secrets and the certificate is committed since 2026-11-21; the second provider is optional)	HALF		3	
 CO.N7	Google PageSpeed API and CrUX API	none	BUILT			
 CO.N8	Operator-tier read sources: Search Console API as the operator, Reddit, Common Crawl, Google Trends	none for the platform	BUILT-UNPROVEN			
 CO.N9	Dashboard "Ask us" address	the address	HALF			

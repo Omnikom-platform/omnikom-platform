@@ -37,7 +37,7 @@ flowchart LR
 | A second site for a business | one `sites` row and a Pages project; the site switcher appears in the CRM |
 | A new industry | a plan and, where the law needs it, a compliance pack in the SEO skill's industry rules; proven by the industry run |
 | Many businesses | the measured budget triggers in `2-architecture.md`; about 95 sites per Cloudflare account, then the next account |
-| Self-serve sign-up | the presence report as the entry, then payment, then onboarding as a job (later) |
+| Self-serve sign-up | the presence report as the entry, then onboarding as a job; reopened by the owner on 2026-11-21 for three parts (the audit request form on omnikom.ai, mailing the audit to who asked, sign-up from the mail's link), not built, after the audit work and before clients go live; payment stays parked |
 
 No white label: every site and mail says "powered by Omnikom".
 

@@ -11,7 +11,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
 - The order (owner, 2026-11-20): clusters, each done in one go, in this order: 1 the book tells the truth;
   2 small product gaps, code only; 3 backups for real; 4 staging caught up and proven; 5 large tenant; 6 production
   exists; 7 protected publish and go-live; 8 the first client live; 9 search numbers and AI answers; 10 the audit by one
-  command; 11 self-serve (parked by the plan).
+  command; 11 self-serve (three parts reopened 2026-11-21, after 10).
 - The method stays: one hand-over per job, the test first and seen red, the least code, one builder per job in its
   worktree who only stages, the head's intake, one landing by `omnikom land` on a tree that passed CI. WORKS = a test or
   journey step shows it; what staging has not shown says UNPROVEN. A second lane runs the audits; product lands first.
@@ -31,7 +31,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
 
 ## Staging, 2026-11-20
 - Reachable; 41 of 42 migrations (52 pending); 32 functions deployed. Set on 2026-11-20: `GOOGLE_SERVICE_ACCOUNT_JSON`,
-  `RESEND_WEBHOOK_SECRET`, `GITHUB_DISPATCH_TOKEN_V2`. The nightly backup is still skipped (R2's keys are not repository secrets yet).
+  `RESEND_WEBHOOK_SECRET`, `GITHUB_DISPATCH_TOKEN_V2`. The nightly backup is still skipped (variable BACKUP_ENABLED not set).
 
 ## Migrations
 - An unlanded migration takes the next free number above every file in the tree and lands in number order (staging applies
@@ -53,7 +53,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
   applied before 16 (KNOWN-6): repair before the first promotion.
 
 ## Open owner items
-- The sitting of 2026-11-20 is done: GitHub (token, ruleset), Resend (webhook, both domains verified), Google (new key,
-  Search Console), omnikom.ai on our Cloudflare account (records: `work/dns-omnikom-ai.tsv`), production Supabase (empty), R2.
-- Still his: the word for `bring-up` on production; the backup key pair, made with him present; later go's: the first
-  promote, each client's domain switch and sign-offs. Every item: `work/map/owner.tsv`.
+- Done: the sitting of 2026-11-20 (accounts, DNS, R2) and the owner list of 2026-11-21: self-serve reopened for three parts
+  (after the audit), the head signs the audit's approvals up to 150 requests, the backup key pair made, its public half committed.
+- Still his: the word for `bring-up`; the restore run with his private key; later go's: the first promote, each client's
+  domain switch and sign-offs. Every item: `work/map/owner.tsv`.

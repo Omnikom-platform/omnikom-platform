@@ -36,7 +36,7 @@ runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright
 
 ## Sign-in
 
-- Email magic link only; no passwords, no self sign-up (invites only). The link lives 10 minutes and works once; a new one can
+- Email magic link only; no passwords, no self sign-up today (invites only; sign-up from the link in an audit mail is ruled for later, 2026-11-21, not built). The link lives 10 minutes and works once; a new one can
   be asked for after 60 s. A wrong email gets the same "check your email" text.
 - The mail is sent through Resend from the templates in `supabase/auth-emails/` (checked by `check.mjs` against the plan).
 - An invite is a sign-in link with the same life, not a separate token page.

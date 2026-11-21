@@ -99,8 +99,9 @@ its check where one exists. How sessions and departments work (the head, helpers
 Every block, and the omnikom.ai site, is built to these from its first commit; a work order that touches one of them names how
 it keeps it, and the hardening steps in `9-blocks.md` bring today's code up to them.
 30. **The edge takes the load, the database takes only real work.** Anything public (a form post, a page) is rate limited
-    per visitor and per site at Cloudflare, with a bot check, before it reaches a function; a flood never costs a database
-    connection.
+    per visitor and per site at Cloudflare before it reaches a function; a flood never costs a database connection. Our own
+    protections stay on every form (the per-visitor limit, the hidden field, the edge hold); Cloudflare's invisible bot check
+    is added beside them on every client-site form (owner 2026-11-21, not built yet); a visitor is never shown a puzzle.
 31. **Pooled connections only.** Functions reach Postgres through the Supabase pooler (transaction mode), never a direct
     connection per request.
 32. **Lists scale with the tenant.** Every list a user pages through uses an index for its filter and sort, pages by
