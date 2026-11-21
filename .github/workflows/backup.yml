@@ -2,7 +2,8 @@
 # owner 2026-11-20: none for now). On UTC day 01 the dump and the Vault copy are also written under monthly/staging (bucket rule: 365 days).
 # (10-DELIVERY section 5, 11-OPERATIONS section 3, 18-BUDGET-ARCHITECTURE 2.4). The work is supabase/ops/backup.mjs (its header says how).
 # The second provider is OPTIONAL: no BACKUP2_* secret is needed (owner 2026-11-20: none for now). R2 is on, the bucket omnikom-backups and its
-# key exist (2026-11-20). Until these are done the job is skipped (each is a secret or an owner step, none is done by a session):
+# key exist (2026-11-20).
+# BLOCKED: R2's keys are not repository secrets yet and the key pair is not made. Until these are done the job is skipped:
 #   (1) the owner makes the key pair OFFLINE and commits only the public certificate as supabase/ops/backup-recipient.pem (supabase/ops/README.md);
 #   (2) the repository secrets R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET are set by name (CLOUDFLARE_ACCOUNT_ID exists);
 #   (3) the repository variable BACKUP_ENABLED = true is set.
