@@ -78,6 +78,7 @@ flowchart TB
 | Builds, photo processing, checks | GitHub Actions | heavy work cannot run in an Edge Function |
 | Mail | Resend | sign-in links (Supabase Auth SMTP) and new-lead alerts |
 | Domains | the client's registrar points its nameservers at a zone in Omnikom's Cloudflare account | the client keeps ownership; leaving is pointing the nameservers back |
+| Omnikom's own domain `omnikom.ai` | registrar Namecheap, nameservers `chuck.ns.cloudflare.com` and `lila.ns.cloudflare.com` (Custom DNS), zone on the work Cloudflare account, active 2026-11-20 | SSL strict, always-use-HTTPS on, minimum TLS 1.2, automatic HTTPS rewrites and TLS 1.3 on; AI crawlers not blocked; every record in `work/dns-omnikom-ai.tsv`; `alerts@` and `hello@` are Cloudflare Email Routing forwards (no Workspace domain); `app` is held until the production dashboard's Pages project exists, so no name points at nothing |
 
 Omnikom holds the running accounts (hosting, deploys, Search Console). The client keeps the domain, content and leads.
 

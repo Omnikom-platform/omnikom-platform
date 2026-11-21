@@ -4,36 +4,36 @@ GL.B12b	A removed page answered 200 at its old address (edge cache); the smoke n
 GL.B14c	Media library Replace and Delete flows	nothing	BUILT			B14
 GL.B15b	Preview site flow	nothing	BUILT		2	B15
 GL.B15c	Before-and-after screenshots in the preview	all of it; not a gate for a first client	NOT BUILT		2	B15
-GL.B18	"Ask Omnikom" address on the Websites card	the address itself; the production build (bring-up inherits the env)	HALF			B18
-GL.B21a	Search Console numbers on the Overview	the Omnikom Search Console account/service account and a verified property per live site; never run live	HALF	6	9	B21
+GL.B18	"Ask Omnikom" address on the Websites card	the address is decided (hello@omnikom.ai, owner item 10) and its Cloudflare forward is live since 2026-11-20, but `VITE_ASK_EMAIL` is set in no environment yet; the production build (bring-up inherits the env)	HALF			B18
+GL.B21a	Search Console numbers on the Overview	a verified property per live site (the account exists and holds omnikom.ai since 2026-11-20); never run live	HALF	6	9	B21
 GL.B21b	AI answers: no runtime writer	stays parked by ruling	NOT BUILT	6	9	B21
 GL.B21c	Overview numbers: staging run of the plan-gate and styles flows	the B21 cell's wording only	BUILT	6	9	B21
 GL.B24a	Search health: AI questions (prompt map stored per site)	table or contract field, function, page part	NOT BUILT	6	9	B24
 GL.B24b	Search health: the monthly report	stored-reports table, monthly job, page part	NOT BUILT	6	9	B24
 GL.B25	Photo sizes left behind by a delete	two by-choice gaps named in the book (job dying before callback; upload landing after delete)	BUILT			B25
 GL.C11	Privacy requests, suppressions, alert drop event	no screen or function takes a person's request; know, correct, opt-out not carried out; the commands run on staging only and are UNPROVEN there; nothing lifts a suppression	HALF	5	2	C11
-GL.C16a	Search Console pull and sitemap submit, live	the account (same as B21a); sitemap-submit never driven (no production publish on staging)	HALF	6 21	9	C16
+GL.C16a	Search Console pull and sitemap submit, live	the Search Console account of our own exists and holds omnikom.ai since 2026-11-20, no client domain yet (same as B21a); sitemap-submit never driven (no production publish on staging)	HALF	6 21	9	C16
 GL.C16b	Bing: no site verified for the key	each live site verified in Bing	HALF	6 21	9	C16
 GL.C16c	IndexNow key file and ping	the build never writes a key file, so the ping never fires	HALF	6 21	9	C16
 GL.C16d	sitemap-submit driven on a production publish	first live publish	BUILT-UNPROVEN	6 21	9	C16
 GL.E1a	Backup public certificate in the repository	the certificate	NOT BUILT		3	E1
-GL.E1b	Two backup buckets and keys	buckets and keys	NOT BUILT		3	E1
+GL.E1b	Two backup buckets and keys	the R2 bucket and its key exist and a write was read back (2026-11-20); its keys are not repository secrets yet; no second provider (optional, owner 2026-11-20)	HALF		3	E1
 GL.E1c	Staging backups switched on	never run for real: needs E1a and E1b	BUILT-UNPROVEN		3	E1
 GL.E1d	Monthly restore drill	a drill against a real stored production copy	BUILT		3	E1
 GL.E1e	A stored dump opened with the owner's own key	the first nightly backup must exist	NOT BUILT		3	E1
-GL.E1f	Production backup	production repository and project do not exist; variable off	HALF		3	E1
+GL.E1f	Production backup	the production repository and project exist and are empty (2026-11-20); variable off	HALF		3	E1
 GL.E1g	An alert when no backup lands in the buckets	alert on the newest object's age	NOT BUILT		3	E1
 GL.E2a	KNOWN-6 staging ledger repair before the first promote (also N4c)	the head's repair script was never run	NOT BUILT	1 8	4	E2
 GL.E2b	Staging caught up with master	migration 52 and the C19 functions on staging cannot be told from the tree	HALF	1 8	4	E2
 GL.E2c	Staging bring-up dry run	a real dry run, then --apply, then 0 changes	BUILT-UNPROVEN	1 8	4	E2
-GL.E2d	The production database project	the project	NOT BUILT	1 8	6	E2
-GL.E2e	Production connection strings (pooler vs direct)	production compose path; which form each script needs is UNPROVEN	NOT BUILT	1 8	6	E2
-GL.E2f	Private repository `omnikom-platform-prod`	repository	NOT BUILT	1 8	6	E2
-GL.E2g	Production repository shape (default branch `production`, five workflow files, CI off)	the repository and the by-hand steps; the publish and media workflows are not in the production folder	NOT BUILT	1 8	6	E2
-GL.E2h	Production secret values by name in the master `.env`	which names are set	CANNOT TELL	1 8	6	E2
-GL.E2i	One dispatch token name for production	retire the repository_dispatch branch (3 files)	NOT BUILT	1 8	6	E2
+GL.E2d	The production database project	nothing (the project `omnikom-production` exists on the free plan, empty, proven with psql 2026-11-20; its `PROD_*` names are stored)	BUILT	1 8	6	E2
+GL.E2e	Production connection strings (pooler vs direct)	no tool composes production's connection strings (the head composed them by hand 2026-11-20; `PROD_DB_URL`, the session pooler, is proven with psql exit 0); `PROD_DB_URL_DIRECT` is IPv6 only and does not resolve from the laptop (GitHub's runners reach it), so from the laptop use `PROD_DB_URL` or `PROD_DB_POOLER_URL`; which form each script needs is UNPROVEN	BUILT-UNPROVEN	1 8	6	E2
+GL.E2f	Private repository `omnikom-platform-prod`	nothing (exists since 2026-10-29, private, empty, Actions off)	BUILT	1 8	6	E2
+GL.E2g	Production repository shape (default branch `production`, five workflow files, CI off)	default branch, workflow files, the by-hand steps; the publish and media workflows are not in the production folder	NOT BUILT	1 8	6	E2
+GL.E2h	Production secret values by name in the master `.env`	the dry run of 2026-11-20 missed only the backup names, and R2's were stored later that night; not run again since	BUILT-UNPROVEN	1 8	6	E2
+GL.E2i	One dispatch token name for production	retire the repository_dispatch branch (3 files); production now holds the same value under `PROD_GITHUB_DISPATCH_TOKEN_V2` and `PROD_GITHUB_DISPATCH_TOKEN` (2026-11-20; production repository only, Actions read and write, no expiration, rotation date not set)	NOT BUILT	1 8	6	E2
 GL.E2j	Production bring-up run	the run, after E2d, E2f, E2h	BUILT-UNPROVEN	1 8	6	E2
-GL.E2k	DNS `app.omnikom.ai` to the production dashboard	the record	NOT BUILT	1 8	6	E2
+GL.E2k	DNS `app.omnikom.ai` to the production dashboard	the record; held on purpose (2026-11-20): no production Pages project exists yet, so a CNAME now would dangle (takeover risk); bring-up adds it with the project	NOT BUILT	1 8	6	E2
 GL.E2l	First promote to production	production repository, bring-up first (cron.schedule calls skip without pg_cron), the certificate	BUILT-UNPROVEN	1 8	6	E2
 GL.E2m	Vault entries on production (`project_url`, `metrics_cron_key`, `mail_outbox_key`)	a scripted, tested write by name only	NOT BUILT	1 8	6	E2
 GL.E2n	Keepalive for a Free production project	production keepalive, or take Pro (O1)	NOT BUILT	1 8	6	E2
@@ -42,7 +42,7 @@ GL.E2p	A way to prove production end to end	a production test workspace and site
 GL.E2q	A real staff login with second factor on production	script that makes the user, row and TOTP factor on production	NOT BUILT	1 8	6	E2
 GL.E3a	Alert mail delivery to a test inbox on staging	the secret `ALERTS_TO` and one run	BUILT-UNPROVEN		4	E3
 GL.E3b	Hourly alerts need migration 46 on staging	the alert count in the book is nine (E3) and eight (E12); not reconciled	BUILT		4	E3
-GL.E3c	The production alert address	the address	NOT BUILT		4	E3
+GL.E3c	The production alert address	the address is decided (alerts@omnikom.ai, owner item 9) and its Cloudflare forward is live since 2026-11-20; `PROD_ALERTS_TO` is not stored yet and `ALERTS_TO` is not set on staging	HALF		4	E3
 GL.E3d	Uptime of sites, dashboard and form endpoint	checker plus alert	NOT BUILT		4	E3
 GL.E3e	Status page host	host	HALF		4	E3
 GL.E4	New-lead alert outbox	the book's C13 row (:112) and E4 now agree	BUILT		4	E4
@@ -51,9 +51,9 @@ GL.E5b	Bot check, other limits	stays parked	NOT BUILT			E5
 GL.E8a	Publish smoke by content hash on Pages	a recorded `STEP smoke` line on a real Pages deploy	BUILT-UNPROVEN		7	E8
 GL.E8b	The real rollback of a live deploy	cannot be shown until a live site exists	BUILT-UNPROVEN		7	E8
 GL.E8c	A first live deploy has nothing to roll back to; attach the domain last	nothing enforces "domain after the first main deploy passed"	HALF		7	E8
-GL.E9a	Workflow-only dispatch token, platform repository	the token	NOT BUILT	1	4	E9
+GL.E9a	Workflow-only dispatch token, platform repository	a real publish on staging through the token (made and set 2026-11-20; reading and dispatching proven, writing a file refused)	BUILT-UNPROVEN	1	4	E9
 GL.E9b	Deploy callers, set V2, unset the old secret, journey again	the run sheet	BUILT-UNPROVEN	1	4	E9
-GL.E9c	Protect master	import	NOT BUILT	1	4	E9
+GL.E9c	Protect master	an unchecked push being refused was not tried (the ruleset `protect master`, id 27752725, enforcement active since 2026-11-20 with 9 checks and no deletion or force push; the allowed path is proven by stack C's landing)	BUILT-UNPROVEN	1	4	E9
 GL.E9d	Per-project Cloudflare tokens, OIDC	H2, about 50 tenants	NOT BUILT	1	4	E9
 GL.E9e	Two runner keys at once	accept two keys during a rotation	NOT BUILT	1	4	E9
 GL.E11a	Staff windows and Auth settings on staging	production's settings come with bring-up	BUILT	8		E11
@@ -68,9 +68,9 @@ GL.E16a	Plan limits: staging run	the through-the-functions run	BUILT		4	E16
 GL.E16b	Prices and the payment account	the plan, the price, the payment account	NOT BUILT		4	E16
 GL.E16c	Billing code	everything	NOT BUILT		4	E16
 GL.E16d	A plan that sets caps per workspace	plan table and column read by `limit_for`	NOT BUILT		4	E16
-GL.E21a	Mail provider's webhook for staging	the webhook at Resend	NOT BUILT	5	4	E21
+GL.E21a	Mail provider's webhook for staging	a real bounce through it (made 2026-11-20; an unsigned call is refused with 401)	BUILT-UNPROVEN	5	4	E21
 GL.E21b	Bounce and complaint proof	the staging run needs E21a	BUILT-UNPROVEN	5	4	E21
-GL.E21c	The same webhook for production	after production exists	NOT BUILT	5	4	E21
+GL.E21c	The same webhook for production	the webhook and its secret exist (2026-11-20); the function it calls is not deployed: bring-up has not run	HALF	5	4	E21
 GL.N1a	A failed audit shows the owner no reason	nothing	BUILT			
 GL.N1b	SEO title or description under the minimum accepted at save	whether the editor counter shows the minimum (not opened)	BUILT			
 GL.N4a	`omnikom test walls --target staging` red	T52 (migration 52) not shown on staging	BUILT		4	
@@ -80,13 +80,13 @@ GL.G2	Provision a client's site on production	production target and key mint	NOT
 GL.G3	A client's real domain on production	owner-click path for a real domain	NOT BUILT		8	
 GL.G4	Something sets `sites.state = 'live'`	no command for a person; no refusal without a domain and a green preview (the migration has none); no staging proof	HALF		7	
 GL.G5	Platform builds are not signed	decide, then wire (the tool itself improved: commit 0bd0cd03)	NOT BUILT		7	
-GL.G6	Cloudflare token with Zone Edit and DNS Edit	the token	NOT BUILT		8	
+GL.G6	Cloudflare token with Zone Edit and DNS Edit	a full key for our Cloudflare account exists on the laptop only (2026-11-20), none in CI; the clients' zones are not in our account	HALF		8	
 GL.G7	A tool that adds a client's zone and reports the name servers	the tool	NOT BUILT		8	
-GL.G8	The platform's own mail sender on omnikom.ai	address, domain, a Resend key that can add domains	NOT BUILT			
-GL.G9	DNS records for that sender	write the records from Resend's domain page, run, wait for Verified	NOT BUILT			
+GL.G8	The platform's own mail sender on omnikom.ai	send proof (G10), and the swap of the platform files and the staging sender, which still name notify.omnikom.io (CO.M1); the sender is picked (`login@notify.omnikom.ai`, `PROD_MAIL_FROM`) and its domain is verified at Resend	BUILT-UNPROVEN			
+GL.G9	DNS records for that sender	nothing (the records of omnikom.ai and notify.omnikom.ai are in the zone and in `work/dns-omnikom-ai.tsv`; both domains Verified at Resend, seen 2026-11-21)	BUILT			
 GL.G10	Send and receive proof from the new sender	the proof	NOT BUILT			
-GL.G11	Production repository's Actions minutes	measure	CANNOT TELL			
-GL.G12	The platform's own website on omnikom.ai	the site	NOT BUILT			
+GL.G11	Production repository's Actions minutes	nothing (Actions are off on the production repository by owner rule M177: CI never runs there, no minutes are spent)	BUILT			
+GL.G12	The platform's own website on omnikom.ai	the page lives only on the dev address omnikom-ai-soon.pages.dev (a waitlist form: name, email, industry; built to the PEWP rules; owner M179; the waitlist proven end to end there), outside the repository (a drafts folder), not in `code/main` and not on omnikom.ai; its DNS records join the zone list when it ships	HALF			
 GL.G13	Branch rules on the private production repository	GitHub Team	NOT BUILT		6	
 GL.G14	Restore to any second	Supabase Pro add-on	NOT BUILT		3	
 GL.K1p	elev8 onto the platform	look folder, content load, the two contract fields	NOT BUILT		8	
@@ -190,7 +190,7 @@ CO.S1	Sign-in by magic link	nothing	BUILT
 CO.S2	Password form on the sign-in screen	whether any login in staging holds a password is a database read, not done	BUILT			
 CO.S3	Sign in with Google or another provider	by design absent	NOT BUILT			
 CO.S4	Staff sign-in needs a second factor	nothing	BUILT			
-CO.G1	Search Console numbers per site, daily (service account, no client OAuth)	(1) no live proof at Google: book `1-product.md:115` says still BLOCKED on staging; (2) no code adds the service-account email to a property or verifies a domain (grep `siteverification`/`google-site-verification` in tools, supabase, factory: no hit); (3) CANNOT TELL whether `GOOGLE_SERVICE_ACCOUNT_JSON` is set as a function secret on staging or production (would need `supabase secrets list`, a read of the project)	HALF		9	
+CO.G1	Search Console numbers per site, daily (service account, no client OAuth)	(1) the function's live pull never ran at Google: book `1-product.md:115` says still BLOCKED on staging (the head's own calls 2026-11-20: token request 200, Search Console sites call 200); (2) no repository code adds the service-account email to a property or verifies a domain (grep `siteverification`/`google-site-verification` in tools, supabase, factory: no hit); omnikom.ai was verified and added by scratch scripts on 2026-11-20 and the account holds it, no client domain yet; (3) `GOOGLE_SERVICE_ACCOUNT_JSON` was set on staging 2026-11-20 (STATE.md); whether production holds it is CANNOT TELL (bring-up copies the shared value)	HALF		9	
 CO.G2	Tell Google a sitemap changed after a live publish	same as G1: no property verified, live UNPROVEN (`1-product.md:115`: "sitemap-submit is not driven on staging")	HALF		9	
 CO.G3	A client connects its own Google account by OAuth	only for a client property Omnikom does not own, or G7	NOT BUILT			
 CO.G4	Bing Webmaster numbers per site	no per-site verification step; no line in `tools/client-infra/provision.mjs` (grep: none)	HALF		9	
@@ -204,10 +204,10 @@ CO.C2	Live push of a lead to a client's CRM	by decision (`5-crm.md:6,128`); dead
 CO.C3	Inbound events from a CRM	receiver, processor	NOT BUILT			
 CO.C4	OmniSuite follow-up connection	needs OmniSuite to be an API	NOT BUILT			
 CO.C5	Add-ons wizard and state machine	wizard, functions, screens (parked by `10-expansion.md:63-64`)	HALF			
-CO.M1	Sign-in and invite mail through Resend SMTP	production sender `PROD_MAIL_FROM` (owner's pick)	BUILT			
+CO.M1	Sign-in and invite mail through Resend SMTP	the swap to `notify.omnikom.ai` is NOT DONE (owner M180): the old sender `login@notify.omnikom.io` is still named in `supabase/auth-emails/emails.json` (sender address), `supabase/check-auth-settings.mjs` (expected `smtp_admin_email`), `supabase/auth-settings.md` (the staging sender row) and the footers of `magic-link.html` and `invite.html`; also the staging SMTP sender and `LEAD_ALERT_FROM`; `notify.omnikom.io` at Resend is retired only after the swap is proven (production's `PROD_MAIL_FROM` is already `login@notify.omnikom.ai`)	HALF			
 CO.M2	New-lead alert to the business	agent recipient (book D8 `1-product.md:129` says "and the assigned agent" works: it does not by the code); HTML body with brand	HALF		2	
 CO.M3	System alerts to the operator	the address	BUILT-UNPROVEN			
-CO.M4	Bounces and complaints (Resend webhook)	the webhook at Resend; Auth mail and operator mail bounces suppress nothing (scope limit in `m31`)	HALF			
+CO.M4	Bounces and complaints (Resend webhook)	a real bounce through the staging webhook (made 2026-11-20); Auth mail and operator mail bounces suppress nothing (scope limit in `m31`)	HALF			
 CO.M5	A report or document mailed to a client	table of reports, render job, signed download, outbox for non-lead mail, owner click	NOT BUILT		11	
 CO.M6	"Audit ready" / "draft ready" mail	template, outbox columns, trigger	NOT BUILT		11	
 CO.P1	Payment provider	everything	NOT BUILT		11	
@@ -222,18 +222,18 @@ CO.J6	Stale-job reaper	covers publish jobs only	BUILT
 CO.K1	Machine-call signing	two live runner keys at once (H2-11)	BUILT			
 CO.K2	API key registry	verifier for client keys	HALF			
 CO.K3	A client's system or OmniSuite calls the platform by key	verifier, endpoints, mint screen	NOT BUILT			
-CO.K4	GitHub dispatch token	CANNOT TELL whether the V2 token is set in the function secrets	BUILT-UNPROVEN		4	
+CO.K4	GitHub dispatch token	the V2 token is set in staging's function secrets (2026-11-20); a real publish through it	BUILT-UNPROVEN		4	
 CO.K5	Names of secrets and Vault entries	nothing	BUILT			
 CO.K6	Cloudflare account token (Pages, DNS)	per-project tokens and OIDC (H2-5) not built	BUILT-UNPROVEN			
 CO.A1	The product's own calls to a model	nothing	BUILT			
 CO.A2	Model calls the operator skill makes (Gemini)	free-tier refusal history (map)	BUILT-UNPROVEN			
 CO.A3	Parked model features	all	NOT BUILT			
-CO.N1	Supabase Management API (Auth settings, function secrets, extensions, deploy)	production bring-up never run (production does not exist: `work/STATE.md:49`)	BUILT			
-CO.N2	GitHub API and `gh` (repository secrets, ruleset, CI)	master ruleset import is an owner item (`work/STATE.md:66`)	BUILT-UNPROVEN			
+CO.N1	Supabase Management API (Auth settings, function secrets, extensions, deploy)	production bring-up never run (the production project exists and is empty, 2026-11-20)	BUILT			
+CO.N2	GitHub API and `gh` (repository secrets, ruleset, CI)	the master ruleset is on (2026-11-20, 9 checks; the landing of 44eab161 went through it); that an unchecked push is refused was not tried	BUILT-UNPROVEN			
 CO.N3	Cloudflare DNS API (Resend records, client CNAME)	allow list is empty	BUILT			
 CO.N4	Cloudflare Pages deploy (wrangler) and project API	none	BUILT			
 CO.N5	Supabase Storage (private bucket `media`, signed URLs)	none	BUILT			
-CO.N6	Backup storage: Cloudflare R2 plus a second S3 provider	the real dump has never run	HALF		3	
+CO.N6	Backup storage: Cloudflare R2 plus a second S3 provider	the real dump has never run (R2's bucket and key exist since 2026-11-20; the second provider is optional)	HALF		3	
 CO.N7	Google PageSpeed API and CrUX API	none	BUILT			
 CO.N8	Operator-tier read sources: Search Console API as the operator, Reddit, Common Crawl, Google Trends	none for the platform	BUILT-UNPROVEN			
 CO.N9	Dashboard "Ask us" address	the address	HALF			

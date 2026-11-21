@@ -142,7 +142,8 @@ a Vault name. A script reads a key by its variable name from the git-ignored `.e
 | Database address through the transaction pooler (port 6543), per environment | function environment, as `DB_POOLER_URL` (set by the head from the env file's `STAGING_DB_URL`) | every function (`_shared/db.ts` `connect()`) |
 | Supabase publishable key | dashboard build (public by design; RLS applies) | dashboard |
 | Cloudflare deploy token, one for the account (Pages edit, DNS edit) | GitHub secret, held only by the runner | `publish.yml` |
-| GitHub dispatch token (`GITHUB_DISPATCH_TOKEN_V2`, this repository, Actions: write; the old Contents token until retired) | function environment | `publish`, `upload-finish` |
+| GitHub dispatch token (`GITHUB_DISPATCH_TOKEN_V2`, this repository, Actions: write; the old Contents token until retired; no expiration, the owner's pick 2026-11-20, rotation date not set: rotate by hand) | function environment | `publish`, `upload-finish` |
+| Production's dispatch token (`PROD_GITHUB_DISPATCH_TOKEN_V2`, the production repository only, Actions read and write, no expiration, rotation date not set; the same value is also held as `PROD_GITHUB_DISPATCH_TOKEN`; proven 2026-11-20: reads the repository, a file write is refused 403) | the master env file, then the production function environment | production `publish`, `upload-finish` |
 | Runner key | function environment and GitHub secret | runner calls |
 | Cron key | function environment (`CRON_KEY`) and Vault (`metrics_cron_key`, with `project_url`) | the signature of `metrics-pull` and `sitemap-submit`; Vault is where pg_cron reads it |
 | PageSpeed, CrUX and Bing Webmaster keys | function environment | `metrics-pull` (a missing one is a BLOCKED row) |
@@ -151,6 +152,8 @@ a Vault name. A script reads a key by its variable name from the git-ignored `.e
 | Resend key, alert sender | function environment | lead alert, sign-in mail through Supabase Auth SMTP |
 | Mail outbox key | function environment and Vault `mail_outbox_key` | pg_cron to `mail-outbox` |
 | Resend webhook signing secret | function environment | `mail-events` |
+| Backup bucket key (`R2_API_TOKEN`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`, `R2_BUCKET`; bucket `omnikom-backups`, private, location WNAM, on the work Cloudflare account; Object Read and Write on that bucket only, no expiry, 2026-11-20) | the master env file; the workflows read `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` as repository secrets (not set yet) and build the endpoint from `CLOUDFLARE_ACCOUNT_ID` | `backup.yml`; no second provider (`BACKUP2_*` unset) |
+| Cloudflare admin token (`CLOUDFLARE_ADMIN_TOKEN`, with `CLOUDFLARE_ADMIN_R2_ACCESS_KEY_ID` and `CLOUDFLARE_ADMIN_R2_SECRET_ACCESS_KEY`; the work account, full account and zone access, no expiry) | the head's laptop only; never a CI secret, never a function secret (CI keeps `CLOUDFLARE_PAGES_TOKEN` and `CLOUDFLARE_DNS_TOKEN`, both the work account's; the legacy DNS token is dead) | the head, for Omnikom platform V2 and omnikom.ai work |
 | Flows report key (`FLOWS_REPORT_KEY`) | the master env file and, with the owner's yes, a GitHub secret | `flows.yml` seals its output with it (no artifact without it); the head opens it on the laptop |
 
 Variable names a script expects: per environment with the prefix `STAGING_` or `PROD_` (`tools/omnikom-cli/lib/target.mjs`),
@@ -161,6 +164,18 @@ the shared `RESEND_API_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`
 `GITHUB_DISPATCH_TOKEN_V2`, `GITHUB_DISPATCH_TOKEN`, `CRON_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `ALERTS_TO`, `DASHBOARD_URL`, `MAIL_OUTBOX_KEY`, `RESEND_WEBHOOK_SECRET`, `SITE_SIGNING_KEY_<SLUG>` (minted by
 `tools/mint-site-key.mjs`), `PLATFORM_FUNCTIONS_BASE`, `CLOUDFLARE_PAGES_TOKEN`, `FLOWS_REPORT_KEY`. Production keys are used only with
 `--i-mean-production`.
+
+Production, as stored on 2026-11-20 (names only; every value is in the git-ignored master env file): the Supabase project `omnikom-production`
+(Free, us-west-2 like staging, Data API on, auto-grant and auto-RLS off, GitHub NOT connected: that would apply migrations on every push
+and skip the promote safety) as `PROD_SUPABASE_REF`, `PROD_SUPABASE_URL`, `PROD_SUPABASE_REGION`, `PROD_DB_PASSWORD`, `PROD_DB_URL` (session pooler,
+port 5432; `psql` proven), `PROD_DB_POOLER_URL` (transaction pooler, 6543, the functions' `DB_POOLER_URL`), `PROD_DB_URL_DIRECT`,
+`PROD_SUPABASE_PUBLISHABLE_KEY`, `PROD_SUPABASE_SECRET_KEY`, `PROD_SUPABASE_ANON_KEY`, `PROD_SUPABASE_SERVICE_ROLE_KEY`, and new random
+`PROD_RUNNER_KEY`, `PROD_CRON_KEY`, `PROD_MAIL_OUTBOX_KEY` (never staging's), `PROD_GITHUB_REPO`, `PROD_MAIL_FROM`, `PROD_RESEND_WEBHOOK_SECRET`.
+`PROD_DB_URL_DIRECT` (`db.<ref>.supabase.co:5432`) is IPv6 only: it does not resolve from the laptop and GitHub's runners reach it;
+from the laptop use `PROD_DB_URL` or `PROD_DB_POOLER_URL`.
+Owner rules: CI never runs on the private production repository (Actions off, no minutes; the public CI is the proof); it gets a push
+only of a tree that already passed the public CI, and its keys are filled in then (M177). Production is the real one and staging
+tests: every production value is banked by name, and what staging proved is what is implemented on production (M181).
 
 ## Deploying the backend
 
