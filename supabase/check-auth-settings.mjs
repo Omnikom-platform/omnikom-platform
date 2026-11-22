@@ -35,7 +35,7 @@ export const EXPECT = {
   password_min_length: ['password minimum length (no passwords by D18; the dashboard never offers a password form)', null, 'recorded'],
   smtp_host: ['custom SMTP host set (Resend, D5)', null, 'recorded: a host name is not a secret; empty = built-in mailer'],
   smtp_sender_name: ['the name the sign-in email comes from', 'Omnikom Dashboard', 'owner 2026-11-01'],
-  smtp_admin_email: ['the address the sign-in email comes from', 'login@notify.omnikom.io', 'owner 2026-11-01; PROGRESS.md 2026-10-30 01:41'],
+  smtp_admin_email: ['the address the sign-in email comes from', 'login@notify.omnikom.ai', 'owner 2026-11-20, item 11 of work/map/owner.tsv'],
   mailer_secure_email_change_enabled: ['secure email change (both addresses confirm)', true, 'Supabase default'],
 };
 

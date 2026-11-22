@@ -20,6 +20,7 @@ const steps = [
   ['Auth email plan check', process.execPath, [join(ROOT, 'supabase', 'auth-emails', 'check.mjs')]],
   ['Auth email mutants', process.execPath, [join(ROOT, 'supabase', 'auth-emails', 'mutate.mjs')]],
   ['Auth settings body', process.execPath, [join(ROOT, 'supabase', 'auth-emails', 'body.test.mjs'), '--mutants']],
+  ['Auth email sender', process.execPath, [join(ROOT, 'supabase', 'auth-emails', 'sender.test.mjs')]],
 ];
 for (const [name, cmd, args] of steps) {
   const t0 = Date.now();

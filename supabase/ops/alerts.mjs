@@ -11,6 +11,9 @@
 //   --fail-on-alert exit 1 when any alert fires (a red GitHub job is emailed to the repository's watchers)
 //   --send          mail each firing alert: one POST to Resend per alert, a 10 s time limit, no retry; a line per mail and "sent: n of m"
 //   --to-env        with --send (required): the NAME of the variable that holds the address to mail (never the address)
+//   --test-alert    with --send --to-env: run NO query and send exactly ONE mail, subject "[<environment>] TEST ALERT, nothing is wrong (started by hand)",
+//                   once per environment and UTC day (a second test the same day says "sent before today"); last line "test alert: sent 1 of 1" or
+//                   "test alert: sent before today (0 new)". Without --send it is usage (exit 2). Only a person starts it (the alerts workflow's test_alert input).
 // Exit 0 the queries ran (alerts, if any, are printed and, with --send, mailed); 1 an alert fired and --fail-on-alert was given, a query
 // failed, or a mail was not sent; 2 usage; 3 a variable is not set (BLOCKED; nothing sent).
 //
@@ -155,8 +158,10 @@ export function parseArgs(argv) {
     else if (a === '--fail-on-alert') o.failOnAlert = true;
     else if (a === '--send') o.send = true;
     else if (a === '--to-env') o.toEnv = val();
+    else if (a === '--test-alert') o.testAlert = true;
     else throw new Stop(2, `unknown argument ${a}`);
   }
+  if (o.testAlert && !o.send) throw new Stop(2, '--test-alert needs --send --to-env <VARIABLE>: a test that sends nothing proves nothing');
   if (o.send && (!o.toEnv || !NAME_RE.test(o.toEnv))) throw new Stop(2, '--send needs --to-env <VARIABLE>: the variable that holds the address (read by name)');
   if (!o.db) throw new Stop(2, 'usage: alerts.mjs --db <VARIABLE> [--only a,b] [--json file] [--fail-on-alert]   (the variable NAME, not the URL)');
   if (!NAME_RE.test(o.db)) throw new Stop(2, '--db takes the NAME of a variable (upper case letters, digits, underscore), not a URL');
@@ -220,6 +225,11 @@ export function main(argv, env = process.env, deps = {}) {
   const out = [];
   try {
     const o = parseArgs(argv);
+    if (o.testAlert) {   // the proof of the mail path: no query at all, one marked mail (deliver); --db only names the environment
+      const missing = ['RESEND_API_KEY', 'LEAD_ALERT_FROM', o.toEnv].filter(n => !env[n]);
+      if (missing.length) throw new Stop(3, `${missing.join(', ')} not set (read by name); nothing sent`);
+      return { exit: 0, lines: [], results: new Map(), send: { toEnv: o.toEnv, environment: environmentOf(o.db), test: true, firing: [] } };
+    }
     const url = env[o.db];
     if (!url) throw new Stop(3, `${o.db} is not set (read by name)`);
     try { new URL(url); } catch { throw new Stop(3, `${o.db} is not a connection URL`); }
@@ -245,6 +255,7 @@ export function main(argv, env = process.env, deps = {}) {
 // D: one mail per firing alert through Resend. The idempotency key is the environment, the alert and the UTC day: Resend answers a repeated key
 // without sending (resend.com/docs/dashboard/emails/idempotency-keys), so an alert that holds all day is one mail. No retry; no address is printed.
 export async function deliver(r, env, fetchImpl = fetch, now = new Date(), timeoutMs = 10000) {
+  if (r.send.test) return deliverTest(r, env, fetchImpl, now, timeoutMs);
   let ok = 0, failed = 0;
   for (const { alert, items } of r.send.firing) {
     const key = `alerts-${r.send.environment}-${alert.name}-${now.toISOString().slice(0, 10)}`;
@@ -267,6 +278,35 @@ export async function deliver(r, env, fetchImpl = fetch, now = new Date(), timeo
   }
   r.lines.push(`sent: ${ok} of ${r.send.firing.length}`);
   return failed ? 1 : 0;
+}
+
+// --test-alert: exactly one mail, marked as a test, through the same path as an alert. One key per environment and UTC day, so a second test the same
+// day sends nothing. The third line carries the time, so a second body differs from the first and Resend answers 409 (a same-body repeat would be answered
+// with the first reply and look like a new send). No address, no key is printed.
+async function deliverTest(r, env, fetchImpl, now, timeoutMs) {
+  const environment = r.send.environment;
+  const key = `alerts-test-${environment}-${now.toISOString().slice(0, 10)}`;
+  const text = ['This is a test of the alert mail path.', 'No alert fired: nothing is wrong and nothing needs doing.',
+    `Started by a person (the workflow's test input) at ${now.toISOString().slice(11, 19)} UTC; at most one test mail is sent a day.`].join('\n');
+  let last, code = 0;
+  try {
+    const res = await fetchImpl('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json', 'idempotency-key': key },
+      body: JSON.stringify({ from: env.LEAD_ALERT_FROM, to: env[r.send.toEnv], subject: `[${environment}] TEST ALERT, nothing is wrong (started by hand)`, text }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const before = res.status === 409 && (await res.json().catch(() => null))?.name === 'invalid_idempotent_request';
+    if (res.ok) { r.lines.push(`sent    test alert to ${r.send.toEnv}`); last = 'test alert: sent 1 of 1'; }
+    else if (before) { r.lines.push("sent before test alert: already mailed today under today's key; no new mail"); last = 'test alert: sent before today (0 new)'; }
+    else { code = 1; r.lines.push(`FAILED  send test alert: resend ${res.status}`); last = 'test alert: sent 0 of 1'; }
+  } catch (e) {
+    code = 1;
+    r.lines.push(`FAILED  send test alert: ${e && e.name === 'TimeoutError' ? 'no answer in 10 s' : 'resend unreachable'}`);
+    last = 'test alert: sent 0 of 1';
+  }
+  r.lines.push(last);
+  return code;
 }
 
 const isMain = () => { try { return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } };

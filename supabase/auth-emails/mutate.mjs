@@ -1,7 +1,7 @@
 // Mutants for supabase/auth-emails/check.mjs: each copies the emails (and the plan and settings checker) to a temp folder, makes one
 // change, and expects the check to fail. Every target must occur exactly once in its file.
-//   node supabase/auth-emails/mutate.mjs
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, cpSync } from 'node:fs';
+//   node supabase/auth-emails/mutate.mjs [--only <part of a name>]   (--only runs just the faults whose name holds that text)
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, cpSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -11,7 +11,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const SRC = { plan: join(ROOT, 'docs/blueprint/16-DESIGN-PARTS.md'), settings: join(ROOT, 'supabase/check-auth-settings.mjs'), dashboard: join(ROOT, 'docs/blueprint/04-DASHBOARD.md') };
 
-// [name, file (relative to the emails folder, or 'plan' / 'settings' / 'dashboard'), from, to]
+const OLD = ['notify.omnikom', 'io'].join('.');   // the old sender domain, in two pieces so the check's own scan finds nothing here
+// [name, file (relative to the emails folder, or 'plan' / 'settings' / 'dashboard'; 'scan' = a scan root holding one running file whose text is "to"), from, to]
 const MUTANTS = [
   ['the link life says 1 hour', 'magic-link.html', 'The link works for 10 minutes and only once.', 'The link works for 1 hour and only once.'],
   ['a line outside any plan row', 'magic-link.html', '<p data-plan="DP-email-03" style="margin:0 0 24px">', '<p style="margin:0 0 24px">'],
@@ -30,29 +31,40 @@ const MUTANTS = [
   ['the plan row words changed', 'plan', '| "Sign in to the Omnikom dashboard" |', '| "Sign in to Omnikom" |'],
   ['emails.json sends another site address than the settings expect', 'emails.json', '"site_url": "https://omnikom-app-staging.pages.dev"', '"site_url": "https://app-staging.omnikom.io"'],
   ['the settings expect another site address', 'settings', "['Site URL', 'https://omnikom-app-staging.pages.dev'", "['Site URL', 'https://app-staging.omnikom.io'"],
+  ['the old sender in emails.json', 'emails.json', '"address": "login@notify.omnikom.ai"', `"address": "login@${OLD}"`],
+  ['the old address in a footer', 'magic-link.html', 'Omnikom Dashboard, login@notify.omnikom.ai', `Omnikom Dashboard, login@${OLD}`],
+  ['the alert sender on another domain', 'emails.json', '"address": "leads@notify.omnikom.ai"', '"address": "leads@notify.omnikom.com"'],
+  ['the old text in a running file', 'scan', '', `const from = 'login@${OLD}';`],
   ['the settings expect another redirect list', 'settings', "'https://omnikom-app-staging.pages.dev/**'", "'https://omnikom-app-staging.pages.dev/*'"],
 ];
 
-const run = (dir, plan, settings, dashboard) => spawnSync(process.execPath, [join(HERE, 'check.mjs'), '--dir', dir, '--plan', plan, '--settings', settings, '--dashboard', dashboard], { encoding: 'utf8', timeout: 60000 });
+const run = (dir, plan, settings, dashboard, scan) => spawnSync(process.execPath, [join(HERE, 'check.mjs'), '--dir', dir, '--plan', plan, '--settings', settings, '--dashboard', dashboard, ...(scan ? ['--scan-root', scan] : [])], { encoding: 'utf8', timeout: 60000 });
 
 const tmp = mkdtempSync(join(tmpdir(), 'auth-emails-mut-'));
-let survived = 0, missing = 0;
+let survived = 0, missing = 0, ran = 0;
 try {
   const base = run(HERE, SRC.plan, SRC.settings, SRC.dashboard);
   if (base.status !== 0) { console.log(`the real files do not pass; nothing to measure:\n${base.stdout}`); process.exit(1); }
   MUTANTS.forEach(([name, file, from, to], i) => {
+    const only = process.argv.indexOf('--only') >= 0 ? process.argv[process.argv.indexOf('--only') + 1] : null;
+    if (only && !name.includes(only)) return;
+    ran++;
     const dir = join(tmp, `m${i}`);
     cpSync(HERE, dir, { recursive: true });
     const plan = join(dir, '_plan.md'), settings = join(dir, '_settings.mjs'), dashboard = join(dir, '_dashboard.md');
     writeFileSync(dashboard, readFileSync(SRC.dashboard, 'utf8'));
     writeFileSync(plan, readFileSync(SRC.plan, 'utf8'));
     writeFileSync(settings, readFileSync(SRC.settings, 'utf8'));
-    const target = file === 'plan' ? plan : file === 'settings' ? settings : file === 'dashboard' ? dashboard : join(dir, file);
-    const text = readFileSync(target, 'utf8');
-    const n = text.split(from).length - 1;
-    if (n !== 1) { console.log(`MUTANT TARGET ${n ? 'NOT UNIQUE' : 'MISSING'}: ${name}`); missing++; return; }
-    writeFileSync(target, text.split(from).join(to));
-    const r = run(dir, plan, settings, dashboard);
+    let scan = null;
+    if (file === 'scan') { scan = join(dir, '_scan'); mkdirSync(join(scan, 'supabase', 'ops'), { recursive: true }); writeFileSync(join(scan, 'supabase', 'ops', 'x.mjs'), to + '\n'); }
+    const target = file === 'scan' ? null : file === 'plan' ? plan : file === 'settings' ? settings : file === 'dashboard' ? dashboard : join(dir, file);
+    if (target) {
+      const text = readFileSync(target, 'utf8');
+      const n = text.split(from).length - 1;
+      if (n !== 1) { console.log(`MUTANT TARGET ${n ? 'NOT UNIQUE' : 'MISSING'}: ${name}`); missing++; return; }
+      writeFileSync(target, text.split(from).join(to));
+    }
+    const r = run(dir, plan, settings, dashboard, scan);
     const why = (r.stdout.split('\n').find(l => l.startsWith('FAIL ')) || '').slice(0, 110);
     if (r.status === 1) console.log(`caught   ${name.padEnd(52)} ${why}`);
     else { survived++; console.log(`SURVIVED ${name} (exit ${r.status})`); }
@@ -60,5 +72,5 @@ try {
 } finally {
   rmSync(tmp, { recursive: true, force: true });
 }
-console.log(`${survived || missing ? 'FAILED' : 'OK'}: ${MUTANTS.length} mutants, ${MUTANTS.length - survived - missing} caught, ${survived} survived, ${missing} without a target`);
+console.log(`${survived || missing ? 'FAILED' : 'OK'}: ${ran} mutants, ${ran - survived - missing} caught, ${survived} survived, ${missing} without a target`);
 process.exit(survived || missing ? 1 : 0);

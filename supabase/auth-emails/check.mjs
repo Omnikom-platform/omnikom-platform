@@ -1,10 +1,12 @@
 // The Auth email templates say only what the plan says (DECISIONS 44, plan rows DP-email-01..12 in docs/blueprint/16-DESIGN-PARTS.md
 // section 1.2e). Fails on: a line of text outside a data-plan element; words not in that row; a data-plan id that names no row; a
 // DP-email row nothing carries; a subject that is not its row's words; a link that is not the row's /auth/confirm address; a link
-// life that differs from supabase/check-auth-settings.mjs (mailer_otp_exp) or from the "10 minutes" sentence; a sender that differs; a site address (site_url, uri_allow_list) that differs.
-//   node supabase/auth-emails/check.mjs [--dir <folder with emails.json and the templates>] [--plan <16-DESIGN-PARTS.md>]
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+// life that differs from supabase/check-auth-settings.mjs (mailer_otp_exp) or from the "10 minutes" sentence; a sender that differs; a site address (site_url, uri_allow_list) that differs;
+// a sign-in sender or an alert sender (alerts_sender) that is not on notify.omnikom.ai (owner 2026-11-20, item 11); the old sender domain named in any file under supabase/, tools/ or
+// .github/ other than the files that record history (HISTORY below; supabase/tests is not scanned: its fixtures invent addresses).
+//   node supabase/auth-emails/check.mjs [--dir <folder with emails.json and the templates>] [--plan <16-DESIGN-PARTS.md>] [--scan-root <repository root to scan>]
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, dirname, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -15,6 +17,7 @@ const DIR = opt('--dir', HERE);
 const PLAN = opt('--plan', join(ROOT, 'docs/blueprint/16-DESIGN-PARTS.md'));
 const SETTINGS = opt('--settings', join(ROOT, 'supabase/check-auth-settings.mjs'));
 const DASH = opt('--dashboard', join(ROOT, 'docs/blueprint/04-DASHBOARD.md'));
+const SCAN_ROOT = opt('--scan-root', ROOT);
 
 const problems = [];
 const bad = (where, msg) => problems.push(`${where}: ${msg}`);
@@ -47,6 +50,42 @@ if (expected('site_url') !== cfg.site_url) bad('emails.json', `site_url "${cfg.s
 if (expected('uri_allow_list') !== `${cfg.site_url}/**`) bad('emails.json', `the set script sends uri_allow_list "${cfg.site_url}/**" but check-auth-settings expects "${expected('uri_allow_list')}"`);
 if (!inRow(cfg.sender.plan, `${cfg.sender.name}, ${cfg.sender.address}`)) bad('emails.json', `the sender is not the words of ${cfg.sender.plan}`);
 used.add(cfg.sender.plan);
+
+// the platform's senders are both on the owner's domain (owner 2026-11-20, item 11); the alert sender is a value of this file, never of an env file
+const DOMAIN = 'notify.omnikom.ai';
+const onDomain = a => typeof a === 'string' && a.endsWith('@' + DOMAIN) && a.split('@').length === 2 && a.split('@')[0].length > 0;
+if (!onDomain(cfg.sender.address)) bad('emails.json', `sender address "${cfg.sender.address}" is not on ${DOMAIN}`);
+if (!cfg.alerts_sender || !onDomain(cfg.alerts_sender.address)) bad('emails.json', `alerts_sender address "${cfg.alerts_sender && cfg.alerts_sender.address}" is missing or not on ${DOMAIN}`);
+
+// no old sender left in what runs: written in two pieces so that this file does not hold the text it refuses
+const OLD_DOMAIN = ['notify.omnikom', 'io'].join('.');
+const HISTORY = {   // path (forward slashes) -> [why it may name the old domain, the one line allowed (null = any line)]
+  'supabase/auth-settings.md': ['records what was read and set when that domain was the sender, and the retiring of it', null],
+  'tools/dns-upsert.mjs': ['a dated comment: the Resend records of the old domain were made with this tool on 2026-10-30', 5],
+};
+const TEXT_FILE = /\.(mjs|js|ts|json|md|yml|yaml|html|sql|toml|sh|cmd|txt)$/i;
+const walk = dir => {
+  let names;
+  try { names = readdirSync(dir).sort(); } catch { return []; }
+  return names.flatMap(n => {
+    const p = join(dir, n);
+    if (n === 'node_modules' || n === '.git') return [];
+    const s = statSync(p);
+    return s.isDirectory() ? walk(p) : s.size < 2000000 && TEXT_FILE.test(n) ? [p] : [];
+  });
+};
+for (const top of ['supabase', 'tools', '.github']) {
+  for (const p of walk(join(SCAN_ROOT, top))) {
+    const rel = relative(SCAN_ROOT, p).split(sep).join('/');
+    if (rel.startsWith('supabase/tests/')) continue;
+    readFileSync(p, 'utf8').split(/\r?\n/).forEach((l, i) => {
+      if (!l.includes(OLD_DOMAIN)) return;
+      const h = HISTORY[rel];
+      if (h && (h[1] === null || h[1] === i + 1)) return;
+      bad(`${rel}:${i + 1}`, `names the old sender domain (the sender is on ${DOMAIN}; only files that record history may name the old one)`);
+    });
+  }
+}
 
 // 04-DASHBOARD (Screens 1) says how long an invite link lives: the same life
 if (!norm(readFileSync(DASH, 'utf8')).includes(`an invite is a sign-in link; it lives ${minutes}`)) bad('04-DASHBOARD.md', `does not say "an invite is a sign-in link; it lives ${minutes}"`);
@@ -94,5 +133,5 @@ for (const [name, e] of Object.entries(cfg.emails)) {
 for (const id of plan.keys()) if (!used.has(id)) bad('plan', `${id} has no element or subject in the templates`);
 
 for (const p of problems) console.log(`FAIL ${p}`);
-console.log(problems.length ? `FAILED: ${problems.length} problem(s) in the Auth emails` : `OK: ${Object.keys(cfg.emails).length} Auth emails, ${plan.size} plan rows, every line traced, link life ${minutes}, sender ${cfg.sender.name}`);
+console.log(problems.length ? `FAILED: ${problems.length} problem(s) in the Auth emails` : `OK: ${Object.keys(cfg.emails).length} Auth emails, ${plan.size} plan rows, every line traced, link life ${minutes}, sender ${cfg.sender.address}, alerts from ${cfg.alerts_sender.address}`);
 process.exit(problems.length ? 1 : 0);

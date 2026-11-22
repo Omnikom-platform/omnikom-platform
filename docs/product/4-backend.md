@@ -124,7 +124,7 @@ of the workspace (`export-published`, `factory/runner/publish.mjs` step 2), so a
 | `publish.yml` | `workflow_dispatch` from `publish` (`repository_dispatch` publish while only the old token is set), or by hand | export, build, audit gate, Pages deploy, smoke, rollback of a failed live deploy, callback |
 | `media.yml` | `workflow_dispatch` from `upload-finish` (`repository_dispatch` media while only the old token is set) | photo processing |
 | `keepalive.yml` | Mondays 06:00 UTC | one read-only CLI `status` so the free staging project is not paused |
-| `alerts.yml` | hourly | alert queries on staging, mailed to ALERTS_TO when its secrets are set |
+| `alerts.yml` | hourly | alert queries on staging, mailed to ALERTS_TO when its secrets are set; a manual run with `test_alert` = true sends one marked test mail (at most one a UTC day) |
 | `backup.yml` | nightly | encrypted dump of staging to R2 (and to a second provider only when `BACKUP2_BUCKET` is set); skipped unless the variable `BACKUP_ENABLED` is `true`, which it is since 2026-11-21 |
 | `key-rotation.yml` | monthly | red when an active key is over 90 days old or expires within 14 days |
 | `flows.yml` | by hand only (`gh workflow run`, master or a `check/` branch), one at a time | one dashboard flow of `apps/dashboard/tests` against staging; the result line in the log and the job summary; the output sealed with `FLOWS_REPORT_KEY` for 7 days, no artifact without it. First runs 2026-11-13: 43362508531 (1 passed), 43363096511 (red with its seeded fault), two refusals (a flow that sends a lead with no signing key set; a grep outside the allowed letters), the seal opened with the key and refused a wrong one |
@@ -163,7 +163,9 @@ bring-up (`supabase/ops/bring-up.mjs`) also reads `PROD_MAIL_FROM` (the platform
 the shared `RESEND_API_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY` and `GOOGLE_SERVICE_ACCOUNT_JSON`; then `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `RUNNER_KEY`,
 `GITHUB_DISPATCH_TOKEN_V2`, `GITHUB_DISPATCH_TOKEN`, `CRON_KEY`, `PSI_API_KEY`, `CRUX_API_KEY`, `BING_WEBMASTER_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `ALERTS_TO`, `DASHBOARD_URL`, `MAIL_OUTBOX_KEY`, `RESEND_WEBHOOK_SECRET`, `SITE_SIGNING_KEY_<SLUG>` (minted by
 `tools/mint-site-key.mjs`), `PLATFORM_FUNCTIONS_BASE`, `CLOUDFLARE_PAGES_TOKEN`, `FLOWS_REPORT_KEY`. Production keys are used only with
-`--i-mean-production`.
+`--i-mean-production`. The sender addresses are values of the repository, not secrets: the sign-in sender `login@notify.omnikom.ai` and the alert sender
+`leads@notify.omnikom.ai` (`alerts_sender`) are in `supabase/auth-emails/emails.json`; for staging every script that sets `LEAD_ALERT_FROM` takes it from there
+and never from an env file, production's comes from `PROD_MAIL_FROM`; `supabase/auth-emails/check.mjs` refuses the old sender domain in any file that runs.
 
 Production, as stored on 2026-11-20 (names only; every value is in the git-ignored master env file): the Supabase project `omnikom-production`
 (Free, us-west-2 like staging, Data API on, auto-grant and auto-RLS off, GitHub NOT connected: that would apply migrations on every push

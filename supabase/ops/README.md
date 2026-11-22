@@ -9,9 +9,10 @@ and `openssl`. Keys and database URLs are read from the environment BY NAME (`no
 |---|---|
 | `backup.mjs` | `pg_dump` of the database named by `--db <VARIABLE>`, encrypted to the public certificate `backup-recipient.pem` (`openssl cms -encrypt`, AES-256), uploaded to every `--to` target, each copy verified by size. Targets: `s3://<bucket>/<prefix> --env <PREFIX>` (S3-compatible, signed in the file itself, no `aws` tool) or `file://<dir>`. Two more modes: `--what vault` (the decrypted Vault values as JSON, read in a read-only session straight to a file and encrypted at once: `<label>-vault-<stamp>.json.cms`) and `--what media --api <PREFIX>` (every object of the bucket `media`, each signed and downloaded with `<PREFIX>SUPABASE_REF` and `<PREFIX>SUPABASE_SECRET_KEY`, checked against its size, in one tar: `<label>-media-<stamp>.tar.cms`). No object name, value, ref or key is printed. |
 | `restore-drill.mjs` | The monthly drill: dump (or `--dump file --key file`), restore into a throwaway local cluster, row counts, wall tests on the restored schema, the factory builds the test site from the restored rows, every phase timed, total against the 2 hour target. With `--media <copy>` the site is built from the real media, with `--vault <copy>` every Vault name the restored rows reference must have a value in the copy (names compared, never printed). |
-| `alerts.mjs` | Nine alert queries (below), one per rule of 11-OPERATIONS section 1 that our tables can answer. Prints each firing alert with its runbook name and first step. With `--send --to-env <VARIABLE>` it mails each firing alert through Resend (`RESEND_API_KEY`, `LEAD_ALERT_FROM`) to the address in that variable, once per alert and UTC day. Writes the status page's data file with `--json`. |
+| `alerts.mjs` | Nine alert queries (below), one per rule of 11-OPERATIONS section 1 that our tables can answer. Prints each firing alert with its runbook name and first step. With `--send --to-env <VARIABLE>` it mails each firing alert through Resend (`RESEND_API_KEY`, `LEAD_ALERT_FROM`) to the address in that variable, once per alert and UTC day. Writes the status page's data file with `--json`. With `--test-alert --send --to-env <VARIABLE>` it runs no query and sends exactly one marked test mail (below). |
 | `bring-up.mjs`, `environments.json` | Row E2: `--env staging\|production [--apply] [--i-mean-production]` reads a project and its dashboard and changes only what differs: extensions, every Auth setting, the function secrets the code reads, the Pages project, domain and build, and (production) the production repository's secrets. A dry run unless `--apply`; a second run changes nothing; prints names and short states, never a value. `environments.json` holds the wanted values that are not secrets (Pages project, domain, dashboard address, allowed origins). Test: `test/bring-up.test.mjs --mutants` (local fakes, no network). |
 | `inbox-state.mjs` | Read only, staging only: for one address given on the command line, whether a login exists, whether it is confirmed, its number of memberships, and whether each test site's alert list is exactly that address. Prints no address. Test: `test/inbox-state.test.mjs --mutants`. |
+| `test/alerts-test-alert.test.mjs` | The tests of `--test-alert` and of the workflow's test step (no database, no network; `--mutants` runs its own faults). |
 | `test/backup.test.mjs`, `test/alerts.test.mjs`, `test/6b-drill.test.mjs` | The tests. `test/6b-mutate.mjs` runs each of them against broken copies of the script and requires red. `test/6b-cluster.mjs`, `test/6b-fake-s3.mjs`: helpers. |
 | `../../.github/workflows/backup.yml` | Nightly the dump and the Vault copy, weekly (Sundays) the media copy, staging only, skipped unless `BACKUP_ENABLED` is `true` (set on 2026-11-21: it runs nightly). |
 | `../../.github/workflows/restore-drill.yml` | Monthly and by hand, staging: the three copies made to a key pair made in the job, restored by `restore-drill.mjs --media --vault`, then the copies and the key deleted. Last line `DRILL PASS: 9 phases, <time>`. |
@@ -77,6 +78,13 @@ each firing alert is one mail through Resend; its idempotency key is the environ
 (a site with two failed jobs) fires on every hourly run but mails once a day, and a new item later that day waits for the next day's mail
 (the hourly job summary still shows it). A failed send exits 1; no retry; no address is printed.
 
+The one test alert proves the mail path without waiting for an alert to fire: run the workflow `alerts` by hand with the input `test_alert` = true (it needs the three
+secrets `RESEND_API_KEY`, `LEAD_ALERT_FROM`, `ALERTS_TO` and `STAGING_DB_URL`; a missing one is named and the step fails). It calls
+`node supabase/ops/alerts.mjs --db STAGING_DB_URL --test-alert --send --to-env ALERTS_TO`, which asks the database nothing and sends exactly one mail, subject
+`[staging] TEST ALERT, nothing is wrong (started by hand)`, with the key `alerts-test-<environment>-<UTC date>`: at most one a UTC day, a second says
+`test alert: sent before today (0 new)`. Its last line (`test alert: sent 1 of 1`) goes to the job summary. The schedule never sends it, and a run with the input leaves the hourly checks out, so no other mail goes out with it. The production copy
+`.github/production/alerts.yml` has no such input.
+
 ## Runbooks
 The runbook names the alerts print (from 11-OPERATIONS section 2, `archive/2026-11-02-blueprint/blueprint/11-OPERATIONS.md`).
 
@@ -128,7 +136,8 @@ with a test; tell the owner when it lasted over an hour.
   `BACKUP2_ACCESS_KEY_ID`, `BACKUP2_SECRET_ACCESS_KEY`); the same set plus `PROD_DB_URL`, `PROD_SUPABASE_REF` and
   `PROD_SUPABASE_SECRET_KEY` (the media copy; `bring-up.mjs` sets every name of `.github/production/`) in the production repository. Variable
   `BACKUP_ENABLED = true` (set 2026-11-21 on the platform repository); `ALERTS_RED = true` to make a firing alert also turn the alerts job red. The alert mail needs the
-  secrets `RESEND_API_KEY`, `LEAD_ALERT_FROM` and `ALERTS_TO` (the on-call address) in each repository.
+  secrets `RESEND_API_KEY`, `LEAD_ALERT_FROM` and `ALERTS_TO` (the on-call address) in each repository. For staging `LEAD_ALERT_FROM` is the `alerts_sender` address of
+  `supabase/auth-emails/emails.json`, never an env file's value (`bring-up.mjs`, `tools/deploy-functions.mjs`, `tools/deploy-capture-lead.mjs`, `tools/github-secrets.mjs` take it from there).
 - Bucket lifecycle rules (not workflow steps), set on the R2 bucket: `staging/` 30 days, `production/` 30 days, `monthly/` 365 days,
   `probe/` 1 day. The nightly copies are kept 30 days; on UTC day 01 the workflows also write the dump and the Vault copy under
   `monthly/staging` and `monthly/production`, kept one year.

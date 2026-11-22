@@ -61,7 +61,7 @@ field. Emails to design: the sign-in link mail, the invite mail (who invited you
 mail (section 1.3), each in plain text plus one HTML version.
 
 #### 1.2e The Auth emails (sent by Supabase Auth through Resend; templates in `supabase/auth-emails/`, applied by `supabase/set-auth-settings.mjs`)
-Sender (owner 2026-11-01): "Omnikom Dashboard" <login@notify.omnikom.io>. Link life (owner 2026-10-31): 600 s, `mailer_otp_exp`.
+Sender (owner 2026-11-20, item 11): "Omnikom Dashboard" <login@notify.omnikom.ai>. Link life (owner 2026-10-31): 600 s, `mailer_otp_exp`.
 Supabase sends these as HTML only (no plain-text part can be set through Auth): the plain-text version of DP-1.2-10 waits for our
 own sender. `{{ .Email }}`, `{{ .TokenHash }}` and `{{ .SiteURL }}` are filled in by Supabase.
 | Id | Slice | Element | Words |
@@ -72,7 +72,7 @@ own sender. `{{ .Email }}`, `{{ .TokenHash }}` and `{{ .SiteURL }}` are filled i
 | DP-email-04 | email | Sign-in email: the button, to {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink (DP-1.2-06) | "Sign in" |
 | DP-email-05 | email | Both emails: the link's life (600 s; a token hash works once) | "The link works for 10 minutes and only once." |
 | DP-email-06 | email | Both emails: not asked for | "If you did not ask for this, you can ignore this email." |
-| DP-email-07 | email | Both emails: sender identity block | "Omnikom Dashboard, login@notify.omnikom.io" and "Sent by Omnikom, omnikom.io" |
+| DP-email-07 | email | Both emails: sender identity block | "Omnikom Dashboard, login@notify.omnikom.ai" and "Sent by Omnikom, omnikom.io" |
 | DP-email-08 | email | Invite email (sent by `invite-member`, DP-1.6-02, to a new login through Auth's invite; an existing confirmed login gets the sign-in email DP-email-01 to 07 instead, one that never opened its invite gets this invite again): subject | "You are invited to the Omnikom dashboard" |
 | DP-email-09 | email | Invite email: heading | "You are invited to the Omnikom dashboard" |
 | DP-email-10 | email | Invite email: what happened (`{{ .Data.inviter }}` is the inviter's name, or their email when they have no team profile; `{{ .Data.business }}` the business name; both set from the invite's user data) | "{{ .Data.inviter }} invited {{ .Email }} to {{ .Data.business }} on the Omnikom dashboard." |

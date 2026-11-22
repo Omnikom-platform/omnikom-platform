@@ -6,12 +6,14 @@
 // --functions a,b,c   each one is `supabase functions deploy <name> --project-ref <ref>` (verify_jwt comes from supabase/config.toml)
 // --secrets A,B       secret names taken from the environment (default GITHUB_DISPATCH_TOKEN,GITHUB_REPO); a name missing in the
 //                     environment is printed as `NOT SET (missing in the env): NAME` and skipped, never invented
+// LEAD_ALERT_FROM (in --secrets or --set) is always the alerts_sender address of supabase/auth-emails/emails.json, never the environment's; the run prints
+//                     `LEAD_ALERT_FROM: from supabase/auth-emails/emails.json`, and --set LEAD_ALERT_FROM=<another address> is refused (exit 2)
 // --set NAME=value    a NON-secret value given on the command line (only GITHUB_REPO, DASHBOARD_URL, DASHBOARD_ORIGINS, LEAD_ALERT_FROM are accepted:
 //                     a secret never travels on a command line); it wins over the environment
 // Secret values travel to the CLI through a temp env file that is deleted afterwards; the output is scrubbed of the token, the project
 // ref and every secret value before it is printed.
 import { spawnSync } from 'node:child_process';
-import { writeFileSync, rmSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, rmSync, mkdtempSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -35,12 +37,18 @@ for (let i = 0; i < argv.length; i++) if (argv[i] === '--set') {
 }
 const secretNames = (opt('--secrets') || 'GITHUB_DISPATCH_TOKEN,GITHUB_REPO').split(',').map(s => s.trim()).filter(Boolean);
 for (const n of secretNames) if (!/^[A-Z][A-Z0-9_]*$/.test(n)) { console.error(`not a secret name: ${n}`); process.exit(2); }
-const valueOf = n => setValues[n] ?? process.env[n];
+// the alert sender is a value of the repository, never of the environment (owner 2026-11-20, item 11): a --set of another address is refused
+const FROM_FILE = JSON.parse(readFileSync(join(ROOT, 'supabase', 'auth-emails', 'emails.json'), 'utf8')).alerts_sender.address;
+if (setValues.LEAD_ALERT_FROM !== undefined && setValues.LEAD_ALERT_FROM !== FROM_FILE) { console.error('LEAD_ALERT_FROM is the alerts_sender address of supabase/auth-emails/emails.json; --set another address is refused'); process.exit(2); }
+const valueOf = n => (n === 'LEAD_ALERT_FROM' ? FROM_FILE : setValues[n] ?? process.env[n]);
 const wanted = [...new Set([...secretNames, ...Object.keys(setValues)])];
 const secretValues = wanted.map(valueOf).filter(Boolean);
+if (wanted.includes('LEAD_ALERT_FROM')) console.log('LEAD_ALERT_FROM: from supabase/auth-emails/emails.json');
 
 const scrub = s => { let t = String(s || '').split(token).join('<token>').split(ref).join('<project ref>'); for (const v of secretValues) if (v.length >= 6) t = t.split(v).join('<value>'); return t; };
-const sb = args => { const r = spawnSync('supabase', args, { cwd: ROOT, encoding: 'utf8', timeout: 600000, env: { ...process.env, SUPABASE_ACCESS_TOKEN: token }, shell: process.platform === 'win32' }); return { status: r.status, out: scrub((r.stdout || '') + (r.stderr || '')) }; };
+// SUPABASE_SCRIPT (a node script standing in for the supabase CLI) exists for tests only
+const sb = args => { const [cmd, a, shell] = process.env.SUPABASE_SCRIPT ? [process.execPath, [process.env.SUPABASE_SCRIPT, ...args], false] : ['supabase', args, process.platform === 'win32'];
+  const r = spawnSync(cmd, a, { cwd: ROOT, encoding: 'utf8', timeout: 600000, env: { ...process.env, SUPABASE_ACCESS_TOKEN: token }, shell }); return { status: r.status, out: scrub((r.stdout || '') + (r.stderr || '')) }; };
 let failed = 0;
 
 if (!argv.includes('--secrets-only')) {

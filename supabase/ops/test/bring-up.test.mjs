@@ -2,7 +2,7 @@
 // API and the Cloudflare Pages API and counts every write; the database (deps.sql), gh (deps.gh), the dashboard deploy (deps.deploy) and
 // the commit (deps.head) are recorders, and deps.fetch refuses any address but the fake's. No cluster, no network, no account: every
 // value is a test string. Every case passes repoRoot = the real repository root (case 12 a temp copy of the files it reads, see there).
-//   node supabase/ops/test/bring-up.test.mjs              the suite (16 checks)
+//   node supabase/ops/test/bring-up.test.mjs              the suite (17 checks)
 //   node supabase/ops/test/bring-up.test.mjs --mutants    the suite, then every seeded fault (in a copy of the script): each must go red for its named check
 // Exit 0 = every check passed (and, with --mutants, every fault was caught).
 import { createServer } from 'node:http';
@@ -251,7 +251,7 @@ async function suite() {
       const origins = 'http://localhost:5173,http://localhost:4173,https://omnikom-app-staging.pages.dev';
       const bad = [];
       if (w.st.secrets.get('DASHBOARD_ORIGINS') !== sha(origins)) bad.push('DASHBOARD_ORIGINS');
-      for (const n of FN_SECRETS.filter(x => !x.startsWith('DASHBOARD_'))) if (w.st.secrets.get(n) !== sha(w.env[n])) bad.push(`secret ${n}`);
+      for (const n of FN_SECRETS.filter(x => !x.startsWith('DASHBOARD_') && x !== 'LEAD_ALERT_FROM')) if (w.st.secrets.get(n) !== sha(w.env[n])) bad.push(`secret ${n}`);   // LEAD_ALERT_FROM is case 17's
       if (r.lines.some(l => / domain |^DNS /.test(l)) || r.lines.some(l => /^\S+ +repo /.test(l)) || w.rec.gh.length) bad.push('a domain step or the repo area');
       if (!(w.st.auth.site_url === emails.site_url && emails.site_url === envs.staging.dashboard && envs.staging.dashboard === 'https://omnikom-app-staging.pages.dev')) bad.push('site_url agreement');
       if (w.st.auth.smtp_admin_email !== emails.sender.address) bad.push('staging sender');
@@ -341,6 +341,25 @@ async function suite() {
       return [reads.length === 1 && text.endsWith(';') && text.indexOf(';') === text.length - 1, `${show(r)}\nreads ${reads.length}: ${text}`];
     });
 
+    await check('17 staging: the function secret LEAD_ALERT_FROM is the value of emails.json alerts_sender even when the environment holds the old address, and the run says where it came from; production still takes PROD_MAIL_FROM', async () => {
+      const emails = JSON.parse(readFileSync(join(ROOT, 'supabase', 'auth-emails', 'emails.json'), 'utf8'));
+      const OLD_FROM = ['leads@notify.omnikom', 'io'].join('.');   // in two pieces: the old-sender scan of supabase/auth-emails/check.mjs finds nothing in this file
+      const SAYS = 'LEAD_ALERT_FROM: from supabase/auth-emails/emails.json';
+      const w = await make('staging');
+      const r = await run(w, ['--env', 'staging', '--apply'], { ...w.env, LEAD_ALERT_FROM: OLD_FROM });
+      outs.push(r.text);
+      const p = await make('production');
+      const rp = await run(p, prodArgs, { ...p.env, LEAD_ALERT_FROM: OLD_FROM });
+      outs.push(rp.text);
+      const bad = [];
+      if (!emails.alerts_sender || w.st.secrets.get('LEAD_ALERT_FROM') !== sha(emails.alerts_sender.address)) bad.push('staging value is not the file\'s');
+      if (w.st.secrets.get('LEAD_ALERT_FROM') === sha(OLD_FROM)) bad.push('staging took the address from the environment');
+      if (!r.lines.includes(SAYS)) bad.push('staging prints no "' + SAYS + '" line');
+      if (p.st.secrets.get('LEAD_ALERT_FROM') !== sha(MAIL_FROM)) bad.push('production is not PROD_MAIL_FROM');
+      if (rp.lines.includes(SAYS)) bad.push('production prints the staging line');
+      return [!bad.length && r.exit === 0 && rp.exit === 0, `${bad.join('; ')}\n${show(r)}\n--\n${show(rp)}`];
+    });
+
     await check('15 the workflows: every BACKUP2 target is passed only when BACKUP2_BUCKET is set, the nightly dump and Vault also write monthly/<env> on UTC day 01', async () => {
       const bad = [];
       for (const [file, env] of [['.github/workflows/backup.yml', 'staging'], ['.github/production/backup.yml', 'production'], ['.github/production/promote.yml', 'production']]) {
@@ -376,6 +395,8 @@ const MUTANTS = [
   ['8 SUPABASE_ names and the test seams are kept', [['.filter(n => !/^SUPABASE_/.test(n) && !SEAMS.includes(n))', '.filter(n => true)']], /^10 /],
   ['9 the four BACKUP2_* names are required again', [['const noSecond = prod && !SECOND.some(x => env[x]);', 'const noSecond = false;']], /^13 /],
   ['10 the extensions read loses its semicolon', [["']);`", "'])`"]], /^16 /],
+  ['11 staging takes LEAD_ALERT_FROM from the environment again', [[', ...(prod ? {} : { LEAD_ALERT_FROM: emailsCfg.alerts_sender.address })', '']], /^17 /],
+  ['12 staging says nothing about where the alert sender came from', [["if (!prod) say('LEAD_ALERT_FROM: from supabase/auth-emails/emails.json');", '']], /^17 /],
 ];
 
 let exit = 0;

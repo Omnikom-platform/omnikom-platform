@@ -113,6 +113,7 @@ const ALL_MUTANTS = [
   ['secrets: a missing name is skipped silently', 'tools/github-secrets.mjs', "if (!value) { console.log(`NOT SET (missing in the env): ${name}`); continue; }", 'if (!value) { continue; }', 'secrets'],
   ['secrets: a lowercase name is accepted', 'tools/github-secrets.mjs', "!/^[A-Z][A-Z0-9_]*$/.test(n) || n.startsWith('GITHUB_')", "n.startsWith('GITHUB_')", 'secrets'],
   ['secrets: a GITHUB_ name is accepted', 'tools/github-secrets.mjs', " || n.startsWith('GITHUB_')", '', 'secrets'],
+  ['secrets: LEAD_ALERT_FROM is taken from the environment again', 'tools/github-secrets.mjs', "if (names.includes('LEAD_ALERT_FROM')) {", 'if (false) {', 'secrets'],
   ['secrets: a failed set still exits 0', 'tools/github-secrets.mjs', 'process.exit(failed ? 1 : 0);', 'process.exit(0);', 'secrets'],
   // E8: the deployment's own address by content hash, the rollback of a live deploy (book row E8, H1-6)
   ['E8 publish: a failed live smoke is not rolled back', `${R}publish.mjs`, "branch === 'main' && !opts['no-deploy'] ?", 'false ?', 'wrangler'],
@@ -223,6 +224,7 @@ function makeCopy(i) {
   cpSync(join(REPO, R), join(root, R), { recursive: true, filter: (src) => !/\/(node_modules|test)(\/|$)/.test('/' + src.slice(join(REPO, R).length).replace(/\\/g, '/')) });
   mkdirSync(join(root, 'tools'), { recursive: true });
   cpSync(join(REPO, 'tools', 'github-secrets.mjs'), join(root, 'tools', 'github-secrets.mjs'));
+  cpSync(join(REPO, 'supabase', 'auth-emails', 'emails.json'), join(root, 'supabase', 'auth-emails', 'emails.json'), { recursive: true });   // github-secrets.mjs reads the alert sender from it
   cpSync(join(REPO, '.github', 'workflows'), join(root, '.github', 'workflows'), { recursive: true });
   cpSync(join(REPO, '.github', 'scripts'), join(root, '.github', 'scripts'), { recursive: true });
   if (existsSync(join(REPO, R, 'node_modules'))) symlinkSync(join(REPO, R, 'node_modules'), join(root, R, 'node_modules'), 'junction');

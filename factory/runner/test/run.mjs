@@ -588,6 +588,17 @@ await check('secrets: the names on the repository are listed afterwards, and no 
 const failing = await runSecrets(['--repo', 'Omnikom-platform/omnikom-platform', '--names', 'RUNNER_KEY'], SEC, 'RUNNER_KEY');
 await check('secrets: a failing gh secret set exits 1, is reported by name, and the value gh echoed is scrubbed', () =>
   failing.code === 1 && /FAILED: RUNNER_KEY/.test(failing.out) && !failing.out.includes('rk-secret-value-1234') || `${failing.code}\n${failing.out}`);
+{   // the alert sender is a value of the repository (owner 2026-11-20, item 11), never of the environment
+  const OLD_FROM = ['leads@notify.omnikom', 'io'].join('.');
+  const fileFrom = JSON.parse(readFileSync(join(REPO, 'supabase', 'auth-emails', 'emails.json'), 'utf8')).alerts_sender.address;
+  const lead = await runSecrets(['--repo', 'Omnikom-platform/omnikom-platform', '--names', 'LEAD_ALERT_FROM,RUNNER_KEY'], { ...SEC, LEAD_ALERT_FROM: OLD_FROM });
+  const leadSet = lead.sets.find((c) => c.argv[2] === 'LEAD_ALERT_FROM');
+  await check('secrets: LEAD_ALERT_FROM is set from supabase/auth-emails/emails.json even when the environment holds the old address, and the run says where it came from', () =>
+    lead.code === 0 && !!leadSet && leadSet.stdin === fileFrom && leadSet.stdin !== OLD_FROM && /^LEAD_ALERT_FROM: from supabase\/auth-emails\/emails\.json$/m.test(lead.out)
+    && lead.sets.find((c) => c.argv[2] === 'RUNNER_KEY').stdin === 'rk-secret-value-1234' || `${lead.code} ${JSON.stringify(lead.sets)}\n${lead.out}`);
+  const other = await runSecrets(['--repo', 'Omnikom-platform/omnikom-platform', '--names', 'RUNNER_KEY'], { ...SEC, LEAD_ALERT_FROM: OLD_FROM });
+  await check('secrets: a name list without LEAD_ALERT_FROM does not read or print the alert sender', () => other.code === 0 && !/LEAD_ALERT_FROM/.test(other.out) && other.sets.length === 1 || other.out);
+}
 const badRepo = await runSecrets(['--repo', 'not a repo', '--names', 'RUNNER_KEY'], SEC);
 const badName = await runSecrets(['--repo', 'a/b', '--names', 'lowercase'], SEC);
 const ghName = await runSecrets(['--repo', 'a/b', '--names', 'GITHUB_TOKEN'], { ...SEC, GITHUB_TOKEN: 'x-secret-value-9999' });

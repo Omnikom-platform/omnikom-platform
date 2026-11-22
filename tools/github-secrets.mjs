@@ -3,9 +3,11 @@
 // For each name present in the environment: `gh secret set <NAME> -R <repo>` with the value on STDIN (never argv). A name missing from
 // the environment is printed as `NOT SET (missing in the env): <NAME>` and skipped. --dry-run prints `WOULD SET: <NAME>` (names only) and
 // changes nothing. PLATFORM_FUNCTIONS_BASE is DERIVED when absent: https://<STAGING_SUPABASE_REF>.supabase.co/functions/v1.
+// LEAD_ALERT_FROM, when named, is the alerts_sender address of supabase/auth-emails/emails.json (printed: `LEAD_ALERT_FROM: from supabase/auth-emails/emails.json`), never the environment's.
 // Afterwards `gh secret list` prints the NAMES now on the repository. Exit 0 ok, 1 a set or the list failed, 2 usage.
 // GH_SCRIPT (a node script standing in for gh) exists for tests only. Needs the owner's `gh auth login` (repo + secrets scope).
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 const USAGE = 'usage: node tools/with-env.mjs <env file> -- node tools/github-secrets.mjs --repo <owner/repo> --names A,B,C [--dry-run]';
 const argv = process.argv.slice(2);
@@ -23,6 +25,10 @@ const badName = names.find((n) => !/^[A-Z][A-Z0-9_]*$/.test(n) || n.startsWith('
 if (!names.length || badName) { console.error(`secret names are UPPER_SNAKE and may not start with GITHUB_ (${badName || 'none given'})`); process.exit(2); }
 
 const env = { ...process.env };
+if (names.includes('LEAD_ALERT_FROM')) {   // an address is not a secret and not a value of an env file (owner 2026-11-20, item 11): the repository says it
+  env.LEAD_ALERT_FROM = JSON.parse(readFileSync(new URL('../supabase/auth-emails/emails.json', import.meta.url), 'utf8')).alerts_sender.address;
+  console.log('LEAD_ALERT_FROM: from supabase/auth-emails/emails.json');
+}
 if (names.includes('PLATFORM_FUNCTIONS_BASE') && !env.PLATFORM_FUNCTIONS_BASE && env.STAGING_SUPABASE_REF) {
   env.PLATFORM_FUNCTIONS_BASE = `https://${env.STAGING_SUPABASE_REF}.supabase.co/functions/v1`;
   console.log('DERIVED: PLATFORM_FUNCTIONS_BASE from STAGING_SUPABASE_REF');

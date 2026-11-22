@@ -6,7 +6,7 @@
 // Variables, by name (P = STAGING_ or PROD_, supabase/ops/environments.json): <P>SUPABASE_REF, <P>DB_URL (<P>DB_URL_DIRECT when set),
 // <P>SUPABASE_PUBLISHABLE_KEY, SUPABASE_ACCESS_TOKEN, CLOUDFLARE_PAGES_TOKEN, CLOUDFLARE_ACCOUNT_ID, RESEND_API_KEY; the source of every
 // function secret (staging: the same name; production: PROD_<NAME>, except the shared RESEND_API_KEY, PSI_API_KEY, CRUX_API_KEY and
-// BING_WEBMASTER_KEY and GOOGLE_SERVICE_ACCOUNT_JSON, LEAD_ALERT_FROM from PROD_MAIL_FROM; DASHBOARD_URL and DASHBOARD_ORIGINS come from environments.json); for
+// BING_WEBMASTER_KEY and GOOGLE_SERVICE_ACCOUNT_JSON, LEAD_ALERT_FROM from PROD_MAIL_FROM; staging's LEAD_ALERT_FROM is the alerts_sender address of supabase/auth-emails/emails.json, never the environment; DASHBOARD_URL and DASHBOARD_ORIGINS come from environments.json); for
 // production also PROD_MAIL_FROM, PROD_GITHUB_REPO and the source of every secret the production workflows name (PROD_ALERTS_TO is
 // optional, and so are the four BACKUP2_* names together: none set = skipped with one line, some set = the others are missing). SUPABASE_API_BASE and CLOUDFLARE_API_BASE exist for the tests' local fake server only.
 // It prints names, counts and short states, never a value: every line passes backup.mjs's scrubber, fed with every value read.
@@ -97,7 +97,9 @@ export async function bringUp(argv, env = process.env, deps = {}) {
     const root = deps.repoRoot || ROOT, prod = o.env === 'production';
     const E = JSON.parse(readFileSync(join(root, 'supabase', 'ops', 'environments.json'), 'utf8'))[o.env], P = E.prefix;
     const fnNames = secretNames(join(root, 'supabase', 'functions'));
-    const derived = { DASHBOARD_URL: E.dashboard, DASHBOARD_ORIGINS: E.origins.join(',') };
+    const emailsCfg = JSON.parse(readFileSync(join(root, 'supabase', 'auth-emails', 'emails.json'), 'utf8'));
+    // staging's alert sender is a value of the repository (owner 2026-11-20, item 11), never of an env file; production keeps PROD_MAIL_FROM
+    const derived = { DASHBOARD_URL: E.dashboard, DASHBOARD_ORIGINS: E.origins.join(','), ...(prod ? {} : { LEAD_ALERT_FROM: emailsCfg.alerts_sender.address }) };
     const fnSource = name => (!prod || SHARED.includes(name) ? name : name === 'LEAD_ALERT_FROM' ? 'PROD_MAIL_FROM' : `PROD_${name}`);
     const repoList = prod ? repoNames(root) : [];
     const repoSource = name => (/^(PROD|STAGING)_/.test(name) ? name : { RUNNER_KEY: 'PROD_RUNNER_KEY', ALERTS_TO: 'PROD_ALERTS_TO', LEAD_ALERT_FROM: 'PROD_MAIL_FROM' }[name] || name);
@@ -139,7 +141,7 @@ export async function bringUp(argv, env = process.env, deps = {}) {
       }
     }
     { // A auth: E11's body for this environment's address and sender, and Resend's SMTP
-      const emails = JSON.parse(readFileSync(join(root, 'supabase', 'auth-emails', 'emails.json'), 'utf8'));
+      const emails = emailsCfg;
       const cfg = { ...emails, site_url: E.dashboard, sender: { ...emails.sender, address: prod ? v('PROD_MAIL_FROM') : emails.sender.address } };
       const want = { ...authBody(cfg, EXPECT, file => readFileSync(join(root, 'supabase', 'auth-emails', file), 'utf8')), smtp_host: 'smtp.resend.com', smtp_port: '465', smtp_user: 'resend' };
       const keys = Object.keys(want), equal = (a, b) => String(a) === String(b);
@@ -157,6 +159,7 @@ export async function bringUp(argv, env = process.env, deps = {}) {
     { // S secrets: the list answers each value's sha256; the differing ones go in one POST
       const got = new Map(((await sb('secrets read', '/secrets')).json || []).map(s => [s.name, s.value]));
       const batch = [];
+      if (!prod) say('LEAD_ALERT_FROM: from supabase/auth-emails/emails.json');
       for (const name of fnNames) {
         const value = name in derived ? derived[name] : v(fnSource(name));
         const same = got.get(name) === sha256hex(value);

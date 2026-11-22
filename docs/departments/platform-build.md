@@ -343,7 +343,7 @@ Closed work (steps 1 to 4, 5.1 to 5.3, 6A, 6B, the Auth emails) is in the positi
     functions; GitHub 9/9: walls 379 mutants, Deno 137/137, 182 function mutants; on staging: migration 13 applied, 16 functions deployed,
     `DASHBOARD_ORIGINS=http://localhost:5173,http://localhost:4173,https://app-staging.omnikom.io,https://omnikom-app-staging.pages.dev`,
     `e2e-screens.mjs` PASS 0 problems); Auth emails and Pages 8b2faaf (staging Auth: 600 s link, sender "Omnikom Dashboard"
-    <login@notify.omnikom.io>, both templates from `supabase/auth-emails/`, read back 7/7; link-life proof PASS: 200 at 571 s, 403
+    <login@notify.omnikom.ai>, both templates from `supabase/auth-emails/`, read back 7/7; link-life proof PASS: 200 at 571 s, 403
     otp_expired at 631 s; `omnikom-status.pages.dev` and `omnikom-app-staging.pages.dev` deployed by `tools/pages-project.mjs`).
     Details: PROGRESS.md "5.3", "5.2 screens functions: landed and on staging", "Auth emails and the sign-in link", "The dashboard and
     the status page on Pages".
