@@ -26,6 +26,7 @@ import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { Blocked, Usage, J, context, iso, knownPlaces } from "./research-lib.mjs";
+import { relatedOf } from "./lib-related.mjs";
 
 class Refused extends Error {}
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -122,6 +123,8 @@ function ps(script, file) {
 const clipSet = (file) => ps("Set-Clipboard -Value ([IO.File]::ReadAllText($env:AI_ONESHOT_FILE))", file);
 const clipGet = (file) => ps("$t = Get-Clipboard -Raw; if ($null -eq $t) { $t = '' }; [IO.File]::WriteAllText($env:AI_ONESHOT_FILE, $t, [Text.UTF8Encoding]::new($false))", file);
 const tmpFile = () => path.join(os.tmpdir(), `ai-oneshot-${process.pid}.txt`);
+// a rich editor (Gemini's) shows the text's "- " list marks as bullets glued to the next word: the same words, so the box check reads a bullet as "- "
+const unbullet = (s) => String(s).replace(/[•◦▪‣]/g, " - ");
 
 function input(a) {
   if (a.has("from-clipboard")) { const t = tmpFile(); clipGet(t); const s = fs.readFileSync(t, "utf8"); fs.rmSync(t, { force: true }); return s; }
@@ -152,7 +155,7 @@ function clip(ctx, a, engine, nRaw) {
 }
 
 function box(ctx, a, engine, nRaw) {
-  const t = turn(ctx, engine, nRaw), want = t.text, got = input(a);
+  const t = turn(ctx, engine, nRaw), want = t.text, got = unbullet(input(a));
   const at = firstDiff(words(want), words(got));
   W(path.join(t.f.dir, `${engine}-${t.n}.box.json`), { engine, message: t.n, textHash: t.hash, ok: at < 0, checkedAt: iso(), differsAtWord: at < 0 ? null : at + 1 });
   if (at >= 0) throw new Refused(`BOX DIFFERS for ${engine} message ${t.n} at word ${at + 1}: the locked text has "${words(want)[at] ?? "(nothing)"}", the box has "${words(got)[at] ?? "(nothing)"}". Clear the box and paste again; do not send.`);
@@ -161,7 +164,7 @@ function box(ctx, a, engine, nRaw) {
 
 function save(ctx, a, engine, nRaw) {
   const t = turn(ctx, engine, nRaw), bx = J(path.join(t.f.dir, `${engine}-${t.n}.box.json`));
-  const boxOk = bx?.ok === true && bx.textHash === t.hash;
+  const boxOk = (bx?.ok === true && bx.textHash === t.hash) || a.has("owner-pasted");   // --owner-pasted: the owner pasted the text into the page himself (recorded in the file)
   if (!boxOk) throw new Refused(`the box was not checked for ${engine} message ${t.n} (no BOX OK on file for this text): a reply is saved only for a text that was checked before it was sent`);
   const out = path.join(t.f.dir, `${engine}-${t.n}.json`);
   if (fs.existsSync(out)) throw new Refused(`${engine} message ${t.n} is already saved: a reply is never overwritten and never asked again`);
@@ -169,7 +172,7 @@ function save(ctx, a, engine, nRaw) {
   const text = lf(input(a)).trim();
   if (text.length < 200) throw new Refused(`the text is ${text.length} characters: too short to be the whole reply (copy the reply with the page's own copy button)`);
   if (firstDiff(words(text), words(t.text)) < 0) throw new Refused("this is the text that was sent, not the reply");
-  W(out, { engine, message: t.n, promptHash: t.lock.promptHash, textHash: t.hash, capturedAt: iso(), browser: a.get("browser") || "owner's Edge", signedIn: a.has("signed-in"), mode: a.get("mode") || "new chat", answerText: text, answerSha256: sha(text) });
+  W(out, { engine, message: t.n, promptHash: t.lock.promptHash, textHash: t.hash, capturedAt: iso(), browser: a.get("browser") || "owner's Edge", signedIn: a.has("signed-in"), mode: a.get("mode") || "new chat", pasted: a.has("owner-pasted") ? "by the owner, by hand" : "clipboard, box checked", answerText: text, answerSha256: sha(text) });
   let found;
   if (t.n === 1) {
     const p = parseAsk(text, t.lock), miss = t.lock.questions.filter((q, i) => !p.q.has(i + 1)).map((q) => q.id);
@@ -191,9 +194,9 @@ function blocked(ctx, a, engine) {
 const cleanCell = (s) => s.replace(/\*\*|__|`/g, "").replace(/\[([^\]]*)\]\((https?:[^)\s]+)\)/g, (m, t, u) => `${t} ${u}`).replace(/\s+/g, " ").trim();
 // a table row as cells: a markdown row (pipes) or a row copied as plain text (tabs); the rule under a header and prose are not rows
 function cells(line) {
-  const t = String(line).trim(), pipes = t.includes("|");
-  if (!pipes && !t.includes("\t")) return null;
-  const c = t.split(pipes ? "|" : "\t").map(cleanCell);
+  const t = String(line).trim(), pipes = t.includes("|"), sep = pipes ? "|" : t.includes("\t") ? "\t" : / {3,}/.test(t) ? / {3,}/ : null;
+  if (!sep) return null;
+  const c = t.split(sep).map(cleanCell);
   if (pipes) { if (c[0] === "") c.shift(); if (c.length && c[c.length - 1] === "") c.pop(); }
   if (c.length < 2 || c.every((x) => x === "" || /^:?-{2,}:?$/.test(x))) return null;
   return c;
@@ -206,6 +209,19 @@ function head(line) {
   return m ? { q: Number(m[1]) } : null;
 }
 const isRank = (x) => /^\d{1,2}\.?$/.test(x);
+// a table copied from a page as plain text (cells apart by tabs or runs of spaces) can come with its header row GLUED to the first row
+// ("... | Source (full web address)1 | Name | ..."): the first row is given back, never lost
+const HEAD_LAST = ["source (full web address)", "what you take from it (8 words at most)", "what it says (8 words at most)", "your answer"];
+function unglue(c) {
+  for (let k = 1; k < c.length; k++) {
+    const low = c[k].toLowerCase(), h = HEAD_LAST.find((x) => low.startsWith(x) && low.length > x.length);
+    if (h) return [c[k].slice(h.length).trim(), ...c.slice(k + 1)];
+  }
+  const k = c.findIndex((x, i) => i >= 2 && /\D\d{1,2}$/.test(x) && c.length - i > 2);
+  return k < 0 ? null : [c[k].match(/\d{1,2}$/)[0], ...c.slice(k + 1)];
+}
+// the cells of a data row: null for a header row, unless the first row was glued to it
+const dataRow = (c, headRe) => (c && headRe.test(c[0]) ? unglue(c) : c);
 
 function parseAsk(text, lock) {
   const blocks = []; let cur = null;
@@ -218,8 +234,8 @@ function parseAsk(text, lock) {
   for (const b of blocks.filter((x) => x.q)) {
     const rows = [];
     for (const line of b.lines) {
-      const c = cells(line);
-      if (!c || /^(rank|name)$/i.test(c[0])) continue;
+      const c = dataRow(cells(line), /^(rank|name)$/i);
+      if (!c) continue;
       const [name, company, why] = isRank(c[0]) ? c.slice(1) : c;
       rows.push({ rank: isRank(c[0]) ? parseInt(c[0], 10) : rows.length + 1, name: name || "", company: company || "", why: why || "", urls: urlsOf(line), unknown: !name || /^unknown$/i.test(name) });
     }
@@ -231,16 +247,17 @@ function parseAsk(text, lock) {
   if (p2) {
     let at = null;
     for (const line of p2.lines) {
-      const c = cells(line);
-      if (!c) { const pl = lock.places.find((x) => ` ${norm(line)} `.includes(` ${norm(x.city)} `)); if (pl) { at = { place: pl.full, rows: [] }; sites.push(at); } continue; }
-      if (/^(rank|website)$/i.test(c[0])) continue;
+      const raw = cells(line);
+      if (!raw) { const pl = lock.places.find((x) => ` ${norm(line)} `.includes(` ${norm(x.city)} `)); if (pl) { at = { place: pl.full, rows: [] }; sites.push(at); } continue; }
+      const c = dataRow(raw, /^(rank|website)$/i);
+      if (!c) continue;
       if (!at) { at = { place: null, rows: [] }; sites.push(at); }
       at.rows.push({ rank: isRank(c[0]) ? parseInt(c[0], 10) : at.rows.length + 1, site: (isRank(c[0]) ? c[1] : c[0]) || "", urls: urlsOf(line) });
     }
   }
   if (p3) for (const line of p3.lines) {
-    const c = cells(line);
-    if (!c || /^item$/i.test(c[0])) continue;
+    const c = dataRow(cells(line), /^item$/i);
+    if (!c) continue;
     const v = c.slice(1).join(" | "); how.found = true;
     if (/\bplace\b/i.test(c[0])) how.place = v; else if (/search|memory/i.test(c[0])) how.searched = v; else if (/newest source/i.test(c[0])) how.newest = v; else if (/weigh most/i.test(c[0])) how.weighs = v; else if (/assumed/i.test(c[0])) how.assumed = v;
   }
@@ -251,9 +268,10 @@ const KEYS = [["known", /know this business/i], ["missing", /missing or unclear/
 function parseName(text) {
   const out = { fields: {}, appears: [], rows: 0 }; let where = false;
   for (const line of lf(text).split("\n")) {
-    const c = cells(line);
-    if (!c) { if (/where they appear/i.test(line)) where = true; continue; }
-    if (/^(item|rank)$/i.test(c[0])) continue;
+    const raw = cells(line);
+    if (!raw) { if (/where they appear/i.test(line)) where = true; continue; }
+    const c = dataRow(raw, /^(item|rank)$/i);
+    if (!c) continue;
     if (where) { out.appears.push({ site: (isRank(c[0]) ? c[1] : c[0]) || "", urls: urlsOf(line), says: c[c.length - 1] }); continue; }
     const k = KEYS.find(([, re]) => re.test(c[0]))?.[0];
     if (!k || out.fields[k]) continue;
@@ -287,7 +305,8 @@ function count(ctx, a) {
   if (old.length && !retire) throw new Refused(`${old.length} file(s) in captures/ai answer other questions than the locked prompt (first: ${old[0]}) and would be counted with the new ones. Run count again with --retire-old: they are moved, unchanged, to captures/ai-retired/`);
   if (retire) for (const x of old) { fs.mkdirSync(f.retired, { recursive: true }); let to = path.join(f.retired, x); for (let i = 2; fs.existsSync(to); i++) to = path.join(f.retired, x.replace(/\.json$/i, `.${i}.json`)); fs.renameSync(path.join(f.cap, x), to); }
   for (const x of files.filter((y) => !old.includes(y) && /-oneshot-/.test(y))) fs.rmSync(path.join(f.cap, x));
-  const N = lock.questions.length, instead = new Map(), hosts = new Map(), notes = [];
+  const N = lock.questions.length, instead = new Map(), hosts = new Map(), siteHosts = new Map(), notes = [];
+  const related = relatedOf(ctx.pewp), isRelated = (r) => !!(related.byName(r.name) || related.byName(r.company) || r.urls.some((u) => related.byDomain(u)));
   const bump = (m, k, engine) => { const v = m.get(k) || { count: 0, engines: new Set() }; v.count++; v.engines.add(engine); m.set(k, v); };
   const engines = ENGINES.map((engine) => {
     const m1 = J(path.join(f.dir, `${engine}-1.json`)), m2 = J(path.join(f.dir, `${engine}-2.json`)), bl = J(path.join(f.dir, `${engine}-blocked.json`));
@@ -304,27 +323,25 @@ function count(ctx, a) {
       const rows = blk ? blk.rows : [], real = rows.filter((r) => !r.unknown), mine = real.find((r) => isClient(r, b));
       const status = !blk ? (none ? "layout not followed" : "not reached") : wrongPlace ? "other place" : real.length ? (mine ? "listed" : "not listed") : rows.length ? "no list" : blk.hasText ? "layout not followed" : "no list";
       classes[status] = (classes[status] || 0) + 1;
+      const kin = [...new Set(real.filter((r) => r !== mine && isRelated(r)).map((r) => r.name))];   // a teammate or the brokerage (lib-related.mjs): never "listed instead"
       if (status === "listed" || status === "not listed") {
-        const names = [...new Set(real.filter((r) => r !== mine).map((r) => r.name))], urls = [...new Set(real.flatMap((r) => r.urls))].filter(hostOf), raw = blk.raw.trim(), seen = textNames(raw, b);
-        W(path.join(f.cap, `${engine}-oneshot-q${i + 1}.json`), { engine, type: "buyer", question: q.text, ...stamp(m1), signedIn: m1.signedIn === true, answerText: mine && !seen ? `${raw}\n(matched as the business: ${b.name})` : raw, named: !!mine, competitorsNamed: names, citedSources: urls, oneshot: { question: q.id, rank: mine ? mine.rank : null } });
+        const names = [...new Set(real.filter((r) => r !== mine && !isRelated(r)).map((r) => r.name))], urls = [...new Set(real.flatMap((r) => r.urls))].filter(hostOf);
+        const text = real.map((r) => [r.rank, r.name, r.company, r.why, r.urls.join(" ")].join(" | ")).join("\n"), seen = textNames(text, b);   // the rows as read, one per line
+        W(path.join(f.cap, `${engine}-oneshot-q${i + 1}.json`), { engine, type: "buyer", question: q.text, ...stamp(m1), signedIn: m1.signedIn === true, answerText: mine && !seen ? `${text}\n(matched as the business: ${b.name})` : text, named: !!mine, competitorsNamed: names, citedSources: urls, oneshot: { question: q.id, rank: mine ? mine.rank : null } });
         written++;
         for (const x of names) bump(instead, x, engine);
         for (const u of urls) bump(hosts, hostOf(u), engine);
         if (!mine && seen) notes.push(`note: ${engine} ${q.id}: the business's name stands outside the name and company cells; import-ai.mjs counts that answer as naming it`);
       }
-      return { id: q.id, text: q.text, place: q.place, need: q.need, status, rank: mine ? mine.rank : null, rows: real.map(({ unknown, ...r }) => r) };
+      return { id: q.id, text: q.text, place: q.place, need: q.need, status, rank: mine ? mine.rank : null, rows: real.map(({ unknown, ...r }) => r), ...(kin.length ? { related: kin } : {}) };
     });
     const ordered = Object.fromEntries(CLASSES.filter((c) => classes[c]).map((c) => [c, classes[c]]));
     if (Object.values(ordered).reduce((s, v) => s + v, 0) !== N) throw new Error(`${engine}: the classes do not add up to the ${N} questions asked: ${JSON.stringify(classes)}`);
     let byName = null;
     if (m2) {
       const n = parseName(m2.answerText), fl = n.fields, known = (fl.known?.value || "").match(/\b(not sure|yes|no)\b/i)?.[1]?.toUpperCase() || null;
-      byName = { layout: n.rows ? "read" : "layout not followed", known, phone: verdict(fl.phone?.value, b.phone, (x, y) => digits(x).length >= 7 && digits(x) === digits(y)), website: verdict(fl.website?.value, b.domain, (x, y) => siteHost(x) === dom(y)), fields: fl, appears: n.appears };
-      if (n.rows) {
-        const said = Object.entries(fl).map(([k, v]) => `${k}: ${v.value}`).join("\n"), urls = [...new Set([...Object.values(fl).flatMap((v) => v.urls), ...n.appears.flatMap((x) => x.urls)])].filter(hostOf);
-        W(path.join(f.cap, `${engine}-oneshot-name.json`), { engine, type: "brand", question: `What do you know about ${lock.name}, a ${lock.kind} in ${lock.home}?`, ...stamp(m2), signedIn: m2.signedIn === true, answerText: known === "YES" ? `${lock.name}: the assistant says it knows this business.\n${said}` : `Asked about the business by name, the assistant answered: ${known || "no readable answer"}.`, named: known === "YES", competitorsNamed: [], citedSources: urls });
-        written++;
-      }
+      // the follow-up is NOT a file in captures/ai: an assistant that is asked by name names the business, and that would count as "named" in every total
+      byName = { layout: n.rows ? "read" : "layout not followed", known, recommend: (fl.recommend?.value || "").match(/\b(not sure|yes|no)\b/i)?.[1]?.toUpperCase() || null, phone: verdict(fl.phone?.value, b.phone, (x, y) => digits(x).length >= 7 && digits(x) === digits(y)), website: verdict(fl.website?.value, b.domain, (x, y) => siteHost(x) === dom(y)), fields: fl, appears: n.appears };
     }
     if (!written) W(path.join(f.cap, `${engine}-oneshot-notcounted.json`), { engine, blocked: `reply saved whole but not counted: ${Object.entries(ordered).map(([k, v]) => `${v} ${k}`).join(", ")}`, ...stamp(m1) });
     const counted = (ordered.listed || 0) + (ordered["not listed"] || 0);
@@ -333,7 +350,8 @@ function count(ctx, a) {
   if (!engines.some((e) => e.status !== "not read")) throw new Blocked("no reply and no blocked assistant is on file | unblocks: the sitting (clip, box, save for each assistant, one after the other)");
   const top = (m) => [...m].map(([name, v]) => ({ name, count: v.count, engines: v.engines.size })).sort((x, y) => y.count - x.count || String(x.name).localeCompare(String(y.name)));
   const read = engines.filter((e) => e.status === "read"), askedOn = read.map((e) => String(e.capturedAt).slice(0, 10)).sort()[0] || null;
-  W(f.out, { step: "ai-oneshot", status: "ok", generatedAt: iso(), promptHash: lock.promptHash, askedOn, questions: N, engines, instead: top(instead), sources: top(hosts), note: "one reply from each assistant: a business left out of one reply can be in the next; no number here is a rate" });
+  for (const e of read) for (const h of new Set(e.sites.flatMap((s) => s.rows.flatMap((r) => r.urls.map(hostOf).filter(Boolean))))) bump(siteHosts, h, e.engine);
+  W(f.out, { step: "ai-oneshot", status: "ok", generatedAt: iso(), promptHash: lock.promptHash, askedOn, questions: N, engines, instead: top(instead), sources: top(hosts), sites: top(siteHosts), ownSiteNamed: !!dom(b.domain) && hosts.has(dom(b.domain)), note: "one reply from each assistant: a business left out of one reply can be in the next; no number here is a rate" });
   const line = (e) => (e.status !== "read" ? `${e.engine}: ${e.status}${e.reason ? ` (${e.reason})` : ""}`
     : `${e.engine}: the business is listed in ${e.listed} of ${e.counted} counted questions${e.questions.filter((q) => q.rank).map((q) => ` (${q.id} rank ${q.rank})`).join("")}; of ${N} asked: ${Object.entries(e.classes).map(([k, v]) => `${v} ${k}`).join(", ")}${e.placeStated ? "" : "; the place it answered for is not stated"}${e.byName ? `; by name: ${e.byName.layout === "read" ? `knows it ${e.byName.known || "?"}, phone ${e.byName.phone}, website ${e.byName.website}` : "layout not followed"}` : "; no follow-up on file"}`);
   return `OK ai-oneshot count: asked once on ${askedOn || "(no reply)"}, prompt ${lock.promptHash.slice(0, 8)}${old.length ? `; ${old.length} older file(s) moved to captures/ai-retired` : ""}\n  ${[...engines.map(line), ...notes].join("\n  ")}\n  -> ${f.out}\n  next: node import-ai.mjs <url> --cwd <skill> reads captures/ai/ as before`;
@@ -341,7 +359,7 @@ function count(ctx, a) {
 
 // ---------------------------------------------------------------- command line
 const USAGE = "usage: node ai-oneshot.mjs build|lock|clip|box|save|blocked|count <url> [engine] [1|2] [--file F | --from-clipboard] [--by WHO] [--reason WHY] [--retire-old] [--signed-in] [--browser B] [--mode M] [--max-questions N] [--cwd DIR]";
-const FLAGS = new Set(["retire-old", "signed-in", "from-clipboard"]), CMDS = { build, lock, clip, box, save, blocked, count };
+const FLAGS = new Set(["retire-old", "signed-in", "from-clipboard", "owner-pasted"]), CMDS = { build, lock, clip, box, save, blocked, count };
 try {
   const argv = process.argv.slice(2), pos = [], opt = new Map();
   for (let i = 0; i < argv.length; i++) {

@@ -214,10 +214,15 @@ export function collect(cfg) {
     put("faq", { marked: marked ? marked.length : 0, of: faqShown }, src("mobile", "page.structuredData[json/@type=FAQPage].json.mainEntity (length)", marked ? marked.length : 0), src("mobile", "page.headings (H3 under the FAQ heading)", faqShown));
   }
   const blocks = get("mobile", "page.structuredData", "array");
-  const sdAt = blocks.findIndex((b) => b && b.json && (b.json.address || b.json.sameAs));
-  if (sdAt < 0) stop(`STOP: ${label(defs.mobile)} has no page.structuredData block with json.address or json.sameAs`);
-  const sameAs = get("mobile", `page.structuredData[${sdAt}].json.sameAs`, "array").length;
-  const siteAddr = get("mobile", `page.structuredData[${sdAt}].json.address.streetAddress`, "text");
+  // the business's own markup: a block's top level, or a member of its @graph (a site that marks itself up as one graph). The profile links (sameAs)
+  // and the street address may sit on different members, so each is found on its own
+  const sdNodes = [];
+  blocks.forEach((b, i) => { const j = b && b.json; if (!j || typeof j !== "object") return; sdNodes.push([`page.structuredData[${i}].json`, j]); if (Array.isArray(j["@graph"])) j["@graph"].forEach((x, k) => sdNodes.push([`page.structuredData[${i}].json.@graph[${k}]`, x])); });
+  const sdSame = (sdNodes.find(([, j]) => j && Array.isArray(j.sameAs)) || [])[0], sdPath = (sdNodes.find(([, j]) => j && j.address && typeof j.address === "object" && j.address.streetAddress) || [])[0];
+  if (!sdSame && !sdPath) stop(`STOP: ${label(defs.mobile)} has no page.structuredData block with json.address or json.sameAs`);
+  if (!sdSame) stop(`STOP: ${label(defs.mobile)} has no page.structuredData block (or @graph member) with a sameAs list`);
+  const sameAs = get("mobile", `${sdSame}.sameAs`, "array").length;
+  const siteAddr = sdPath ? get("mobile", `${sdPath}.address.streetAddress`, "text") : null;   // null: the site's markup names no street address, so the site is no row of the address list
   if (client.promisePattern) {
     const takes = get("rendered", `match:(${client.promisePattern})`, "text");
     put("takes", takes, src("rendered", `the line holding the promise ${client.promisePattern}`, takes));
@@ -317,7 +322,7 @@ export function collect(cfg) {
   }
   const okRows = aiRows.filter((r) => r.status === "ok");
   if (!okRows.length) stop(`STOP: ${label(defs.ai)} has no rows[status=ok]`);
-  const blockedWhy = ["copilot", "gemini"].map((e) => get("ai", `summary.blockedEngines[engine=${e}].reason`, "text"));
+  const blockedWhy = ["copilot", "gemini"].filter((e) => eng[e].status === "blocked").map((e) => get("ai", `summary.blockedEngines[engine=${e}].reason`, "text"));   // an assistant that was read has no reason
   const aiAnswers = get("ai", "summary.questions", "count");
   put("ai", {
     chat: eng.chatgpt, perp: eng.perplexity, sameQuestions: eng.chatgpt.questions_ === eng.perplexity.questions_,
@@ -346,7 +351,7 @@ export function collect(cfg) {
   const solv = get("grid", "solv", "array").map((_, i) => {
     const query = get("grid", `solv[${i}].query`, "text"), city = get("grid", `solv[${i}].city`, "text");
     const cityName = city.split(",")[0].trim();
-    const key = query.replace(new RegExp(`\\s+${escRe(cityName)}$`, "i"), "").toLowerCase();
+    const key = query.replace(new RegExp(`\\s+${escRe(cityName)}(?:,\\s*[A-Za-z]{2})?$`, "i"), "").toLowerCase();   // "homes for sale Union City" and "homes for sale Union City, CA" are the same product
     if (!products.includes(key)) stop(`STOP: ${label(defs.grid)} has no solv[${i}].query for one of the ${products.length} products (${query})`);
     return { key, city, cityName, points: get("grid", `solv[${i}].points`, "count"), inPack: get("grid", `solv[${i}].pointsInPack`, "count"), in3: get("grid", `solv[${i}].pointsIn3Pack`, "count") };
   });
@@ -366,7 +371,10 @@ export function collect(cfg) {
   const rating = get("profile", "reviews.rating", "number"), reviews = get("profile", "reviews.count", "count");
   const ourName = get("profile", "name", "text");
   put("rating", { rating: rating.toFixed(1), reviews }, src("profile", "reviews.rating, reviews.count", `${rating}, ${reviews}`));
-  const desc = get("profile", "description", "string"), services = get("profile", "services", "array");
+  // a listing with no Services section is captured as services: null with shown.services "NOT SHOWN ...": that is "lists no services", told apart from "not read"
+  const svcList = getMaybe("profile", "services", "array");
+  if (svcList === null && !/^NOT SHOWN/.test(getMaybe("profile", "shown.services", "text") || "")) stop(`STOP: ${label(defs.profile)} has no services, and its shown.services does not say the listing shows none`);
+  const desc = get("profile", "description", "string"), services = svcList || [];
   put("profileEmpty", { description: desc.trim() === "", services: services.length === 0 }, src("profile", "description, services", { description: desc, services }));
   // the businesses the owner declared related (a teammate, the brokerage): the rows of excluded[] of the approved competitors that carry a relation. They are no
   // rival anywhere: Maps lists and the review count leave them out by their NAME (case and punctuation aside), a client file naming one STOPs the build.
@@ -399,15 +407,19 @@ export function collect(cfg) {
   const rank = (d) => { const k = Object.keys(dirNames).indexOf(d); return k < 0 ? Infinity : k; }; // directories.json's order first, the others after in capture order (stable sort)
   dirRows.sort((a, b) => (rank(a.directory) === rank(b.directory) ? 0 : rank(a.directory) < rank(b.directory) ? -1 : 1));
   put("directories", dirRows, ...dirRows.map((r) => src("cites", `[directory=${r.directory}].status (${r.name})`, r.status, r.at)));
-  const gAddr = street(get("profile", "address", "text"), home);
+  // a service-area listing hides its address: captured as address "" with shown.address "READ AND EMPTY ...": Google Maps is then no row of the address list
+  const gRaw = (getMaybe("profile", "address", "string") || "").trim();
+  if (!gRaw && !/^READ AND EMPTY/.test(getMaybe("profile", "shown.address", "text") || "")) stop(`STOP: ${label(defs.profile)} has no address, and its shown.address does not say the listing shows none`);
+  const gAddr = gRaw ? street(gRaw, home) : null;
   const bingRow = citeRows.find((r) => /bing/i.test(r.directory) && getMaybe("cites", `[${r.i}].address`, "text") !== null);
   const bAddr = bingRow ? street(get("cites", `[${bingRow.i}].address`, "text"), home) : null;
   const fAddr = hand.filing ? street(get("filing", "match:^\\| State filing \\| ([^|]+?) \\|", "text"), home) : null;
-  const wAddr = street(siteAddr, home);
+  const wAddr = siteAddr === null ? null : street(siteAddr, home);
   const addrRows = [];
   const add = (w2, a) => { const r = addrRows.find((x) => x.address.toLowerCase() === a.toLowerCase()); if (r) r.where.push(w2); else addrRows.push({ where: [w2], address: a }); };
-  const addSrc = [src("mobile", `page.structuredData[${sdAt}].json.address.streetAddress`, wAddr), src("profile", "address", gAddr)];
-  add("Your website", wAddr); add("Google Maps", gAddr);
+  const addSrc = [...(wAddr === null ? [] : [src("mobile", `${sdPath}.address.streetAddress`, wAddr)]), ...(gAddr === null ? [] : [src("profile", "address", gAddr)])];
+  if (wAddr !== null) add("Your website", wAddr);
+  if (gAddr !== null) add("Google Maps", gAddr);
   if (bingRow) { add(printedName(bingRow.directory), bAddr); addSrc.push(src("cites", `[directory=${bingRow.directory}].address`, bAddr, bingRow.at)); }
   if (fAddr !== null) { add("State filing", fAddr); addSrc.push(src("filing", 'the line "| State filing | ... |"', fAddr)); }
   put("addresses", addrRows, ...addSrc);
@@ -420,11 +432,11 @@ export function collect(cfg) {
   const brokenNames = socialRows.filter((r) => broken.includes(r.url)).map((r) => pName(r.platform));
   put("profiles", { total: socialRows.length, names: socialRows.map((r) => pName(r.platform)), inCard: sameAs, broken: brokenNames },
     src("social", "rows (length), rows[*].platform", socialRows.map((r) => r.platform)), src("social", "summary.linksBroken", broken),
-    src("mobile", `page.structuredData[${sdAt}].json.sameAs (length)`, sameAs));
+    src("mobile", `${sdSame}.sameAs (length)`, sameAs));
 
   // ---- competitors and links
   const approvedRows = get("comp", "approvedRows", "count");
-  const sites = get("comp", "sites", "array").map((_, i) => { const status = get("comp", `sites[${i}].status`, "count"); return { status, words: status === 200 ? get("comp", `sites[${i}].page.words`, "count") : null, rel: related.length > 0 && relHost(getMaybe("comp", `sites[${i}].domain`, "text")) !== null }; }).filter((s) => !s.rel); // a related business audited from the results is no rival site
+  const sites = get("comp", "sites", "array").map((_, i) => { const status = getMaybe("comp", `sites[${i}].status`, "count"); /* null: the site gave no answer (not read), never a 200 */ return { status, words: status === 200 ? get("comp", `sites[${i}].page.words`, "count") : null, rel: related.length > 0 && relHost(getMaybe("comp", `sites[${i}].domain`, "text")) !== null }; }).filter((s) => !s.rel); // a related business audited from the results is no rival site
   const read = sites.filter((s) => s.status === 200);
   put("sitesRead", { read: read.length, of: approvedRows, allSend: read.length > 0 && read.every((s) => s.words > 0) }, src("comp", "approvedRows; sites[*].status == 200; sites[*].page.words > 0", `${read.length} of ${approvedRows}; ${read.filter((s) => s.words > 0).length} with words`));
   let list = client.rivals;
@@ -507,10 +519,10 @@ export function collect(cfg) {
     }) }));
     put("mapTiles", { per: 9, cities, rows: tileRows }, ...tileRows.flatMap((r) => r.cells.map((c) => src("grid", `points[query=${c.query}].position.value (the tile); solv[query=${c.query}].pointsIn3Pack, .pointsInPack`, `${c.counts["top three"]} of ${c.points} in the top three, ${c.inPack} in the list`))));
     // ---- page 3: the results lists of the top demand product in the home city (desktop; read from outside the area)
-    const wantQ = `${demand[0].key} ${home}`.toLowerCase();
+    const wantQ = `${demand[0].key} ${home}`.toLowerCase(), wants = [wantQ, `${demand[0].key} in ${home}`.toLowerCase()];   // a run asks "<product> <city>" or "<product> in <city>"
     const sc = get("serp", "captures", "array").map((_, i) => ({ i, q: get("serp", `captures[${i}].query`, "text"), e: get("serp", `captures[${i}].engine`, "text"), d: get("serp", `captures[${i}].device`, "text") }));
     const listOf = (eng) => {
-      const c = sc.find((x) => x.q.toLowerCase() === wantQ && x.e === eng && x.d === "desktop");
+      const c = sc.find((x) => wants.includes(x.q.toLowerCase()) && x.e === eng && x.d === "desktop") || sc.find((x) => wants.includes(x.q.toLowerCase()) && x.e === eng);   // no desktop capture in the run: the device that was captured
       if (!c) stop(`STOP: ${label(defs.serp)} has no desktop capture of "${wantQ}" on ${eng}`);
       const org = get("serp", `captures[${c.i}].organic`, "array").map((_, k) => ({ position: get("serp", `captures[${c.i}].organic[${k}].position`, "count"), domain: get("serp", `captures[${c.i}].organic[${k}].domain`, "text"), title: get("serp", `captures[${c.i}].organic[${k}].title`, "string") }));
       return { query: c.q, read: org.length, first5: org.filter((o) => o.position <= 5).sort((a, b) => a.position - b.position), localized: get("serp", `captures[${c.i}].location.localized`, "boolean"), ours: getMaybe("serp", `captures[${c.i}].ourPosition.value`, "number") };

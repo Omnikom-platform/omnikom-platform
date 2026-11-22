@@ -44,6 +44,25 @@ if (!site) { console.log(`BLOCKED: ${path.join(snapDir, "_site.json")} is not re
 const business = J(path.join(loc.pewp, "business.json")) || {};
 const launchState = opt("--launch-state") || business.launchState || "live";
 const rel = (p) => path.relative(loc.root, p).split(path.sep).join("/");
+// AI answers asked with the one prompt (ai-oneshot.mjs): its own sentences, from research/ai-oneshot.json. A count there is a list of recommendations
+// (one question of the one message), never an "answer"; the follow-up by name is told apart. null when this run was not asked that way.
+function oneshotLines(d) {
+  const o = J(path.join(loc.pewp, "research", "ai-oneshot.json"));
+  if (!o || o.status !== "ok" || !(d.rows || []).some((r) => /-oneshot-/.test(r.file || ""))) return null;
+  const all = o.engines || [], read = all.filter((e) => e.status === "read"), blocked = all.filter((e) => e.status === "blocked"), byName = read.filter((e) => e.byName && e.byName.layout === "read");
+  const out = [`- Each assistant was asked once (${o.askedOn}): one message with ${o.questions} questions, each naming the city, state and country, then one follow-up about the business by name`];
+  for (const e of read) {
+    const at = e.questions.filter((q) => q.rank).map((q) => `place ${q.rank} for "${q.text}"`), rest = Object.entries(e.classes).filter(([k]) => k !== "listed" && k !== "not listed").map(([k, v]) => `${v} ${k}`);
+    out.push(e.counted ? `- ${e.engine}: the business is in ${e.listed} of ${e.counted} lists of recommendations${at.length ? ` (${at.join("; ")})` : ""}${rest.length ? `; not counted: ${rest.join(", ")}` : ""}` : `- ${e.engine}: no list was counted: ${rest.join(", ")}`);
+  }
+  if (blocked.length) out.push(`- Not asked: ${blocked.map((e) => `${e.engine} (${e.reason})`).join(", ")}`);
+  if (byName.length) out.push(`- Asked about the business by name: ${byName.map((e) => `${e.engine} ${e.byName.known === "YES" ? "knows it" : e.byName.known === "NO" ? "does not know it" : "is not sure it knows it"} (phone ${e.byName.phone}, website ${e.byName.website}${e.byName.recommend ? `, would recommend it: ${e.byName.recommend}` : ""})`).join("; ")}`);
+  if ((o.instead || []).length) out.push(`- Listed most often instead: ${o.instead.slice(0, 5).map((c) => `${c.name} (${c.count} lists, ${c.engines} assistant${c.engines === 1 ? "" : "s"})`).join(", ")}`);
+  if ((o.sites || []).length) out.push(`- Sites the assistants say they rely on most: ${o.sites.slice(0, 5).map((c) => `${c.name} (${c.engines} of ${read.length})`).join(", ")}`);
+  out.push(`- The business's own site is ${o.ownSiteNamed ? "" : "not "}among the sources the assistants name`);
+  out.push("- This is one reply from each assistant: a business left out of one reply can be in the next, so no number here is a rate");
+  return out;
+}
 const snapAt = site.finishedAt;
 const src = (file) => `snapshot ${path.basename(snapDir)}: ${rel(file)}`;
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -560,6 +579,8 @@ const EXTRA_IMPORTERS = [
     return [`- ${y.services ?? 0} services compared (${y.scale || "scale not stated"}); strongest: ${y.bestRank?.service ?? "n/a"} (rank ${y.bestRank?.stateRank ?? "n/a"}), weakest: ${y.worstRank?.service ?? "n/a"} (rank ${y.worstRank?.stateRank ?? "n/a"}); rank 1 = most interest`];
   } },
   { id: "ai", title: "AI answers", file: "ai-answers.json", script: "import-ai.mjs", dir: "ai", what: "what AI engines answer to the buyer and brand questions", lines: (d) => {
+    const one = oneshotLines(d);
+    if (one) return one;
     const y = d.summary || {}, L = [y.questions > 0 ? `- ${y.namedAnswers ?? 0} of ${y.questions} answers name the business (${pctTxt(y.shareNamed ?? 0)})` : "- No AI answer was read"];
     for (const e of (y.engines || []).filter((x) => x.questions > 0)) L.push(`- ${e.engine}: named in ${e.named} of ${e.questions} answers (${pctTxt(e.shareNamed ?? 0)})`);
     if ((y.blockedEngines || []).length) L.push(`- Not read: ${y.blockedEngines.map((e) => `${e.engine} (${e.reason})`).join(", ")}`);

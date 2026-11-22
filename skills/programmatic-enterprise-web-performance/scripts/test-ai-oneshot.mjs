@@ -14,7 +14,7 @@ const SITE = "https://sample-valley-realty.test/", HOST = "sample-valley-realty.
 const P1 = "Sampleville, CA, United States", P2 = "Testburg, CA, United States";
 const BIZ = { name: "Sample Valley Realty", domain: HOST, phone: "(555) 010-2000", kind: "real estate agent", market: { country: "US", language: "en" },
   locations: [{ name: "Sampleville, CA", address: "1 Main St, Sampleville, CA 90000", serviceArea: ["Sampleville, CA", "Testburg, CA"] }],
-  vocabulary: ["homes for sale", "real estate agent", "sell my house", "home valuation"] };
+  vocabulary: ["homes for sale", "real estate agent", "sell my house", "home valuation"], related: [{ relation: "brokerage", name: "Beta Realty", domain: "beta-realty.test" }] };
 
 // ---------------------------------------------------------------- invented replies
 const row = (r, name, co, why, url) => `| ${r} | ${name} | ${co} | ${why} | ${url} |`;
@@ -29,9 +29,9 @@ const CHATGPT = ["## Part 1: your recommendations",
   "### Q1", table([row(1, "Alpha Homes 1", "Alpha Group", "many recent sales nearby", "https://alpha-homes.test/q1"), row(2, "Ann Sample", "Sample Valley Realty LLC", "local and well reviewed", "https://www.sample-valley-realty.test/about")]),
   "### Q2", table([row(1, "Resample Valley Realty Partners", "Resample Group", "large team", "https://resample.test/"), row(2, "Beta Realty", "Beta Realty", "strong reviews", "https://beta-realty.test/")]),
   ...[3, 4, 5, 6, 7, 8].flatMap((i) => [`### Q${i}`, others(i)]), part2, part3(`${P1}; ${P2}`)].join("\n\n");
-// copied as plain text (tabs, no pipes) and cut after question 4; no Part 3
-const tabbed = (i) => [`Q${i}`, "Rank\tName\tCompany\tWhy\tSource", `1\tAlpha Homes ${i}\tAlpha Group\tmany recent sales\thttps://alpha-homes.test/q${i}`, "2\tGamma Estates\tGamma Estates\tlocal office\thttps://gamma-estates.test/"].join("\n");
-const PERPLEXITY = ["Part 1: your recommendations", ...[1, 2, 3, 4].map(tabbed)].join("\n\n");
+// copied from the page by hand as plain text: cells apart by runs of spaces, the header row GLUED to the first row, cut after question 4; no Part 3
+const plain = (i) => [`Q${i}`, `Rank    Name    Company    Why    Source1    Alpha Homes ${i}    Alpha Group    many recent sales    https://alpha-homes.test/q${i}`, "2    Gamma Estates    Gamma Estates    local office    https://gamma-estates.test/"].join("\n");
+const PERPLEXITY = ["Part 1: your recommendations", ...[1, 2, 3, 4].map(plain)].join("\n\n");
 // ignored the layout: lists in prose under the headings
 const COPILOT = [1, 2, 3, 4, 5, 6, 7, 8].map((i) => `### Q${i}\n1. Alpha Homes ${i} - a well known local team with many sales\n2. Beta Realty - strong reviews from recent clients`).join("\n\n");
 // in the layout, but for same-named places elsewhere
@@ -81,6 +81,9 @@ async function scenarios(dir) {
     W(boxF, text1.replace(/\n/g, "\r\n").replace(/ /g, "  "));
     const x2 = await cmd(A, "box", "chatgpt", "1", "--file", boxF);
     check("case 4b: the same words with other line ends and doubled spaces are BOX OK", x2.code === 0 && /BOX OK/.test(x2.out), d(x2));
+    W(boxF, text1.replace(/^- /gm, "•"));
+    const x3 = await cmd(A, "box", "chatgpt", "1", "--file", boxF);
+    check("case 4c: a rich editor that shows the text's list marks as bullets glued to the next word holds the same words: BOX OK", x3.code === 0 && /BOX OK/.test(x3.out) && /^- /m.test(text1), d(x3));
     const s1 = await save(A, "chatgpt", 1, CHATGPT), on = jr(saved("chatgpt-1.json"));
     check("case 5c: after BOX OK the reply is saved whole, with the prompt's hash and the hash of the text it answers", s1.code === 0 && on?.answerText === CHATGPT && on.promptHash === doc.promptHash && on.textHash === doc.hash1 && /questions found: 8 of 8/.test(s1.out), d(s1));
     const s2 = await save(A, "chatgpt", 1, `${CHATGPT}\nmore`);
@@ -91,6 +94,11 @@ async function scenarios(dir) {
     const d1 = await cmd(D, "box", "chatgpt", "1", "--file", boxF);
     check("case 5e: a prompt that would now be built differently from the locked one stops the sitting", d1.code === 1 && /differs from the locked one/.test(d1.out), d(d1));
 
+    const OW = world(BIZ);
+    await cmd(OW, "build"); await cmd(OW, "lock", "--by", "test");
+    const o1 = await save(OW, "copilot", 1, COPILOT, "--owner-pasted"), oj = jr(path.join(OW.pewp, "captures", "ai-oneshot", "copilot-1.json"));
+    check("case 5f: a reply the owner pasted by hand is saved without a box check, and the file says who pasted", o1.code === 0 && oj?.pasted === "by the owner, by hand" && on?.pasted === "clipboard, box checked", d(o1));
+
     const a2 = await ask(A, "chatgpt", 2, BYNAME), ap = await ask(A, "perplexity", 1, PERPLEXITY), ac = await ask(A, "copilot", 1, COPILOT), ag = await ask(A, "gemini", 1, GEMINI, "--signed-in");
     const allSaved = [a2, ap, ac, ag].every((x) => x.bx.code === 0 && x.sv.code === 0);
     W(cap("chatgpt-1.json"), { engine: "chatgpt", type: "buyer", question: "homes for sale", capturedAt: new Date(Date.now() - 3600000).toISOString(), browser: "owner's Edge", answerText: "An older reply to a search phrase.", named: false, competitorsNamed: [], citedSources: [] });
@@ -100,14 +108,28 @@ async function scenarios(dir) {
     check("case 8b: with --retire-old the older file is moved unchanged to captures/ai-retired and the count runs", c1.code === 0 && jr(path.join(A.pewp, "captures", "ai-retired", "chatgpt-1.json"))?.question === "homes for sale" && !fs.existsSync(cap("chatgpt-1.json")), d(c1));
     const E = Object.fromEntries((res.engines || []).map((e) => [e.engine, e])), cls = (e) => JSON.stringify(E[e]?.classes ?? null), capFiles = fs.existsSync(path.join(A.pewp, "captures", "ai")) ? fs.readdirSync(path.join(A.pewp, "captures", "ai")) : [];
     check("case 6a: a reply in the layout is counted per question: the business listed once, at rank 2; a longer name that only contains its name is another business", cls("chatgpt") === JSON.stringify({ listed: 1, "not listed": 7 }) && E.chatgpt.questions[0].rank === 2 && E.chatgpt.questions[1].status === "not listed" && E.chatgpt.placeStated === true, cls("chatgpt"));
-    check("case 6b: a reply copied as plain text and cut after question 4: 4 counted, 4 not reached", cls("perplexity") === JSON.stringify({ "not listed": 4, "not reached": 4 }) && capFiles.filter((x) => x.startsWith("perplexity-oneshot-q")).length === 4, cls("perplexity"));
+    const q2 = jr(cap("chatgpt-oneshot-q2.json")) || {};
+    check("case 6f: a business the owner declared related (the brokerage) is never listed instead: not in the question's file, not in the totals, named apart", JSON.stringify(q2.competitorsNamed) === JSON.stringify(["Resample Valley Realty Partners"]) && JSON.stringify(E.chatgpt.questions[1].related) === JSON.stringify(["Beta Realty"]) && !(res.instead || []).some((x) => x.name === "Beta Realty") && (res.instead || []).some((x) => x.name === "Alpha Homes 1"), `${JSON.stringify(q2.competitorsNamed)} | ${JSON.stringify(res.instead).slice(0, 300)}`);
+    check("case 6b: a reply copied by hand as plain text, its header glued to the first row, cut after question 4: both rows of a list are read, 4 counted, 4 not reached", cls("perplexity") === JSON.stringify({ "not listed": 4, "not reached": 4 }) && capFiles.filter((x) => x.startsWith("perplexity-oneshot-q")).length === 4 && E.perplexity.questions[0].rows.length === 2 && E.perplexity.questions[0].rows[0].name === "Alpha Homes 1" && E.perplexity.questions[0].rows[0].rank === 1, `${cls("perplexity")} | ${JSON.stringify(E.perplexity?.questions?.[0]?.rows)}`);
     check("case 6c: a reply that ignored the layout is not counted (layout not followed), never not listed", cls("copilot") === JSON.stringify({ "layout not followed": 8 }) && !capFiles.some((x) => x.startsWith("copilot-oneshot-q")), `${cls("copilot")} | ${capFiles.join(" ")}`);
     check("case 6d: a reply about same-named places elsewhere is out of every count", cls("gemini") === JSON.stringify({ "other place": 8 }) && !capFiles.some((x) => x.startsWith("gemini-oneshot-q")), `${cls("gemini")} | ${capFiles.join(" ")}`);
     const im = await run("import-ai.mjs", [SITE, "--cwd", A.cwd]), ai = jr(path.join(A.pewp, "research", "ai-answers.json")) || {}, sum = ai.summary || {}, eng = (e) => (sum.engines || []).find((x) => x.engine === e) || {}, why = (e) => (sum.blockedEngines || []).find((x) => x.engine === e)?.reason || "";
-    check("case 6e: import-ai.mjs reads the files as before: chatgpt 9 answers and 2 naming the business (8 questions and the follow-up), perplexity 4 and 0, copilot and gemini not read with the reason, nothing rejected, no disagreement",
-      im.code === 0 && eng("chatgpt").questions === 9 && eng("chatgpt").named === 2 && eng("perplexity").questions === 4 && eng("perplexity").named === 0 && /layout not followed/.test(why("copilot")) && /other place/.test(why("gemini")) && (ai.rejected || []).length === 0 && (sum.disagreements || []).length === 0, `${d(im)} | ${JSON.stringify(sum).slice(0, 400)}`);
+    check("case 6e: import-ai.mjs reads the files as before: chatgpt 8 answers and 1 naming the business (the follow-up by name is never among them), perplexity 4 and 0, copilot and gemini not read with the reason, nothing rejected, no disagreement",
+      im.code === 0 && eng("chatgpt").questions === 8 && eng("chatgpt").named === 1 && !capFiles.some((x) => /-name\.json$/.test(x)) && eng("perplexity").questions === 4 && eng("perplexity").named === 0 && /layout not followed/.test(why("copilot")) && /other place/.test(why("gemini")) && (ai.rejected || []).length === 0 && (sum.disagreements || []).length === 0, `${d(im)} | ${JSON.stringify(sum).slice(0, 400)}`);
     const bn = E.chatgpt?.byName || {};
     check("case 7: asked by name: the assistant knows the business, its phone is right against our file, its website is wrong, two pages are named", bn.known === "YES" && bn.phone === "right" && bn.website === "wrong" && (bn.appears || []).length === 2 && Object.keys(bn.fields || {}).length === 12, JSON.stringify(bn).slice(0, 400));
+    // the live report on the same files (a world without a business file, as test-ai-notread.mjs runs it)
+    const R = { cwd: path.join(tmp, "wr") }, rpewp = path.join(R.cwd, "site-checks", HOST, ".pewp"), sd = path.join(R.cwd, "site-checks", HOST, "snapshots", "2026-10-24");
+    fs.cpSync(path.join(A.pewp, "research"), path.join(rpewp, "research"), { recursive: true }); fs.cpSync(path.join(A.pewp, "captures"), path.join(rpewp, "captures"), { recursive: true });
+    const pg = { measuredAt: "2026-10-24T10:00:00Z", vitals: { lcpMs: 1500, cls: 0.01, tbtMs: 100 }, totals: { bytes: 1024000, requests: 20 }, page: { canonical: SITE, metaDescription: "d", h1Count: 1, structuredData: [{ ok: true, types: ["WebPage"] }], og: { "og:title": "t" }, robotsMeta: [] } };
+    W(path.join(sd, "_site.json"), { finishedAt: "2026-10-24T10:00:00Z", runs: 1, stoppedEarly: null, machineLoad: null, pages: [{ url: SITE, slug: "home", status: 200 }] });
+    W(path.join(sd, "site/robots.json"), { status: 200, groups: [{ agents: ["*"], rules: [] }] }); W(path.join(sd, "site/sitemaps.json"), { urlCount: 3 }); W(path.join(sd, "site/probes.json"), { notFound: { finalStatus: 404 } });
+    W(path.join(sd, "pages", "home", "browser-mobile.json"), { url: SITE, ...pg }); W(path.join(sd, "pages", "home", "response.json"), { headers: {} });
+    const rr = await run("report-live.mjs", [SITE, "--cwd", R.cwd, "--snapshot", sd], { env: { GSC_TOKEN_FILE: "", GSC_SERVICE_ACCOUNT_FILE: "", GSC_SERVICE_ACCOUNT_JSON_B64: "" } });
+    const rf = path.join(rpewp, "report.md"), sec = ((fs.existsSync(rf) ? fs.readFileSync(rf, "utf8") : "").split("### AI answers")[1] || "").split("\n### ")[0], rl = sec.split("\n").filter((l) => l.startsWith("- "));
+    const want = ['- chatgpt: the business is in 1 of 8 lists of recommendations (place 2 for "In Sampleville, CA, United States, which real estate agent would you recommend?")', "- perplexity: the business is in 0 of 4 lists of recommendations; not counted: 4 not reached", "- copilot: no list was counted: 8 layout not followed", "- gemini: no list was counted: 8 other place",
+      "- Asked about the business by name: chatgpt knows it (phone right, website wrong, would recommend it: YES)", "- The business's own site is among the sources the assistants name"];
+    check("case 9: the live report prints the one-prompt run in its own words: lists of recommendations per assistant, what was not counted, the follow-up by name apart; never 'answers name the business'", rr.code === 0 && want.every((x) => rl.includes(x)) && !rl.some((l) => /answers name the business|named in \d+ of/.test(l)) && rl.some((l) => l.startsWith("- Listed most often instead: ") && !l.includes("Beta Realty")), `exit ${rr.code} | ${JSON.stringify(rl)}`);
   } catch (e) {
     check("the test ran to its end", false, e.stack || e);
   }
@@ -121,6 +143,7 @@ const MUTANTS = [
   one("a US place without a state passes", "if (us && !p.state) throw new Blocked(", "if (false) throw new Blocked(", /^case 2:/),
   one("the name scan of message 1 is off", "if (leak) throw new Refused(", "if (false) throw new Refused(", /^case 3:/),
   one("the box check accepts any text", "const at = firstDiff(words(want), words(got));", "const at = -1;", /^case 4a:/),
+  one("a bullet shown for a list mark is a difference", 'String(s).replace(/[•◦▪‣]/g, " - ")', "String(s)", /^case 4c:/),
   one("a reply is saved without a box check", "if (!boxOk) throw new Refused(", "if (false) throw new Refused(", /^case 5a:/),
   one("the follow-up goes before message 1 is saved", "if (n === 2 && !saved1) throw new Refused(", "if (false) throw new Refused(", /^case 5b:/),
   one("a second save overwrites the reply", "if (fs.existsSync(out)) throw new Refused(", "if (false) throw new Refused(", /^case 5d:/),
@@ -128,6 +151,10 @@ const MUTANTS = [
   one("the business is matched inside a longer word", "h.includes(` ${n} `)", "h.includes(n)", /^case 6a:/),
   one("a reply that ignored the layout counts as not listed", 'blk.hasText ? "layout not followed" : "no list"', '"not listed"', /^case 6c:/),
   one("a reply about another place is counted", "const wrongPlace = stated && !placeOk(place, placeSaid);", "const wrongPlace = false;", /^case 6d:/),
+  one("a header glued to the first row loses that row", "(c && headRe.test(c[0]) ? unglue(c) : c)", "(c && headRe.test(c[0]) ? null : c)", /^case 6b:/),
+  one("a related business is listed instead", "real.filter((r) => r !== mine && !isRelated(r)).map((r) => r.name))]", "real.filter((r) => r !== mine).map((r) => r.name))]", /^case 6f:/),
+  one("the owner's own paste is not recorded", 'pasted: a.has("owner-pasted") ? "by the owner, by hand" : "clipboard, box checked"', 'pasted: "clipboard, box checked"', /^case 5f:/),
+  { name: "the live report ignores the one-prompt run", patches: [{ file: "report-live.mjs", from: "if (one) return one;", to: "if (false) return one;" }], expect: [/^case 9:/] },
   one("older answers are counted with the new", "if (old.length && !retire) throw new Refused(", "if (false) throw new Refused(", /^case 8a:/),
 ];
 
