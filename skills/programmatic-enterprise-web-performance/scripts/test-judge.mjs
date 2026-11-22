@@ -114,9 +114,15 @@ async function scenarios(dir) {
       if (r.code !== 0 || r.calls.length !== 2) bad.push("exit " + r.code + ", calls " + r.calls.length + " " + r.lines.join(" | ").slice(0, 200));
       if (!/Your answer was refused:/.test(p2) || !/\$\.verdict: digits 3/.test(p2)) bad.push("the second prompt lacks the refusal: " + p2.slice(-300));
       if (!p2.startsWith(p1)) bad.push("the second prompt is not the first plus the refusal");
+      if (!p2.includes("Your site sends 3 times fewer words than rivals do.") || !/change only what these lines refuse/.test(p2)) bad.push("the second prompt lacks the first answer, or the order to change only what was refused");
       if (run?.attempts !== 2 || run?.outcome !== "checked" || run?.asks?.length !== 2) bad.push("run.json " + JSON.stringify(run)?.slice(0, 200));
       if (r.last() !== "JUDGE OK: the analysis was written and checked (" + GOOD_VALUES + " values, 2 asks)") bad.push("last line " + r.last());
       check("3: a bare digit in the verdict: the check refuses; the second prompt holds that refusal line; the second answer is good: exit 0, attempts 2", bad.length === 0, bad.join(" | ")); }
+    // ---- 5b: the length of a figure counts a pointer as six characters (seen on the first real run: one pointer alone is 37 typed characters)
+    { const two = S("research/a.json", "rows[0].count") + " of " + S("local/p.json", "reviews"), given = { gatheredStations: ["site", "local"], fixIds: FIX_IDS };
+      const ok = Shape.checkShape({ ...GOOD, numbers: [{ value: two, label: "words your home page sends" }] }, given);
+      const long = Shape.checkShape({ ...GOOD, numbers: [{ value: S("research/a.json", "rows[0].count") + " " + "x".repeat(36), label: "words your home page sends" }] }, given);
+      check("5b: a figure of two pointers and a word is within 40 characters (a pointer counts as six); a pointer and 37 more characters is refused with the count", ok.length === 0 && long.length === 1 && /^\$\.numbers\[0\]\.value: must be 1 to 40 characters, a pointer counting as 6 \(it has 43\)$/.test(long[0]), JSON.stringify({ ok, long })); }
 
     // ---- 4: two refusals (both are the judge's own shape refusals, so only the judge can have removed an older checked file)
     { const m = mk(); writeFile(m.ck, "{}"); writeFile(path.join(m.pewp, "analysis.sheet.json"), "{}");
@@ -231,6 +237,8 @@ const JM = "judge.mjs";
 const MUTANTS = [
   { name: "the second ask is removed", patches: [{ file: JM, from: "const MAX_ASKS = 2;", to: "const MAX_ASKS = 1;" }], expect: [/^3:/, /^4:/, /^5:/] },
   { name: "a third ask is allowed", patches: [{ file: JM, from: "const MAX_ASKS = 2;", to: "const MAX_ASKS = 3;" }], expect: [/^4:/] },
+  { name: "the second ask does not carry the first answer", patches: [{ file: JM, from: "lastAnswer.slice(0, MAX_ANSWER_CHARS)", to: '""' }], expect: [/^3:/] },
+  { name: "a pointer is counted at its typed length", patches: [{ file: "analysis-shape.mjs", from: 'text(n.value, at + ".value", 1, 40, 6)', to: 'text(n.value, at + ".value", 1, 40)' }], expect: [/^5b:/] },
   { name: "the shape check is not called", patches: [{ file: JM, from: "lines = checkShape(look.object, { gatheredStations, fixIds })", to: "lines = []" }], expect: [/^5:/] },
   { name: "a section for a station that gathered nothing is accepted", patches: [{ file: "analysis-shape.mjs", from: "!gatheredStations.includes(s.topic)", to: "false" }], expect: [/^5:/, /^8:/] },
   { name: "a fix outside the list is accepted", patches: [{ file: "analysis-shape.mjs", from: "!fixIds.includes(p.fix)", to: "false" }], expect: [/^5:/] },

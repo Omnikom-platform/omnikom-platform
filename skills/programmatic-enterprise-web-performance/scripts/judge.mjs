@@ -12,7 +12,7 @@
 // The model may only read: tools Read, Grep, Glob; its folder and its one added folder are {pewp}; no permission mode that accepts edits. The answer is taken from the CLI's
 // JSON ("result"), never from a file the model wrote.
 // An answer the judge refuses itself (not JSON, not an object, or any line of checkShape) or the check refuses (exit 1) gets ONE more ask: the same
-// prompt plus the refusal lines (at most 40). A second refusal: exit 3 BLOCKED, refused.txt written, no checked file. Never a third ask. A model that cannot start, ends with a
+// prompt plus its last answer and the refusal lines (at most 40), with the order to change only what was refused. A second refusal: exit 3 BLOCKED, refused.txt written, no checked file. Never a third ask. A model that cannot start, ends with a
 // non-zero code, runs past the limit or prints what is not the CLI's JSON: exit 3 BLOCKED, no retry.
 // Exit 0: last line "JUDGE OK: the analysis was written and checked (<n> values, <a> ask(s))". Exit 2: usage. Exit 3: "BLOCKED: <what> | unblocks: <what>". Exit 4: SKIPPED (the floor).
 // Every outside thing (the model, the brief, the clock, the output) comes in through one io object, so test-judge.mjs starts no model. The check runs for real, as a child process.
@@ -30,6 +30,7 @@ const skillDir = path.resolve(here, "..");
 export const TOOLS = ["Read", "Grep", "Glob"];
 const MAX_ASKS = 2;
 const MAX_REFUSAL_LINES = 40;
+const MAX_ANSWER_CHARS = 20000; // the last answer goes back to the model with its refusal (the first real run rewrote everything and made new faults)
 const OUTPUTS = ["analysis.checked.json", "analysis.sheet.json"];
 const USAGE = "usage: node judge.mjs <url or profile:slug> [--cwd DIR] [--model sonnet] [--effort high] [--timeout-min 15]";
 const norm = (p) => String(p).replace(/\\/g, "/");
@@ -103,7 +104,7 @@ export async function judge(io, argv) {
   const failed = (reason) => { outcome = "failed"; finish(); return blocked("the model did not answer (" + reason + ")", 'run it again; if it repeats, run "claude --version" in a terminal'); };
 
   for (let ask = 1; ask <= MAX_ASKS; ask++) {
-    const text = ask === 1 ? prompt : prompt + "\n\nYour answer was refused:\n" + refusals[ask - 2].slice(0, MAX_REFUSAL_LINES).join("\n") + "\n";
+    const text = ask === 1 ? prompt : prompt + "\n\nYour last answer:\n" + lastAnswer.slice(0, MAX_ANSWER_CHARS) + "\n\nYour answer was refused:\n" + refusals[ask - 2].slice(0, MAX_REFUSAL_LINES).join("\n") + "\nGive the whole answer again and change only what these lines refuse.\n";
     const t0 = io.now();
     let r = null, thrown = null;
     try { r = await io.model(text, opts); } catch (e) { thrown = e; }

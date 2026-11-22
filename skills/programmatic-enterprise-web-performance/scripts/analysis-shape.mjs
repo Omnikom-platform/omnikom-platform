@@ -16,11 +16,12 @@ export function checkShape(obj, { gatheredStations = [], fixIds = [] } = {}) {
   const bad = [];
   const say = (at, what) => bad.push(at + ": " + what);
   // a text: not empty, no space at its start or end, within bounds; returns whether it is a usable text
-  const text = (v, at, min = 1, max = Infinity) => {
+  const text = (v, at, min = 1, max = Infinity, pointerAs = 0) => { // pointerAs: in a figure a pointer counts as that many characters, not as its typed length
     if (typeof v !== "string") { say(at, "must be a text"); return false; }
     if (v === "") { say(at, "is empty"); return false; }
     if (v !== v.trim()) say(at, "has a space at its start or its end");
-    if (v.length < min || v.length > max) say(at, "must be " + min + (max === Infinity ? " or more" : " to " + max) + " characters (it has " + v.length + ")");
+    const n = pointerAs ? v.replace(/\{\{[^{}]*\}\}/g, "x".repeat(pointerAs)).length : v.length;
+    if (n < min || n > max) say(at, "must be " + min + (max === Infinity ? " or more" : " to " + max) + " characters" + (pointerAs ? ", a pointer counting as " + pointerAs : "") + " (it has " + n + ")");
     return true;
   };
   const list = (v, at, min, max) => {
@@ -42,13 +43,13 @@ export function checkShape(obj, { gatheredStations = [], fixIds = [] } = {}) {
   if ("numbers" in obj && list(obj.numbers, "$.numbers", 1, 3)) obj.numbers.forEach((n, i) => {
     const at = "$.numbers[" + i + "]";
     if (!keys(n, at, ["value", "label"])) return;
-    if ("value" in n && text(n.value, at + ".value", 1, 40) && !POINTER.test(n.value)) say(at + ".value", "must hold at least one pointer");
+    if ("value" in n && text(n.value, at + ".value", 1, 40, 6) && !POINTER.test(n.value)) say(at + ".value", "must hold at least one pointer");
     if ("label" in n) text(n.label, at + ".label", 5, 90);
   });
   if ("have" in obj && list(obj.have, "$.have", 0, 5)) obj.have.forEach((h, i) => {
     const at = "$.have[" + i + "]";
     if (!keys(h, at, ["value", "text"])) return;
-    if ("value" in h) text(h.value, at + ".value", 1, 40);
+    if ("value" in h) text(h.value, at + ".value", 1, 40, 6);
     if ("text" in h) text(h.text, at + ".text");
   });
   if ("back" in obj && list(obj.back, "$.back", 1, 5)) obj.back.forEach((b, i) => text(b, "$.back[" + i + "]"));

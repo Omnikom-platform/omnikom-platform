@@ -41,8 +41,8 @@ The reader is the owner of a small business. Plain words, short sentences. The r
 One JSON object with exactly these keys: business, verdict, numbers, have, back, sections, plan. A key outside the list, a wrong type, a count or a length outside the bounds is refused with the JSON path. Every text is not empty and has no space at its start or end.
 - business: one pointer and nothing else: the name of the business.
 - verdict: a text of 20 to 140 characters: what was found, in one sentence.
-- numbers: 1 to 3 items of { "value", "label" }. The value is 1 to 40 characters and holds at least one pointer (a pointer and a word after it is fine). The label is 5 to 90 characters and says what the figure counts.
-- have: 0 to 5 items of { "value", "text" }: what already works. The value is 1 to 40 characters (a pointer, or a short plain word); the text says what works. An empty list when nothing is shown to work.
+- numbers: 1 to 3 items of { "value", "label" }. The value is 1 to 40 characters, a pointer counting as six, and holds at least one pointer (a pointer and a word after it is fine, and so is one pointer, the word of, and a second pointer). The label is 5 to 90 characters and says what the figure counts.
+- have: 0 to 5 items of { "value", "text" }: what already works. The value is 1 to 40 characters, a pointer counting as six (a pointer, or a short plain word); the text says what works. An empty list when nothing is shown to work.
 - back: 1 to 5 texts: what holds the business back.
 - sections: {{MINMAX}} items of { "topic", "title", "lede", "points", "table" }. The topic is one of the topics listed above, each used at most once, only for a kind that was gathered. The title is 5 to 70 characters. The lede is 20 to 200 characters. The points are 1 to 6 texts. The table is optional: { "columns", "rows" } with 2 to 5 column texts and 1 to 12 rows, every row a list with as many cells as there are columns; a cell that is a number or a name is a pointer.
 - plan: 1 to 8 items of { "fix", "why" }. The fix is a fix word from the list above, each at most once. The why is a text: the evidence for it, with pointers to the figures.
