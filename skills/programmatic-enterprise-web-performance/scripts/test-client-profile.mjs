@@ -142,6 +142,16 @@ async function scenarios(dir) {
       check("10: outputs hold the manifest's outputs relative to the run folder, a folder ending with a slash", JSON.stringify(stepOf(p, "s-g1").outputs) === '["research/","../snapshots/*/_site.json"]' && JSON.stringify(stepOf(p, "s-a1").outputs) === '["out/s-a1.json"]', JSON.stringify(stepOf(p, "s-g1").outputs));
       const pr = mk(RUNS(), { key: "profile:acme" }), r2 = await go(pr), p2 = prof(pr);
       check("10: a profile:<slug> key works the same way (key and host in the profile)", r2.code === 0 && p2 && p2.key === "profile:acme" && p2.host === "acme", r2.out); }
+
+    // 13. AB-11: a step skipped because its source was ruled not gathered is NOT GATHERED (counted under ruled), never "not applicable"; only the site-none rule is
+    { const SKIP_LINE = "SKIPPED: its source s-a1 was ruled not gathered", SITE_LINE = "SKIPPED: the client has no site (run-key.json)";
+      const m = mk(RUNS({ "s-a1": { state: "WAITING", exit: 0, line: "needs the owner's browser" }, "s-a2": { state: "SKIPPED", exit: 4, rule: "source-ruled", line: SKIP_LINE }, "s-b1": { state: "SKIPPED", exit: 4, rule: "site-none", line: SITE_LINE } }), { rulings: { "s-a1": "the page cannot be had" } });
+      const r = await go(m), p = prof(m), a1 = stepOf(p, "s-a1"), a2 = stepOf(p, "s-a2"), b1 = stepOf(p, "s-b1"), i = intJ(m), md = intMd(m);
+      check("13: the rule value the runner writes for a step skipped because its source was ruled is the constant lib-stations.mjs exports (one value, pinned: tools/omnikom-cli/test/seo-run.mjs checks the runner's row says it)", lib.SOURCE_RULED === "source-ruled", String(lib.SOURCE_RULED));
+      check("13: a ruled capture, its importer skipped because of it, and a site-none skip in one run: the last line counts 1 gathered, 2 not gathered (2 ruled), 1 not applicable", r.code === 0 && r.last === "PROFILE: 1 gathered, 2 not gathered (2 ruled), 1 not applicable", r.out);
+      check("13: the step skipped because its source was ruled is not gathered, why is the runner's line word for word, and it counts as ruled", a2.bucket === "not gathered" && a2.state === "SKIPPED" && a2.why === SKIP_LINE && a2.ruling !== null && a2.ruling.why === SKIP_LINE && p.notGathered.some((x) => x.step === "s-a2" && x.ruled === true && x.why === SKIP_LINE), JSON.stringify(a2));
+      check("13: the ruled capture is not gathered with its own ruling, the site-none skip is not applicable with no internal row", a1.bucket === "not gathered" && a1.ruling && a1.ruling.why === "the page cannot be had" && b1.bucket === "not applicable" && b1.why === SITE_LINE && b1.ruling === null, JSON.stringify([a1.bucket, b1.bucket]));
+      check("13: the internal sheet lists both not gathered steps (and not the site-none one), in the .json and in the .md", i && i.rows.length === 2 && i.rows.some((x) => x.step === "s-a1" && x.ruled === true) && i.rows.some((x) => x.step === "s-a2" && x.ruled === true && x.why === SKIP_LINE) && !i.rows.some((x) => x.step === "s-b1") && md && md.trim().split(/\r?\n/).length === 3 && md.includes("s-a2") && !md.includes("s-b1"), JSON.stringify(i && i.rows) + md); }
   } finally { rmTmp(root); }
 
   // 12. jsonFiles: every .json file under a gathered step's outputs (AB-4b)
@@ -197,11 +207,12 @@ async function scenarios(dir) {
 const CP = "client-profile.mjs";
 const MUTANTS = [
   { name: "an OPEN station does not block", patches: [{ file: CP, from: 's.id !== ownStation && s.verdict === "OPEN"', to: 's.id !== ownStation && s.verdict === "NEVER"' }], expect: [/^3: a station before the profile's own is OPEN/] },
-  { name: "a rule skip is counted as not gathered", patches: [{ file: CP, from: 'entry.state === "SKIPPED" && Boolean(entry.rule)', to: "false" }], expect: [/^5: SKIPPED by the manifest's rule/] },
+  { name: "a rule skip is counted as not gathered", patches: [{ file: CP, from: 'entry.state === "SKIPPED" && entry.rule === "site-none"', to: "false" }], expect: [/^5: SKIPPED by the manifest's rule/] },
+  { name: "a step skipped because its source was ruled reads as not applicable", patches: [{ file: CP, from: 'entry.state === "SKIPPED" && entry.rule === "site-none"', to: 'entry.state === "SKIPPED" && Boolean(entry.rule)' }], expect: [/^13: a ruled capture, its importer skipped/, /^13: the step skipped because its source was ruled/] },
   { name: "a stale sheet is accepted", patches: [{ file: CP, from: "sheetMs < updatedMs", to: "false" }], expect: [/^7: a sheet older than the run log/] },
   { name: "the summary limit is removed", patches: [{ file: CP, from: "JSON.stringify(sm).length <= MAX_SUMMARY", to: "true" }], expect: [/^8: a summary of more than 4000/] },
   { name: "the ruling's by is dropped", patches: [{ file: CP, from: "{ why: r.why, by: r.by, at: r.at }", to: "{ why: r.why, at: r.at }" }], expect: [/^2: the step is not gathered/] },
-  { name: "why is taken from the run log, not the sheet's detail", patches: [{ file: CP, from: "(row ? row.detail : null)", to: "(entry ? entry.line : null)" }], expect: [/^2: the step is not gathered/] },
+  { name: "why is taken from the run log, not the sheet's detail", patches: [{ file: CP, from: ": row ? row.detail : null)", to: ": entry ? entry.line : null)" }], expect: [/^2: the step is not gathered/] },
   { name: "the file limit is removed", patches: [{ file: CP, from: ".slice(0, MAX_FILES)", to: ".slice(0, 99)" }], expect: [/^8: 7 evidence files/] },
   { name: "the report station is listed again", patches: [{ file: CP, from: "all.filter((s) => s.id !== ownStation)", to: "all" }], expect: [/^4: the report station/] },
   { name: "jsonFiles is cut to 5", patches: [{ file: CP, from: "MAX_JSON = 300", to: "MAX_JSON = 5" }], expect: [/^12: a gathered step with 8/, /^12: 301/] },

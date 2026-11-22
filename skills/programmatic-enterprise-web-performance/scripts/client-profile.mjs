@@ -7,7 +7,7 @@
 // It reads only: pipeline.json (one folder above scripts/), the run log {pewp}/seo-run.json, {pewp}/stations/sheet.json and rulings.json, and of each gathered step's
 // evidence files the size, the date and, for a JSON object, its top-level status (when text) and summary (when an object). Never a row of a capture or a research file.
 // No model, no network. It writes nothing outside {pewp}/profile.json and {pewp}/internal/.
-// A step's bucket, from its run log entry: RUN and PARTIAL are gathered (PARTIAL says so: partial true); SKIPPED with a manifest rule is not applicable; everything else,
+// A step's bucket, from its run log entry: RUN and PARTIAL are gathered (PARTIAL says so: partial true); SKIPPED by the manifest's site-none rule is not applicable (SKIPPED because every source was ruled not gathered, rule "source-ruled", is not gathered and counts as ruled); everything else,
 // and a step with no entry (NOT RUN), is not gathered, and its why is the detail of its row in the sheet, never reworded. The station that holds this step (it is the one running) is left out whole: it makes the report, it gathers nothing, so it is not in the stations, the counts or the internal sheet.
 // Refuses (BLOCKED, exit 3, nothing written) when: there is no run log; there is no sheet; the sheet is older than the run log; the sheet lacks a station (it was written
 // with --station); or a station other than the one that holds this step is OPEN. Exit 0: last line PROFILE: <g> gathered, <n> not gathered (<r> ruled), <a> not applicable. Exit 2: usage.
@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { isMain } from "./lib-main.mjs";
 import { loadManifest, makeVars, substitute, norm } from "./lib-pipeline.mjs";
 import { readRun } from "./lib-run.mjs";
-import { stationsOf } from "./lib-stations.mjs";
+import { stationsOf, SOURCE_RULED } from "./lib-stations.mjs";
 
 const OWN = "client-profile", MAX_SUMMARY = 4000, MAX_FILES = 5, MAX_JSON = 300;
 const USAGE = "usage: node client-profile.mjs <url or profile:slug> [--cwd DIR]";
@@ -92,11 +92,13 @@ function pool(argv) {
       const def = steps.get(id), entry = run.steps.find((e) => e.id === id), row = ss.open.find((o) => o.id === id);
       const state = entry ? entry.state : "NOT RUN";
       const gathered = state === "RUN" || state === "PARTIAL", partial = state === "PARTIAL";
-      const notApplicable = entry && entry.state === "SKIPPED" && Boolean(entry.rule);
+      const notApplicable = entry && entry.state === "SKIPPED" && entry.rule === "site-none";   // only the manifest's site-none rule is "not applicable"
+      const bySource = Boolean(entry) && entry.state === "SKIPPED" && entry.rule === SOURCE_RULED;   // skipped because every source was ruled not gathered (AB-11): not gathered, and ruled
       const bucket = gathered ? "gathered" : notApplicable ? "not applicable" : "not gathered";
-      const why = bucket === "not gathered" ? (row ? row.detail : null) : partial ? entry.line ?? null : notApplicable ? entry.line ?? entry.reason ?? null : null;
+      const why = bucket === "not gathered" ? (bySource ? entry.line ?? null : row ? row.detail : null) : partial ? entry.line ?? null : notApplicable ? entry.line ?? entry.reason ?? null : null;
       let ruling = null;
-      if (bucket === "not gathered" && row && String(row.ruling).startsWith("not gathered:") && isObj(rulings[id])) { const r = rulings[id]; ruling = { why: r.why, by: r.by, at: r.at }; }
+      if (bySource) ruling = { why: entry.line ?? null, by: "the run: every source of this step was ruled not gathered", at: entry.endedAt ?? null };
+      else if (bucket === "not gathered" && row && String(row.ruling).startsWith("not gathered:") && isObj(rulings[id])) { const r = rulings[id]; ruling = { why: r.why, by: r.by, at: r.at }; }
       const found = gathered ? [...new Set(entry.evidence || [])].map((p) => path.resolve(cwd, p)).filter((p) => { try { return fs.statSync(p).isFile(); } catch { return false; } }) : [];
       const files = found.map((p) => describeFile(pewp, p)).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
       outSteps.push({ id, what: def.what, state, bucket, partial, why, ruling, outputs: outputsOf(def), files: files.slice(0, MAX_FILES), fileCount: files.length, ...(gathered ? jsonOf(def) : {}) });

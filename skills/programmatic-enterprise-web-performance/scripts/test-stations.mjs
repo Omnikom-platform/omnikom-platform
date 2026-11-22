@@ -120,6 +120,20 @@ async function scenarios(dir) {
     const bad = MAP.filter(([id, what, steps]) => stepsOf(id) !== steps || !(m && m.stations && m.stations.some((s) => s.id === id && s.what === what)));
     check("11: the real pipeline.json declares the 9 stations in the order of the brief", got === want, got);
     check("11: the 54 steps are mapped exactly (each station holds its steps, in file order, and every step names a station)", m && m.steps.length === 54 && bad.length === 0 && m.steps.every((s) => typeof s.station === "string") && MAP.flatMap((x) => x[2].split(" ")).length === 54, "wrong: " + bad.map((x) => x[0]).join(", ")); }
+
+  // 12. AB-11: the one test of "this ruling counts", exported and used by the sheet and by the runner (tools/omnikom-cli/lib/seo-run.mjs)
+  { const rc = (ruling, row, def) => (typeof lib.rulingCounts === "function" ? lib.rulingCounts(ruling, row, def) : "rulingCounts is not exported");
+    const defOf = (id) => manifest.steps.find((s) => s.id === id);
+    const row = { id: "fetch-one", state: "BLOCKED", detail: BL }, rows = rowsOf({ "fetch-one": row });
+    const ruling = rule(rows, {}, "fetch-one")["fetch-one"];
+    const hand = { ruling: "not gathered", why: "by hand", by: "agent", at: NOW, state: "WAITING", detail: "needs the owner" };   // what ruleStep never writes: a ruling for an approval
+    const apRows = rowsOf({ "approve-two": { state: "WAITING", detail: "needs the owner" } });
+    check("12: the exported test says yes to a ruling that fits its row, and the sheet closes the station the same way", rc(ruling, row, defOf("fetch-one")) === true && st(sheetOf(rows, { "fetch-one": ruling }), "alpha").verdict === "CLOSED", String(rc(ruling, row, defOf("fetch-one"))));
+    check("12: the exported test says no when the row's detail changed since the ruling (the sheet leaves the station OPEN)", rc(ruling, { ...row, detail: "BLOCKED: the key is wrong | unblocks: fix it" }, defOf("fetch-one")) === false && st(sheetOf(rowsOf({ "fetch-one": { state: "BLOCKED", detail: "BLOCKED: the key is wrong | unblocks: fix it" } }), { "fetch-one": ruling }), "alpha").verdict === "OPEN", String(rc(ruling, { ...row, detail: "x" }, defOf("fetch-one"))));
+    check("12: the exported test says no when the row's state changed since the ruling", rc(ruling, { ...row, state: "FAILED" }, defOf("fetch-one")) === false, String(rc(ruling, { ...row, state: "FAILED" }, defOf("fetch-one"))));
+    check("12: the exported test says no to a ruling that is not 'not gathered', and to no ruling at all", rc({ ...ruling, ruling: "gathered" }, row, defOf("fetch-one")) === false && rc(undefined, row, defOf("fetch-one")) === false, "");
+    check("12: the exported test says no to a hand-written ruling for an approval (needsPerson), and the sheet leaves its station OPEN", rc(hand, apRows.find((r) => r.id === "approve-two"), defOf("approve-two")) === false && st(sheetOf(apRows, { "approve-two": hand }), "beta").verdict === "OPEN", String(rc(hand, { id: "approve-two", state: "WAITING", detail: "needs the owner" }, defOf("approve-two"))));
+    check("12: the exported test says no for a row that is not to judge (a RUN step, a step skipped by rule)", rc({ ...ruling, state: "RUN", detail: "out/x.json" }, { id: "x", state: "RUN", detail: "out/x.json" }, defOf("fetch-one")) === false && rc({ ...ruling, state: "SKIPPED", detail: "no site" }, { id: "x", state: "SKIPPED", detail: "no site", rule: "site-none" }, defOf("fetch-one")) === false, ""); }
   return results;
 }
 
@@ -130,6 +144,8 @@ const MUTANTS = [
   { name: "a NOT RUN step closes its station", patches: [{ file: LS, from: 'kind === "done" ||', to: 'kind === "done" || kind === "not-run" ||' }], expect: [/^6: a NOT RUN step keeps its station OPEN/] },
   { name: "a RUN step is printed", patches: [{ file: LS, from: 'const listed = (row) => kindOf(row) !== "done" && kindOf(row) !== "by-rule";', to: "const listed = () => true;" }], expect: [/^10: the sheet text holds no id of a RUN step/, /^1: every step RUN/] },
   { name: "the needsPerson refusal is removed", patches: [{ file: LS, from: "if (def.needsPerson === true) throw", to: "if (false) throw" }], expect: [/^7: a ruling on a step with needsPerson true/] },
+  { name: "a hand-written ruling for an approval counts", patches: [{ file: LS, from: "(!def || def.needsPerson !== true) && ", to: "" }], expect: [/^12: the exported test says no to a hand-written ruling for an approval/] },
+  { name: "the exported test ignores the row's detail", patches: [{ file: LS, from: "ruling.state === row.state && ruling.detail === row.detail", to: "ruling.state === row.state" }], expect: [/^12: the exported test says no when the row's detail changed/, /^4: the row's detail changes/] },
   { name: "the blank-why refusal is removed", patches: [{ file: LS, from: 'if (!String(why ?? "").trim()) throw', to: "if (false) throw" }], expect: [/^7: an empty why is REFUSED/, /^7: a blank why/] },
 ];
 

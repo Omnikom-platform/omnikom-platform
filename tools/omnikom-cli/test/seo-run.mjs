@@ -137,7 +137,7 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     writeFileSync(join(fakeRepo, 'skills', SKILL[1], 'scripts', 'ok.mjs'), '// x\n');
     const withLeadEndpoint = dir => { mkdirSync(join(dir, 'factory', 'worker'), { recursive: true }); cpSync(join(REPO_ROOT, 'factory', 'worker', 'lead-endpoint.mjs'), join(dir, 'factory', 'worker', 'lead-endpoint.mjs')); };   // lib/sign.mjs imports it from the repository at load
     withLeadEndpoint(fakeRepo);
-    for (const f of ['lib-pipeline.mjs', 'lib-stops.mjs', 'lib-run.mjs']) cpSync(join(REPO_ROOT, ...SKILL, 'scripts', f), join(fakeRepo, 'skills', SKILL[1], 'scripts', f));   // the CLI takes the rule engine from the repository at load
+    for (const f of ['lib-pipeline.mjs', 'lib-stops.mjs', 'lib-run.mjs', 'lib-stations.mjs']) cpSync(join(REPO_ROOT, ...SKILL, 'scripts', f), join(fakeRepo, 'skills', SKILL[1], 'scripts', f));   // the CLI takes the rule engine from the repository at load
     writeFileSync(join(fakeRepo, 'skills', SKILL[1], 'pipeline.json'), JSON.stringify(M(S('only-in-repo-copy'))));
     const sub = await new Promise(res => {
       const c = spawn(process.execPath, [join(CLI_ROOT, 'omnikom.mjs'), 'seo', 'status', URL_, '--json'], { env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, OMNIKOM_REPO_ROOT: fakeRepo }, windowsHide: true });
@@ -325,7 +325,7 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     const stopRepo = join(root, 'stop-repo');
     const stopSkill = join(stopRepo, ...SKILL);
     cpSync(join(FIX, 'skill'), stopSkill, { recursive: true });
-    for (const f of ['lib-pipeline.mjs', 'lib-stops.mjs', 'lib-run.mjs']) cpSync(join(REPO_ROOT, ...SKILL, 'scripts', f), join(stopSkill, 'scripts', f));   // this child is a whole CLI process: it takes the rule engine from its repository at load
+    for (const f of ['lib-pipeline.mjs', 'lib-stops.mjs', 'lib-run.mjs', 'lib-stations.mjs']) cpSync(join(REPO_ROOT, ...SKILL, 'scripts', f), join(stopSkill, 'scripts', f));   // this child is a whole CLI process: it takes the rule engine from its repository at load
     withLeadEndpoint(stopRepo);
     cpSync(join(REPO_ROOT, 'tools', 'proc-guard'), join(stopRepo, 'tools', 'proc-guard'), { recursive: true, filter: f => !/[\\/]test([\\/]|$)/.test(f) });
     const stopManifest = slow => M(S('first'), S('slow', slow ? { script: 'scripts/hang.mjs', args: ['--id', 'slow', '--pidfile', '{work}/pid'], timeoutMinutes: 5, dependsOn: ['first'] } : { dependsOn: ['first'] }));
@@ -802,6 +802,165 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
       await run(sz);
       r = await go(sz, ['station', URL_]);
       check('seo station: a manifest that declares no stations is exit 2 [stations]', r.exit === 2 && r.stdout.includes('no stations'), r.all.slice(0, 300));
+    }
+
+    // ================================================================ AB-11: the run goes on past a source that was ruled "not gathered" [rulings]
+    // Every ruling is made by the REAL command `seo rule`; the runner reads rulings.json and only `seo rule` writes it.
+    {
+      const RM = (...steps) => { const m = { ...M(...steps), stations: [{ id: 'all', what: 'every step' }] }; for (const x of m.steps) x.station = 'all'; return m; };
+      const rulingsPath = s => join(s.pewp, 'stations', 'rulings.json');
+      const ruleIt = (s, id) => go(s, ['rule', URL_, id, '--why', 'the page cannot be had', '--by', 'agent', '--json']);
+      const sheet = s => go(s, ['station', URL_, '--json']);
+      const lastOf = r => r.stdout.trim().split('\n').at(-1);
+      const logOf = s => { try { return JSON.parse(readFileSync(join(s.pewp, 'seo-run.json'), 'utf8')); } catch { return {}; } };
+      const rd = (r, id) => (r.json && r.json.data ? row(r, id) : undefined) || { state: '(no table)', detail: '', ruling: undefined };
+      const flows = (extra = []) => RM(S('fx-run'), W('fx-cap'), S('fx-imp', { dependsOn: ['fx-cap'] }), S('fx-mix', { dependsOn: ['fx-cap', 'fx-run'] }), S('fx-after', { dependsOn: ['fx-imp'] }), ...extra);
+      const WAITS = 'BLOCKED: waits for fx-cap (WAITING) | unblocks: fx-cap reaching RUN';
+      const SKIP_LINE = 'SKIPPED: its source fx-cap was ruled not gathered';
+
+      // R1: no ruling: today's behaviour
+      const sa = site(flows());
+      let r = await run(sa);
+      check('seo rulings R1: no ruling: fx-imp and fx-mix are BLOCKED with today\'s line, nothing started, no rulingsProblem in the log [rulings]',
+        rd(r, 'fx-imp').state === 'BLOCKED' && rd(r, 'fx-imp').detail === WAITS && rd(r, 'fx-mix').state === 'BLOCKED' && rd(r, 'fx-mix').detail === WAITS && starts(sa, 'fx-imp') === 0 && starts(sa, 'fx-mix') === 0 && logOf(sa).rulingsProblem === undefined, JSON.stringify(r.json && r.json.data.steps.map(x => [x.id, x.state, x.detail])));
+
+      // R2: fx-cap ruled, then seo resume
+      let q = await ruleIt(sa, 'fx-cap');
+      check('seo rulings R2: seo rule on the waiting capture is accepted (exit 0)', q.exit === 0, q.all.slice(0, 300));
+      r = await resume(sa);
+      const rowCap = rd(r, 'fx-cap'), rowImp = rd(r, 'fx-imp');
+      check('seo rulings R2: fx-cap keeps its state WAITING and its row says ruling "not gathered"', rowCap.state === 'WAITING' && rowCap.ruling === 'not gathered', JSON.stringify(rowCap));
+      check('seo rulings R2: fx-imp (its only dependency ruled) is SKIPPED by rule with the line of D, its script never started and left no trace',
+        rowImp.state === 'SKIPPED' && rowImp.detail === SKIP_LINE && rowImp.rule === 'source-ruled' && starts(sa, 'fx-imp') === 0 && !existsSync(join(sa.pewp, 'fx-imp.json')), JSON.stringify(rowImp) + ' starts ' + starts(sa, 'fx-imp'));
+      check('seo rulings R2: fx-mix (one dependency gathered) RAN, and fx-after ran as after any SKIPPED step', rd(r, 'fx-mix').state === 'RUN' && starts(sa, 'fx-mix') === 1 && rd(r, 'fx-after').state === 'RUN' && starts(sa, 'fx-after') === 1, JSON.stringify(states(r)));
+      q = await sheet(sa);
+      check('seo rulings R2: seo station exits 0 with no further ruling, and the run\'s exit code is 0', q.exit === 0 && r.exit === 0 && q.json && q.json.data.ok === true, `station ${q.exit} run ${r.exit} ${q.all.slice(0, 300)}`);
+      const t = await go(sa, ['resume', URL_]);
+      check('seo rulings R2: the text row of the ruled step ends with " (ruled not gathered)" and the run prints the counts line "not gathered by ruling 2" (fx-cap ruled, fx-imp skipped)',
+        t.exit === 0 && /^WAITING\s+fx-cap\s+m\s+needs the owner's browser \(ruled not gathered\)$/m.test(t.stdout) && /^not gathered by ruling 2$/m.test(t.stdout), t.all.slice(0, 1500));
+
+      // R6: the last line of seo status
+      let s6 = await go(sa, ['status', URL_]);
+      check('seo rulings R6: seo status after R2 ends with "finished: yes, 2 not gathered by ruling"', lastOf(s6) === 'finished: yes, 2 not gathered by ruling', lastOf(s6));
+      const sb = site(flows([W('fx-cap2')]));
+      await run(sb);
+      await ruleIt(sb, 'fx-cap');
+      await resume(sb);
+      s6 = await go(sb, ['status', URL_]);
+      check('seo rulings R6: with one unruled waiting step left the last line is "finished: no (1 WAITING)", the ruled one is not counted', lastOf(s6) === 'finished: no (1 WAITING)', lastOf(s6));
+      const sb2 = site(flows());
+      await run(sb2);
+      s6 = await go(sb2, ['status', URL_]);
+      check('seo rulings R6: without a ruling the last line is the old one: finished: no (and no counts line, no "not gathered" word)', /^finished: no \(/.test(lastOf(s6)) && !s6.stdout.includes('not gathered'), lastOf(s6));
+
+      // R3: the ruling no longer counts when the BLOCKED line changes between two runs
+      const sc = site(RM(S('fx-ctl', { script: 'scripts/blocked-ctl.mjs', args: ['--id', 'fx-ctl', '--line-file', '{work}/line.txt'] }), S('fx-behind', { dependsOn: ['fx-ctl'] })));
+      mkdirSync(sc.work, { recursive: true });
+      const lineFile = join(sc.work, 'line.txt');
+      writeFileSync(lineFile, 'the key is missing');
+      await run(sc);
+      await ruleIt(sc, 'fx-ctl');
+      r = await resume(sc);
+      q = await sheet(sc);
+      check('seo rulings R3: the BLOCKED step ruled: its dependent is SKIPPED (never started) and the sheet is CLOSED (exit 0)', rd(r, 'fx-ctl').state === 'BLOCKED' && rd(r, 'fx-ctl').ruling === 'not gathered' && rd(r, 'fx-behind').state === 'SKIPPED' && starts(sc, 'fx-behind') === 0 && q.exit === 0, `${JSON.stringify(rd(r, 'fx-behind'))} station ${q.exit}`);
+      writeFileSync(lineFile, 'the key is wrong');
+      r = await resume(sc);
+      q = await go(sc, ['station', URL_]);
+      check('seo rulings R3: the BLOCKED line changed between two runs: the ruling no longer counts, the dependent is BLOCKED again (never started), the sheet is OPEN again and says "ruling out of date"',
+        rd(r, 'fx-ctl').detail.includes('the key is wrong') && rd(r, 'fx-ctl').ruling === undefined && rd(r, 'fx-behind').state === 'BLOCKED' && rd(r, 'fx-behind').detail.includes('waits for fx-ctl (BLOCKED)') && starts(sc, 'fx-behind') === 0 && q.exit === 1 && q.stdout.includes('ruling out of date'), `${JSON.stringify(rd(r, 'fx-behind'))} station ${q.exit} ${q.stdout.slice(0, 300)}`);
+
+      // R4: a ruling written by hand for an approval never counts
+      const sd = site(RM(W('fx-appr', { needsBrowser: 'none', needsPerson: true }), S('fx-dep', { dependsOn: ['fx-appr'] })));
+      r = await run(sd);
+      const apprDetail = rd(r, 'fx-appr').detail;
+      mkdirSync(join(sd.pewp, 'stations'), { recursive: true });
+      writeFileSync(rulingsPath(sd), JSON.stringify({ 'fx-appr': { ruling: 'not gathered', why: 'by hand', by: 'agent', at: new Date().toISOString(), state: 'WAITING', detail: apprDetail } }, null, 1));
+      r = await resume(sd);
+      q = await sheet(sd);
+      check('seo rulings R4: a hand-written ruling for an approval does not count: it is WAITING with no ruling on its row, its dependent waits (BLOCKED, never started), the sheet stays OPEN',
+        rd(r, 'fx-appr').state === 'WAITING' && rd(r, 'fx-appr').ruling === undefined && rd(r, 'fx-dep').state === 'BLOCKED' && rd(r, 'fx-dep').detail.includes('waits for fx-appr (WAITING)') && starts(sd, 'fx-dep') === 0 && q.exit === 1, `${apprDetail} | ${JSON.stringify(rd(r, 'fx-dep'))} station ${q.exit}`);
+
+      // R5: a FAILED step ruled
+      const se = site(RM(S('fx-ok2'), S('fx-f', { script: 'scripts/fail.mjs', args: ['--id', 'fx-f'] }), S('fx-sole', { dependsOn: ['fx-f'] }), S('fx-two', { dependsOn: ['fx-f', 'fx-ok2'] })));
+      r = await run(se);
+      check('seo rulings R5: before the ruling the failed step holds its dependents back and the run exits 1', rd(r, 'fx-f').state === 'FAILED' && rd(r, 'fx-two').state === 'BLOCKED' && r.exit === 1, `${r.exit} ${JSON.stringify(states(r))}`);
+      await ruleIt(se, 'fx-f');
+      r = await resume(se);
+      check('seo rulings R5: fx-f ruled: it is still FAILED (ruling on its row), its dependent with another gathered source RUNS, the run\'s exit code is still 1',
+        rd(r, 'fx-f').state === 'FAILED' && rd(r, 'fx-f').ruling === 'not gathered' && rd(r, 'fx-two').state === 'RUN' && starts(se, 'fx-two') === 1 && r.exit === 1, `${r.exit} ${JSON.stringify(states(r))}`);
+      check('seo rulings R5: the dependent whose only source is the ruled FAILED step is SKIPPED by D, never started', rd(r, 'fx-sole').state === 'SKIPPED' && rd(r, 'fx-sole').detail === 'SKIPPED: its source fx-f was ruled not gathered' && starts(se, 'fx-sole') === 0, JSON.stringify(rd(r, 'fx-sole')));
+      s6 = await go(se, ['status', URL_]);
+      check('seo rulings R5: seo status: the ruled FAILED step is not open: "finished: yes, 2 not gathered by ruling"', lastOf(s6) === 'finished: yes, 2 not gathered by ruling', lastOf(s6));
+
+      // R7: a rulings.json that is not the shape seo rule writes: no ruling, rulingsProblem in the log, nothing throws
+      const sf = site(flows());
+      await run(sf);
+      mkdirSync(join(sf.pewp, 'stations'), { recursive: true });
+      for (const [what, text] of [['text that is not JSON', 'this is not json {'], ['an array', '[]'], ['null', 'null']]) {
+        writeFileSync(rulingsPath(sf), text);
+        r = await resume(sf);
+        const prob = logOf(sf).rulingsProblem;
+        check(`seo rulings R7: rulings.json holds ${what}: the run goes on as with no ruling (exit 0, fx-imp BLOCKED, never started) and the log holds a one-line rulingsProblem`,
+          r.exit === 0 && rd(r, 'fx-imp').state === 'BLOCKED' && rd(r, 'fx-imp').detail === WAITS && starts(sf, 'fx-imp') === 0 && typeof prob === 'string' && prob.length > 0 && !prob.includes('\n'), `${r.exit} ${JSON.stringify(prob)} ${r.all.slice(0, 200)}`);
+      }
+      s6 = await go(sf, ['status', URL_, '--json']);
+      check('seo rulings R7: seo status with such a file does not throw either (exit 0)', s6.exit === 0 && s6.json && s6.json.data.steps.length === 5, s6.all.slice(0, 200));
+      writeFileSync(rulingsPath(sf), JSON.stringify({ 'fx-cap': 'not an object' }));
+      r = await resume(sf);
+      check('seo rulings R7: an entry that is not a ruling counts for nothing and is no problem of the file', rd(r, 'fx-imp').state === 'BLOCKED' && logOf(sf).rulingsProblem === undefined, JSON.stringify(logOf(sf).rulingsProblem));
+
+      // R8 to R10: an input that only a ruled source could have written does not hold a step back (and one a step that ran owed still does)
+      const CAPDIR = '{pewp}/captures/fx-cap/';
+      const capW = (over = {}) => W('fx-cap', { outputs: [CAPDIR], evidence: [CAPDIR + '*.json'], ...over });
+      const WITHOUT = ' (without 1 input(s) of a ruled source)';
+      const s8 = site(RM(S('fx-run'), capW(), S('fx-use', { dependsOn: ['fx-cap', 'fx-run'], inputs: [CAPDIR] }), S('fx-imp', { dependsOn: ['fx-cap'] }), S('fx-use2', { dependsOn: ['fx-imp', 'fx-run'], inputs: ['{pewp}/fx-imp.json'] })));
+      r = await run(s8);
+      check('seo rulings R8: no ruling: the step with the capture folder among its inputs is BLOCKED with today\'s line, never started, and has no withoutInputs', rd(r, 'fx-use').state === 'BLOCKED' && rd(r, 'fx-use').detail === 'BLOCKED: waits for fx-cap (WAITING) | unblocks: fx-cap reaching RUN' && starts(s8, 'fx-use') === 0 && rd(r, 'fx-use').withoutInputs === undefined, JSON.stringify(rd(r, 'fx-use')));
+      await ruleIt(s8, 'fx-cap');
+      r = await resume(s8);
+      check('seo rulings R8: fx-cap ruled: the step RUNS although its input folder is empty, and its row holds withoutInputs with the path as the manifest writes it', rd(r, 'fx-use').state === 'RUN' && starts(s8, 'fx-use') === 1 && JSON.stringify(rd(r, 'fx-use').withoutInputs) === JSON.stringify([CAPDIR]), JSON.stringify(rd(r, 'fx-use')));
+      check('seo rulings R8: an input that only a step skipped by D could have written is waved through too (fx-use2 RUNS, withoutInputs names the path)', rd(r, 'fx-imp').state === 'SKIPPED' && rd(r, 'fx-use2').state === 'RUN' && JSON.stringify(rd(r, 'fx-use2').withoutInputs) === JSON.stringify(['{pewp}/fx-imp.json']), JSON.stringify(rd(r, 'fx-use2')));
+      let t8 = await go(s8, ['resume', URL_]);
+      check('seo rulings R8: the text row says " (without 1 input(s) of a ruled source)", on the next resume too (the step is done, the row keeps it)', t8.exit === 0 && new RegExp('^RUN\\s+fx-use\\s+m\\s+.*' + WITHOUT.replace(/[()]/g, '\\$&') + '$', 'm').test(t8.stdout), t8.stdout.slice(0, 1500));
+      const s9 = site(RM(S('fx-run'), capW(), S('fx-use', { dependsOn: ['fx-cap', 'fx-run'], inputs: [CAPDIR, '{pewp}/fx-nothing.json'] })));
+      await run(s9);
+      await ruleIt(s9, 'fx-cap');
+      r = await resume(s9);
+      check('seo rulings R9: a second missing input that no ruled step writes blocks with today\'s missing-input line, naming THAT path only, the step never started', rd(r, 'fx-use').state === 'BLOCKED' && rd(r, 'fx-use').detail.startsWith('BLOCKED: missing input ') && rd(r, 'fx-use').detail.includes('fx-nothing.json (no step of the manifest writes it)') && !rd(r, 'fx-use').detail.includes('fx-cap') && starts(s9, 'fx-use') === 0 && rd(r, 'fx-use').withoutInputs === undefined, JSON.stringify(rd(r, 'fx-use')));
+      const s10 = site(RM(capW({ outputs: [CAPDIR, '{pewp}/shared.json'] }), S('fx-w', { outputs: ['{pewp}/fx-w.json', '{pewp}/shared.json'], evidence: ['{pewp}/fx-w.json'] }), S('fx-use', { dependsOn: ['fx-cap', 'fx-w'], inputs: ['{pewp}/shared.json'] })));
+      await run(s10);
+      await ruleIt(s10, 'fx-cap');
+      r = await resume(s10);
+      check('seo rulings R10: an input that a ruled step AND a step that ran both list as output, missing: it blocks (the step that ran should have written it), never started', rd(r, 'fx-w').state === 'RUN' && rd(r, 'fx-use').state === 'BLOCKED' && rd(r, 'fx-use').detail.startsWith('BLOCKED: missing input ') && rd(r, 'fx-use').detail.includes('shared.json') && starts(s10, 'fx-use') === 0, JSON.stringify(rd(r, 'fx-use')));
+      const s10b = site(RM(capW({ outputs: [CAPDIR, '{pewp}/shared/x.json'] }), S('fx-w', { outputs: ['{pewp}/fx-w.json', '{pewp}/shared/'], evidence: ['{pewp}/fx-w.json'] }), S('fx-use', { dependsOn: ['fx-cap', 'fx-w'], inputs: ['{pewp}/shared/x.json'] })));
+      await run(s10b);
+      await ruleIt(s10b, 'fx-cap');
+      r = await resume(s10b);
+      check('seo rulings R10b: an input that a ruled step lists and that lies inside a folder a step that RAN lists as output, missing: it blocks (the step that ran should have written it), never started, no withoutInputs', rd(r, 'fx-w').state === 'RUN' && rd(r, 'fx-use').state === 'BLOCKED' && rd(r, 'fx-use').detail.startsWith('BLOCKED: missing input ') && rd(r, 'fx-use').detail.includes('shared/x.json') && starts(s10b, 'fx-use') === 0 && rd(r, 'fx-use').withoutInputs === undefined, JSON.stringify(rd(r, 'fx-use')));
+
+      // R11 to R13: an input that is a PARENT folder of the outputs of ruled sources: nothing but ruled sources could have put anything there
+      const CAPS = '{pewp}/caps/';
+      const capA = () => W('fx-capa', { outputs: ['{pewp}/caps/a.json'], evidence: ['{pewp}/caps/a.json'] });
+      const capB = () => W('fx-capb', { outputs: ['{pewp}/caps/b/'], evidence: ['{pewp}/caps/b/*.json'] });
+      const useCaps = (deps = ['fx-capa', 'fx-capb', 'fx-run']) => S('fx-use', { dependsOn: deps, inputs: [CAPS] });
+      const s11 = site(RM(S('fx-run'), capA(), capB(), useCaps()));
+      r = await run(s11);
+      check('seo rulings R11: no ruling: the step whose input is the parent folder waits for both captures with today\'s line, never started', rd(r, 'fx-use').state === 'BLOCKED' && rd(r, 'fx-use').detail === 'BLOCKED: waits for fx-capa (WAITING), fx-capb (WAITING) | unblocks: fx-capa, fx-capb reaching RUN' && starts(s11, 'fx-use') === 0, JSON.stringify(rd(r, 'fx-use')));
+      await ruleIt(s11, 'fx-capa');
+      await ruleIt(s11, 'fx-capb');
+      r = await resume(s11);
+      check('seo rulings R11: both captures ruled (one writes a file, one a folder inside the empty parent folder): the step RUNS and withoutInputs names the folder', rd(r, 'fx-use').state === 'RUN' && starts(s11, 'fx-use') === 1 && JSON.stringify(rd(r, 'fx-use').withoutInputs) === JSON.stringify([CAPS]), JSON.stringify(rd(r, 'fx-use')));
+      const s12 = site(RM(S('fx-run'), capA(), capB(), S('fx-w', { outputs: ['{pewp}/fx-w.json', '{pewp}/caps/w.json'], evidence: ['{pewp}/fx-w.json'] }), useCaps(['fx-capa', 'fx-capb', 'fx-w'])));
+      await run(s12);
+      await ruleIt(s12, 'fx-capa');
+      await ruleIt(s12, 'fx-capb');
+      r = await resume(s12);
+      check('seo rulings R12: a step that RAN also lists an output inside the missing folder: it blocks with today\'s missing-input line (that step should have made it), never started', rd(r, 'fx-w').state === 'RUN' && rd(r, 'fx-use').state === 'BLOCKED' && rd(r, 'fx-use').detail.startsWith('BLOCKED: missing input ') && rd(r, 'fx-use').detail.includes('caps') && starts(s12, 'fx-use') === 0 && rd(r, 'fx-use').withoutInputs === undefined, JSON.stringify(rd(r, 'fx-use')));
+      const s13 = site(RM(S('fx-run'), capA(), capB(), useCaps()));
+      await run(s13);
+      await ruleIt(s13, 'fx-capa');
+      r = await resume(s13);
+      check('seo rulings R13: only one of the two captures is ruled, the other still WAITING: the dependency rule comes first, the line is "BLOCKED: waits for fx-capb (WAITING) | unblocks: fx-capb reaching RUN" (the ruled one is not named), never started', rd(r, 'fx-use').state === 'BLOCKED' && rd(r, 'fx-use').detail === 'BLOCKED: waits for fx-capb (WAITING) | unblocks: fx-capb reaching RUN' && starts(s13, 'fx-use') === 0, JSON.stringify(rd(r, 'fx-use')));
     }
 
     // ================================================================ the work browser: the run opens it once, closes it only when it opened it [workbrowser]

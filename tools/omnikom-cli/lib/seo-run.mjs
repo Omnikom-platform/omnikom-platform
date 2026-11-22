@@ -18,6 +18,7 @@ import { importRepo, repoPath } from './repo.mjs';
 import { redact } from './redact.mjs';
 import { isWaiting, makeVars, profileSlug, substitute, covers, resolveScript, globPaths, filesUnder, evidenceState, inputNewer, adoptStep, notCurrent, stepOutcome, outcomeState, stepStop, runOrder, norm, SLACK_MS } from './seo-manifest.mjs';
 const { readRun, writeRun } = await importRepo('skills/programmatic-enterprise-web-performance/scripts/lib-run.mjs');
+const { rulingCounts, SOURCE_RULED } = await importRepo('skills/programmatic-enterprise-web-performance/scripts/lib-stations.mjs');   // the one test of "this ruling counts": the sheet (seo station) and this runner use the same
 
 export const STATES = ['RUN', 'SKIPPED', 'BLOCKED', 'WAITING', 'PARTIAL', 'FAILED'];
 export const NOT_RUN = 'NOT RUN';
@@ -122,9 +123,22 @@ export function selectSteps(steps, { only, from, module }) {
   return new Set(picked.map(s => s.id));
 }
 
-// ---- one row of the table, from a step and its log entry (shared by run and status)
+// ---- the rulings (AB-11): {pewp}/stations/rulings.json, which only `omnikom seo rule` writes; the runner only reads it. A file that is missing is no rulings; one that is not the shape `seo rule` writes
+// (not JSON, or not an object of step id to ruling) is no rulings too, with a one-line problem for the log. Reading never throws.
+export function readRulings(pewp) {
+  const file = `${pewp}/stations/rulings.json`;
+  if (!existsSync(file)) return { rulings: {}, problem: null };
+  let v;
+  try { v = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { return { rulings: {}, problem: `stations/rulings.json is not JSON (${String(e && e.message).split(/\r?\n/)[0].slice(0, 120)}): no ruling is used` }; }
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return { rulings: {}, problem: 'stations/rulings.json is not an object of step id to ruling: no ruling is used' };
+  return { rulings: v, problem: null };
+}
+const rulingOf = (rulings, id) => (Object.hasOwn(rulings, id) ? rulings[id] : undefined);
+const failedOf = rows => rows.filter(r => r.state === 'FAILED').length;   // a FAILED step that is ruled not gathered still fails the run: the ruling closes the station, it does not undo the failure
+
+// ---- one row of the table, from a step and its log entry (shared by run and status); `ruling` is this step's entry of rulings.json
 const where = (skillDir, p) => { const r = relative(skillDir, p).split(sep).join('/'); return r.startsWith('..') ? norm(p) : r; };
-export function rowOf(step, entry, skillDir, how) {
+export function rowOf(step, entry, skillDir, how, ruling) {
   const base = { id: step.id, module: step.module };
   if (!entry) return { ...base, state: NOT_RUN, detail: 'not run yet', more: [] };
   const ev = (entry.evidence || []).map(p => where(skillDir, p));
@@ -141,7 +155,8 @@ export function rowOf(step, entry, skillDir, how) {
   else if (state === 'FAILED') detail = entry.timedOut ? `${entry.reason}${entry.line ? `; last line: ${entry.line}` : ''}` : entry.exit !== undefined && entry.exit !== null ? `exit ${entry.exit}${entry.line === null && entry.reason ? '' : `: ${entry.line ?? '(no output)'}`}${entry.reason ? ` [${entry.reason}]` : ''}` : (entry.reason || 'failed');
   else detail = entry.line ?? entry.reason ?? '';   // SKIPPED, BLOCKED: the script's own line, else the pre-check's sentence
   if (how && state !== 'RUN') detail += ` [${how}]`;   // why evidence was not taken
-  return { ...base, state, detail, more, ...(entry.rule ? { rule: entry.rule } : {}), ...(entry.outside ? { outside: true } : {}), exit: entry.exit, line: entry.line ?? null, reason: entry.reason ?? null, evidence: ev, evidenceCount: entry.evidenceCount ?? ev.length, startedAt: entry.startedAt, endedAt: entry.endedAt, ...(entry.leftover ? { leftover: entry.leftover } : {}), logFile: entry.logFile ? where(skillDir, entry.logFile) : undefined, ...(entry.waiting ? { waiting: { ...entry.waiting, inputs: entry.waiting.inputs.map(p => where(skillDir, p)), outputs: entry.waiting.outputs.map(p => where(skillDir, p)) } } : {}), ...(how ? { how } : {}) };
+  const ruled = rulingCounts(ruling, { state, detail, rule: entry.rule }, step);   // a ruling counts only for the row it was made for, and never for an approval
+  return { ...base, state, detail, more, ...(ruled ? { ruling: 'not gathered' } : {}), ...(entry.rule ? { rule: entry.rule } : {}), ...(Array.isArray(entry.withoutInputs) && entry.withoutInputs.length ? { withoutInputs: entry.withoutInputs } : {}), ...(entry.outside ? { outside: true } : {}), exit: entry.exit, line: entry.line ?? null, reason: entry.reason ?? null, evidence: ev, evidenceCount: entry.evidenceCount ?? ev.length, startedAt: entry.startedAt, endedAt: entry.endedAt, ...(entry.leftover ? { leftover: entry.leftover } : {}), logFile: entry.logFile ? where(skillDir, entry.logFile) : undefined, ...(entry.waiting ? { waiting: { ...entry.waiting, inputs: entry.waiting.inputs.map(p => where(skillDir, p)), outputs: entry.waiting.outputs.map(p => where(skillDir, p)) } } : {}), ...(how ? { how } : {}) };
 }
 
 export function summarize(steps, rows) {
@@ -152,10 +167,12 @@ export function summarize(steps, rows) {
     const m = (modules[r.module] ||= { total: 0, ...Object.fromEntries([...STATES, NOT_RUN].map(s => [s, 0])) });
     m.total++; m[r.state]++;
   }
+  const ruledOf = state => rows.filter(r => r.state === state && r.ruling).length;
+  const notGathered = rows.filter(r => r.ruling).length + rows.filter(r => r.state === 'SKIPPED' && r.rule === SOURCE_RULED).length;   // ruled not gathered, or skipped because every source was
   const skippedBy = { rule: rows.filter(r => r.state === 'SKIPPED' && r.rule).length, script: rows.filter(r => r.state === 'SKIPPED' && !r.rule).length };
-  const insideBlocked = rows.filter(r => r.state === 'BLOCKED' && !r.outside).length;   // the BLOCKED that is not from outside is open; the states in the counts line's order
-  const open = ['BLOCKED', 'WAITING', 'PARTIAL', 'FAILED', NOT_RUN].map(s => [s, s === 'BLOCKED' ? insideBlocked : counts[s]]).filter(([, n]) => n > 0);
-  return { counts, modules, total: rows.length, skippedBy, finished: { done: open.length === 0, blockedOutside: rows.filter(r => r.state === 'BLOCKED' && r.outside).length, open: open.map(([s, n]) => `${n} ${s}`) } };
+  const insideBlocked = rows.filter(r => r.state === 'BLOCKED' && !r.outside && !r.ruling).length;   // the BLOCKED that is not from outside is open (a ruled step is not open); the states in the counts line's order
+  const open = ['BLOCKED', 'WAITING', 'PARTIAL', 'FAILED', NOT_RUN].map(s => [s, s === 'BLOCKED' ? insideBlocked : counts[s] - ruledOf(s)]).filter(([, n]) => n > 0);
+  return { counts, modules, total: rows.length, skippedBy, notGathered, finished: { done: open.length === 0, blockedOutside: rows.filter(r => r.state === 'BLOCKED' && r.outside && !r.ruling).length, open: open.map(([s, n]) => `${n} ${s}`) } };
 }
 
 // ---- status: the table from the run log, runs nothing
@@ -166,8 +183,9 @@ export function statusSeo({ manifest, skillDir, data, url, client }) {
   const { run: log, error } = readRun(logFile);
   if (error) throw new Usage(error);
   const entries = new Map((log ? log.steps : []).map(e => [e.id, e]));
-  const rows = steps.map(s => rowOf(s, entries.get(s.id), skillDir));
-  return { url, client: log ? log.client : null, host: vars.host, runStartedAt: log ? log.runStartedAt : null, updatedAt: log ? log.updatedAt : null, logFile, hasLog: Boolean(log), order: steps.map(s => s.id), steps: rows, ...summarize(steps, rows), failed: rows.filter(r => r.state === 'FAILED').length };
+  const { rulings, problem } = readRulings(vars.pewp);
+  const rows = steps.map(s => rowOf(s, entries.get(s.id), skillDir, undefined, rulingOf(rulings, s.id)));
+  return { url, client: log ? log.client : null, host: vars.host, runStartedAt: log ? log.runStartedAt : null, updatedAt: log ? log.updatedAt : null, logFile, hasLog: Boolean(log), order: steps.map(s => s.id), steps: rows, ...summarize(steps, rows), failed: failedOf(rows), ...(problem ? { rulingsProblem: problem } : {}) };
 }
 
 // ---- run and resume
@@ -216,7 +234,8 @@ export async function runSeo(o) {
   const skipRule = step => siteNone && step.skipWhen === 'site-none';
   const runStartMs = prior && Date.parse(prior.runStartedAt) ? Date.parse(prior.runStartedAt) : Date.now();
   const entries = new Map((prior ? prior.steps : []).map(e => [e.id, e]));
-  const log = { version: 1, url, client, host: vars.host, runStartedAt: iso(runStartMs), updatedAt: iso(Date.now()), steps: [] };
+  const { rulings, problem: rulingsProblem } = readRulings(pewp);   // once, here: what a ruling does to the run is decided by these, never by a file read later
+  const log = { version: 1, url, client, host: vars.host, runStartedAt: iso(runStartMs), updatedAt: iso(Date.now()), ...(rulingsProblem ? { rulingsProblem } : {}), steps: [] };
   const save = () => { log.updatedAt = iso(Date.now()); log.steps = steps.filter(s => entries.has(s.id)).map(s => entries.get(s.id)); writeRun(logFile, log); };
   const guard = await importRepo('tools/proc-guard/index.mjs');
   const withEnv = repoPath('tools', 'with-env.mjs');
@@ -225,6 +244,21 @@ export async function runSeo(o) {
   const settled = new Map();   // id -> { entry, how }
   const why = new Map();       // id -> why existing evidence was not taken, shown on its row
   const stateOf = id => (settled.get(id).entry ? settled.get(id).entry.state : NOT_RUN);
+  const rowFor = id => { const s = byId.get(id), f = settled.get(id); return rowOf(s, f.entry, skillDir, f.how || why.get(id), rulingOf(rulings, id)); };
+  const isRuled = id => rowFor(id).ruling === 'not gathered';   // a settled dependency whose ruling counts (the same test as the sheet's)
+  // an input that only a ruled source could have written does not hold a step back: the path is an output (the same path, or one inside an output folder) of a step that in THIS run is ruled not gathered
+  // or skipped because its sources were, and of no step that RAN (that step should have written it)
+  const owedByRuling = id => settled.has(id) && (isRuled(id) || (stateOf(id) === 'SKIPPED' && settled.get(id).entry.rule === SOURCE_RULED));
+  const ranOwed = id => settled.has(id) && stateOf(id) === 'RUN';
+  // "nothing but ruled sources could have put anything there": every output that is the path, lies under it or lies INSIDE it (the input is a parent folder of the output) belongs to a ruled or skipped-by-D step, there is at least one,
+  // and no step that RAN has such an output (the two ran-guards say it twice on purpose: a step that ran should have made the file)
+  const writesUnder = (t, raw) => t.rawOutputs.some(x => covers(x, raw));
+  const writesInside = (t, raw) => t.rawOutputs.some(x => covers(raw, x));
+  const waivable = (step, raw) => {
+    const others = steps.filter(t => t.id !== step.id), w = others.filter(t => writesUnder(t, raw) || writesInside(t, raw)).map(t => t.id);
+    const ranUnder = others.some(t => ranOwed(t.id) && writesUnder(t, raw)), ranInside = others.some(t => ranOwed(t.id) && writesInside(t, raw));
+    return w.length > 0 && w.every(owedByRuling) && !ranUnder && !ranInside;
+  };
 
   const related = (a, b) => covers(a, b) || covers(b, a);
   const writersOf = raw => steps.filter(t => t.rawOutputs.some(x => related(x, raw))).map(t => t.id);
@@ -279,7 +313,9 @@ export async function runSeo(o) {
       const ev = adoptable(step);
       if (ev) return { final: { entry: runEntry(step, ev, { adopted: true, adoptedAt: iso(Date.now()) }), how: 'adopted', store: true } };
     }
-    const notRun = step.dependsOn.filter(d => !(stateOf(d) === 'PARTIAL' && byId.get(d).partialSettles) && stateOf(d) !== 'RUN' && stateOf(d) !== 'SKIPPED');   // a SKIPPED step is settled: its dependents run (what they need from it is checked as an input); so is a PARTIAL one whose manifest step says partialSettles
+    // AB-11: a source ruled not gathered settles for its dependents; a step whose every source is ruled has nothing to work on and is skipped by rule (a RUN or SKIPPED source among them: it runs, and its script says what it can do without the rest)
+    if (step.dependsOn.length > 0 && step.dependsOn.every(isRuled)) return { final: { entry: { id: step.id, module: step.module, state: 'SKIPPED', rule: SOURCE_RULED, line: `SKIPPED: its source ${step.dependsOn.join(', ')} was ruled not gathered`, endedAt: iso(Date.now()) }, how: null, store: true } };
+    const notRun = step.dependsOn.filter(d => !isRuled(d) && !(stateOf(d) === 'PARTIAL' && byId.get(d).partialSettles) && stateOf(d) !== 'RUN' && stateOf(d) !== 'SKIPPED');   // a SKIPPED step is settled: its dependents run (what they need from it is checked as an input); so is a PARTIAL one whose manifest step says partialSettles
     if (notRun.length) {
       const what = notRun.map(d => `${d} (${stateOf(d)})`).join(', ');
       return { final: { entry: blocked(step, `BLOCKED: waits for ${what} | unblocks: ${notRun.join(', ')} reaching RUN`, notRun.every(d => settled.get(d).entry?.outside === true)), store: true } };
@@ -292,7 +328,9 @@ export async function runSeo(o) {
       const lacking = step.needsKeys.filter(k => !keyPresent(k));
       if (lacking.length) return { final: { entry: blocked(step, `BLOCKED: ${lacking.length === 1 ? 'key' : 'keys'} ${lacking.join(', ')} not set | unblocks: set ${lacking.length === 1 ? 'it' : 'them'} in the environment or pass --env-file with ${lacking.length === 1 ? 'it' : 'them'}`, true), store: true } };
     }
-    const gone = inputsMissing(step);
+    let without = null;   // the inputs of a ruled source this step starts without (listed on its row)
+    const missing = inputsMissing(step), waived = missing.filter(({ raw }) => waivable(step, raw)), gone = missing.filter(g => !waived.includes(g));
+    if (waived.length) without = waived.map(({ raw }) => raw);
     if (gone.length) {
       const text = gone.map(({ p, raw }) => { const w = writersOf(raw).filter(id => id !== step.id); return `${where(skillDir, p)} (${w.length ? `written by ${w.join(', ')}` : 'no step of the manifest writes it'})`; }).join('; ');
       const unblock = uniq(gone.flatMap(({ raw }) => writersOf(raw)).filter(id => id !== step.id));
@@ -301,10 +339,10 @@ export async function runSeo(o) {
     if (step.waiting) {
       const who = [step.needsBrowser === 'owner' && "the owner's browser", step.needsAi && 'an AI agent', step.needsPerson && 'a person'].filter(Boolean);
       const waiting = { who, brief: step.brief, inputs: step.inputs, outputs: step.outputs, evidence: step.evidence, runStartedAt: iso(runStartMs) };
-      return { final: { entry: { id: step.id, module: step.module, state: 'WAITING', waiting, endedAt: iso(Date.now()) }, store: true } };
+      return { final: { entry: { id: step.id, module: step.module, state: 'WAITING', waiting, ...(without ? { withoutInputs: without } : {}), endedAt: iso(Date.now()) }, store: true } };
     }
     if (step.heavy && !existsSync(o.heavyScript)) return { final: { entry: blocked(step, `BLOCKED: heavy steps run through heavy.mjs, which is not at ${norm(o.heavyScript)} | unblocks: install it there`), store: true } };
-    return { launch: true };
+    return { launch: true, without };
   }
 
   // run the script; -> the entry
@@ -405,7 +443,7 @@ export async function runSeo(o) {
         if (step.heavy) heavyBusy = false;
         if (step.work) workBusy = false;
         flying.delete(step.id);
-        settle(step, { entry, how: null, store: true });
+        settle(step, { entry: d.without ? { ...entry, withoutInputs: d.without } : entry, how: null, store: true });
       });
       flying.set(step.id, p);
       progressed = true;
@@ -418,6 +456,6 @@ export async function runSeo(o) {
   } finally {
     await wbClose();   // also when a step failed or the runner threw
   }
-  const rows = steps.map(s => { const f = settled.get(s.id); return rowOf(s, f.entry, skillDir, f.how || why.get(s.id)); });
-  return { mode, discarded, url, client, host: vars.host, runStartedAt: log.runStartedAt, updatedAt: log.updatedAt, logFile, hasLog: true, order: steps.map(s => s.id), steps: rows, ...summarize(steps, rows), failed: rows.filter(r => r.state === 'FAILED').length };
+  const rows = steps.map(s => rowFor(s.id));
+  return { mode, discarded, url, client, host: vars.host, runStartedAt: log.runStartedAt, updatedAt: log.updatedAt, logFile, hasLog: true, order: steps.map(s => s.id), steps: rows, ...summarize(steps, rows), failed: failedOf(rows), ...(rulingsProblem ? { rulingsProblem } : {}) };
 }
