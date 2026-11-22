@@ -15,7 +15,7 @@ import { locate } from "./state.mjs";
 import { stop, fmt } from "./client-copy-data.mjs";
 import { CSS } from "./client-copy-design.mjs";
 import { gates, visible } from "./client-copy-gates.mjs";
-import { checkShape, pagesOf, fullPages, HALF_LINES, MIN_PAGES } from "./analysis-shape.mjs";
+import { checkShape, pagesOf, fullPages, HALF_LINES, MIN_PAGES, fileTopicsOf, fixesProblem } from "./analysis-shape.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const skillDir = path.resolve(here, "..");
@@ -85,6 +85,8 @@ export function build({ pewp, name, wordsDir, assetsDir, bookAbs }) {
   if (!Array.isArray(std.nextSteps) || std.nextSteps.length !== 4 || !std.nextSteps.every((s) => Array.isArray(s) && s.length === 3 && s.every(isText))) stop("STOP: how-we-work.json has no nextSteps as 4 of [label, title, text]");
   const fixes = readJson(wordsDir, "fixes.json");
   if (!Array.isArray(fixes) || !fixes.length || !fixes.every((f) => f && isText(f.id) && isText(f.fix) && isText(f.who))) stop("STOP: fixes.json is not a list of { id, fix, who }");
+  const fixProblem = fixesProblem(fixes);
+  if (fixProblem) stop("STOP: client-copy/fixes.json: " + fixProblem);
   const fixById = new Map(fixes.map((f) => [f.id, f]));
   const backing = readJson(wordsDir, "backing.json");
   if (!isObj(backing) || !Object.values(backing).every((v) => Array.isArray(v))) stop("STOP: backing.json is not an object of lists");
@@ -105,7 +107,7 @@ export function build({ pewp, name, wordsDir, assetsDir, bookAbs }) {
   if (stale) stop("STOP: the analysis was not checked after it was written");
   if (!isObj(analysis) || !isObj(checked) || !isObj(sheetFile) || !Array.isArray(sheetFile.rows) || !isObj(profile)) stop("STOP: the analysis files are not of the form analysis-check.mjs writes");
   const gatheredStations = (Array.isArray(profile.stations) ? profile.stations : []).filter((st) => (Array.isArray(st?.steps) ? st.steps : []).some((sp) => sp.bucket === "gathered")).map((st) => String(st.id));
-  const bad = checkShape(analysis, { gatheredStations, fixIds: fixes.map((f) => f.id), floor: false }); // the floor of pages is stopped on below, in the copy's own words
+  const bad = checkShape(analysis, { gatheredStations, fixIds: fixes.map((f) => f.id), floor: false, fixEvidence: Object.fromEntries(fixes.map((f) => [f.id, f.evidence])), fileTopics: fileTopicsOf(profile) }); // the floor of pages is stopped on below, in the copy's own words
   if (bad.length) stop("STOP: the analysis has the wrong shape (" + bad[0] + ")");
   const byAt = new Map();
   for (const r of sheetFile.rows) if (r && typeof r.at === "string" && typeof r.pointer === "string" && !byAt.has(r.at + "\u0001" + r.pointer)) byAt.set(r.at + "\u0001" + r.pointer, r);

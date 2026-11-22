@@ -48,10 +48,10 @@ const A1 = () => ({
   have: [{ value: S("site.json", "pages"), text: "pages already built for you" }, { value: S("local.json", "reviews"), text: "reviews from happy buyers" }],
   back: ["Searches for " + S("site.json", "term") + " show other firms", "Your phone page is slow"],
   sections: [sec("site", { points: ["A plain point about site", "You have " + S("site.json", "pages") + " pages and " + S("site.json", "term") + " is your top search"], table: { columns: ["Page", "Words"], rows: [[S("site.json", "route"), S("site.json", "words")]] } }), sec("local", { points: ["You are shown on " + S("local.json", "spots") + " spots", S("local.json", "n") + " spots were looked at and " + S("local.json", "reviews") + " reviews were read"] }), sec("rivals", { points: ["The leader is " + S("rivals.json", "top"), "The map shows " + S("local.json", "reviews") + " reviews and " + S("site.json", "term") + " is the main one"] })],
-  plan: [{ fix: "site", why: "Buyers find " + S("site.json", "pages") + " pages today" }, { fix: "words", why: "Your words must reach search engines" }, { fix: "speed", why: "A slow page loses buyers" }],
+  plan: [{ fix: "site", why: "Your map listing shows " + S("local.json", "reviews") + " reviews" }, { fix: "words", why: "Search engines read " + S("site.json", "pages") + " of your pages" }, { fix: "speed", why: "Buyers wait on each of your " + S("site.json", "pages") + " pages" }],
 });
 
-const profileOf = (topics) => ({ step: "client-profile", generatedAt: GEN, stations: [...topics.map((t) => ({ id: t, what: t, verdict: "OPEN", steps: [{ id: "step-" + t, what: t, state: "RUN", bucket: "gathered", partial: false, why: null, ruling: null, outputs: [t + ".json"], files: [], fileCount: 0 }] })), { id: "ads", what: "ads", verdict: "OPEN", steps: [{ id: "step-ads", what: "ads", state: "SKIPPED", bucket: "not gathered", outputs: ["ads.json"], files: [], fileCount: 0 }] }], notGathered: [], counts: {} });
+const profileOf = (topics) => ({ step: "client-profile", generatedAt: GEN, stations: [...topics.map((t) => ({ id: t, what: t, verdict: "OPEN", steps: [{ id: "step-" + t, what: t, state: "RUN", bucket: "gathered", partial: false, why: null, ruling: null, outputs: [t + ".json"], files: [], fileCount: 0, jsonFiles: [t + ".json"] }] })), { id: "ads", what: "ads", verdict: "OPEN", steps: [{ id: "step-ads", what: "ads", state: "SKIPPED", bucket: "not gathered", outputs: ["ads.json"], files: [], fileCount: 0 }] }], notGathered: [], counts: {} });
 
 async function scenarios(dir) {
   const results = [], check = checker(results);
@@ -93,7 +93,7 @@ async function scenarios(dir) {
     3: [["$.business", "site.json#name"], ["$.sections[0].points[1]", "site.json#pages"], ["$.sections[0].points[1]", "site.json#term"], ["$.sections[0].table.rows[0][0]", "site.json#route"], ["$.sections[0].table.rows[0][1]", "site.json#words"]],
     4: [["$.business", "site.json#name"], ["$.sections[1].points[0]", "local.json#spots"], ["$.sections[1].points[1]", "local.json#n"], ["$.sections[1].points[1]", "local.json#reviews"]],
     5: [["$.business", "site.json#name"], ["$.sections[2].points[0]", "rivals.json#top"], ["$.sections[2].points[1]", "local.json#reviews"], ["$.sections[2].points[1]", "site.json#term"]],
-    6: [["$.business", "site.json#name"], ["$.plan[0].why", "site.json#pages"]],
+    6: [["$.business", "site.json#name"], ["$.plan[0].why", "local.json#reviews"], ["$.plan[1].why", "site.json#pages"], ["$.plan[2].why", "site.json#pages"]],
     7: [["$.business", "site.json#name"], ["$.numbers[0].value", "site.json#pages"], ["$.numbers[1].value", "site.json#words"], ["$.numbers[2].value", "local.json#spots"], ["$.numbers[2].value", "local.json#n"]],
   };
   try {
@@ -126,7 +126,7 @@ async function scenarios(dir) {
     // ---- 2: no site (two sections, have empty), and four sections
     {
       const bad = [];
-      const a2 = { ...A1(), business: S("local.json", "name"), have: [], numbers: [A1().numbers[2]], back: ["Your phone page is slow"], sections: [sec("local"), sec("rivals")], plan: [A1().plan[1]] };
+      const a2 = { ...A1(), business: S("local.json", "name"), have: [], numbers: [A1().numbers[2]], back: ["Your phone page is slow"], sections: [sec("local"), sec("rivals")], plan: [A1().plan[0]] };
       const r2 = mk("acme", ["local", "rivals"], a2, { site: false });
       const c2 = copy(r2), s2 = secs(c2.html);
       if (c2.code !== 0 || c2.lines[c2.lines.length - 1] !== "sections: 6" || s2.length !== 6) bad.push("two sections: exit " + c2.code + " " + c2.err.slice(0, 200) + " " + s2.length);
@@ -199,7 +199,7 @@ async function scenarios(dir) {
     {
       const bad = [], s = secs(c1.html)[5] || "", t = (s.match(/<table class="plan">[\s\S]*?<\/table>/) || [""])[0];
       const rows = [...t.matchAll(/<tr\b[^>]*>\s*<td>([\s\S]*?)<\/td>\s*<td>([\s\S]*?)<\/td>\s*<td>([\s\S]*?)<\/td>\s*<td>([\s\S]*?)<\/td>/g)].map((m) => m.slice(1, 5).map((x) => x.replace(/<[^>]+>/g, "").trim()));
-      const ids = ["site", "words", "speed"], whys = ["Buyers find 12 pages today", "Your words must reach search engines", "A slow page loses buyers"];
+      const ids = ["site", "words", "speed"], whys = ["Your map listing shows 41 reviews", "Search engines read 12 of your pages", "Buyers wait on each of your 12 pages"];
       if (rows.length !== 3) bad.push("plan rows " + rows.length);
       rows.forEach((r, i) => { const f = FIX.find((x) => x.id === ids[i]); if (r[0] !== String(i + 1) || r[1] !== f.fix || r[2] !== whys[i] || r[3] !== f.who) bad.push("row " + (i + 1) + " " + JSON.stringify(r)); });
       if (!/Action plan/.test(s) || !/What to fix, in this order/.test(s) || !/What to do/.test(t) || !/>Why</.test(t) || !/>Who</.test(t)) bad.push("plan words");
@@ -313,7 +313,7 @@ async function scenarios(dir) {
       if (c.code !== 0) bad.push("exit " + c.code + " " + c.err.slice(0, 300));
       if (!c.html.includes("<h1>SEO, AI search and local audit</h1>") || !c.html.includes(": SEO, AI search and local audit, March 2031 (draft)</title>")) bad.push("the title");
       if (!s.some((x) => labelOf(x) === "Named in AI answers")) bad.push("no page labelled Named in AI answers");
-      const r2 = mk("as2", ["assistants", "local"], { ...A1(), business: S("local.json", "name"), have: [], numbers: [A1().numbers[2]], back: ["Your phone page is slow"], sections: [sec("assistants"), sec("local")], plan: [A1().plan[1]] }, { site: false }), c2 = copy(r2);
+      const r2 = mk("as2", ["assistants", "local"], { ...A1(), business: S("local.json", "name"), have: [], numbers: [A1().numbers[2]], back: ["Your phone page is slow"], sections: [sec("assistants"), sec("local")], plan: [A1().plan[0]] }, { site: false }), c2 = copy(r2);
       if (c2.code !== 0 || !c2.html.includes("<h1>AI search and local audit</h1>")) bad.push("assistants and local: " + c2.code + " " + c2.err.slice(0, 200));
       check("case 12: a case with an assistants section: AI search is in the title (all three words, and AI search and local with no SEO section) and a page labelled Named in AI answers exists", bad.length === 0, bad.join(" | "));
     }
@@ -434,8 +434,8 @@ async function scenarios(dir) {
         if (!ks.some(zoomed)) bad.push(tag + ": the style scales nothing under the heading"); };
       model(s[1], "summary"); model(s[5], "plan");
       if ((c1.html.match(/class="in roomy"/g) || []).length !== 2 || /<section class="pg roomy"/.test(c1.html)) bad.push("roomy is not on the inner div of the two pages, or it is on a section");
-      const ids = FIX.slice(0, 8).map((f) => f.id); if (ids.length < 6) bad.push("fixes.json holds fewer than 6 fixes");
-      const big = { ...A1(), have: [0, 1, 2, 3, 4].map((i) => ({ value: S("site.json", "pages"), text: "something that already works number " + ["one", "two", "three", "four", "five"][i] })), back: ["One thing holds you back", "Another thing holds you back", "A third thing holds you back", "A fourth thing holds you back", "A fifth thing holds you back"], plan: ids.map((id) => ({ fix: id, why: "A plain reason for it" })) };
+      const ids = FIX.filter((f) => f.evidence.some((t) => ["site", "local", "rivals"].includes(t))).slice(0, 8).map((f) => f.id), whyOf = (id) => { const t = ["site", "local", "rivals"].find((x) => FIX.find((f) => f.id === id).evidence.includes(x)); return "Counted " + S(t + ".json", PTR[t][0]) + " here"; }; if (ids.length < 6) bad.push("fixes.json holds fewer than 6 fixes");
+      const big = { ...A1(), have: [0, 1, 2, 3, 4].map((i) => ({ value: S("site.json", "pages"), text: "something that already works number " + ["one", "two", "three", "four", "five"][i] })), back: ["One thing holds you back", "Another thing holds you back", "A third thing holds you back", "A fourth thing holds you back", "A fifth thing holds you back"], plan: ids.map((id) => ({ fix: id, why: whyOf(id) })) };
       const cg = copy(mk("rm1", ["site", "local", "rivals"], big)), sg = secs(cg.html);
       if (cg.code !== 0) bad.push("a full summary and plan: exit " + cg.code + " " + cg.err.slice(0, 200));
       else if (!plainPg(sg[1]) || !plainPg(sg[sg.length - 2])) bad.push("a summary of 5 and 5, or a plan of " + ids.length + " rows, is roomy");
@@ -449,6 +449,24 @@ async function scenarios(dir) {
       }
       if (c1.lines.some((l) => /under half full/.test(l))) bad.push("a run with no page under half says so");
       check("case 18: roomy: a summary of 2 have and 2 back and a plan of 3 rows are roomy; of 5 and 5 and a full plan are not; the cover, the last page and analysis pages of 21 lines never; roomy is the class of the page's inner div (the section keeps its class pg: the page gate counts only that form) and the style holds one rule for it, which scales the children of the inner div except the label's block and the heading; a last analysis page of 14 lines with the floor met without it is printed roomy and the run says page 5 is under half full (14 of 40 lines)", bad.length === 0, bad.join(" | "));
+    }
+    // ---- 19 (AB-8d): a fix rests on its own evidence
+    {
+      const bad = [], want = (fix, ev, into) => new RegExp("^STOP: the analysis has the wrong shape \\(\\$\\.plan\\[0\\]: the fix \"" + fix + "\" may rest only on " + ev + ", and its reason points only into " + into + ": ");
+      const why = "Your map listing shows " + S("local.json", "reviews") + " reviews";
+      const wrong = mk("ev1", ["site", "local", "rivals"], { ...A1(), plan: [{ fix: "chambers", why }] });
+      bad.push(...stopped(copy(wrong), want("chambers", "who links to you", "the map listing"), "a fix on evidence of another kind"));
+      const nowhy = mk("ev2", ["site", "local", "rivals"], { ...A1(), plan: [{ fix: "words", why: "Search engines must read it" }] });
+      bad.push(...stopped(copy(nowhy), /^STOP: the analysis has the wrong shape \(\$\.plan\[0\]\.why: a reason needs at least one figure or name from a gathered file\)$/, "a reason with no pointer"));
+      const right = copy(mk("ev3", ["site", "local", "rivals"], { ...A1(), plan: [{ fix: "listings", why }] }));
+      if (right.code !== 0) bad.push("the right fix: exit " + right.code + " " + right.err.slice(0, 200));
+      else { const t = ((secs(right.html)[5] || "").match(/<table class="plan">[\s\S]*?<\/table>/) || [""])[0], f = FIX.find((x) => x.id === "listings"); if (!t.includes(f.fix) || !t.includes(f.who) || !t.includes("Your map listing shows 41 reviews")) bad.push("the plan row of listings: " + t.slice(0, 300)); }
+      // a fixes.json row with no evidence stops the copy
+      const wd = path.join(tmp, "words-ev"); fs.mkdirSync(wd, { recursive: true });
+      for (const x of ["backing.json", "how-we-work.json"]) fs.copyFileSync(path.join(WORDS, x), path.join(wd, x));
+      writeFile(path.join(wd, "fixes.json"), FIX.map((x, i) => (i === 0 ? { id: x.id, fix: x.fix, who: x.who } : x)));
+      bad.push(...stopped(copy(mk("ev4", ["site", "local", "rivals"], A1()), { words: wd }), new RegExp("^STOP: client-copy/fixes\\.json: the fix " + FIX[0].id + " names no evidence$"), "a fix with no evidence"));
+      check("case 19: a plan row that rests a fix on evidence of another kind stops the copy with the row named and nothing written; a reason with no pointer stops it; the right fix prints, its sentence and who those of fixes.json; a fixes.json row with no evidence stops it", bad.length === 0, bad.join(" | "));
     }
   } finally { rmTmp(tmp); }
   return results;
@@ -474,6 +492,7 @@ const MUTANTS = [
   { name: "the plan's fix is taken from the analysis", patches: [{ file: AC, from: "const fixText = fx.fix;", to: "const fixText = p.fix;" }], expect: [/^case 7:/] },
   { name: "the month row is left out", patches: [{ file: AC, from: 'add([1, "month of the audit", MONTH, "profile.json", "generatedAt", gen, gen, "RUN"]);', to: "" }], expect: [/^case 1:/] },
   { name: "the already-have heading is printed when the list is empty", patches: [{ file: AC, from: "have.length > 0 ?", to: "true ?" }], expect: [/^case 2:/] },
+  { name: "the copy does not make the plan check", patches: [{ file: AC, from: "floor: false, fixEvidence: Object.fromEntries(fixes.map((f) => [f.id, f.evidence])), fileTopics: fileTopicsOf(profile) });", to: "floor: false });" }], expect: [/^case 19:/] },
   { name: "the WORKS rule is not applied", patches: [{ file: AC, from: 'state === "WORKS"', to: "true" }], expect: [/^case 8:/] },
 ];
 

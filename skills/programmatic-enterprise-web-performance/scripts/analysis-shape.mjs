@@ -51,8 +51,40 @@ const FLOOR_AT = "$.sections: the sections fill ";
 /** True for the refusal line of the floor of pages (judge.mjs: only this line left over means SKIPPED, not BLOCKED). */
 export const isFloorLine = (l) => String(l).startsWith(FLOOR_AT);
 
+/** The plain words of a topic, wherever a topic is said to a person or to the model. */
+export const PLAIN_TOPIC = { site: "your website", demand: "what buyers search for", search: "the search results", assistants: "the AI answers", local: "the map listing", rivals: "what rivals do", standing: "who links to you" };
+const plainList = (ts) => ts.map((t) => PLAIN_TOPIC[t] || t).join(", ");
+const slash = (p) => String(p).replace(/\\/g, "/");
+
+/** { "<file>": [topics] }: for each .json file (jsonFiles) of a gathered step, the topic stations whose gathered steps name it. A step that gathered nothing and a station that is not a topic give nothing. */
+export function fileTopicsOf(profile) {
+  const map = {};
+  for (const st of Array.isArray(profile?.stations) ? profile.stations : []) {
+    if (!TOPICS.includes(st?.id)) continue;
+    for (const sp of Array.isArray(st.steps) ? st.steps : []) {
+      if (sp?.bucket !== "gathered") continue;
+      for (const f of Array.isArray(sp.jsonFiles) ? sp.jsonFiles : []) {
+        if (typeof f !== "string" || !/\.json$/i.test(f)) continue;
+        const k = slash(f);
+        if (!map[k]) map[k] = [];
+        if (!map[k].includes(st.id)) map[k].push(st.id);
+      }
+    }
+  }
+  return map;
+}
+
+/** The fixes' own check: every row names its evidence (a list of topics, not empty, every one a topic). Returns the first problem as a text, or "". */
+export function fixesProblem(fixes) {
+  for (const f of Array.isArray(fixes) ? fixes : []) {
+    if (!Array.isArray(f?.evidence) || !f.evidence.length || !f.evidence.every((t) => TOPICS.includes(t))) return "the fix " + f?.id + " names no evidence";
+  }
+  return "";
+}
+
 // floor: false leaves the floor of pages to the caller (analysis-copy.mjs stops on it in its own words)
-export function checkShape(obj, { gatheredStations = [], fixIds = [], floor = true } = {}) {
+// fixEvidence ({ fix id: [topics] }) and fileTopics (fileTopicsOf) together switch on the check that a plan row rests on its own kind of evidence
+export function checkShape(obj, { gatheredStations = [], fixIds = [], floor = true, fixEvidence = null, fileTopics = null } = {}) {
   const bad = [];
   const say = (at, what) => bad.push(at + ": " + what);
   // a text: not empty, no space at its start or end, within bounds; returns whether it is a usable text
@@ -138,6 +170,14 @@ export function checkShape(obj, { gatheredStations = [], fixIds = [], floor = tr
         else seen.add(p.fix);
       }
       if ("why" in p) text(p.why, at + ".why");
+      if (fixEvidence && fileTopics && typeof p.fix === "string" && typeof p.why === "string" && fixEvidence[p.fix]) {
+        const files = [...p.why.matchAll(/\{\{([^{}]*)\}\}/g)].map((m) => slash(m[1].split("#")[0].trim()));
+        if (!files.length) say(at + ".why", "a reason needs at least one figure or name from a gathered file");
+        else {
+          const into = [...new Set(files.flatMap((f) => fileTopics[f] || []))];
+          if (!into.some((t) => fixEvidence[p.fix].includes(t))) say(at, "the fix \"" + p.fix + "\" may rest only on " + plainList(fixEvidence[p.fix]) + ", and its reason points only into " + (into.length ? plainList(into) : "files no gathered step names") + ": take the fix that this evidence calls for, or leave the row out");
+        }
+      }
     });
   }
   return bad;

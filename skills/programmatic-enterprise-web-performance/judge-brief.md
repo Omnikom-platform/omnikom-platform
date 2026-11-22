@@ -53,6 +53,7 @@ One JSON object with exactly these keys: business, verdict, numbers, have, back,
 - Never put a figure right after the word page or pages ("your menu page has ... words" is right; the word page and then the figure is refused: it reads as a page of this report).
 - plan: 1 to 8 items of { "fix", "why" }. The fix is a fix word from the list above, each at most once. The why is a text: the evidence for it, with pointers to the figures.
 - The plan names every fix the files give evidence for, up to 8.
+- A fix may be used only when its reason points into the kind of source named beside it; if your evidence is of another kind, take the fix that fits it or leave the row out.
 
 ## An example (an invented bakery; the files, the topics and the fix words are made up)
 ```json

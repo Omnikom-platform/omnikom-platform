@@ -32,9 +32,15 @@ const GOOD = {
   sections: [
     { topic: "site", title: "Your site", lede: "The text your site gives search engines holds few words to read.", points: ["Rivals send more words than you do.", "Search engines list only what they can read on a page.", "A page with few words is shown for few searches.", "Rivals give each product a page of its own.", "Your home page names the shop and little else.", "Buyers who search by town find the rivals first."], table: { columns: ["Business", "Words"], rows: [[S("research/a.json", "rows[0].name"), S("research/a.json", "rows[0].count")], ...plainRows(9)] } },
     { topic: "local", title: "Your map listing", lede: "People who search on the map can find you, with a small number of reviews.", points: ["Ask past customers for a review.", "Reply to every review, the good and the bad.", "Keep the opening hours on the listing right.", "Add photos of the shop and of the work.", "Name the town and the service in the description.", "Check the listing for every branch you have."], table: { columns: ["Business", "Reviews"], rows: plainRows(8) } }],
-  plan: [{ fix: FIX_IDS[0], why: "Your home page sends " + S("research/a.json", "rows[0].count") + " words." }, { fix: FIX_IDS[1], why: "Your rating is " + S("facts/f.json", "score") + "." }],
+  plan: [{ fix: FIX_IDS[0], why: "Your map listing shows " + S("local/p.json", "reviews") + " reviews." }, { fix: FIX_IDS[1], why: "Your rating is " + S("facts/f.json", "score") + "." }],
 };
 const GOOD_VALUES = 8;
+// AB-8d: the evidence of each fix (pinned here, row by row), the plain words of a topic, the order of the topics
+const EV = { site: ["search", "local", "rivals", "demand", "assistants"], words: ["site"], "top-page": ["demand", "search"], "other-pages": ["site", "demand", "search", "rivals"], speed: ["site"], card: ["site", "standing", "local"], analytics: ["site"], application: ["site"], "profile-link": ["local", "standing"], address: ["local"], listings: ["assistants", "local"], chambers: ["standing"], licence: ["site", "standing"], mail: ["site", "standing"] };
+const PLAIN = { site: "your website", demand: "what buyers search for", search: "the search results", assistants: "the AI answers", local: "the map listing", rivals: "what rivals do", standing: "who links to you" };
+const ORDER = ["site", "demand", "search", "assistants", "local", "rivals", "standing"];
+// the end of a SKIPPED line, from the topics that were gathered
+const MISSING = (gathered) => { const no = ORDER.filter((t) => !gathered.includes(t)); return no.length ? " | not gathered: " + no.map((t) => PLAIN[t]).join(", ") + "; each one gathered adds a section of the report" : " | every kind of source was gathered: this business shows too little for a client's report"; };
 const st = (id, what, steps) => ({ id, what, verdict: "OPEN", steps });
 const stp = (id, bucket, files, outputs, more = []) => ({ id, what: id, state: bucket === "gathered" ? "RUN" : "NOT RUN", bucket, partial: false, why: null, ruling: null, outputs, files: files.map((p) => ({ path: p, bytes: 1 })), fileCount: files.length, ...(bucket === "gathered" ? { jsonFiles: [...files.filter((p) => /\.json$/i.test(p)), ...more] } : {}) });
 // step-a holds 8 .json files, only 3 of them in `files` (a step lists 5 at most): the prompt must name all 8
@@ -209,7 +215,7 @@ async function scenarios(dir) {
       for (const [label, prof, n] of [["one topic gathered (and business, report, which are not topics)", only("site", "business", "report"), 1], ["no topic gathered", only("business"), 0]]) {
         const m = mk(true, prof); fs.mkdirSync(m.pewp, { recursive: true }); writeFile(m.ck, "{}");
         const r = await go(m, [text(GOOD)]), run = readJ(m.run), left = fs.readdirSync(m.pewp).filter((f) => /^analysis\.json$/.test(f));
-        if (r.code !== 4 || r.last() !== "SKIPPED: too little was gathered for a client report (" + n + " of the 7 kinds of source); the run stays an internal draft") bad.push(label + ": exit " + r.code + " " + r.last());
+        if (r.code !== 4 || r.last() !== "SKIPPED: too little was gathered for a client report (" + n + " of the 7 kinds of source); the run stays an internal draft" + MISSING(n ? ["site"] : [])) bad.push(label + ": exit " + r.code + " " + r.last());
         if (r.calls.length !== 0) bad.push(label + ": the model was asked " + r.calls.length + " times");
         if (run?.outcome !== "skipped" || run?.attempts !== 0 || run?.asks?.length !== 0) bad.push(label + ": run.json " + JSON.stringify(run)?.slice(0, 160));
         if (left.length || !exists(m.ck)) bad.push(label + ": something was written or removed: " + left.join());
@@ -234,9 +240,9 @@ async function scenarios(dir) {
       check("8: TOPICS equals the manifest's station ids minus business and report; the fix ids are read from the real client-copy/fixes.json and the good answer uses two of them", want.length === 7 && Shape.TOPICS.join() === want.join() && FIX_IDS.length > 2 && usedFix.length === 2 && usedFix.every((f) => FIX_IDS.includes(f) && listed.includes('"id": "' + f + '"')), "topics " + Shape.TOPICS.join() + " against " + want.join() + "; fixes " + usedFix.join()); }
     { const bad = [], file = JSON.parse(fs.readFileSync(path.join(SKILL, "client-copy", "fixes.json"), "utf8"));
       if (!Array.isArray(file) || !file.length) bad.push("not a list");
-      for (const r of Array.isArray(file) ? file : []) { if (Object.keys(r).sort().join() !== "fix,id,who" || !["id", "fix", "who"].every((k) => typeof r[k] === "string" && r[k].trim() !== "")) bad.push("row " + JSON.stringify(r).slice(0, 60)); if (/[{}\d]/.test(JSON.stringify([r.id, r.fix, r.who]).replace(/\d/g, (d, i, s) => (r.id === "x" ? d : d)).replace(r.id, "")) && /[{}]|\d/.test([r.fix, r.who, r.id].join(" "))) bad.push("brace or digit in " + r.id); }
+      for (const r of Array.isArray(file) ? file : []) { if (Object.keys(r).sort().join() !== "evidence,fix,id,who" || !["id", "fix", "who"].every((k) => typeof r[k] === "string" && r[k].trim() !== "") || !Array.isArray(r.evidence)) bad.push("row " + JSON.stringify(r).slice(0, 60)); if (/[{}\d]/.test(JSON.stringify([r.id, r.fix, r.who]).replace(/\d/g, (d, i, s) => (r.id === "x" ? d : d)).replace(r.id, "")) && /[{}]|\d/.test([r.fix, r.who, r.id].join(" "))) bad.push("brace or digit in " + r.id); }
       if (new Set(FIX_IDS).size !== FIX_IDS.length) bad.push("an id twice");
-      check("8: client-copy/fixes.json is a list of { id, fix, who }, three non-empty texts each, ids unique, no brace and no digit in any text", bad.length === 0, bad.join(" | ")); }
+      check("8: client-copy/fixes.json is a list of { id, fix, who, evidence }, three non-empty texts each, ids unique, no brace and no digit in any text", bad.length === 0, bad.join(" | ")); }
     { const ok = Shape.checkShape(GOOD, { gatheredStations: ["site", "local"], fixIds: FIX_IDS }), no = Shape.checkShape(GOOD, { gatheredStations: ["site"], fixIds: FIX_IDS });
       check("8: checkShape on the good answer is an empty list; with the local station not gathered it names that station", ok.length === 0 && no.length === 1 && /\$\.sections\[1\]\.topic: nothing was gathered at the station local/.test(no[0]), JSON.stringify([ok, no])); }
 
@@ -276,7 +282,7 @@ async function scenarios(dir) {
         if (r.last() !== "JUDGE OK: the analysis was written and checked (" + GOOD_VALUES + " values, 2 asks)") bad.push("(a) last line " + r.last()); }
       // (b) two answers under the floor and nothing else wrong: SKIPPED, the second answer stays
       { const m = mk(), second = giveUnder(9, 6), r = await go(m, [giveUnder(14, 11), second]), run = readJ(m.run), an = readJ(path.join(m.pewp, "analysis.json"));
-        const want = "SKIPPED: too little for a client's report: the analysis fills 0 analysis page(s) at least half full (it needs 2); the run stays an internal draft";
+        const want = "SKIPPED: too little for a client's report: the analysis fills 0 analysis page(s) at least half full (it needs 2); the run stays an internal draft" + MISSING(["site", "local"]);
         if (r.code !== 4 || r.last() !== want) bad.push("(b) exit " + r.code + " " + r.last());
         if (r.calls.length !== 2) bad.push("(b) calls " + r.calls.length);
         if (!an || an.sections?.[0]?.points?.length !== 4) bad.push("(b) analysis.json is not the second answer: " + JSON.stringify(an)?.slice(0, 100));
@@ -292,7 +298,7 @@ async function scenarios(dir) {
       // (d) the floor came first (the first answer's only refusal), the second answer is refused for another reason (over 200 characters, by the check): the cause is the floor's, SKIPPED, refused.txt holds both asks
       { const long = { ...GOOD, sections: [{ ...GOOD.sections[0], points: [...GOOD.sections[0].points.slice(0, 5), "x".repeat(201)] }, GOOD.sections[1]] };
         const m = mk(), r = await go(m, [giveUnder(14, 11), text(long)]), run = readJ(m.run), ref = exists(m.refused) ? fs.readFileSync(m.refused, "utf8") : "";
-        const want = "SKIPPED: too little for a client's report: the first analysis filled 1 analysis page(s) at least half full (it needs 2) and the second was refused; the run stays an internal draft";
+        const want = "SKIPPED: too little for a client's report: the first analysis filled 1 analysis page(s) at least half full (it needs 2) and the second was refused; the run stays an internal draft" + MISSING(["site", "local"]);
         if (r.code !== 4 || r.last() !== want) bad.push("(d) exit " + r.code + " " + r.last());
         if (r.calls.length !== 2) bad.push("(d) calls " + r.calls.length);
         if (!/ask 1:/.test(ref) || !/ask 2:/.test(ref) || !ref.includes(FLOOR_LINE(1)) || !/200/.test(ref.slice(ref.indexOf("ask 2:")))) bad.push("(d) refused.txt " + ref.slice(0, 300));
@@ -302,6 +308,77 @@ async function scenarios(dir) {
       { const m = mk(), r = await go(m, [text({ ...JSON.parse(giveUnder(14, 11)), extra: "x" }), text({ ...GOOD, other: "y" })]);
         if (r.code !== 3 || !r.last().startsWith("BLOCKED: ") || readJ(m.run)?.outcome !== "refused") bad.push("(e) exit " + r.code + " " + r.last()?.slice(0, 120)); }
       check("19: the judge and the floor: a first answer under it and a second that meets it is exit 0 in two asks, the second prompt holding the floor line; two answers under it (nothing else wrong) is exit 4 with the SKIPPED line, analysis.json the second answer, no checked file, no refused.txt, outcome skipped; a first answer refused for the floor line only and a second refused for anything else (over 200 characters) is exit 4 with the line of the first analysis, refused.txt holding both asks, outcome skipped; a first refusal with more than the floor line, or a second with the floor line and another refusal after a first of another kind, is BLOCKED", bad.length === 0, bad.join(" | ")); }
+
+    // ---- 20 to 25 (AB-8d): an action rests on its own evidence, and a skipped report says what is missing
+    { const bad = [], rows = JSON.parse(fs.readFileSync(path.join(SKILL, "client-copy", "fixes.json"), "utf8"));
+      if (rows.length !== 14) bad.push("rows " + rows.length);
+      if (rows.map((r) => r.id).join() !== Object.keys(EV).join()) bad.push("ids " + rows.map((r) => r.id).join());
+      for (const r of rows) { if (JSON.stringify(r.evidence) !== JSON.stringify(EV[r.id])) bad.push(r.id + ": evidence " + JSON.stringify(r.evidence)); if (!Array.isArray(r.evidence) || !r.evidence.length || !r.evidence.every((t) => ORDER.includes(t))) bad.push(r.id + ": an empty or unknown evidence list"); if (/[{}\d]/.test(r.fix + r.who)) bad.push("a brace or a digit in " + r.id); }
+      const nl = rows.find((r) => r.id === "listings");
+      if (nl?.fix !== "Get listed on the sites that AI answers and local searches lean on." || nl?.who !== "You and Omnikom") bad.push("the listings row " + JSON.stringify(nl));
+      check("20: client-copy/fixes.json: 14 rows, each with an evidence list of known topics, the rows exactly those of the design (each id pinned with its list), the new sentence about listings is there, no digit and no brace in any text", bad.length === 0, bad.join(" | ")); }
+    { const bad = [], same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+      const base = Shape.fileTopicsOf ? Shape.fileTopicsOf(PROFILE) : null;
+      if (typeof Shape.fileTopicsOf !== "function") bad.push("fileTopicsOf is not exported");
+      else {
+        const want = { "research/a.json": ["site"], "facts/f.json": ["site"], "b.json": ["site"], "local/p.json": ["local"], ...Object.fromEntries(MORE.map((x) => [x, ["site"]])) };
+        if (!same(Object.keys(base).sort(), Object.keys(want).sort())) bad.push("the files " + Object.keys(base).sort().join());
+        for (const k of Object.keys(want)) if (!same(base[k], want[k])) bad.push(k + " -> " + JSON.stringify(base[k]));
+        if ("c/x.json" in base) bad.push("a file of a step that gathered nothing is in the map");
+        const two = Shape.fileTopicsOf({ stations: [st("site", "x", [stp("s1", "gathered", ["shared.json"], [])]), st("local", "x", [stp("s2", "gathered", ["shared.json"], [])]), st("business", "x", [stp("s3", "gathered", ["biz.json"], [])])] });
+        if (!same([...(two["shared.json"] || [])].sort(), ["local", "site"])) bad.push("a file of two stations -> " + JSON.stringify(two["shared.json"]));
+        if ("biz.json" in two) bad.push("the business station gives a file");
+      }
+      check("21: fileTopicsOf on the test's profile: each gathered file maps to its station's topic, a file of a step that gathered nothing is absent, a file named by two topic stations maps to both, the business station gives nothing", bad.length === 0, bad.join(" | ")); }
+    { const bad = [], FT = { "research/a.json": ["site"], "facts/f.json": ["site"], "local/p.json": ["local"], "ai/x.json": ["assistants"], "links/l.json": ["standing"] };
+      const G2 = { ...GIVEN, fixEvidence: EV, fileTopics: FT }, withPlan = (plan, g = G2) => Shape.checkShape({ ...GOOD, plan }, g);
+      const P = (f, k) => S(f, k), line = (i, id, ev, into) => "$.plan[" + i + "]: the fix \"" + id + "\" may rest only on " + ev + ", and its reason points only into " + into + ": take the fix that this evidence calls for, or leave the row out";
+      const a = Shape.checkShape(GOOD, G2); if (a.length) bad.push("(a) " + JSON.stringify(a));
+      const b = withPlan([{ fix: "chambers", why: "Your directory is cited " + P("ai/x.json", "n") + " times." }]);
+      if (b.length !== 1 || b[0] !== line(0, "chambers", "who links to you", "the AI answers")) bad.push("(b) " + JSON.stringify(b));
+      const c = withPlan([{ fix: "listings", why: "Your directory is cited " + P("ai/x.json", "n") + " times." }]); if (c.length) bad.push("(c) " + JSON.stringify(c));
+      const d = withPlan([{ fix: "chambers", why: "Your site is thin." }]);
+      if (d.length !== 1 || d[0] !== "$.plan[0].why: a reason needs at least one figure or name from a gathered file") bad.push("(d) " + JSON.stringify(d));
+      const e = withPlan([{ fix: "chambers", why: "Cited " + P("ai/x.json", "n") + " times and " + P("links/l.json", "n") + " sites link." }]); if (e.length) bad.push("(e) " + JSON.stringify(e));
+      const f = Shape.checkShape({ ...GOOD, plan: [{ fix: "chambers", why: "Cited " + P("ai/x.json", "n") + " times." }] }, GIVEN); if (f.length) bad.push("(f) " + JSON.stringify(f));
+      const g = withPlan([{ fix: "licence", why: "Cited " + P("ai/x.json", "n") + " times and " + P("research/a.json#x".split("#")[0], "n") + " here." }, { fix: "words", why: "Words " + P("ai/x.json", "n") + "." }]);
+      if (g.length !== 1 || !g[0].startsWith("$.plan[1]: the fix \"words\" may rest only on your website, and its reason points only into the AI answers")) bad.push("(g) a refusal for row 2 only: " + JSON.stringify(g));
+      check("22: checkShape with fixEvidence and fileTopics: the good answer passes; chambers resting on a file of the AI answers gets exactly the one line naming who links to you and the AI answers; the same row with listings gets none; a reason with no pointer gets its line; a reason pointing into two kinds one of them the fix's own gets none; nothing handed in is no check; only the row at fault is named", bad.length === 0, bad.join(" | ")); }
+    { const bad = [], row = (fix, file, k) => ({ ...GOOD, plan: [{ fix, why: "Counted " + S(file, k) + " times." }] });
+      const m = mk(), r = await go(m, [text(row("chambers", "research/a.json", "rows[0].count")), text(row("listings", "local/p.json", "reviews"))]), p1 = r.calls[0]?.prompt || "", p2 = r.calls[1]?.prompt || "";
+      const want = "$.plan[0]: the fix \"chambers\" may rest only on who links to you, and its reason points only into your website: take the fix that this evidence calls for, or leave the row out";
+      if (r.code !== 0 || r.calls.length !== 2) bad.push("exit " + r.code + ", calls " + r.calls.length + " " + r.last()?.slice(0, 200));
+      if (!p2.includes("Your answer was refused:") || !p2.includes(want)) bad.push("the second prompt lacks the line: " + p2.slice(-500));
+      if (!p1.includes("chambers: Join your local chambers and ask for listings. (may rest on: who links to you)")) bad.push("the fixes list of the prompt: " + p1.slice(p1.indexOf("chambers: "), p1.indexOf("chambers: ") + 140));
+      if (!p1.includes("site: Give your business a website of its own, with a page for each thing you sell. (may rest on: the search results, the map listing, what rivals do, what buyers search for, the AI answers)")) bad.push("the site row of the list");
+      if (!p1.includes("A fix may be used only when its reason points into the kind of source named beside it; if your evidence is of another kind, take the fix that fits it or leave the row out.")) bad.push("the brief lacks the line by the plan");
+      if (!fs.readFileSync(BRIEF, "utf8").includes("A fix may be used only when its reason points into the kind of source named beside it; if your evidence is of another kind, take the fix that fits it or leave the row out.")) bad.push("judge-brief.md lacks the line");
+      check("23: the judge: a first answer with a fix resting on evidence of another kind and a second with the right fix: exit 0, two asks, the second prompt holds the refusal line; the prompt's list reads id: fix (may rest on: plain words)", bad.length === 0, bad.join(" | ")); }
+    { const bad = [], ALL7 = { ...PROFILE, stations: ORDER.map((id) => st(id, "x", [stp("s-" + id, "gathered", ["research/a.json", "facts/f.json", "local/p.json", "b.json"], [])])) };
+      const giveUnder = (a, b) => text({ ...GOOD, sections: [sized("site", a), sized("local", b)] }), one = (r) => r.lines.length >= 1 && /^SKIPPED: /.test(r.last()) && !r.last().includes("\n");
+      // the too-few path: one topic gathered (the brief's "site and local gathered" is already two, which is the floor's own count)
+      { const m = mk(true, { ...PROFILE, stations: [st("site", "x", [stp("s-site", "gathered", ["b.json"], [])])] }), r = await go(m, [text(GOOD)]), run = readJ(m.run);
+        if (r.code !== 4 || !r.last().endsWith(MISSING(["site"])) || !one(r)) bad.push("too few: " + r.code + " " + r.last());
+        if (JSON.stringify(run?.notGatheredTopics) !== JSON.stringify(ORDER.slice(1))) bad.push("too few: run.json " + JSON.stringify(run?.notGatheredTopics)); }
+      // under the floor, site and local gathered: five named in order
+      { const m = mk(), r = await go(m, [giveUnder(14, 11), giveUnder(9, 6)]), run = readJ(m.run);
+        if (r.code !== 4 || !r.last().endsWith(" | not gathered: what buyers search for, the search results, the AI answers, what rivals do, who links to you; each one gathered adds a section of the report") || !one(r)) bad.push("floor: " + r.code + " " + r.last());
+        if (JSON.stringify(run?.notGatheredTopics) !== JSON.stringify(["demand", "search", "assistants", "rivals", "standing"])) bad.push("floor: run.json " + JSON.stringify(run?.notGatheredTopics)); }
+      // the first analysis under the floor and the second refused
+      { const long = { ...GOOD, sections: [{ ...GOOD.sections[0], points: [...GOOD.sections[0].points.slice(0, 5), "x".repeat(201)] }, GOOD.sections[1]] };
+        const m = mk(), r = await go(m, [giveUnder(14, 11), text(long)]);
+        if (r.code !== 4 || !r.last().includes("and the second was refused; the run stays an internal draft | not gathered: what buyers search for,") || !one(r)) bad.push("first-then-refused: " + r.code + " " + r.last()); }
+      // every kind gathered
+      { const m = mk(true, ALL7), r = await go(m, [giveUnder(14, 11), giveUnder(9, 6)]), run = readJ(m.run);
+        if (r.code !== 4 || !r.last().endsWith(" | every kind of source was gathered: this business shows too little for a client's report") || !one(r)) bad.push("all gathered: " + r.code + " " + r.last());
+        if (JSON.stringify(run?.notGatheredTopics) !== "[]") bad.push("all gathered: run.json " + JSON.stringify(run?.notGatheredTopics)); }
+      check("24: SKIPPED says what is missing: each of the paths ends with the not-gathered part (one gathered topic; site and local gathered naming the five others in order; the first analysis under the floor and the second refused; all seven gathered with the every-kind words); run.json holds the ids; the last line is one line that starts with SKIPPED", bad.length === 0, bad.join(" | ")); }
+    { const bad = [], one = (mut) => ({ ...FIXES[0], ...mut });
+      for (const [label, rows, id] of [["no evidence", [{ id: FIXES[0].id, fix: FIXES[0].fix, who: FIXES[0].who }, ...FIXES.slice(1)], FIXES[0].id], ["an empty list", [one({ evidence: [] }), ...FIXES.slice(1)], FIXES[0].id], ["a topic that is not a topic", [...FIXES.slice(0, 3), one2(FIXES[3], ["banana"]), ...FIXES.slice(4)], FIXES[3].id]]) {
+        const m = mk(), f = fake([text(GOOD)]); f.io.fixes = () => rows; const code = await J.judge(f.io, [m.key, "--cwd", tmp]);
+        if (code !== 3 || !f.last()?.startsWith("BLOCKED: client-copy/fixes.json: the fix " + id + " names no evidence | unblocks: ") || f.calls.length !== 0) bad.push(label + ": " + code + " " + f.last()?.slice(0, 160) + " calls " + f.calls.length); }
+      check("25: a fixes.json row with no evidence list, an empty one, or a topic that is not a topic: the judge ends BLOCKED naming the fix, zero asks", bad.length === 0, bad.join(" | ")); }
+    function one2(r, ev) { return { ...r, evidence: ev }; }
 
     // ---- 9: the manifest
     { const L = await import(pathToFileURL(path.join(here, "lib-pipeline.mjs")).href), G = await import(pathToFileURL(path.join(dir, "client-copy-gates.mjs")).href);
@@ -326,7 +403,7 @@ const MUTANTS = [
   { name: "the second ask does not carry the first answer", patches: [{ file: JM, from: "lastAnswer.slice(0, MAX_ANSWER_CHARS)", to: '""' }], expect: [/^3:/] },
   { name: "the word page before a figure is let through", patches: [{ file: "analysis-shape.mjs", from: "if (PAGE_FIGURE.test(v))", to: "if (false)" }], expect: [/^5c:/] },
   { name: "a pointer is counted at its typed length", patches: [{ file: "analysis-shape.mjs", from: 'text(n.value, at + ".value", 1, 40, 6)', to: 'text(n.value, at + ".value", 1, 40)' }], expect: [/^5b:/] },
-  { name: "the shape check is not called", patches: [{ file: JM, from: "lines = checkShape(look.object, { gatheredStations, fixIds })", to: "lines = []" }], expect: [/^5:/] },
+  { name: "the shape check is not called", patches: [{ file: JM, from: "lines = checkShape(look.object, { gatheredStations, fixIds, fixEvidence, fileTopics })", to: "lines = []" }], expect: [/^5:/] },
   { name: "a section for a station that gathered nothing is accepted", patches: [{ file: "analysis-shape.mjs", from: "!gatheredStations.includes(s.topic)", to: "false" }], expect: [/^5:/, /^8:/] },
   { name: "a fix outside the list is accepted", patches: [{ file: "analysis-shape.mjs", from: "!fixIds.includes(p.fix)", to: "false" }], expect: [/^5:/] },
   { name: "the model is asked although too little was gathered", patches: [{ file: JM, from: "if (topicStations.length < MIN_SECTIONS) {", to: "if (false) {" }], expect: [/^7:/] },
@@ -346,6 +423,11 @@ const MUTANTS = [
   { name: "checkShape does not refuse an analysis under the floor", patches: [{ file: "analysis-shape.mjs", from: "if (floor && Array.isArray(obj.sections)", to: "if (false && Array.isArray(obj.sections)" }], expect: [/^18:/, /^19:/] },
   { name: "two answers under the floor are BLOCKED, not SKIPPED", patches: [{ file: JM, from: "if (code !== 0 && refusals.length === MAX_ASKS && floorOnly(refusals[MAX_ASKS - 1]) && lastObject) {", to: "if (false) {" }], expect: [/^19:/] },
   { name: "the floor first and a refused second answer is BLOCKED", patches: [{ file: JM, from: "if (code !== 0 && refusals.length === MAX_ASKS && floorOnly(refusals[0]) && firstObject) {", to: "if (false) {" }], expect: [/^19:/] },
+  { name: "the evidence of a fix is not looked at", patches: [{ file: "analysis-shape.mjs", from: "if (!into.some((t) => fixEvidence[p.fix].includes(t)))", to: "if (false)" }], expect: [/^22:/, /^23:/] },
+  { name: "a reason with no pointer is accepted", patches: [{ file: "analysis-shape.mjs", from: 'if (!files.length) say(at + ".why", "a reason needs at least one figure or name from a gathered file");', to: "if (!files.length) { /* accepted */ }" }], expect: [/^22:/] },
+  { name: "fileTopicsOf counts a step that gathered nothing", patches: [{ file: "analysis-shape.mjs", from: 'if (sp?.bucket !== "gathered") continue;', to: "" }], expect: [/^21:/] },
+  { name: "the SKIPPED line does not say what was not gathered", patches: [{ file: JM, from: "const missingPart = () => notGatheredTopics.length ?", to: "const missingPart = () => notGatheredTopics.length > 99 ?" }], expect: [/^24:/, /^7:/, /^19:/] },
+  { name: "a fix with no evidence list is accepted", patches: [{ file: "analysis-shape.mjs", from: "if (!Array.isArray(f?.evidence) || !f.evidence.length || !f.evidence.every((t) => TOPICS.includes(t))) return", to: "if (false) return" }], expect: [/^25:/] },
   { name: "the answer's text is written into run.json", patches: [{ file: JM, from: "const record = {", to: "const record = { answer: lastAnswer," }], expect: [/^1:/] },
 ];
 

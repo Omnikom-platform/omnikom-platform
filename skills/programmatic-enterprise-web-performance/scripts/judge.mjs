@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url";
 import { isMain } from "./lib-main.mjs";
 import { supervised, whichExe } from "./lib-freshness.mjs";
 import { locate } from "./state.mjs";
-import { TOPICS, MIN_SECTIONS, MAX_SECTIONS, MIN_PAGES, checkShape, fullPages, isFloorLine } from "./analysis-shape.mjs";
+import { TOPICS, MIN_SECTIONS, MAX_SECTIONS, MIN_PAGES, PLAIN_TOPIC, checkShape, fullPages, isFloorLine, fileTopicsOf, fixesProblem } from "./analysis-shape.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const skillDir = path.resolve(here, "..");
@@ -66,7 +66,7 @@ function filesOf(profile) {
 }
 
 const fill = (brief, pewp, files, topics, fixes) => brief.split("{{PEWP}}").join(norm(pewp)).split("{{FILES}}").join(files.length ? files.join("\n") : "(none: no gathered step left a .json file)")
-  .split("{{TOPICS}}").join(topics.map((s) => "- " + s.id + ": " + s.what).join("\n")).split("{{FIXES}}").join(fixes.map((f) => "- " + f.id + ": " + f.fix).join("\n"))
+  .split("{{TOPICS}}").join(topics.map((s) => "- " + s.id + ": " + s.what).join("\n")).split("{{FIXES}}").join(fixes.map((f) => "- " + f.id + ": " + f.fix + " (may rest on: " + (f.evidence || []).map((t) => PLAIN_TOPIC[t]).join(", ") + ")").join("\n"))
   .split("{{MINMAX}}").join(MIN_SECTIONS + " to " + MAX_SECTIONS);
 
 export async function judge(io, argv) {
@@ -81,6 +81,8 @@ export async function judge(io, argv) {
   let loc; try { loc = locate(key, { cwd }); } catch (e) { return usage(e.message); }
   const pewp = loc.pewp, profileFile = path.join(pewp, "profile.json");
   const blocked = (what, unblocks) => { out("BLOCKED: " + what + " | unblocks: " + unblocks); return 3; };
+  const fixProblem = fixesProblem(io.fixes());   // every fix names the kinds of source its reason may rest on, or nothing else is done
+  if (fixProblem) return blocked("client-copy/fixes.json: " + fixProblem, "give that fix an evidence list of known topics in client-copy/fixes.json");
   let profile = null; try { profile = JSON.parse(fs.readFileSync(profileFile, "utf8").replace(/^﻿/, "")); } catch { /* none */ }
   if (!isObj(profile)) return blocked("there is no profile (" + norm(profileFile) + ")", "run client-profile first");
 
@@ -88,22 +90,25 @@ export async function judge(io, argv) {
   const startedAt = new Date(io.now()).toISOString();
   const topicStations = stationsGathered(profile).filter((s) => TOPICS.includes(s.id));
   const gatheredStations = topicStations.map((s) => s.id);
+  const notGatheredTopics = TOPICS.filter((t) => !gatheredStations.includes(t));
+  // what a skipped report says is missing: a plain line, so that the run is never a dead end
+  const missingPart = () => notGatheredTopics.length ? " | not gathered: " + notGatheredTopics.map((t) => PLAIN_TOPIC[t]).join(", ") + "; each one gathered adds a section of the report" : " | every kind of source was gathered: this business shows too little for a client's report";
   if (topicStations.length < MIN_SECTIONS) {   // the floor: too little gathered for a client report; no model is asked and nothing is written but run.json
     fs.mkdirSync(path.join(pewp, "judge"), { recursive: true });
-    fs.writeFileSync(path.join(pewp, "judge", "run.json"), JSON.stringify({ model, effort, startedAt, endedAt: new Date(io.now()).toISOString(), attempts: 0, outcome: "skipped", values: null, asks: [] }, null, 1) + "\n");
-    out("SKIPPED: too little was gathered for a client report (" + topicStations.length + " of the " + TOPICS.length + " kinds of source); the run stays an internal draft");
+    fs.writeFileSync(path.join(pewp, "judge", "run.json"), JSON.stringify({ model, effort, startedAt, endedAt: new Date(io.now()).toISOString(), attempts: 0, outcome: "skipped", values: null, notGatheredTopics, asks: [] }, null, 1) + "\n");
+    out("SKIPPED: too little was gathered for a client report (" + topicStations.length + " of the " + TOPICS.length + " kinds of source); the run stays an internal draft" + missingPart());
     return 4;
   }
   const older = (Array.isArray(profile.stations) ? profile.stations : []).some((st) => (Array.isArray(st?.steps) ? st.steps : []).some((sp) => sp.bucket === "gathered" && !Array.isArray(sp.jsonFiles)));
   if (older) return blocked("the profile is older than the judge (it names no jsonFiles)", "run client-profile again");
   clearOutputs();
-  const fixIds = io.fixes().map((f) => f.id);
+  const fixIds = io.fixes().map((f) => f.id), fixEvidence = Object.fromEntries(io.fixes().map((f) => [f.id, f.evidence])), fileTopics = fileTopicsOf(profile);
   const prompt = fill(io.brief(), pewp, filesOf(profile), topicStations, io.fixes());
   const opts = { model, effort, tools: TOOLS, cwd: pewp, addDirs: [pewp], timeoutMs: Math.round(minutes * 60_000) };
   const asks = [], refusals = [];
   let outcome = "failed", values = null, lastAnswer = "", code = 3, last = null, lastObject = null, firstObject = null;
   const finish = () => {
-    const record = { model, effort, startedAt, endedAt: new Date(io.now()).toISOString(), attempts: asks.length, outcome, values, asks };
+    const record = { model, effort, startedAt, endedAt: new Date(io.now()).toISOString(), attempts: asks.length, outcome, values, notGatheredTopics, asks };
     fs.mkdirSync(path.join(pewp, "judge"), { recursive: true });
     fs.writeFileSync(path.join(pewp, "judge", "run.json"), JSON.stringify(record, null, 1) + "\n");
   };
@@ -131,7 +136,7 @@ export async function judge(io, argv) {
     lastObject = look.object || null;
     if (ask === 1) firstObject = lastObject;
     if (look.lines) lines = look.lines;
-    else if ((lines = checkShape(look.object, { gatheredStations, fixIds })).length) { /* the shape is refused: the lines are the refusal */ }
+    else if ((lines = checkShape(look.object, { gatheredStations, fixIds, fixEvidence, fileTopics })).length) { /* the shape is refused: the lines are the refusal */ }
     else {
       fs.writeFileSync(path.join(pewp, "analysis.json"), JSON.stringify(look.object, null, 1) + "\n");
       const c = spawnSync(process.execPath, [path.join(here, "analysis-check.mjs"), key, "--cwd", cwd], { encoding: "utf8", timeout: 120_000, windowsHide: true });
@@ -147,14 +152,14 @@ export async function judge(io, argv) {
   if (code !== 0 && refusals.length === MAX_ASKS && floorOnly(refusals[MAX_ASKS - 1]) && lastObject) {
     clearOutputs(); outcome = "skipped"; finish();
     fs.writeFileSync(path.join(pewp, "analysis.json"), JSON.stringify(lastObject, null, 1) + "\n");
-    out("SKIPPED: too little for a client's report: the analysis fills " + fullPages(lastObject.sections) + " analysis page(s) at least half full (it needs " + MIN_PAGES + "); the run stays an internal draft");
+    out("SKIPPED: too little for a client's report: the analysis fills " + fullPages(lastObject.sections) + " analysis page(s) at least half full (it needs " + MIN_PAGES + "); the run stays an internal draft" + missingPart());
     return 4;
   }
   // the floor came first (the first answer's only refusal) and the second answer was refused for any reason: the cause is the floor's, not the second answer's faults; both asks go to refused.txt
   if (code !== 0 && refusals.length === MAX_ASKS && floorOnly(refusals[0]) && firstObject) {
     clearOutputs(); outcome = "skipped"; finish();
     fs.writeFileSync(path.join(pewp, "judge", "refused.txt"), refusals.map((l, i) => "ask " + (i + 1) + ":\n" + l.join("\n")).join("\n\n") + "\n");
-    out("SKIPPED: too little for a client's report: the first analysis filled " + fullPages(firstObject.sections) + " analysis page(s) at least half full (it needs " + MIN_PAGES + ") and the second was refused; the run stays an internal draft");
+    out("SKIPPED: too little for a client's report: the first analysis filled " + fullPages(firstObject.sections) + " analysis page(s) at least half full (it needs " + MIN_PAGES + ") and the second was refused; the run stays an internal draft" + missingPart());
     return 4;
   }
   if (code !== 0) {
