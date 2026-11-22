@@ -12,7 +12,10 @@
 // The model may only read: tools Read, Grep, Glob; its folder and its one added folder are {pewp}; no permission mode that accepts edits. The answer is taken from the CLI's
 // JSON ("result"), never from a file the model wrote.
 // An answer the judge refuses itself (not JSON, not an object, or any line of checkShape) or the check refuses (exit 1) gets ONE more ask: the same
-// prompt plus its last answer and the refusal lines (at most 40), with the order to change only what was refused. A second refusal: exit 3 BLOCKED, refused.txt written, no checked file. Never a third ask. A model that cannot start, ends with a
+// prompt plus its last answer and the refusal lines (at most 40), with the order to change only what was refused. A second refusal: exit 3 BLOCKED, refused.txt written, no checked file. Never a third ask.
+// The floor of pages (AB-8c): the sections must fill 2 analysis pages at least half full (checkShape gives one line for it). A second answer refused for that line and nothing else is exit 4
+// "SKIPPED: too little for a client's report: ...": the answer stays in analysis.json, no checked file, no refused.txt, run.json outcome "skipped". The floor line alone as the FIRST refusal and any
+// refusal of the second answer is also exit 4 SKIPPED (the line says the first analysis filled n pages and the second was refused), refused.txt holding both asks. Any other second refusal is BLOCKED as above. A model that cannot start, ends with a
 // non-zero code, runs past the limit or prints what is not the CLI's JSON: exit 3 BLOCKED, no retry.
 // Exit 0: last line "JUDGE OK: the analysis was written and checked (<n> values, <a> ask(s))". Exit 2: usage. Exit 3: "BLOCKED: <what> | unblocks: <what>". Exit 4: SKIPPED (the floor).
 // Every outside thing (the model, the brief, the clock, the output) comes in through one io object, so test-judge.mjs starts no model. The check runs for real, as a child process.
@@ -23,7 +26,7 @@ import { fileURLToPath } from "node:url";
 import { isMain } from "./lib-main.mjs";
 import { supervised, whichExe } from "./lib-freshness.mjs";
 import { locate } from "./state.mjs";
-import { TOPICS, MIN_SECTIONS, MAX_SECTIONS, checkShape } from "./analysis-shape.mjs";
+import { TOPICS, MIN_SECTIONS, MAX_SECTIONS, MIN_PAGES, checkShape, fullPages, isFloorLine } from "./analysis-shape.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const skillDir = path.resolve(here, "..");
@@ -33,6 +36,7 @@ const MAX_REFUSAL_LINES = 40;
 const MAX_ANSWER_CHARS = 20000; // the last answer goes back to the model with its refusal (the first real run rewrote everything and made new faults)
 const OUTPUTS = ["analysis.checked.json", "analysis.sheet.json"];
 const USAGE = "usage: node judge.mjs <url or profile:slug> [--cwd DIR] [--model sonnet] [--effort high] [--timeout-min 15]";
+const floorOnly = (lines) => lines.length === 1 && isFloorLine(lines[0]);
 const norm = (p) => String(p).replace(/\\/g, "/");
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
@@ -97,7 +101,7 @@ export async function judge(io, argv) {
   const prompt = fill(io.brief(), pewp, filesOf(profile), topicStations, io.fixes());
   const opts = { model, effort, tools: TOOLS, cwd: pewp, addDirs: [pewp], timeoutMs: Math.round(minutes * 60_000) };
   const asks = [], refusals = [];
-  let outcome = "failed", values = null, lastAnswer = "", code = 3, last = null;
+  let outcome = "failed", values = null, lastAnswer = "", code = 3, last = null, lastObject = null, firstObject = null;
   const finish = () => {
     const record = { model, effort, startedAt, endedAt: new Date(io.now()).toISOString(), attempts: asks.length, outcome, values, asks };
     fs.mkdirSync(path.join(pewp, "judge"), { recursive: true });
@@ -124,6 +128,8 @@ export async function judge(io, argv) {
 
     let lines = [];
     const look = ownLook(lastAnswer);
+    lastObject = look.object || null;
+    if (ask === 1) firstObject = lastObject;
     if (look.lines) lines = look.lines;
     else if ((lines = checkShape(look.object, { gatheredStations, fixIds })).length) { /* the shape is refused: the lines are the refusal */ }
     else {
@@ -137,6 +143,20 @@ export async function judge(io, argv) {
     refusals.push(lines);
   }
 
+  // the second answer is refused for the floor of pages and for nothing else: not a fault of the answer but too little in the files: the answer stays, the run stays an internal draft
+  if (code !== 0 && refusals.length === MAX_ASKS && floorOnly(refusals[MAX_ASKS - 1]) && lastObject) {
+    clearOutputs(); outcome = "skipped"; finish();
+    fs.writeFileSync(path.join(pewp, "analysis.json"), JSON.stringify(lastObject, null, 1) + "\n");
+    out("SKIPPED: too little for a client's report: the analysis fills " + fullPages(lastObject.sections) + " analysis page(s) at least half full (it needs " + MIN_PAGES + "); the run stays an internal draft");
+    return 4;
+  }
+  // the floor came first (the first answer's only refusal) and the second answer was refused for any reason: the cause is the floor's, not the second answer's faults; both asks go to refused.txt
+  if (code !== 0 && refusals.length === MAX_ASKS && floorOnly(refusals[0]) && firstObject) {
+    clearOutputs(); outcome = "skipped"; finish();
+    fs.writeFileSync(path.join(pewp, "judge", "refused.txt"), refusals.map((l, i) => "ask " + (i + 1) + ":\n" + l.join("\n")).join("\n\n") + "\n");
+    out("SKIPPED: too little for a client's report: the first analysis filled " + fullPages(firstObject.sections) + " analysis page(s) at least half full (it needs " + MIN_PAGES + ") and the second was refused; the run stays an internal draft");
+    return 4;
+  }
   if (code !== 0) {
     clearOutputs(); outcome = "refused"; finish();
     fs.writeFileSync(path.join(pewp, "judge", "refused.txt"), refusals.map((l, i) => "ask " + (i + 1) + ":\n" + l.join("\n")).join("\n\n") + "\n");

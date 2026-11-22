@@ -3,6 +3,7 @@
 // copy's look, with its numbers sheet, every gate passed before anything is written. Run on INVENTED run folders (a profile with gathered stations and small
 // invented files, an invented analysis), the REAL analysis-check.mjs makes the checked file and the sheet, the real analysis-copy.mjs runs as a child
 // process with the real words and assets folders and the real product book. No network, no model, no browser.
+// AB-8c: the sections are packed onto pages by their size in lines (analysis-shape.mjs), the floor is counted on analysis pages at least half full, a page with little on it is set larger (roomy).
 // Pinned: the pages and their order, the sheet (the month row, one row per pointer on the page that prints it, plan rows, step titles), every STOP with its own
 // words and nothing written, the gates, the escaping of every value, the number format, the plan from fixes.json, the last page and the WORKS rule against the
 // old data layer's rule, the manifest step. Mutants: a fault patched into a copy of the scripts must turn the named case red.
@@ -31,9 +32,15 @@ const DATA = {
 };
 const PTR = { site: ["pages", "words", "term"], search: ["share", "rank", "clicks"], local: ["spots", "n", "reviews"], rivals: ["top", "second", "third"], assistants: ["named", "asked", "first"] };
 const ptrs = (topic) => PTR[topic].map((k) => S(topic + ".json", k));
-// a section with substance (3 pointers in its points), and a thin one with k pointers in all (k = 0 to 3)
-const sec = (topic, extra = {}) => ({ topic, title: "What we read about " + topic, lede: "A plain sentence about " + topic + " in your market today.", points: ["A plain point about " + topic, "Here are " + ptrs(topic).join(", ") + " today"], ...extra });
-const thin = (topic, k) => ({ topic, title: "What we read about " + topic, lede: "A plain sentence about " + topic + " in your market today.", points: ["A plain point about " + topic, ...ptrs(topic).slice(0, k).map((p) => "Here is " + p)] });
+// plain filler: a point or a table row with no pointer and no digit
+const PT6 = ["Rivals send more words than you do.", "Search engines list only what they can read on a page.", "A page with few words is shown for few searches.", "Rivals give each product a page of its own.", "Your home page names the shop and little else.", "Buyers who search by town find the rivals first."];
+const NAMES = ["Hilltop", "Valley", "Creek", "Meadow", "Harbor", "Summit", "Orchard", "Forest", "Lakeside", "Riverside", "Woodside", "Northgate"];
+const plainRows = (k) => Array.from({ length: k }, (_, i) => [NAMES[i % NAMES.length] + " Bakery", "Fewer words"]);
+// a section filled to 21 lines by the pack rule's own count (heading and lede 5, 6 points, a table of 8 rows 2 + 8): two of them never share a page, so each has a page of its own, as the cases below expect
+const full = (s) => { const points = [...s.points]; while (points.length < 6) points.push(PT6[points.length]); const t = s.table || { columns: ["Business", "Words"], rows: [] }, rows = [...t.rows]; while (rows.length < 8) rows.push(plainRows(8)[rows.length]); return { ...s, points, table: { ...t, rows } }; };
+const sec = (topic, extra = {}) => full({ topic, title: "What we read about " + topic, lede: "A plain sentence about " + topic + " in your market today.", points: ["A plain point about " + topic, "Here are " + ptrs(topic).join(", ") + " today"], ...extra });
+// a section built to be exactly L lines (L up to 11 is points only, above that 6 points or fewer and a table), its first point holding one pointer
+const sized = (topic, L) => { let p = L - 5, rows = 0; if (L > 11) for (p = 6; p >= 1; p--) { rows = L - 5 - p - 2; if (rows >= 1 && rows <= 12) break; } const points = PT6.slice(0, p); points[0] = "Here is " + S(topic + ".json", PTR[topic][0]); return { topic, title: "What we read about " + topic, lede: "A plain sentence about " + topic + " in your market today.", points, ...(rows ? { table: { columns: ["Business", "Words"], rows: plainRows(rows) } } : {}) }; };
 const A1 = () => ({
   business: S("site.json", "name"),
   verdict: "Buyers who search for what you sell are shown other firms.",
@@ -98,7 +105,7 @@ async function scenarios(dir) {
       if (c1.code !== 0) bad.push("exit " + c1.code + " " + c1.err.slice(0, 300));
       if (c1.files.join() !== "c1.example.test-audit-2031-03-01-draft.html,numbers-2031-03-01.tsv") bad.push("files " + c1.files.join());
       if (c1.lines.length !== 3 || !/^wrote .*-draft\.html$/.test(c1.lines[0]) || !/^wrote .*numbers-2031-03-01\.tsv$/.test(c1.lines[1]) || c1.lines[2] !== "sections: 7") bad.push("console " + JSON.stringify(c1.lines));
-      if (s.length !== 7 || !s[0].startsWith('<section class="cover" id="p1">') || s.some((x, i) => i > 0 && !x.startsWith('<section class="pg" id="p' + (i + 1) + '">'))) bad.push("sections " + s.length);
+      if (s.length !== 7 || !s[0].startsWith('<section class="cover" id="p1">') || s.some((x, i) => i > 0 && !(x.startsWith('<section class="pg') && x.includes('id="p' + (i + 1) + '">') && /^<section class="pg( roomy)?" id=/.test(x)))) bad.push("sections " + s.length);
       try { G.gates({ html: c1.html, tsv: c1.tsv, pages: 7, logoUrl: LOGO, internal: [], title: "SEO and local audit", topics: ["site", "local", "rivals"], contact: HW.contact }); } catch (e) { bad.push("gates again: " + e.message); }
       const rows = rowsOf(c1.tsv);
       if (c1.tsv.split("\n")[0] !== ["page", "the text it stands in", "printed", "file", "where in the file", "value there", "measured", "kind"].join("\t")) bad.push("sheet header");
@@ -266,7 +273,23 @@ async function scenarios(dir) {
     // ---- 11 to 15 share these builders: the bakery case (site with a table of 3 rows, search with 2 points and 3 pointers in all and no table, local with a table of 3 rows)
     const table3 = (topic) => ({ columns: ["Name", "Figure"], rows: [0, 1, 2].map(() => [S(topic + ".json", PTR[topic][0]), S(topic + ".json", PTR[topic][1])]) });
     const searchRich = () => sec("search", { points: ["Here are " + S("search.json", "share") + " and " + S("search.json", "rank"), "And " + S("search.json", "clicks") + " too"] });
-    const bakery = () => ({ ...A1(), sections: [thin("site", 0), searchRich(), thin("local", 0)].map((s, i) => (i === 1 ? s : { ...s, table: table3(s.topic) })) });
+    const bakery = () => ({ ...A1(), sections: [sec("site", { table: table3("site") }), searchRich(), sec("local", { table: table3("local") })] });
+    // the rule that sets a page's lower part larger (roomy) and the rule that puts space before a shared page's next title; the heading and the label are never scaled
+    const ZOOM_RULE = ".pg .in.roomy>*:not(.shead):not(h2){zoom:1.3}", SPACE_RULE = ".pg .in>:not(.shead)+h2{margin-top:20pt}";
+    // the direct children of a page's inner div, as { tag, cls, html } (a small tag walk: the report's html is regular)
+    const kids = (page) => {
+      const m = /<div class="in(?: roomy)?">/.exec(page); if (!m) return [];
+      const re = /<(\/?)([a-z0-9]+)([^>]*)>/gi, out = [], VOID = new Set(["br", "img", "hr", "input", "meta", "link"]); re.lastIndex = m.index + m[0].length;
+      let depth = 0, cur = null, x;
+      while ((x = re.exec(page))) {
+        const close = x[1] === "/", tag = x[2].toLowerCase();
+        if (close) { if (depth === 0) break; depth--; if (depth === 0) { cur.html = page.slice(cur.start, re.lastIndex); out.push(cur); } continue; }
+        if (depth === 0) cur = { tag, cls: (/class="([^"]*)"/.exec(x[3]) || [])[1] || "", start: x.index };
+        if (VOID.has(tag)) { if (depth === 0) { cur.html = x[0]; out.push(cur); } continue; }
+        depth++;
+      }
+      return out;
+    };
     const labelOf = (s) => ((s.match(/<div class="label">([^<]*)<\/div>/) || [])[1] || "");
     const MAIL = "hello@omnikom.ai", OURS = /first response|words sent|sends its words/i;
 
@@ -307,41 +330,32 @@ async function scenarios(dir) {
       check("case 13: our words: the real fixes.json and how-we-work.json hold none of first response, words sent, sends its words in the texts this builder prints, and the real report none; an analysis with words sent in a label, first response (spaced) in a point or Sends Its Words in a line of the back list is the STOP of gate our words, nothing written", bad.length === 0, bad.join(" | "));
     }
 
-    // ---- 14: thin pages do not count
+    // ---- 14: sections are packed onto pages by their size (AB-8c: this case held AB-8b's thin pages and the one merged page; it now holds the pack rule)
     {
       const bad = [], P = (n, ...a) => bad.push("(" + n + ") " + a.join(" "));
-      const withSecs = (name, list) => { const r = mk(name, [...new Set([...list.map((s) => s.topic), "site", "local"])], { ...A1(), sections: list }); return copy(r); };
-      const floor = /^STOP: too little for a client's report: 1 analysis page\(s\) with substance \(it needs 2\); the run stays an internal draft$/;
-      // (a) the search section cut to 2 pointers and no table has no page of its own: its page is the merged page, after the pages of the sections with substance
-      const a = bakery(); a.sections[1] = thin("search", 2);
-      const ca = copy(mk("ta", ["site", "search", "local"], a)), sa = secs(ca.html);
-      if (ca.code !== 0 || sa.length !== 7) P("a", "exit " + ca.code + " " + ca.err.slice(0, 200) + " " + sa.length);
+      const withSizes = (name, spec) => { const list = spec.map(([t, L]) => sized(t, L)); return copy(mk(name, [...new Set([...list.map((s) => s.topic), "site", "local"])], { ...A1(), sections: list })); };
+      // (a) 22, 8, 22 lines: the small search section shares the first page with the website, the map section has the next
+      const ca = withSizes("ta", [["site", 22], ["search", 8], ["local", 22]]), sa = secs(ca.html);
+      if (ca.code !== 0 || sa.length !== 6) P("a", "exit " + ca.code + " " + ca.err.slice(0, 200) + " " + sa.length);
       else {
-        if (labelOf(sa[2]) !== "Your website" || labelOf(sa[3]) !== "Seen on the map" || labelOf(sa[4]) !== "Found in search") P("a", "the order of the pages", [2, 3, 4].map((i) => labelOf(sa[i])).join(" / "));
-        if (!/<h3[^>]*>What we read about search<\/h3>/.test(sa[4]) || /<h2>/.test(sa[4]) || !/<h2>What we read about site<\/h2>/.test(sa[2])) P("a", "the search title is not a smaller heading on the merged page");
+        if (labelOf(sa[2]) !== "Your website and found in search" || labelOf(sa[3]) !== "Seen on the map") P("a", "the labels", [2, 3].map((i) => labelOf(sa[i])).join(" / "));
+        if (!/<h2>What we read about site<\/h2>[\s\S]*<h2>What we read about search<\/h2>/.test(sa[2]) || /<h3[^>]*>What we read about/.test(sa[2]) || !/<h2>What we read about local<\/h2>/.test(sa[3])) P("a", "the titles are not h2 headings in order on the shared page, and the page of one section has its h2");
+        if (!sa[2].includes("A plain sentence about search in your market today.")) P("a", "the lede of the second section");
+        if (!rowsOf(ca.tsv).some((x) => x[0] === "3" && x[1] === "$.sections[1].points[0]") || !rowsOf(ca.tsv).some((x) => x[0] === "4" && x[1] === "$.sections[2].points[0]")) P("a", "the sheet rows follow the pages");
+        if (ca.lines[ca.lines.length - 1] !== "sections: 6" || ca.lines.some((l) => /under half full/.test(l))) P("a", "console " + JSON.stringify(ca.lines));
       }
-      // (b) two thin sections: ONE merged page with the joined label and both titles as smaller headings
-      const cb = withSecs("tb", [sec("site"), thin("search", 2), thin("local", 2)]), sb = secs(cb.html);
+      // (b) 10, 10, 10, 22: three sections on the first page, the label of three
+      const cb = withSizes("tb", [["site", 10], ["search", 10], ["local", 10], ["rivals", 22]]), sb = secs(cb.html);
       if (cb.code !== 0 || sb.length !== 6) P("b", "exit " + cb.code + " " + cb.err.slice(0, 200) + " " + sb.length);
-      else {
-        if (labelOf(sb[3]) !== "Found in search and seen on the map") P("b", "label " + labelOf(sb[3]));
-        for (const t of ["search", "local"]) if (!new RegExp("<h3[^>]*>What we read about " + t + "</h3>").test(sb[3]) || !sb[3].includes("A plain sentence about " + t + " in your market today.")) P("b", "the title or lede of " + t);
-        if (/<h2>/.test(sb[3])) P("b", "the merged page has an h2");
-        if (!rowsOf(cb.tsv).some((x) => x[0] === "4" && x[1] === "$.sections[1].points[1]") || !rowsOf(cb.tsv).some((x) => x[0] === "4" && x[1] === "$.sections[2].points[1]")) P("b", "the sheet rows of the merged page");
-        if (!cb.html.includes("<h1>SEO and local audit</h1>")) P("b", "the title follows the sections printed");
-      }
-      // (c) the floor is counted after merging
-      const cc = withSecs("tc", [sec("site"), thin("search", 2), thin("local", 1)]);
-      if (cc.code !== 0 || secs(cc.html).length !== 6 || cc.lines[cc.lines.length - 1] !== "sections: 6") P("c", "one section with substance and a merged page of 3 pointers: exit " + cc.code + " " + cc.err.slice(0, 200));
-      bad.push(...stopped(withSecs("tc2", [sec("site"), thin("search", 1), thin("local", 1)]), floor, "(c) a merged page of 2 pointers"));
-      bad.push(...stopped(withSecs("tc3", [thin("site", 2), thin("search", 2)]), floor, "(c) two thin sections only"));
-      // (d) four sections with substance: 8 pages as before
-      const cd = withSecs("td", [sec("site"), sec("search"), sec("local"), sec("rivals")]);
-      if (cd.code !== 0 || cd.lines[cd.lines.length - 1] !== "sections: 8") P("d", "four sections: exit " + cd.code + " " + cd.err.slice(0, 200));
-      // a table of 3 rows alone is substance; a table of 2 rows with no pointers is not
-      const t2 = withSecs("te", [sec("site"), { ...thin("search", 0), table: { columns: ["A", "B"], rows: [["x", "y"], ["z", "w"]] } }, thin("local", 2)]);
-      if (t2.code !== 1 || !floor.test(t2.err)) P("e", "a table of 2 rows counts: exit " + t2.code + " " + t2.err.slice(0, 160));
-      check("case 14: thin pages: (a) a section of 2 pointers and no table has no page of its own; (b) two thin sections are one merged page with the joined label and both titles as smaller headings; (c) the floor is counted after merging: 1 + a merged page of 3 pointers is built (6 pages), 1 + a merged page of 2 pointers, or two thin sections only, is the STOP line with nothing written; (d) four sections with substance: 8 pages; a table of 2 rows is not substance", bad.length === 0, bad.join(" | "));
+      else if (labelOf(sb[2]) !== "Your website, found in search and seen on the map" || labelOf(sb[3]) !== "What rivals do") P("b", "the labels", [2, 3].map((i) => labelOf(sb[i])).join(" / "));
+      // (c) four sections of 22 lines: a page each, 8 pages
+      const cc = withSizes("tc", [["site", 22], ["search", 22], ["local", 22], ["rivals", 22]]);
+      if (cc.code !== 0 || cc.lines[cc.lines.length - 1] !== "sections: 8") P("c", "four sections: exit " + cc.code + " " + cc.err.slice(0, 200));
+      // (d) 22, 12, 8: the last page is under half and the page before holds two sections, so the balancing step moves the 12 over: two pages of 22
+      const cd = withSizes("td", [["site", 22], ["search", 12], ["local", 8]]), sd = secs(cd.html);
+      if (cd.code !== 0 || sd.length !== 6) P("d", "exit " + cd.code + " " + cd.err.slice(0, 200) + " " + sd.length);
+      else if (labelOf(sd[2]) !== "Your website" || labelOf(sd[3]) !== "Found in search and seen on the map") P("d", "the labels after balancing", [2, 3].map((i) => labelOf(sd[i])).join(" / "));
+      check("case 14: the pack rule: (a) sizes 22, 8, 22: the small section shares the first page, the labels are joined (the second in lower case), both titles are headings (h2) in order, the sheet rows follow the pages; (b) 10, 10, 10, 22: the label of three; (c) four sections of 22: 8 pages; (d) 22, 12, 8: balanced once into two pages of 22", bad.length === 0, bad.join(" | "));
     }
 
     // ---- 15: the last page and its address
@@ -368,6 +382,74 @@ async function scenarios(dir) {
       bad.push(...stopped(copy(mk("ct1", ["site", "local", "rivals"], a)), /^STOP: gate contact line: page 1 prints "hello@omnikom\.ai"$/, "the address on the cover"));
       check("case 15: the last page with the real how-we-work.json: the box with goAhead and hello@omnikom.ai once as text and once as the mail link, on the last page only, the gates pass; with no contact key or an empty one: no box, no goAhead, no address, the promise once as a paragraph; the address typed into the analysis (the cover) is refused", bad.length === 0, bad.join(" | "));
     }
+
+    // ---- 16: the second analysis page holds two sections
+    {
+      const bad = [], list = [sized("site", 20), sized("search", 23), sized("local", 15)];
+      const r = mk("p16", ["site", "search", "local"], { ...A1(), sections: list }), c = copy(r), s = secs(c.html);
+      if (c.code !== 0) bad.push("exit " + c.code + " " + c.err.slice(0, 300));
+      if (s.length !== 6 || c.lines[c.lines.length - 1] !== "sections: 6") bad.push("pages " + s.length + " " + c.lines[c.lines.length - 1]);
+      else {
+        if (labelOf(s[2]) !== "Your website" || labelOf(s[3]) !== "Found in search and seen on the map") bad.push("labels " + [2, 3].map((i) => labelOf(s[i])).join(" / "));
+        // the title of each section is the same element, class and size as the heading of a single page: a bare h2 (the style has no rule for h2 on one page only), the first right under the label, and the page of one section is the model
+        const heads = (page) => [...page.matchAll(/<(h[1-6])([^>]*)>([^<]*)<\/\1>/g)].map((m) => m[1] + "|" + m[2].trim() + "|" + m[3]);
+        const single = heads(s[2]).filter((h) => h.startsWith("h2|")), shared = heads(s[3]);
+        if (single.length !== 1 || single[0] !== "h2||What we read about site") bad.push("the heading of a single page is not a bare h2: " + JSON.stringify(heads(s[2])));
+        if (shared.join() !== "h2||What we read about search,h2||What we read about local") bad.push("the titles of the shared page are not bare h2 headings in order: " + JSON.stringify(shared));
+        if (!/<div class="label">[^<]*<\/div>\s*<\/div>\s*<h2>What we read about search<\/h2>/.test(s[3])) bad.push("the first title is not right under the label");
+        if (!c.html.includes(SPACE_RULE)) bad.push("the style has no space before the next section's title: " + SPACE_RULE);
+        if (!/<table class="plan">/.test(s[4]) || !/<ol class="steps"/.test(s[5])) bad.push("the plan and the last page are not the pages after");
+      }
+      try { G.gates({ html: c.html, tsv: c.tsv, pages: 6, logoUrl: LOGO, internal: [], title: "SEO and local audit", topics: ["site", "search", "local"], contact: HW.contact }); } catch (e) { bad.push("gates again: " + e.message); }
+      check("case 16: sections of 20, 23 and 15 lines: 6 pages (cover, summary, two analysis pages, plan, last page); the second analysis page is labelled with the two labels joined, the second in lower case, both titles are bare h2 headings in order (the element and class of a single page's heading), the first right under the label, with space before the next, the gates pass", bad.length === 0, bad.join(" | "));
+    }
+
+    // ---- 17: the floor is counted on pages at least half full
+    {
+      const bad = [], floor = (k) => new RegExp("^STOP: too little for a client's report: " + k + " analysis page\\(s\\) at least half full \\(it needs 2\\); the run stays an internal draft$");
+      const withSizes = (name, sizes) => copy(mk(name, ["site", "search", "local"], { ...A1(), sections: ["site", "search", "local"].slice(0, sizes.length).map((t, i) => sized(t, sizes[i])) }));
+      bad.push(...stopped(withSizes("f1", [13, 12, 13]), floor(1), "13, 12, 13"));
+      bad.push(...stopped(withSizes("f2", [8, 8]), floor(0), "8, 8"));
+      bad.push(...stopped(withSizes("f3", [11, 10]), floor(1), "11, 10"));
+      const ok = withSizes("f4", [20, 23, 15]);
+      if (ok.code !== 0) bad.push("20, 23, 15: exit " + ok.code + " " + ok.err.slice(0, 160));
+      check("case 17: sections of 13, 12 and 13 lines (one page of 27 and one of 13, no move): the STOP line of the floor with 1 page, nothing written; 8 and 8: 0 pages; 11 and 10: 1 page; 20, 23, 15 is built", bad.length === 0, bad.join(" | "));
+    }
+
+    // ---- 18: a page with little on it is set larger
+    {
+      const bad = [], roomy = (x) => !!x && x.startsWith('<section class="pg" id="p') && /<div class="in roomy">/.test(x), plainPg = (x) => !!x && x.startsWith('<section class="pg" id="p') && /<div class="in">/.test(x);
+      const s = secs(c1.html);
+      if (c1.code !== 0) bad.push("the first run: exit " + c1.code + " " + c1.err.slice(0, 160));
+      if (!roomy(s[1]) || !roomy(s[5])) bad.push("a summary of 2 have and 2 back, and a plan of 3 rows, are not both roomy");
+      if (!(s[0] || "").startsWith('<section class="cover" id="p1">') || !plainPg(s[6])) bad.push("the cover or the last page is roomy");
+      if (!s.slice(2, 5).every(plainPg)) bad.push("an analysis page of 21 lines is roomy");
+      // roomy scales only what is under the label and the heading: the one rule that mentions roomy selects the children of the inner div other than .shead and h2; modelled on the page's own children
+      const style = (/<style>([\s\S]*?)<\/style>/.exec(c1.html) || [])[1] || "", rules = style.match(/[^{}]*roomy[^{}]*\{[^}]*\}/g) || [];
+      if (rules.length !== 1 || rules[0].trim() !== ZOOM_RULE) bad.push("the rules that mention roomy: " + JSON.stringify(rules));
+      const model = (page, tag) => { const ks = kids(page), zoomed = (k) => !k.cls.split(/\s+/).includes("shead") && k.tag !== "h2";
+        const heads = ks.filter((k) => /class="label"/.test(k.html) || k.tag === "h2");
+        if (!ks.some((k) => /class="label"/.test(k.html)) || !ks.some((k) => k.tag === "h2")) bad.push(tag + ": the label or the heading is not a direct child of the inner div: " + ks.map((k) => k.tag + "." + k.cls).join(" "));
+        if (heads.some(zoomed)) bad.push(tag + ": the style scales a child that holds the label or the heading");
+        if (!ks.some(zoomed)) bad.push(tag + ": the style scales nothing under the heading"); };
+      model(s[1], "summary"); model(s[5], "plan");
+      if ((c1.html.match(/class="in roomy"/g) || []).length !== 2 || /<section class="pg roomy"/.test(c1.html)) bad.push("roomy is not on the inner div of the two pages, or it is on a section");
+      const ids = FIX.slice(0, 8).map((f) => f.id); if (ids.length < 6) bad.push("fixes.json holds fewer than 6 fixes");
+      const big = { ...A1(), have: [0, 1, 2, 3, 4].map((i) => ({ value: S("site.json", "pages"), text: "something that already works number " + ["one", "two", "three", "four", "five"][i] })), back: ["One thing holds you back", "Another thing holds you back", "A third thing holds you back", "A fourth thing holds you back", "A fifth thing holds you back"], plan: ids.map((id) => ({ fix: id, why: "A plain reason for it" })) };
+      const cg = copy(mk("rm1", ["site", "local", "rivals"], big)), sg = secs(cg.html);
+      if (cg.code !== 0) bad.push("a full summary and plan: exit " + cg.code + " " + cg.err.slice(0, 200));
+      else if (!plainPg(sg[1]) || !plainPg(sg[sg.length - 2])) bad.push("a summary of 5 and 5, or a plan of " + ids.length + " rows, is roomy");
+      // the last analysis page under half with the floor met without it: printed, roomy, and the run says so
+      const cl = copy(mk("rm2", ["site", "search", "local"], { ...A1(), sections: [sized("site", 22), sized("search", 25), sized("local", 14)] })), sl = secs(cl.html);
+      if (cl.code !== 0) bad.push("22, 25, 14: exit " + cl.code + " " + cl.err.slice(0, 200));
+      else {
+        if (sl.length !== 7 || !plainPg(sl[2]) || !plainPg(sl[3]) || !roomy(sl[4])) bad.push("pages 3 to 5 of 22, 25 and 14 lines: " + sl.slice(2, 5).map((x) => x.slice(0, 32)).join(" / "));
+        else model(sl[4], "analysis page");
+        if (!cl.lines.includes("page 5 is under half full (14 of 40 lines)")) bad.push("the run does not say the page is under half full: " + JSON.stringify(cl.lines));
+      }
+      if (c1.lines.some((l) => /under half full/.test(l))) bad.push("a run with no page under half says so");
+      check("case 18: roomy: a summary of 2 have and 2 back and a plan of 3 rows are roomy; of 5 and 5 and a full plan are not; the cover, the last page and analysis pages of 21 lines never; roomy is the class of the page's inner div (the section keeps its class pg: the page gate counts only that form) and the style holds one rule for it, which scales the children of the inner div except the label's block and the heading; a last analysis page of 14 lines with the floor met without it is printed roomy and the run says page 5 is under half full (14 of 40 lines)", bad.length === 0, bad.join(" | "));
+    }
   } finally { rmTmp(tmp); }
   return results;
 }
@@ -377,8 +459,13 @@ const GATE_CALL = "gates({ html, tsv, pages, logoUrl, internal, title, topics: s
 const MUTANTS = [
   { name: "the title is fixed again", patches: [{ file: AC, from: "const title = titleOf(sections.map((s) => s.topic));", to: 'const title = "SEO, AI search and local audit";' }], expect: [/^case 11:/] },
   { name: "the our words gate is not called", patches: [{ file: AC, from: "ourWords(html);", to: "" }], expect: [/^case 13:/] },
-  { name: "a thin section is given its own page", patches: [{ file: AC, from: "const substance = (s) => ", to: "const substance = (s) => true || " }], expect: [/^case 14:/] },
-  { name: "the floor is counted before merging", patches: [{ file: AC, from: "thin.length > 0 && thinPointers >= 3 ? 1 : 0", to: "thin.length > 0 ? 1 : 0" }], expect: [/^case 14:/] },
+  { name: "every section is put on one page", patches: [{ file: "analysis-shape.mjs", from: "if (cur && cur.lines + GAP_LINES + n <= PAGE_LINES) {", to: "if (cur) {" }], expect: [/^case 14:/, /^case 16:/] },
+  { name: "a section always starts a new page", patches: [{ file: "analysis-shape.mjs", from: "if (cur && cur.lines + GAP_LINES + n <= PAGE_LINES) {", to: "if (false) {" }], expect: [/^case 14:/, /^case 16:/] },
+  { name: "the balancing step is removed", patches: [{ file: "analysis-shape.mjs", from: "if (last && prev && last.lines < HALF_LINES && prev.sections.length > 1) {", to: "if (false) {" }], expect: [/^case 14:/] },
+  { name: "the floor counts a page under half", patches: [{ file: "analysis-shape.mjs", from: "p.lines >= HALF_LINES).length", to: "p.lines > 0).length" }], expect: [/^case 17:/] },
+  { name: "roomy scales the heading too", patches: [{ file: AC, from: ".pg .in.roomy>*:not(.shead):not(h2){zoom:1.3}", to: ".pg .in.roomy{zoom:1.3}" }], expect: [/^case 18:/] },
+  { name: "a shared page's titles are smaller headings", patches: [{ file: AC, from: 'return "<h2>" + F(s.title, at + ".title") + "</h2>"', to: 'return "<h3" + (k ? "" : \' class="m0"\') + ">" + F(s.title, at + ".title") + "</h3>"' }], expect: [/^case 14:/, /^case 16:/] },
+  { name: "roomy is never set", patches: [{ file: AC, from: "(lines !== undefined && lines < HALF_LINES ? \" roomy\" : \"\")", to: '""' }], expect: [/^case 18:/] },
   { name: "the box is printed with no contact", patches: [{ file: AC, from: "const box = contact\n", to: "const box = true\n" }], expect: [/^case 15:/] },
   { name: "a value is printed without escaping", patches: [{ file: AC, from: "return esc(printed); // @value", to: "return printed;" }], expect: [/^case 5:/] },
   { name: "the freshness of the checked file is not asked", patches: [{ file: AC, from: "if (stale) stop(", to: "if (false) stop(" }], expect: [/^case 3:/] },

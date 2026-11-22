@@ -17,6 +17,12 @@ const BRIEF = path.join(SKILL, "judge-brief.md");
 const norm = (p) => String(p).replace(/\\/g, "/");
 const S = (f, p) => "{{" + f + "#" + p + "}}";
 const FIXES = JSON.parse(fs.readFileSync(path.join(SKILL, "client-copy", "fixes.json"), "utf8")), FIX_IDS = FIXES.map((r) => r.id);
+// plain filler for the size fixtures: a point or a table row with no pointer and no digit
+const PT6 = ["Rivals send more words than you do.", "Search engines list only what they can read on a page.", "A page with few words is shown for few searches.", "Rivals give each product a page of its own.", "Your home page names the shop and little else.", "Buyers who search by town find the rivals first."];
+const NAMES = ["Hilltop", "Valley", "Creek", "Meadow", "Harbor", "Summit", "Orchard", "Forest", "Lakeside"];
+const plainRows = (k) => Array.from({ length: k }, (_, i) => [NAMES[i % NAMES.length] + " Bakery", "Fewer words"]);
+// a section built to be exactly L lines by the brief's own count (heading and lede 5, a point 1, a table 2 plus its rows): L up to 11 is points only, above that 6 points or fewer and a table
+const sized = (topic, L) => { let p = L - 5, rows = 0; if (L > 11) for (p = 6; p >= 1; p--) { rows = L - 5 - p - 2; if (rows >= 1 && rows <= 12) break; } return { topic, title: "What we read about " + topic, lede: "A plain sentence about " + topic + " in your market today.", points: PT6.slice(0, p), ...(rows ? { table: { columns: ["Business", "Words"], rows: plainRows(rows) } } : {}) }; };
 const GOOD = {
   business: S("research/a.json", "title"),
   verdict: "Your site sends few words to search engines and rivals send more.",
@@ -24,8 +30,8 @@ const GOOD = {
   have: [{ value: S("facts/f.json", "score"), text: "Your average rating is good." }],
   back: ["Your home page sends too few words."],
   sections: [
-    { topic: "site", title: "Your site", lede: "The text your site gives search engines holds few words to read.", points: ["Rivals send more words than you do."], table: { columns: ["Business", "Words"], rows: [[S("research/a.json", "rows[0].name"), S("research/a.json", "rows[0].count")]] } },
-    { topic: "local", title: "Your map listing", lede: "People who search on the map can find you, with a small number of reviews.", points: ["Ask past customers for a review."] }],
+    { topic: "site", title: "Your site", lede: "The text your site gives search engines holds few words to read.", points: ["Rivals send more words than you do.", "Search engines list only what they can read on a page.", "A page with few words is shown for few searches.", "Rivals give each product a page of its own.", "Your home page names the shop and little else.", "Buyers who search by town find the rivals first."], table: { columns: ["Business", "Words"], rows: [[S("research/a.json", "rows[0].name"), S("research/a.json", "rows[0].count")], ...plainRows(9)] } },
+    { topic: "local", title: "Your map listing", lede: "People who search on the map can find you, with a small number of reviews.", points: ["Ask past customers for a review.", "Reply to every review, the good and the bad.", "Keep the opening hours on the listing right.", "Add photos of the shop and of the work.", "Name the town and the service in the description.", "Check the listing for every branch you have."], table: { columns: ["Business", "Reviews"], rows: plainRows(8) } }],
   plan: [{ fix: FIX_IDS[0], why: "Your home page sends " + S("research/a.json", "rows[0].count") + " words." }, { fix: FIX_IDS[1], why: "Your rating is " + S("facts/f.json", "score") + "." }],
 };
 const GOOD_VALUES = 8;
@@ -105,7 +111,8 @@ async function scenarios(dir) {
       const ex = /```json\r?\n([\s\S]*?)\r?\n```/.exec(b); let exo = null; try { exo = JSON.parse(ex[1]); } catch { bad.push("the brief's example is not JSON"); }
       for (const p of ["first response", "words sent", "sends its words"]) { if (!b.includes('"' + p + '"')) bad.push("the brief does not forbid the phrase " + p); if (exo && JSON.stringify(exo).toLowerCase().includes(p)) bad.push("the example holds the phrase " + p); }
       if (!b.includes("the text search engines can read on your site")) bad.push("the brief does not say what to write instead of our words");
-      if (!/at least three figures or a table of three rows to stand as a page of its own; thinner sections are printed together on one page/.test(b)) bad.push("the brief lacks the rule of a thin section");
+      if (/stand as a page of its own/.test(b)) bad.push("the brief still holds the old rule of a page of its own");
+      for (const w of ["Every lede and every point is a whole sentence that reads right whatever the number turns out to be: write \"named you in {{local/example.json#reviews}} of {{local/example.json#rivals[0].reviews}} answers\", never \"you {{local/example.json#reviews}} times\".", "The plan names every fix the files give evidence for, up to 8.", "A text over 200 characters is refused: fill a page with more points and more rows, never with longer ones.", "Use what the files hold. A table shows every row its source holds for its subject (every search that was tried, every rival, every page), up to 12 rows. Give a section 3 to 6 points when the files hold that many separate facts. Never pad: one fact is said once, and nothing is said that no file shows.", "The report needs two analysis pages at least half full. A page is about 40 lines: a section's heading and lede take 5, a point takes 1 (2 when it is longer than 95 characters), a table takes 2 plus its rows. Sections that fit share a page; an answer whose sections fill fewer than two half pages is refused."]) if (!b.includes(w)) bad.push("the brief lacks: " + w.slice(0, 40));
       if (exo) { const sh = Shape.checkShape(exo, { gatheredStations: ["site", "local"], fixIds: FIX_IDS }); if (sh.length) bad.push("the example: " + sh.join("; ")); }
       check("1: the brief carries the wording bars of the copy's gates (the words, the capitals, no dash, no contact, a source not gathered is absent) and its example is a good answer by checkShape", bad.length === 0, bad.join(" | ")); }
 
@@ -214,6 +221,13 @@ async function scenarios(dir) {
       const m = mk(true, old), r = await go(m, [text(GOOD)]);
       check("7c: a profile that names no jsonFiles: exit 3 BLOCKED the profile is older than the judge | unblocks: run client-profile again, and ZERO calls", r.code === 3 && r.last() === "BLOCKED: the profile is older than the judge (it names no jsonFiles) | unblocks: run client-profile again" && r.calls.length === 0, r.code + " " + r.last() + " calls " + r.calls.length); }
 
+    // ---- 5c: the word page right before a figure (seen on a real run, 2026-11-22: "your implants page 80" stopped the copy at its gate, which read it as a page of the report)
+    { const given = { gatheredStations: ["site", "local"], fixIds: FIX_IDS }, ptr = S("research/a.json", "rows[0].count");
+      const withPoint = (p) => Shape.checkShape({ ...GOOD, sections: GOOD.sections.map((s, i) => (i === 0 ? { ...s, points: [...s.points.slice(0, -1), p] } : s)) }, given);
+      const bad1 = withPoint("Your menu page " + ptr + " words."), bad2 = withPoint("Across your pages " + ptr + " have a title."), fine = withPoint("Your menu page has " + ptr + " words.");
+      const line = /^\$\.sections\[0\]\.points\[\d+\]: the word page stands right before a figure/;
+      check("5c: a text with the word page right before a pointer is refused with its path (page and pages); 'page has' and a pointer is fine", bad1.length === 1 && line.test(bad1[0]) && bad2.length === 1 && line.test(bad2[0]) && fine.length === 0, JSON.stringify({ bad1, bad2, fine })); }
+
     // ---- 8: the topics against the manifest, the fixes against the real plan
     { const ml = JSON.parse(fs.readFileSync(path.join(SKILL, "pipeline.json"), "utf8")), want = ml.stations.map((s) => s.id).filter((i) => i !== "business" && i !== "report");
       const usedFix = GOOD.plan.map((x) => x.fix), listed = fs.readFileSync(path.join(SKILL, "client-copy", "fixes.json"), "utf8");
@@ -226,6 +240,68 @@ async function scenarios(dir) {
     { const ok = Shape.checkShape(GOOD, { gatheredStations: ["site", "local"], fixIds: FIX_IDS }), no = Shape.checkShape(GOOD, { gatheredStations: ["site"], fixIds: FIX_IDS });
       check("8: checkShape on the good answer is an empty list; with the local station not gathered it names that station", ok.length === 0 && no.length === 1 && /\$\.sections\[1\]\.topic: nothing was gathered at the station local/.test(no[0]), JSON.stringify([ok, no])); }
 
+
+    // ---- 16 to 19 (AB-8c): the pages are filled: the size of a section, the packing, the floor on pages at least half full, the judge's two answers under it
+    const FLOOR_LINE = (k) => "$.sections: the sections fill " + k + " page(s) at least half full and the report needs 2 (a page is about 40 lines: a section's heading and lede 5, a point 1 or 2, a table 2 plus its rows): use more of what the files hold";
+    const GIVEN = { gatheredStations: ["site", "local"], fixIds: FIX_IDS };
+    { const bad = [], at = (s) => Shape.linesOf?.(s);
+      const s14 = { topic: "site", title: "A title", lede: "A lede of a few plain words.", points: ["Short one.", "Short two.", "x".repeat(120)], table: { columns: ["A", "B"], rows: [["a", "b"], ["c", "d"], ["e", "f"]] } };
+      if (at(s14) !== 14) bad.push("a lede, 2 short points, 1 of 120 characters and a table of 3 rows: " + at(s14) + " (it is 5 + 2 + 2 + 5 = 14)");
+      const ptr = S("research/a.json", "rows[0].name"); // 37 characters typed, six as counted
+      const one = (t) => ({ topic: "site", title: "A title", lede: "A lede of a few plain words.", points: [t] });
+      if (at(one("x".repeat(80) + " " + ptr)) !== 6) bad.push("80 plain characters and a pointer (typed 118, counted 87) is one line: " + at(one("x".repeat(80) + " " + ptr)));
+      if (at(one("x".repeat(90) + ptr)) !== 7) bad.push("90 plain characters and a pointer (counted 96) is two lines: " + at(one("x".repeat(90) + ptr)));
+      if (at(one("x".repeat(95))) !== 6 || at(one("x".repeat(96))) !== 7) bad.push("95 characters is one line and 96 are two: " + at(one("x".repeat(95))) + " " + at(one("x".repeat(96))));
+      if (Shape.PAGE_LINES !== 40 || Shape.GAP_LINES !== 2 || Shape.HALF_LINES !== 20) bad.push("the constants " + [Shape.PAGE_LINES, Shape.GAP_LINES, Shape.HALF_LINES]);
+      check("16: linesOf: a section is 5 for its heading and lede, 1 for a point (2 when longer than 95 characters, a pointer counting as six) and 2 plus its rows for a table; the constants are 40, 2 and 20", bad.length === 0, bad.join(" | ")); }
+    { const bad = [], J2 = JSON.stringify;
+      const rows = [[[13, 12, 13], [[[0, 1], 27], [[2], 13]], "no move: the page before would fall under half"], [[20, 23, 15], [[[0], 20], [[1, 2], 40]], "an exact fit"], [[22, 12, 8], [[[0], 22], [[1, 2], 22]], "balanced once"], [[31, 31, 31, 31], [[[0], 31], [[1], 31], [[2], 31], [[3], 31]], "four pages"], [[8], [[[0], 8]], "one small section"]];
+      for (const [sizes, want, why] of rows) { let got; try { got = Shape.pagesOf(sizes).map((p) => [p.sections, p.lines]); } catch (e) { got = "threw " + e.message; } if (J2(got) !== J2(want)) bad.push(J2(sizes) + " (" + why + "): " + J2(got) + " instead of " + J2(want)); }
+      check("17: pagesOf on sizes: [13, 12, 13] gives pages [[0,1],[2]] of 27 and 13 lines (no move); [20, 23, 15] gives [[0],[1,2]] of 20 and 40; [22, 12, 8] is balanced to [[0],[1,2]] of 22 and 22; [31, 31, 31, 31] is four pages; [8] is [[0]]", bad.length === 0, bad.join(" | ")); }
+    { const bad = [], under = { ...GOOD, sections: [sized("site", 14), sized("local", 11)] };
+      const got = Shape.checkShape(under, GIVEN);
+      if (got.length !== 1 || got[0] !== FLOOR_LINE(1)) bad.push("sections of 14 and 11 lines: " + JSON.stringify(got));
+      const none = Shape.checkShape({ ...GOOD, sections: [sized("site", 8), sized("local", 6)] }, GIVEN);
+      if (none.length !== 1 || none[0] !== FLOOR_LINE(0)) bad.push("sections of 8 and 6 lines: " + JSON.stringify(none));
+      const two = Shape.checkShape({ ...GOOD, sections: [sized("site", 20), sized("local", 21)] }, GIVEN);
+      if (two.length) bad.push("two sections of 20 and 21 lines: " + JSON.stringify(two));
+      const brief = /```json\r?\n([\s\S]*?)\r?\n```/.exec(fs.readFileSync(BRIEF, "utf8")); let exo = null; try { exo = JSON.parse(brief[1]); } catch { bad.push("the brief's example is not JSON"); }
+      if (exo) { const eg = Shape.checkShape(exo, GIVEN); if (eg.length) bad.push("the brief's own example: " + eg.join(" ; ")); }
+      check("18: checkShape: sections that fill one page at least half full give exactly the floor line (also 0 pages), two full pages give none, and the brief's own example gives none", bad.length === 0, bad.join(" | ")); }
+    { const bad = [], giveUnder = (a, b) => text({ ...GOOD, sections: [sized("site", a), sized("local", b)] });
+      // (a) a first answer under the floor, a second that meets it
+      { const m = mk(), r = await go(m, [giveUnder(14, 11), text(GOOD)]), p2 = r.calls[1]?.prompt || "";
+        if (r.code !== 0 || r.calls.length !== 2) bad.push("(a) exit " + r.code + ", calls " + r.calls.length + " " + r.last()?.slice(0, 160));
+        else if (!p2.includes("Your answer was refused:") || !p2.includes(FLOOR_LINE(1))) bad.push("(a) the second prompt lacks the floor line: " + p2.slice(-380));
+        if (r.last() !== "JUDGE OK: the analysis was written and checked (" + GOOD_VALUES + " values, 2 asks)") bad.push("(a) last line " + r.last()); }
+      // (b) two answers under the floor and nothing else wrong: SKIPPED, the second answer stays
+      { const m = mk(), second = giveUnder(9, 6), r = await go(m, [giveUnder(14, 11), second]), run = readJ(m.run), an = readJ(path.join(m.pewp, "analysis.json"));
+        const want = "SKIPPED: too little for a client's report: the analysis fills 0 analysis page(s) at least half full (it needs 2); the run stays an internal draft";
+        if (r.code !== 4 || r.last() !== want) bad.push("(b) exit " + r.code + " " + r.last());
+        if (r.calls.length !== 2) bad.push("(b) calls " + r.calls.length);
+        if (!an || an.sections?.[0]?.points?.length !== 4) bad.push("(b) analysis.json is not the second answer: " + JSON.stringify(an)?.slice(0, 100));
+        if (exists(m.ck) || exists(path.join(m.pewp, "analysis.sheet.json"))) bad.push("(b) a checked file exists");
+        if (exists(m.refused)) bad.push("(b) refused.txt exists");
+        if (run?.outcome !== "skipped" || run?.attempts !== 2 || run?.asks?.length !== 2) bad.push("(b) run.json " + JSON.stringify(run)?.slice(0, 160)); }
+      // (c) a second answer with the floor line and another refusal, the first refused for another line: BLOCKED as before
+      { const m = mk(), r = await go(m, [text({ ...GOOD, extra: "y" }), text({ ...JSON.parse(giveUnder(14, 11)), extra: "x" })]), ref = exists(m.refused) ? fs.readFileSync(m.refused, "utf8") : "";
+        if (r.code !== 3 || !r.last().startsWith("BLOCKED: the model's analysis was refused twice (")) bad.push("(c) exit " + r.code + " " + r.last()?.slice(0, 160));
+        if (!ref.includes(FLOOR_LINE(1)) || !/\$\.extra/.test(ref)) bad.push("(c) refused.txt " + ref.slice(0, 200));
+        if (r.calls.length !== 2) bad.push("(c) calls " + r.calls.length);
+        if (readJ(m.run)?.outcome !== "refused") bad.push("(c) run.json " + JSON.stringify(readJ(m.run))?.slice(0, 120)); }
+      // (d) the floor came first (the first answer's only refusal), the second answer is refused for another reason (over 200 characters, by the check): the cause is the floor's, SKIPPED, refused.txt holds both asks
+      { const long = { ...GOOD, sections: [{ ...GOOD.sections[0], points: [...GOOD.sections[0].points.slice(0, 5), "x".repeat(201)] }, GOOD.sections[1]] };
+        const m = mk(), r = await go(m, [giveUnder(14, 11), text(long)]), run = readJ(m.run), ref = exists(m.refused) ? fs.readFileSync(m.refused, "utf8") : "";
+        const want = "SKIPPED: too little for a client's report: the first analysis filled 1 analysis page(s) at least half full (it needs 2) and the second was refused; the run stays an internal draft";
+        if (r.code !== 4 || r.last() !== want) bad.push("(d) exit " + r.code + " " + r.last());
+        if (r.calls.length !== 2) bad.push("(d) calls " + r.calls.length);
+        if (!/ask 1:/.test(ref) || !/ask 2:/.test(ref) || !ref.includes(FLOOR_LINE(1)) || !/200/.test(ref.slice(ref.indexOf("ask 2:")))) bad.push("(d) refused.txt " + ref.slice(0, 300));
+        if (exists(m.ck) || exists(path.join(m.pewp, "analysis.sheet.json"))) bad.push("(d) a checked file exists");
+        if (run?.outcome !== "skipped" || run?.attempts !== 2 || run?.asks?.length !== 2) bad.push("(d) run.json " + JSON.stringify(run)?.slice(0, 160)); }
+      // (e) a first answer refused for the floor line AND another line, the second refused: BLOCKED
+      { const m = mk(), r = await go(m, [text({ ...JSON.parse(giveUnder(14, 11)), extra: "x" }), text({ ...GOOD, other: "y" })]);
+        if (r.code !== 3 || !r.last().startsWith("BLOCKED: ") || readJ(m.run)?.outcome !== "refused") bad.push("(e) exit " + r.code + " " + r.last()?.slice(0, 120)); }
+      check("19: the judge and the floor: a first answer under it and a second that meets it is exit 0 in two asks, the second prompt holding the floor line; two answers under it (nothing else wrong) is exit 4 with the SKIPPED line, analysis.json the second answer, no checked file, no refused.txt, outcome skipped; a first answer refused for the floor line only and a second refused for anything else (over 200 characters) is exit 4 with the line of the first analysis, refused.txt holding both asks, outcome skipped; a first refusal with more than the floor line, or a second with the floor line and another refusal after a first of another kind, is BLOCKED", bad.length === 0, bad.join(" | ")); }
 
     // ---- 9: the manifest
     { const L = await import(pathToFileURL(path.join(here, "lib-pipeline.mjs")).href), G = await import(pathToFileURL(path.join(dir, "client-copy-gates.mjs")).href);
@@ -248,6 +324,7 @@ const MUTANTS = [
   { name: "the second ask is removed", patches: [{ file: JM, from: "const MAX_ASKS = 2;", to: "const MAX_ASKS = 1;" }], expect: [/^3:/, /^4:/, /^5:/] },
   { name: "a third ask is allowed", patches: [{ file: JM, from: "const MAX_ASKS = 2;", to: "const MAX_ASKS = 3;" }], expect: [/^4:/] },
   { name: "the second ask does not carry the first answer", patches: [{ file: JM, from: "lastAnswer.slice(0, MAX_ANSWER_CHARS)", to: '""' }], expect: [/^3:/] },
+  { name: "the word page before a figure is let through", patches: [{ file: "analysis-shape.mjs", from: "if (PAGE_FIGURE.test(v))", to: "if (false)" }], expect: [/^5c:/] },
   { name: "a pointer is counted at its typed length", patches: [{ file: "analysis-shape.mjs", from: 'text(n.value, at + ".value", 1, 40, 6)', to: 'text(n.value, at + ".value", 1, 40)' }], expect: [/^5b:/] },
   { name: "the shape check is not called", patches: [{ file: JM, from: "lines = checkShape(look.object, { gatheredStations, fixIds })", to: "lines = []" }], expect: [/^5:/] },
   { name: "a section for a station that gathered nothing is accepted", patches: [{ file: "analysis-shape.mjs", from: "!gatheredStations.includes(s.topic)", to: "false" }], expect: [/^5:/, /^8:/] },
@@ -261,6 +338,14 @@ const MUTANTS = [
   { name: "the model is started with no profile", patches: [{ file: JM, from: "if (!isObj(profile)) return blocked(", to: "if (false) return blocked(" }], expect: [/^7:/] },
   { name: "the judge reads files, not jsonFiles", patches: [{ file: JM, from: "Array.isArray(sp.jsonFiles) ? sp.jsonFiles : []", to: "(Array.isArray(sp.files) ? sp.files : []).map((f) => f?.path)" }], expect: [/^1:/] },
   { name: "an older profile is accepted", patches: [{ file: JM, from: "if (older) return", to: "if (false) return" }], expect: [/^7c:/] },
+  { name: "a point's length is not counted", patches: [{ file: "analysis-shape.mjs", from: "(p.length > 95 ? 2 : 1)", to: "1" }], expect: [/^16:/] },
+  { name: "every section is put on one page", patches: [{ file: "analysis-shape.mjs", from: "if (cur && cur.lines + GAP_LINES + n <= PAGE_LINES) {", to: "if (cur) {" }], expect: [/^17:/] },
+  { name: "a section always starts a new page", patches: [{ file: "analysis-shape.mjs", from: "if (cur && cur.lines + GAP_LINES + n <= PAGE_LINES) {", to: "if (false) {" }], expect: [/^17:/] },
+  { name: "the balancing step is removed", patches: [{ file: "analysis-shape.mjs", from: "if (last && prev && last.lines < HALF_LINES && prev.sections.length > 1) {", to: "if (false) {" }], expect: [/^17:/] },
+  { name: "the floor counts a page under half", patches: [{ file: "analysis-shape.mjs", from: "p.lines >= HALF_LINES).length", to: "p.lines > 0).length" }], expect: [/^18:/, /^19:/] },
+  { name: "checkShape does not refuse an analysis under the floor", patches: [{ file: "analysis-shape.mjs", from: "if (floor && Array.isArray(obj.sections)", to: "if (false && Array.isArray(obj.sections)" }], expect: [/^18:/, /^19:/] },
+  { name: "two answers under the floor are BLOCKED, not SKIPPED", patches: [{ file: JM, from: "if (code !== 0 && refusals.length === MAX_ASKS && floorOnly(refusals[MAX_ASKS - 1]) && lastObject) {", to: "if (false) {" }], expect: [/^19:/] },
+  { name: "the floor first and a refused second answer is BLOCKED", patches: [{ file: JM, from: "if (code !== 0 && refusals.length === MAX_ASKS && floorOnly(refusals[0]) && firstObject) {", to: "if (false) {" }], expect: [/^19:/] },
   { name: "the answer's text is written into run.json", patches: [{ file: JM, from: "const record = {", to: "const record = { answer: lastAnswer," }], expect: [/^1:/] },
 ];
 

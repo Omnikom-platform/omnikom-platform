@@ -3,8 +3,8 @@
 // -draft (a final copy needs a sign-off, which is another job). Reads only: <pewp>/analysis.json, analysis.checked.json, analysis.sheet.json and profile.json (and
 // internal/not-gathered.json when there is one), --words (default client-copy/ of the skill: fixes.json, how-we-work.json, backing.json), --assets (default
 // assets/client-copy/) and --book (default docs/product/1-product.md of the repository). Pages: the cover, the summary, one page for each section of the analysis
-// that has substance (3 pointers in all or a table of 3 rows) and ONE page for the thinner ones together (at least 2 analysis pages are needed, counted after
-// merging), the plan, the last page; the title says only what the sections held (SEO, AI search, local; AB-8b); a business with a site and one with none are built the same way. Every pointer is filled from its row of the sheet, every value and
+// packed onto pages by their size in lines (analysis-shape.mjs: a page is about 40 lines; sections that fit share a page; at least 2 analysis pages at least half
+// full are needed; a page with little on it is set larger, class roomy), the plan, the last page; the title says only what the sections held (SEO, AI search, local; AB-8b); a business with a site and one with none are built the same way. Every pointer is filled from its row of the sheet, every value and
 // every text is escaped for html. Starts no model, no browser, makes no network request. Nothing is written before every gate of client-copy-gates.mjs has passed.
 // Exit 0 built; 1 a STOP (one line on stderr, nothing written); 2 a usage fault (one line).
 import fs from "node:fs";
@@ -15,7 +15,7 @@ import { locate } from "./state.mjs";
 import { stop, fmt } from "./client-copy-data.mjs";
 import { CSS } from "./client-copy-design.mjs";
 import { gates, visible } from "./client-copy-gates.mjs";
-import { checkShape } from "./analysis-shape.mjs";
+import { checkShape, pagesOf, fullPages, HALF_LINES, MIN_PAGES } from "./analysis-shape.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const skillDir = path.resolve(here, "..");
@@ -73,9 +73,6 @@ const pointersOf = (v, at, out = []) => {
   else if (isObj(v)) for (const [k, x] of Object.entries(v)) pointersOf(x, at + (/^[A-Za-z_]\w*$/.test(k) ? "." + k : "[" + JSON.stringify(k) + "]"), out);
   return out;
 };
-// a section has substance when it holds 3 pointers in all (lede, points and table, each pointer once) or a table of 3 rows
-const pointerCount = (s) => new Set(pointersOf([s.lede, s.points, s.table], "$").map(([, p]) => p)).size;
-const substance = (s) => pointerCount(s) >= 3 || (s.table ? s.table.rows.length >= 3 : false);
 const joinAnd = (xs) => (xs.length > 1 ? xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1] : xs[0]);
 
 /** Reads everything, builds the pages and runs the gates; returns { html, tsv, name, date, pages }. Writes nothing. */
@@ -108,7 +105,7 @@ export function build({ pewp, name, wordsDir, assetsDir, bookAbs }) {
   if (stale) stop("STOP: the analysis was not checked after it was written");
   if (!isObj(analysis) || !isObj(checked) || !isObj(sheetFile) || !Array.isArray(sheetFile.rows) || !isObj(profile)) stop("STOP: the analysis files are not of the form analysis-check.mjs writes");
   const gatheredStations = (Array.isArray(profile.stations) ? profile.stations : []).filter((st) => (Array.isArray(st?.steps) ? st.steps : []).some((sp) => sp.bucket === "gathered")).map((st) => String(st.id));
-  const bad = checkShape(analysis, { gatheredStations, fixIds: fixes.map((f) => f.id) });
+  const bad = checkShape(analysis, { gatheredStations, fixIds: fixes.map((f) => f.id), floor: false }); // the floor of pages is stopped on below, in the copy's own words
   if (bad.length) stop("STOP: the analysis has the wrong shape (" + bad[0] + ")");
   const byAt = new Map();
   for (const r of sheetFile.rows) if (r && typeof r.at === "string" && typeof r.pointer === "string" && !byAt.has(r.at + "\u0001" + r.pointer)) byAt.set(r.at + "\u0001" + r.pointer, r);
@@ -116,11 +113,9 @@ export function build({ pewp, name, wordsDir, assetsDir, bookAbs }) {
   const gen = profile.generatedAt, when = new Date(gen);
   if (!isText(gen) || Number.isNaN(when.getTime())) stop("STOP: profile.json has no generatedAt");
   const MONTH = MONTHS[when.getUTCMonth()] + " " + when.getUTCFullYear(), date = when.toISOString().slice(0, 10);
-  // thin sections do not count: a section with substance has a page of its own, the others are printed together on ONE page, and the floor of 2 analysis pages is counted after merging
-  const own = analysis.sections.map((_, i) => i).filter((i) => substance(analysis.sections[i])), thin = analysis.sections.map((_, i) => i).filter((i) => !own.includes(i));
-  const thinPointers = thin.reduce((n, i) => n + pointerCount(analysis.sections[i]), 0);
-  const analysisPages = own.length + (thin.length > 0 && thinPointers >= 3 ? 1 : 0), printed = own.length + (thin.length ? 1 : 0);
-  if (analysisPages < 2) stop("STOP: too little for a client's report: " + analysisPages + " analysis page(s) with substance (it needs 2); the run stays an internal draft");
+  // the sections are packed onto pages by their size; the floor of 2 analysis pages is counted on pages at least half full
+  const packed = pagesOf(analysis.sections), full = fullPages(analysis.sections), printed = packed.length;
+  if (full < MIN_PAGES) stop("STOP: too little for a client's report: " + full + " analysis page(s) at least half full (it needs " + MIN_PAGES + "); the run stays an internal draft");
 
   // ---- the pages
   const sheet = [], seen = new Set();
@@ -138,7 +133,8 @@ export function build({ pewp, name, wordsDir, assetsDir, bookAbs }) {
   }).join("");
   const rh = () => '<div class="rh"><span class="nm">' + F(analysis.business, "$.business") + "</span><span>" + title + ", " + esc(MONTH) + "</span></div>";
   const rf = (n) => '<div class="rf"><span>Prepared by Omnikom</span><b>' + n + " / @@TOTAL@@</b></div>";
-  const sheetPage = (n, inner) => { page = n; return '<section class="pg" id="p' + n + '">' + rh() + '<div class="in">' + inner + "</div>" + rf(n) + "</section>"; };
+  // a page with little on it (under half of a page's lines) is set larger: class roomy on its inner div (the section keeps class="pg": the page gate of client-copy-gates.mjs counts only that exact form)
+  const sheetPage = (n, inner, lines) => { page = n; return '<section class="pg" id="p' + n + '">' + rh() + '<div class="in' + (lines !== undefined && lines < HALF_LINES ? " roomy" : "") + '">' + inner + "</div>" + rf(n) + "</section>"; };
   const head = (label, h, lede) => '<div class="shead"><div class="label">' + label + "</div></div><h2>" + h + "</h2>" + (lede ? '<p class="lede">' + lede + "</p>" : "");
   const { numbers, have, back, sections, plan } = analysis;
   const title = titleOf(sections.map((s) => s.topic));
@@ -152,26 +148,28 @@ export function build({ pewp, name, wordsDir, assetsDir, bookAbs }) {
 
   const haveHtml = have.length > 0 ? '<h3 class="m0">What you already have going for you</h3><ul class="have">' + have.map((h, i) => "<li><b>" + (page = 2, F(h.value, "$.have[" + i + "].value")) + "</b><span>" + F(h.text, "$.have[" + i + "].text") + "</span></li>").join("") + "</ul>" : "";
   all.push(sheetPage(2, head("Summary", have.length ? "What works for you today, and what holds you back" : "What holds you back today", "") + haveHtml +
-    "<h3" + (have.length ? "" : ' class="m0"') + ">What holds you back</h3><ol class=\"back\">" + back.map((b, i) => "<li><span>" + F(b, "$.back[" + i + "]") + "</span></li>").join("") + "</ol>"));
+    "<h3" + (have.length ? "" : ' class="m0"') + ">What holds you back</h3><ol class=\"back\">" + back.map((b, i) => "<li><span>" + F(b, "$.back[" + i + "]") + "</span></li>").join("") + "</ol>", 3 + 3 * have.length + 2 * back.length));
 
   // one section's list of points and its table, every pointer filled
   const bodyOf = (s, at) => '<ul class="draft">' + s.points.map((p, j) => "<li>" + F(p, at + ".points[" + j + "]") + "</li>").join("") + "</ul>" +
     (s.table ? '<div class="mt"><table class="grid"><tr>' + s.table.columns.map((c, j) => "<th>" + F(c, at + ".table.columns[" + j + "]") + "</th>").join("") + "</tr>" +
       s.table.rows.map((row, j) => "<tr>" + row.map((c, k) => "<td>" + F(c, at + ".table.rows[" + j + "][" + k + "]") + "</td>").join("") + "</tr>").join("") + "</table></div>" : "");
-  own.forEach((i, n) => {
-    const s = sections[i], at = "$.sections[" + i + "]";
+  // a page of one section: its topic's label, its title as the page's heading; a page of several: the labels joined, each section with its own title as a heading of the same element and size (h2; the one after another gets space before it)
+  const notes = [];
+  packed.forEach((pg, n) => {
     page = 3 + n;
-    all.push(sheetPage(3 + n, head(TOPIC_LABEL[s.topic], F(s.title, at + ".title"), F(s.lede, at + ".lede")) + bodyOf(s, at)));
+    if (pg.sections.length === 1) {
+      const i = pg.sections[0], s = sections[i], at = "$.sections[" + i + "]";
+      all.push(sheetPage(page, head(TOPIC_LABEL[s.topic], F(s.title, at + ".title"), F(s.lede, at + ".lede")) + bodyOf(s, at), pg.lines));
+    } else {
+      const label = joinAnd(pg.sections.map((i, k) => (k ? TOPIC_LABEL[sections[i].topic].replace(/^./, (ch) => ch.toLowerCase()) : TOPIC_LABEL[sections[i].topic])));
+      all.push(sheetPage(page, '<div class="shead"><div class="label">' + label + "</div></div>" + pg.sections.map((i, k) => {
+        const s = sections[i], at = "$.sections[" + i + "]";
+        return "<h2>" + F(s.title, at + ".title") + "</h2>" + (s.lede ? '<p class="lede">' + F(s.lede, at + ".lede") + "</p>" : "") + bodyOf(s, at);
+      }).join(""), pg.lines));
+    }
+    if (pg.lines < HALF_LINES) notes.push("page " + page + " is under half full (" + pg.lines + " of 40 lines)");
   });
-  // the thin sections, in their order, on one page: the labels joined, each section with its own title as a smaller heading
-  if (thin.length) {
-    page = 3 + own.length;
-    const label = joinAnd(thin.map((i, n) => (n ? TOPIC_LABEL[sections[i].topic].replace(/^./, (c) => c.toLowerCase()) : TOPIC_LABEL[sections[i].topic])));
-    all.push(sheetPage(page, '<div class="shead"><div class="label">' + label + "</div></div>" + thin.map((i, n) => {
-      const s = sections[i], at = "$.sections[" + i + "]";
-      return "<h3" + (n ? "" : ' class="m0"') + ">" + F(s.title, at + ".title") + "</h3>" + (s.lede ? '<p class="lede">' + F(s.lede, at + ".lede") + "</p>" : "") + bodyOf(s, at);
-    }).join("")));
-  }
 
   page = 3 + printed;
   const planRows = plan.map((p, i) => {
@@ -181,7 +179,7 @@ export function build({ pewp, name, wordsDir, assetsDir, bookAbs }) {
     add([page, "plan row " + fx.id, fixText, "client-copy/fixes.json", "id=" + fx.id, fixText, "(not dated)", "STANDARD COPY"]);
     return "<tr" + (i === 0 ? ' class="first"' : "") + "><td>" + (i + 1) + "</td><td>" + esc(fixText) + "</td><td>" + F(p.why, "$.plan[" + i + "].why") + "</td><td>" + esc(who) + "</td></tr>";
   }).join("");
-  all.push(sheetPage(page, head("Action plan", "What to fix, in this order", "") + '<table class="plan"><tr><th>#</th><th>What to do</th><th>Why</th><th>Who</th></tr>' + planRows + "</table>"));
+  all.push(sheetPage(page, head("Action plan", "What to fix, in this order", "") + '<table class="plan"><tr><th>#</th><th>What to do</th><th>Why</th><th>Who</th></tr>' + planRows + "</table>", 3 + 3 * plan.length));
 
   // the last page: a line of what is in the draft stands only if every product book row behind it reads WORKS
   page = 4 + printed;
@@ -205,7 +203,7 @@ export function build({ pewp, name, wordsDir, assetsDir, bookAbs }) {
 
   const pages = all.length, total = String(pages);
   const spaced = all.join("\n").replace(/>(?=<(?!\/?(?:i|svg|rect|br)\b))/g, ">\n");
-  const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + F(analysis.business, "$.business") + ": " + title + ", " + esc(MONTH) + ' (draft)</title>\n<link href="' + pathToFileURL(cssFile).href + '" rel="stylesheet"><style>' + CSS + ".goahead a{color:#fff}</style></head><body>\n" + spaced.replace(/@@TOTAL@@/g, total) + "\n</body></html>\n";
+  const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + F(analysis.business, "$.business") + ": " + title + ", " + esc(MONTH) + ' (draft)</title>\n<link href="' + pathToFileURL(cssFile).href + '" rel="stylesheet"><style>' + CSS + ".goahead a{color:#fff}.pg .in>:not(.shead)+h2{margin-top:20pt}.pg .in.roomy>*:not(.shead):not(h2){zoom:1.3}</style></head><body>\n" + spaced.replace(/@@TOTAL@@/g, total) + "\n</body></html>\n";
   const cell = (x) => plain(String(x).replace(/[\t\r\n]+/g, " "));
   const tsv = [["page", "the text it stands in", "printed", "file", "where in the file", "value there", "measured", "kind"], ...sheet].map((r) => r.map(cell).join("\t")).join("\n") + "\n";
   // the internal sheet of the run (what was not gathered): a page that holds one of its lines is refused
@@ -218,7 +216,7 @@ export function build({ pewp, name, wordsDir, assetsDir, bookAbs }) {
   ourWords(html);
   gates({ html, tsv, pages, logoUrl, internal, title, topics: sections.map((s) => s.topic), contact: contact || undefined });
   const stem = String(name).replace(/[^A-Za-z0-9.-]/g, "-") + "-audit-" + date + "-draft";
-  return { html, tsv, pages, date, stem, leftOut };
+  return { html, tsv, pages, date, stem, leftOut, notes };
 }
 
 function cli() {
@@ -247,6 +245,7 @@ function cli() {
     fs.writeFileSync(path.join(outDir, htmlName), r.html);
     fs.writeFileSync(path.join(outDir, tsvName), r.tsv);
     for (const l of r.leftOut) console.log(l);
+    for (const l of r.notes) console.log(l);
     console.log("wrote " + path.join(opt["--out"], htmlName));
     console.log("wrote " + path.join(opt["--out"], tsvName));
     console.log("sections: " + r.pages);
