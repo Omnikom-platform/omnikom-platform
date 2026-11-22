@@ -303,7 +303,10 @@ async function main() {
     for (const name of names) outcomes.push([name, await askEngine(name)]);
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
   console.log("ASKED: " + outcomes.map(([n, o]) => n + " " + o).join(", "));
-  if (!outcomes.some(([, o]) => o === "already asked" || o.startsWith("read"))) {
+  // ONE record per run, on exit 0 and on exit 3 (the step ai-ask's evidence): a run in which every assistant was "already asked" still leaves new evidence, and the station sheet can read why an assistant was not gathered
+  const askedFile = path.join(dirOf, "asked.json"), anyAsked = outcomes.some(([, o]) => o === "already asked" || o.startsWith("read"));
+  fs.writeFileSync(askedFile, JSON.stringify({ step: "ai-ask", at: new Date().toISOString(), outcomes: Object.fromEntries(outcomes) }, null, 1) + "\n");
+  if (!anyAsked) {
     const reasons = outcomes.map(([n]) => n + ": " + (why.get(n)?.until ? why.get(n).reason + ", stopped until " + why.get(n).until : why.get(n)?.reason)), allStops = outcomes.every(([n]) => why.get(n)?.until);
     throw new Stop("BLOCKED: no assistant could be asked (" + reasons.join(", ") + ") | unblocks: the stops end or the owner lifts them; the page descriptions are set" + (allStops ? " | outside: stop" : ""), 3);
   }

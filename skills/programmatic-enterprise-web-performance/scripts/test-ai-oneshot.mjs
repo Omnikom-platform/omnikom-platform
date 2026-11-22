@@ -141,6 +141,25 @@ async function scenarios(dir) {
     const cc2 = await cmd(A, "count"), res2 = jr(path.join(A.pewp, "research", "ai-oneshot.json")) || {};
     check("case 18h: with a <engine>-check.json in the folder: blocked is written, a changed prompt is locked again (a check file is not a reply), and count gives the same engines as without it",
       lk1.code === 0 && bk.code === 0 && fs.existsSync(path.join(ckd, "gemini-blocked.json")) && lb.code === 0 && lk2.code === 0 && cc2.code === 0 && JSON.stringify(res2.engines) === JSON.stringify(res.engines) && (res2.engines || []).length > 0, [lk1, bk, lb, lk2, cc2].map(d).join(" || "));
+    // ---- case 20 (AB-9): the steps ai-prompt and ai-lock of pipeline.json run these commands; asked.json (ask-assistants.mjs's record of a run) is not a reply
+    const PM = JSON.parse(fs.readFileSync(path.join(here, "..", "pipeline.json"), "utf8")), argAfter = (id, flag) => { const a = PM.steps.find((s) => s.id === id)?.args || []; return a[a.indexOf(flag) + 1] ?? ""; };
+    const byText = argAfter("ai-lock", "--by");   // the manifest's own text: what the run says about who froze the texts
+    const LK = world(BIZ), lkf = path.join(LK.pewp, "captures", "ai-oneshot", "prompt-lock.json"), pfl = path.join(LK.pewp, "research", "ai-oneshot-prompt.json");
+    const lb20 = await cmd(LK, "build"), ll1 = await cmd(LK, "lock", "--by", byText), lj1 = jr(lkf) || {};
+    check("case 20a: build, then lock with the manifest's own --by text: exit 0, the lock holds that text and the hash of the built prompt", byText.length > 40 && !/\u2014/.test(byText) && lb20.code === 0 && ll1.code === 0 && lj1.by === byText && !!lj1.promptHash && lj1.promptHash === jr(pfl)?.promptHash, `by "${byText}" | ${d(lb20)} | ${d(ll1)}`);
+    await ask(LK, "chatgpt", 1, CHATGPT);   // a reply on file for this prompt
+    const ll2 = await cmd(LK, "lock", "--by", byText), lj2 = jr(lkf) || {};
+    check("case 20b: a second lock of the same, unchanged prompt (the step run again) is NOT refused: exit 0, the hashes and the text are as before and the reply on file stays (it writes the lock again, with a new time)", ll2.code === 0 && lj2.promptHash === lj1.promptHash && lj2.hash1 === lj1.hash1 && lj2.hash2 === lj1.hash2 && lj2.by === byText && Date.parse(lj2.lockedAt) >= Date.parse(lj1.lockedAt) && fs.existsSync(path.join(LK.pewp, "captures", "ai-oneshot", "chatgpt-1.json")), d(ll2));
+    const cnt20a = await cmd(LK, "count"), eng20a = jr(path.join(LK.pewp, "research", "ai-oneshot.json"))?.engines;
+    const askedDoc = { step: "ai-ask", at: new Date().toISOString(), outcomes: { chatgpt: "read", perplexity: "already asked", gemini: "blocked (sign-in wall)" } };
+    W(path.join(LK.pewp, "captures", "ai-oneshot", "asked.json"), askedDoc);
+    const cnt20b = await cmd(LK, "count"), eng20b = jr(path.join(LK.pewp, "research", "ai-oneshot.json"))?.engines;   // the same engines with asked.json beside the replies
+    const blk20 = await cmd(LK, "blocked", "gemini", "--reason", "sign-in wall"), lkA = await cmd(LK, "lock", "--by", byText);
+    const AK = world(BIZ), akd = path.join(AK.pewp, "captures", "ai-oneshot");
+    await cmd(AK, "build"); await cmd(AK, "lock", "--by", byText); W(path.join(akd, "asked.json"), askedDoc);
+    W(path.join(AK.pewp, "business.json"), { ...BIZ, name: "Sample Valley Realty Group" });   // a changed prompt: a new lock is refused only when REPLY files answer the old one
+    const akb = await cmd(AK, "build"), akl = await cmd(AK, "lock", "--by", byText);
+    check("case 20c: with asked.json in the folder: count gives the same engines as without it, blocked and a second lock still work, and a changed prompt is locked again (asked.json is not a reply)", cnt20a.code === 0 && cnt20b.code === 0 && blk20.code === 0 && lkA.code === 0 && JSON.stringify(eng20b) === JSON.stringify(eng20a) && (eng20a || []).length > 0 && akb.code === 0 && akl.code === 0, [cnt20a, blk20, lkA, cnt20b, akb, akl].map(d).join(" || "));
     // ---- case 10: three assistants (owner, 2026-11-22: copilot is a wrapper for GPT and leaves)
     const three = await Promise.all([cmd(A, "box", "copilot", "1", "--file", boxF), cmd(A, "blocked", "copilot", "--reason", "sign-in wall"), cmd(A, "save", "nobody", "1", "--file", boxF)]);
     const listed = three.map((r) => (/the assistant is one of ([a-z, ]+)/.exec(r.out) || [])[1]);
@@ -155,6 +174,7 @@ async function scenarios(dir) {
 const one = (name, from, to, ...expect) => ({ name, patches: [{ file: "ai-oneshot.mjs", from, to }], expect });
 const MUTANTS = [
   one("a check record is read as a reply", '/-[12]\\.json$/.test(x)', '/-[a-z0-9]+\\.json$/.test(x)', /^case 18h:/),
+  one("asked.json is read as a reply", '/-[12]\\.json$/.test(x)', '/(-[12]|asked)\\.json$/.test(x)', /^case 20c:/),
   one("copilot is back among the assistants", 'const ENGINES = ["chatgpt", "perplexity", "gemini"];', 'const ENGINES = ["chatgpt", "perplexity", "copilot", "gemini"];', /^case 10:/),
   one("a service question loses its place", 'text: `In ${p.full}, who would you recommend for "${need}"?`', 'text: `Who would you recommend for "${need}"?`', /^case 1a:/),
   one("a US place without a state passes", "if (us && !p.state) throw new Blocked(", "if (false) throw new Blocked(", /^case 2:/),

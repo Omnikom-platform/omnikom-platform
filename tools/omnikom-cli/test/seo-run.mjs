@@ -803,6 +803,76 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
       r = await go(sz, ['station', URL_]);
       check('seo station: a manifest that declares no stations is exit 2 [stations]', r.exit === 2 && r.stdout.includes('no stations'), r.all.slice(0, 300));
     }
+
+    // ================================================================ the work browser: the run opens it once, closes it only when it opened it [workbrowser]
+    {
+      const WK = (id, over = {}) => S(id, { args: ['--id', id, '--out', `{pewp}/${id}.json`, '--ms', '700'], needsBrowser: 'work', hits: `third-party:${id}`, ...over });   // two work steps hit two hosts, so only the work rule can keep them apart
+      const wmode = (sx, m) => writeFileSync(join(sx.dir, 'wb-mode.txt'), m);
+      const wst = r => (r.json?.data ? states(r) : {});   // a run the CLI refused has no table: the checks go red, the file does not crash
+      const wrow = (r, id) => (r.json?.data ? row(r, id) : undefined) ?? { detail: '' };
+      const wcalls = sx => rec(sx).filter(x => x.id === 'work-browser');
+      const wseq = sx => wcalls(sx).map(x => x.cmd).join(',');
+      const wspan = (sx, id) => { try { return span(sx, id); } catch { return { a: NaN, b: NaN }; } };   // a step that never started is a red check, not a crash
+      const wlog = sx => { try { return JSON.parse(readFileSync(join(sx.pewp, 'seo-run.json'), 'utf8')).workBrowser; } catch { return undefined; } };
+      const lastEnd = sx => Math.max(...rec(sx).filter(x => x.event === 'end' && x.id !== 'heavy').map(x => x.t));
+      const NOT_OPENED = 'BLOCKED: the work browser could not be opened (BLOCKED: no tunnel to the US machine | unblocks: start the tunnel) | unblocks: node work-browser.mjs open';
+
+      let sw = site(M(WK('wk1'), WK('wk2'), S('plain')));
+      wmode(sw, 'closed');
+      r = await run(sw);
+      let w1 = wspan(sw, 'wk1'), w2 = wspan(sw, 'wk2'), wl = wlog(sw) || {};
+      const tOpen = (wcalls(sw).find(x => x.cmd === 'open') || {}).t, tClose = (wcalls(sw).find(x => x.cmd === 'close') || {}).t;
+      check('seo run: work steps, browser closed: the calls are status, open, close (in that order), open before the first work step starts and close after the last step of the run ended [workbrowser]',
+        wseq(sw) === 'status,open,close' && tOpen <= Math.min(w1.a, w2.a) && tClose >= lastEnd(sw), `${wseq(sw)} ${JSON.stringify({ tOpen, tClose, w1, w2 })}`);
+      check('seo run: two work steps run one after the other, never together, and both RUN [workbrowser]', wst(r).wk1 === 'RUN' && wst(r).wk2 === 'RUN' && !overlap(w1, w2), `${JSON.stringify(wst(r))} ${JSON.stringify({ w1, w2 })}`);
+      check('seo run: the run log says workBrowser: openedByRun true, opened and closed times, no blocked line [workbrowser]',
+        wl.openedByRun === true && Number.isFinite(Date.parse(wl.opened)) && Number.isFinite(Date.parse(wl.closed)) && wl.blocked === null, JSON.stringify(wl));
+
+      sw = site(M(WK('wk1'), WK('wk2')));
+      wmode(sw, 'open');
+      r = await run(sw);
+      wl = wlog(sw) || {};
+      check('seo run: work steps, browser already open: only status is called (no open, no close), the steps run, openedByRun false [workbrowser]',
+        wseq(sw) === 'status' && wst(r).wk1 === 'RUN' && wst(r).wk2 === 'RUN' && wl.openedByRun === false && wl.opened === null && wl.closed === null && wl.blocked === null, `${wseq(sw)} ${JSON.stringify(wl)} ${JSON.stringify(wst(r))}`);
+
+      sw = site(M(WK('wk1'), WK('wk2'), S('after', { dependsOn: ['wk1'] }), S('free')));
+      wmode(sw, 'cannot');
+      r = await run(sw);
+      wl = wlog(sw) || {};
+      check('seo run: the browser cannot be opened: status, open (once, no retry), no close; both work steps BLOCKED with the line, their scripts never started [workbrowser]',
+        wseq(sw) === 'status,open' && wst(r).wk1 === 'BLOCKED' && wst(r).wk2 === 'BLOCKED' && wrow(r, 'wk1').detail === NOT_OPENED && wrow(r, 'wk2').detail === NOT_OPENED && starts(sw, 'wk1') === 0 && starts(sw, 'wk2') === 0 && !existsSync(join(sw.pewp, 'wk1.json')), `${wseq(sw)} ${JSON.stringify((r.json?.data?.steps ?? []).map(x => [x.id, x.state, x.detail]))}`);
+      check('seo run: the browser cannot be opened: a step that depends on a work step is BLOCKED by it, a step that depends on neither RUNS, the exit is 0, the log names the line [workbrowser]',
+        wst(r).after === 'BLOCKED' && wrow(r, 'after').detail.includes('waits for wk1 (BLOCKED)') && starts(sw, 'after') === 0 && wst(r).free === 'RUN' && r.exit === 0 && wl.openedByRun === false && wl.opened === null && wl.closed === null && wl.blocked === NOT_OPENED, `${r.exit} ${JSON.stringify(wl)} ${JSON.stringify(wst(r))}`);
+
+      sw = site(M(WK('wk1'), WK('wk2')));
+      wmode(sw, 'broken');
+      r = await run(sw);
+      check('seo run: a status that fails by itself (not the "not open" line) blocks the work steps and the run opens and closes nothing (the browser may be someone else\'s) [workbrowser]',
+        wseq(sw) === 'status' && wst(r).wk1 === 'BLOCKED' && wst(r).wk2 === 'BLOCKED' && starts(sw, 'wk1') === 0 && wrow(r, 'wk1').detail.startsWith('BLOCKED: the work browser could not be opened (boom: the status check crashed)'), `${wseq(sw)} ${JSON.stringify((r.json?.data?.steps ?? []).map(x => [x.id, x.state, x.detail]))}`);
+
+      sw = site(M(S('a'), S('b', { dependsOn: ['a'] })));
+      wmode(sw, 'closed');
+      r = await run(sw);
+      check('seo run: a manifest with no work step never calls work-browser.mjs and the log has no workBrowser record [workbrowser]', wcalls(sw).length === 0 && wst(r).a === 'RUN' && wst(r).b === 'RUN' && wlog(sw) === undefined, `${wseq(sw)}`);
+
+      sw = site(M(WK('wk1', { script: 'scripts/fail.mjs' }), WK('wk2', { dependsOn: ['wk1'] })));
+      wmode(sw, 'closed');
+      r = await run(sw);
+      wl = wlog(sw) || {};
+      check('seo run: a work step FAILED: the browser this run opened is still closed at the end [workbrowser]', wst(r).wk1 === 'FAILED' && wseq(sw) === 'status,open,close' && wl.openedByRun === true && Number.isFinite(Date.parse(wl.closed)), `${wseq(sw)} ${JSON.stringify(wl)} ${JSON.stringify(wst(r))}`);
+
+      // the validator: "work" is a value of needsBrowser; such a step has a script, is not heavy and names what it hits
+      p = broke(m => { Object.assign(step(m, 'fx-ok'), { needsBrowser: 'work', hits: 'third-party:wa' }); });
+      check('seo validator: needsBrowser "work" is accepted on a step with a script, heavy false and a hits that is not none [workbrowser]', p.length === 0, p.join(' | '));
+      p = broke(m => { Object.assign(step(m, 'fx-ok'), { needsBrowser: 'work', hits: 'third-party:wa', script: null }); });
+      check('seo validator: a work step with script null is refused [workbrowser]', has(p, 'needs a script'), p.join(' | '));
+      p = broke(m => { Object.assign(step(m, 'fx-ok'), { needsBrowser: 'work', hits: 'third-party:wa', heavy: true }); });
+      check('seo validator: a work step with heavy true is refused (the work browser never goes through the machine lock) [workbrowser]', has(p, 'work browser') && has(p, 'heavy'), p.join(' | '));
+      p = broke(m => { Object.assign(step(m, 'fx-ok'), { needsBrowser: 'work', hits: 'none' }); });
+      check('seo validator: a work step with hits none is refused [workbrowser]', has(p, 'work browser') && has(p, 'hits'), p.join(' | '));
+      p = broke(m => { step(m, 'fx-ok').needsBrowser = 'robot'; });
+      check('seo validator: the refusal of a bad needsBrowser lists work among the values [workbrowser]', has(p, 'none, headless, owner, work'), p.join(' | '));
+    }
   } catch (e) {
     if (!(e && e.seoDeadline)) throw e;
     try { guard.killFolderProcs(root); } catch { /* the list of processes failed; the folder removal below may then fail too */ }   // whatever the command left running under the test folder

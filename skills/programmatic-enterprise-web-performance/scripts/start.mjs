@@ -5,7 +5,7 @@
 //
 // Usage: node start.mjs <mode> <target> [<target2>] [--go] [--stage <name>] [--ack <stage> [--by NAME] [...]] [options]
 //   audit-live: its steps are NOT in this file: they are the steps of pipeline.json (skill root), read through lib-pipeline.mjs and run in its
-//          order (file order, a step after the steps it depends on). Steps with a script run; steps marked needsPerson (NEEDS-APPROVAL), needsBrowser
+//          order (file order, a step after the steps it depends on). Steps with a script run (needsBrowser "work" is a script step like "headless": this file does not open the work browser, so such a step is BLOCKED while it is closed; omnikom seo run opens it); steps marked needsPerson (NEEDS-APPROVAL), needsBrowser
 //          owner or needsAi (WAITING-FOR) print their brief and wait for their evidence; a step that exits 3 is BLOCKED and the steps that do not
 //          depend on it go on. Extra options: --client <slug> (the {client} placeholder), --pipeline <file> (another manifest; tests).
 //   modes: audit-live <url> | audit-repo <path> | audit <url|path> | compare <a> <b> | research <url|folder> | refactor <repo path>

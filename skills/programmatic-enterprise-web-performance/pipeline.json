@@ -838,35 +838,147 @@
    "maxAgeDays": null
   },
   {
-   "id": "capture-ai",
+   "id": "ai-prompt",
    "station": "assistants",
    "module": "ai",
-   "what": "AI answers beyond Google: ChatGPT, Perplexity, Gemini web (only if signed in); the buyer questions and 'who is <business>'",
-   "script": null,
-   "args": [],
+   "what": "The AI assistants' two fixed texts are built by program from the signed seeds: one prompt of buyer questions per place and a follow-up by name; the first text never holds the business's own name",
+   "script": "scripts/ai-oneshot.mjs",
+   "args": [
+    "build",
+    "{key}",
+    "--cwd",
+    "{skill}"
+   ],
    "inputs": [
-    "{pewp}/approved/seeds.json"
+    "{pewp}/approved/seeds.json",
+    "{pewp}/business.json"
    ],
    "outputs": [
-    "{pewp}/captures/ai/"
+    "{pewp}/research/ai-oneshot-prompt.json"
    ],
    "dependsOn": [
     "approve-seeds"
    ],
-   "needsBrowser": "owner",
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/research/ai-oneshot-prompt.json"
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
+  },
+  {
+   "id": "ai-lock",
+   "station": "assistants",
+   "module": "ai",
+   "what": "The two built texts are frozen as they are, with the run's own record that it froze them; every later send is checked against this lock",
+   "script": "scripts/ai-oneshot.mjs",
+   "args": [
+    "lock",
+    "{key}",
+    "--by",
+    "the audit run: both texts are built by program from the signed seeds and the two fixed prompt files",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/research/ai-oneshot-prompt.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/ai-oneshot/prompt-lock.json"
+   ],
+   "dependsOn": [
+    "ai-prompt"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/captures/ai-oneshot/prompt-lock.json"
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
+  },
+  {
+   "id": "ai-ask",
+   "station": "assistants",
+   "module": "ai",
+   "what": "ChatGPT, Perplexity and Gemini (only if signed in) are asked in the work browser, one assistant at a time: the first text and the follow-up in one chat each, at one fixed pace; a human check rings the owner and waits; every reply is saved whole and asked.json says what happened to each assistant",
+   "script": "scripts/ask-assistants.mjs",
+   "args": [
+    "{key}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/captures/ai-oneshot/prompt-lock.json"
+   ],
+   "outputs": [
+    "{pewp}/captures/ai-oneshot/"
+   ],
+   "dependsOn": [
+    "ai-lock"
+   ],
+   "needsBrowser": "work",
    "needsAi": false,
    "needsPerson": false,
    "needsKeys": [],
    "heavy": false,
    "hits": "third-party:ai-engines",
-   "pace": "one question at least 60 s apart per engine",
-   "timeoutMinutes": 0,
+   "pace": "one tab and one assistant at a time, typing and reading at the rates and the wait between assistants of the pace block of work-browser-engines.json, each assistant asked once, no retry",
+   "timeoutMinutes": 120,
    "evidence": [
-    "{pewp}/captures/ai/*.json"
+    "{pewp}/captures/ai-oneshot/asked.json"
    ],
    "kind": "time-sensitive",
-   "maxAgeDays": 30,
-   "brief": "Ask each engine the buyer questions and 'Who is <business> in <city>?'. Record whether the business is named, who is named instead, and the cited sources. A sign-in wall means that engine is BLOCKED. The Gemini API is not used (owner, 2026-11-11)."
+   "maxAgeDays": 30
+  },
+  {
+   "id": "ai-count",
+   "station": "assistants",
+   "module": "ai",
+   "what": "The saved replies are counted by program, no model: per assistant and question whether the business is listed, who is listed instead and which sources are named; writes the files the import reads",
+   "script": "scripts/ai-oneshot.mjs",
+   "args": [
+    "count",
+    "{key}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/captures/ai-oneshot/"
+   ],
+   "outputs": [
+    "{pewp}/research/ai-oneshot.json",
+    "{pewp}/captures/ai/"
+   ],
+   "dependsOn": [
+    "ai-ask"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/research/ai-oneshot.json"
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
   },
   {
    "id": "ai-import",
@@ -886,7 +998,7 @@
     "{pewp}/research/ai-answers.json"
    ],
    "dependsOn": [
-    "capture-ai"
+    "ai-count"
    ],
    "needsBrowser": "none",
    "needsAi": false,
@@ -1782,7 +1894,7 @@
     "capture-reputation",
     "capture-social",
     "capture-ads",
-    "capture-ai",
+    "ai-count",
     "capture-index",
     "capture-trends"
    ],

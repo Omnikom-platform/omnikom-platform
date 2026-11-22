@@ -104,6 +104,7 @@ This is the project's 2026-10-17 precedent, kept as is. Use the claude-in-chrome
    same pace and stop rule; the answer can go through the same receiver (`POST /save-ai?file=<id>.json`, checked and paced like the results pages). An engine that needs a sign-in or new terms is BLOCKED until the owner does it himself. Save
    `<pewp>/captures/ai/<id>.json`: `{"engine":"chatgpt","question","prompt","model":"as shown","capturedAt","browser","location":"what the assistant said it assumed","answer","sources":["https://..."]}`
    (one file per run). The project's `AI-<ID>.<engine>.md` files are read too.
+   An audit run no longer waits for the owner here: the steps `ai-prompt`, `ai-lock`, `ai-ask` and `ai-count` of `pipeline.json` ask the assistants in the work browser (opened by the run) and write the files `import-ai.mjs` reads; a human check rings the owner (SKILL.md).
    A capture in the form of `import-ai.mjs` (`answerText`, `citedSources`, or `blocked` with the reason) is read as it is: its `citedSources` are the sources, its `answerText` is searched for the business name, a `blocked` one is no run and the report names its engine as not read.
 7. Run `research.mjs` again. The capture list shrinks to what is still missing or older than 30 days.
 

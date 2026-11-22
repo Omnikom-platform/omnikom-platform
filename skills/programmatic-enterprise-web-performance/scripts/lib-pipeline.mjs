@@ -35,6 +35,7 @@
 //   [script-missing] the file exists (a `repo:` path is looked up only when repoRoot is given) [vantage-start] a step never calls `vantage start`
 //   [waiting] a step with script null is WAITING: it needs the owner's browser, an agent or a person, carries a brief and outputs and has no args; a step with a script never needs those
 //   [timeout] a step a script runs has a timeout above 0 minutes
+//   [work-browser] needsBrowser "work" = the step drives the work browser (our own window on a debugging port) by its script: it is NOT waiting, has a script and a timeout above 0, heavy false (the work browser never goes through the machine lock) and hits not none; the runner opens the browser once before the first such step and closes it after the run only when it opened it
 //   [exit] keys "0".."4", each a sentence that starts with that code's word (0 ok, 1 and 2 failed, 3 blocked, 4 skipped): the map says what a script says, it never decides a state
 //   [evidence] not empty, no `**`, every path is inside one of the step's outputs or inputs (a step that only checks a file)
 //   [input-order] an input another step writes must be written by a step this one depends on (directly or through others)
@@ -59,7 +60,7 @@ export const TOP_KEYS = ["version", "name", "what", "conventions", "vars", "stat
 export const REQUIRED = ["id", "module", "what", "script", "args", "inputs", "outputs", "dependsOn", "needsBrowser", "needsAi", "needsPerson", "needsKeys", "heavy", "hits", "pace", "timeoutMinutes", "evidence", "kind", "maxAgeDays"];
 export const OPTIONAL = ["brief", "exit", "engines", "partialSettles", "skipWhen", "unlessSkipped", "station"];
 export const STEP_KEYS = [...REQUIRED, ...OPTIONAL];
-export const BROWSER = ["none", "headless", "owner"];
+export const BROWSER = ["none", "headless", "owner", "work"];
 export const KINDS = ["stable", "time-sensitive", "derived"];
 // the options of `omnikom seo run` (the CLI's allow-list IS this list)
 export const RUN_OPTIONS = ["client", "only", "from", "module", "fresh", "env-file", "json"];
@@ -301,6 +302,10 @@ export function validateManifest(m, { skillDir = null, repoRoot = null, scriptEx
     }
     // `vantage start` opens the owner's browser session: only a person running `node scripts/vantage.mjs start` does that, never a run (the CLI wraps `seo vantage status` only)
     if (typeof s.script === "string" && /(^|\/)vantage\.mjs$/.test(norm(s.script)) && Array.isArray(s.args) && s.args.some((a) => /^start$/i.test(String(a)))) bad("vantage-start", at, "a step must never call vantage start (a run only reads its status)");
+    if (s.needsBrowser === "work") {   // [work-browser]: the script, the timeout and "not waiting" are the rules above
+      if (s.heavy === true) bad("work-browser", at, "a step that drives the work browser never runs through the machine lock: heavy must be false");
+      if (s.hits === "none") bad("work-browser", at, "a step that drives the work browser reaches an outside site: hits must not be none");
+    }
     if (waiting) {
       if (typeof s.brief !== "string" || !s.brief.trim()) bad("waiting", at, "a waiting step needs a brief that says what the agent must do");
       if (Array.isArray(s.outputs) && s.outputs.length === 0) bad("waiting", at, "a waiting step needs outputs: nothing else tells the runner it is done");

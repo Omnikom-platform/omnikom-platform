@@ -5,7 +5,7 @@
 // Run it through the machine heavy lock (a browser): node ~/.claude/scripts/heavy.mjs -- node test-ask-assistants.mjs
 // Case 18 (owner, 2026-11-22 11:43, M255: a human check is answered by the owner's own hand and the run waits for it): the invented pages can show a check by themselves (by title, by a check frame, by words in the
 // body) and take it away by themselves after 3 looks that saw it, as a person's answer does (see CHECKJS); while it shows they report every key, input, click, mouse move, focus and scroll as a "touch".
-// ASK_TEST_FROM=18 (an environment variable of this TEST only, for runs that want case 18 alone) skips every case before 18 and case 10; the last line then says how many cases ran. The sleep hook makes a wait whose why is
+// ASK_TEST_FROM=18 (an environment variable of this TEST only, for runs that want cases 18 and 19 alone) skips every case before 18 and case 10; the last line then says how many cases ran. The sleep hook makes a wait whose why is
 // "after check" last 700 real ms (the page of 18f loads itself again at the look that finds its check gone: the wait lets that load end before the next look); every other wait, the "human check" waits too, is recorded and skipped (the checks go by looks, not by time). io.ring is replaced by a recorder.
 import fs from "node:fs";
 import os from "node:os";
@@ -28,9 +28,9 @@ const BROWSER_WORDS = "work browser (Edge, US exit)";
 // the pace the head of operations settled (owner, 2026-11-22, M250); case 17e holds the real engines file to exactly these numbers
 const PACE = { tabsAtOnce: 1, afterLoadSeconds: 8, typeCharactersPerSecond: 8, beforeSendSeconds: 3, readSecondsPer100Words: 12, readSecondsMin: 15, readSecondsMax: 90, betweenAssistantsSeconds: 180, checkWaitSeconds: 300, checkLookSeconds: 5 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// ASK_TEST_FROM (an environment variable of THIS TEST, never of the product script): "18" runs case 18 alone. Anything else is a usage error. Unset: the whole test, as always.
+// ASK_TEST_FROM (an environment variable of THIS TEST, never of the product script): "18" runs cases 18 and 19 alone. Anything else is a usage error. Unset: the whole test, as always.
 const FROM = process.env.ASK_TEST_FROM;
-if (FROM !== undefined && FROM !== "18") { console.error("ASK_TEST_FROM can only be 18 (case 18 alone), not " + JSON.stringify(FROM)); process.exit(2); }
+if (FROM !== undefined && FROM !== "18") { console.error("ASK_TEST_FROM can only be 18 (cases 18 and 19 alone), not " + JSON.stringify(FROM)); process.exit(2); }
 const ONLY18 = FROM === "18";
 let RAN = 0;   // how many assertions the last pass of scenarios() made
 
@@ -47,6 +47,7 @@ const PAGES = {
   robotJam: { kind: "robot", title: "Just a moment...", text: "Please stand by." }, robotVerify: { kind: "robot", title: "Verify you are human", text: "Please stand by." }, robotCheck: { kind: "robot", title: "Checking your browser", text: "Please stand by." },
   words10: { kind: "chat", modeOn: true, words: 10 }, words500: { kind: "chat", modeOn: true, words: 500 }, words2000: { kind: "chat", modeOn: true, words: 2000 },   // every reply is that many words (30 letters each)
   p17d: { kind: "chat", modeOn: true }, p17f: { kind: "chat", modeOn: true },
+  a19a1: { kind: "chat", modeOn: true }, a19a2: { kind: "chat", modeOn: true },   // case 19a and 19c: two assistants read, then asked again
   p17a1: { kind: "chat", modeOn: true }, p17a2: { kind: "chat", modeOn: true },   // case 17a's own two pages (the log is one for the whole run: a page another case asked would be counted twice)
   c18a: { kind: "chat", modeOn: true, check: { by: "title", at: "load" } }, c18a2: { kind: "chat", modeOn: true, check: { by: "text", at: "load" } },   // case 18: a check that goes by itself after 3 looks that saw it (looks: "always" never)
   c18b1: { kind: "chat", modeOn: true, check: { by: "frame", at: "send1" } }, c18b2: { kind: "chat", modeOn: true, check: { by: "frame", at: "text1", atChars: 0 } },   // at send 1 | when the box holds all of text 1 (atChars is set from the locked text)
@@ -396,6 +397,26 @@ async function scenarios(dir) {
     check("case 18g: the real engines file: chatgpt and perplexity ring, gemini stops, and its pace block holds checkWaitSeconds 300 and checkLookSeconds 5",
       realFile.chatgpt?.humanCheck === "ring" && realFile.perplexity?.humanCheck === "ring" && realFile.gemini?.humanCheck === "stop" && realFile.pace.checkWaitSeconds === 300 && realFile.pace.checkLookSeconds === 5, JSON.stringify(realFile));
 
+    // ---- case 19 (AB-9): one record per run of the script, captures/ai-oneshot/asked.json = { step: "ai-ask", at, outcomes: { <engine>: "<the outcome exactly as in the ASKED line>" } }, on exit 0 and on exit 3 (the step ai-ask's evidence)
+    // This case stands outside the ASK_TEST_FROM guard: the run with ASK_TEST_FROM=18 runs cases 18 and 19.
+    const askedOf = (w) => jr(cap(w, "asked.json"));
+    const askedLine = (rec) => "ASKED: " + Object.entries(rec?.outcomes || {}).map(([e, o]) => e + " " + o).join(", ");
+    const K1 = await world(), r19a = await ask(K1, { chatgpt: spec("a19a1"), perplexity: spec("a19a2") }), a19a = askedOf(K1);
+    check("case 19a: a run that read two assistants: exit 0, and asked.json holds step ai-ask, an ISO time and both outcomes, which put back into words are exactly the ASKED line",
+      K1.ok && r19a.code === 0 && last(r19a) === "ASKED: chatgpt read, perplexity read" && a19a?.step === "ai-ask" && Number.isFinite(Date.parse(a19a.at)) && JSON.stringify(a19a.outcomes) === JSON.stringify({ chatgpt: "read", perplexity: "read" }) && askedLine(a19a) === last(r19a),
+      d(r19a) + " | " + JSON.stringify(a19a));
+    const K2 = await world(); writeStop({ engine: "chatgpt", reason: "robot check", setBy: "the test", dir: K2.stops });
+    const r19b = await ask(K2, { chatgpt: spec("unused"), perplexity: { selectors: "NOT SET" } }), a19b = askedOf(K2);
+    check("case 19b: a run that ended BLOCKED (one assistant stopped, one with no page description): the exit is still 3 with the BLOCKED line, and asked.json holds every outcome, as the ASKED line has them",
+      K2.ok && r19b.code === 3 && /^BLOCKED: no assistant could be asked/.test(last(r19b)) && a19b?.step === "ai-ask" && Number.isFinite(Date.parse(a19b.at)) && JSON.stringify(a19b.outcomes) === JSON.stringify({ chatgpt: "blocked (robot check)", perplexity: "blocked (page description not set)" }) && r19b.out.split("\n").includes(askedLine(a19b)),
+      d(r19b) + " | " + JSON.stringify(a19b));
+    const m19 = fs.existsSync(cap(K1, "asked.json")) ? fs.statSync(cap(K1, "asked.json")).mtimeMs : 0;
+    await sleep(40);
+    const r19c = await ask(K1, { chatgpt: spec("a19a1"), perplexity: spec("a19a2") }), a19c = askedOf(K1), m19c = fs.existsSync(cap(K1, "asked.json")) ? fs.statSync(cap(K1, "asked.json")).mtimeMs : 0;
+    check("case 19c: a second run on the same folder (both assistants already asked): exit 0, the ASKED line says so, no page is loaded again, and asked.json is NEWER (its time and the file's) with both outcomes 'already asked'",
+      r19c.code === 0 && last(r19c) === "ASKED: chatgpt already asked, perplexity already asked" && JSON.stringify(a19c?.outcomes) === JSON.stringify({ chatgpt: "already asked", perplexity: "already asked" }) && Date.parse(a19c?.at) > Date.parse(a19a?.at) && m19c > m19 && count("a19a1", "load") === 1 && count("a19a2", "load") === 1,
+      d(r19c) + " | " + JSON.stringify(a19c) + " | mtime " + m19 + " -> " + m19c);
+
     if (!ONLY18) {
     // ---- case 10: the side list is in no file written and no line printed
     const files = walk(tmp).filter((f) => !/[\\/]net\.log$/.test(f)), hits = files.filter((f) => { try { return fs.readFileSync(f, "utf8").includes("HISTORY-MARKER"); } catch { return false; } });
@@ -450,10 +471,13 @@ const MUTANTS = [
   one("a page loaded again by the check is not noticed", "if (origin !== null && o !== origin)", "if (false)", /^case 18f:/),
   lib("checkWaitSeconds 59 is accepted", "checkWaitSeconds: [60, 600]", "checkWaitSeconds: [59, 600]", /^case 17d:/),
   lib("checkLookSeconds 1 is accepted", "checkLookSeconds: [2, 30]", "checkLookSeconds: [1, 30]", /^case 17d:/),
+  one("asked.json is not written when the run ends BLOCKED", 'fs.writeFileSync(askedFile, JSON.stringify({ step: "ai-ask"', 'if (anyAsked) fs.writeFileSync(askedFile, JSON.stringify({ step: "ai-ask"', /^case 19b:/),
+  one("asked.json is not written again by a second run", 'fs.writeFileSync(askedFile, JSON.stringify({ step: "ai-ask"', 'if (!fs.existsSync(askedFile)) fs.writeFileSync(askedFile, JSON.stringify({ step: "ai-ask"', /^case 19c:/),
+  one("an outcome is cut to its first word in asked.json", "outcomes: Object.fromEntries(outcomes) }", "outcomes: Object.fromEntries(outcomes.map(([n, o]) => [n, o.split(\" \")[0]])) }", /^case 19b:/, /^case 19c:/),
 ];
 
-// with ASK_TEST_FROM=18 only the faults whose cases ran can be judged: those that expect a case 18 or case 17d and nothing else
-const FAULTS = ONLY18 ? MUTANTS.filter((m) => m.expect.every((re) => /case 18|case 17d/.test(String(re)))) : MUTANTS;
+// with ASK_TEST_FROM=18 only the faults whose cases ran can be judged: those that expect a case 18, case 19 or case 17d and nothing else
+const FAULTS = ONLY18 ? MUTANTS.filter((m) => m.expect.every((re) => /case 18|case 19|case 17d/.test(String(re)))) : MUTANTS;
 const code = await main({ label: "ASK ASSISTANTS", scenarios, MUTANTS: FAULTS, scriptsDir: here, argv: process.argv.slice(2) });
 closeBrowser();
 if (ONLY18) console.log("ASK_TEST_FROM=18: the cases before case 18 and case 10 did not run; " + RAN + " cases ran in the last pass");

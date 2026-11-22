@@ -24,6 +24,8 @@ export const NOT_RUN = 'NOT RUN';
 export const MAX_PARALLEL = 4;     // independent steps in flight at once
 export const GRACE_MS = 15000;     // after a timeout kill, how long to wait for the process to be gone before naming it and going on
 const MAX_LINE = 2000;
+const WB_LIMIT_MS = 3 * 60000;     // each call of work-browser.mjs (status, open, close) is cut off after this long
+const WB_NOT_OPEN = /the work browser is not open/;   // the line the skill's work-browser.mjs status prints (exit 3) when the browser is not open
 const MAX_EVIDENCE = 50;           // evidence paths kept per step in the log (the count is kept whole)
 
 const uniq = list => [...new Set(list)];
@@ -78,7 +80,7 @@ function prepare(manifest, vars) {
   return runOrder(manifest).steps.map(s => ({
     id: s.id, module: s.module, what: s.what, script: s.script, waiting: isWaiting(s), heavy: s.heavy, hits: s.hits,
     needsKeys: s.needsKeys, dependsOn: s.dependsOn, timeoutMinutes: s.timeoutMinutes, maxAgeDays: s.maxAgeDays, partialSettles: s.partialSettles === true,
-    needsBrowser: s.needsBrowser, needsAi: s.needsAi, needsPerson: s.needsPerson, engines: Array.isArray(s.engines) ? s.engines : [], skipWhen: s.skipWhen ?? null, unlessSkipped: s.unlessSkipped ?? {},
+    work: s.needsBrowser === 'work', needsBrowser: s.needsBrowser, needsAi: s.needsAi, needsPerson: s.needsPerson, engines: Array.isArray(s.engines) ? s.engines : [], skipWhen: s.skipWhen ?? null, unlessSkipped: s.unlessSkipped ?? {},
     args: substitute(s.args, vars),
     inputs: substitute(s.inputs, vars), outputs: substitute(s.outputs, vars),
     brief: s.brief ? substitute(s.brief, vars) : null,
@@ -337,11 +339,47 @@ export async function runSeo(o) {
     return { ...done, state, exit: code, line, reason: code === 0 ? oc.message : code === 2 ? 'usage' : undefined };
   }
 
-  // ---- the scheduler: topological, independent steps in parallel, one step per host, one heavy step at a time
+  // ---- the work browser (AB-9): a step with needsBrowser "work" drives it by its script. The run opens it ONCE, before the first such step starts, directly (never through heavy.mjs, no retry),
+  // and closes it at the end of the run ONLY when this run opened it: one that was already open is left open and untouched. status, open and close are the skill's own work-browser.mjs;
+  // its exit codes and lines are read from its header: status 0 = open, status 3 with "the work browser is not open" = closed; any other answer of status is not a closed browser and
+  // blocks the work steps (the browser may be someone else's: nothing is opened or closed then).
+  const wbScript = join(skillDir, 'scripts', 'work-browser.mjs');
+  const wb = { openedByRun: false, opened: null, closed: null, blocked: null };
+  async function wbCall(cmd) {
+    const r = await runStep(guard, [process.execPath, wbScript, cmd], { cwd: skillDir, env: { ...env }, timeout: WB_LIMIT_MS, graceMs, kill });
+    const line = clip(redact(lastLine(r.stdout) || lastLine(r.stderr) || (r.error ? String(r.error.message || r.error) : ''), secrets)) || '(no output)';
+    return { code: r.status === null ? -1 : r.status, line };
+  }
+  let wbReady = null;   // the one opening of this run: a promise of true (the steps may run) or false (they are BLOCKED)
+  const wbEnsure = () => (wbReady ||= (async () => {
+    log.workBrowser = wb;
+    const st = await wbCall('status');
+    const closed = st.code === 3 && WB_NOT_OPEN.test(st.line);
+    if (!closed && st.code !== 0) { wb.blocked = `BLOCKED: the work browser could not be opened (${st.line}) | unblocks: node work-browser.mjs open`; return false; }
+    if (!closed) return true;   // already open: left as it is
+    const op = await wbCall('open');
+    if (op.code !== 0) { wb.blocked = `BLOCKED: the work browser could not be opened (${op.line}) | unblocks: node work-browser.mjs open`; return false; }
+    wb.openedByRun = true;
+    wb.opened = iso(Date.now());
+    return true;
+  })());
+  async function launchWork(step) {
+    if (!(await wbEnsure())) return blocked(step, wb.blocked);
+    return execute(step);
+  }
+  async function wbClose() {
+    if (wb.openedByRun) {
+      const c = await wbCall('close');
+      if (c.code === 0) wb.closed = iso(Date.now()); else wb.closeFailed = c.line;
+    }
+    save();
+  }
+
+  // ---- the scheduler: topological, independent steps in parallel, one step per host, one heavy step at a time, one work-browser step at a time
   const pending = new Set(steps.map(s => s.id));
   const flying = new Map();   // id -> promise
   const hostsBusy = new Set();
-  let heavyBusy = false;
+  let heavyBusy = false, workBusy = false;
   const hostKey = s => (s.hits === 'none' ? null : s.hits);
   const settle = (step, final) => {
     settled.set(step.id, final);
@@ -350,6 +388,7 @@ export async function runSeo(o) {
     save();
   };
   save();
+  try {
   while (pending.size || flying.size) {
     let progressed = false;
     for (const step of steps) {
@@ -357,12 +396,14 @@ export async function runSeo(o) {
       const d = decide(step);
       if (d.final) { settle(step, d.final); progressed = true; continue; }
       const key = hostKey(step);
-      if (flying.size >= MAX_PARALLEL || (key && hostsBusy.has(key)) || (step.heavy && heavyBusy)) continue;
+      if (flying.size >= MAX_PARALLEL || (key && hostsBusy.has(key)) || (step.heavy && heavyBusy) || (step.work && workBusy)) continue;
       if (key) hostsBusy.add(key);
       if (step.heavy) heavyBusy = true;
-      const p = execute(step).catch(e => ({ id: step.id, module: step.module, state: 'FAILED', exit: null, line: null, reason: `the runner failed: ${String(e && e.message || e).slice(0, 300)}` })).then(entry => {
+      if (step.work) workBusy = true;
+      const p = (step.work ? launchWork(step) : execute(step)).catch(e => ({ id: step.id, module: step.module, state: 'FAILED', exit: null, line: null, reason: `the runner failed: ${String(e && e.message || e).slice(0, 300)}` })).then(entry => {
         if (key) hostsBusy.delete(key);
         if (step.heavy) heavyBusy = false;
+        if (step.work) workBusy = false;
         flying.delete(step.id);
         settle(step, { entry, how: null, store: true });
       });
@@ -374,6 +415,9 @@ export async function runSeo(o) {
     else break;   // nothing can start and nothing is running: the validator rules out a cycle, so this never happens
   }
   for (const id of pending) settle(byId.get(id), { entry: { id, module: byId.get(id).module, state: 'FAILED', reason: 'the runner could not schedule this step' }, how: null, store: true });
+  } finally {
+    await wbClose();   // also when a step failed or the runner threw
+  }
   const rows = steps.map(s => { const f = settled.get(s.id); return rowOf(s, f.entry, skillDir, f.how || why.get(s.id)); });
   return { mode, discarded, url, client, host: vars.host, runStartedAt: log.runStartedAt, updatedAt: log.updatedAt, logFile, hasLog: true, order: steps.map(s => s.id), steps: rows, ...summarize(steps, rows), failed: rows.filter(r => r.state === 'FAILED').length };
 }
