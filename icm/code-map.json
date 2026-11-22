@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 995,
+    "sources": 997,
     "unowned": 0
   },
   "files": [
@@ -193,8 +193,8 @@
     {"path":"skills/programmatic-enterprise-web-performance/measure/run.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/ai-oneshot.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/analysis-check.mjs","owner":"seo-and-audits","exports":["checkAnalysis","outputsOf"],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/analysis-copy.mjs","owner":"seo-and-audits","exports":["build","draftRowsWork"],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/analysis-shape.mjs","owner":"seo-and-audits","exports":["MAX_SECTIONS","MIN_SECTIONS","TOPICS","checkShape"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/analysis-copy.mjs","owner":"seo-and-audits","exports":["build","draftRowsWork","titleOf"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/analysis-shape.mjs","owner":"seo-and-audits","exports":["GAP_LINES","HALF_LINES","MAX_SECTIONS","MIN_PAGES","MIN_SECTIONS","PAGE_LINES","TOPICS","checkShape","fullPages","isFloorLine","linesOf","pagesOf"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/approve.mjs","owner":"seo-and-audits","exports":["FILE_KINDS","OWNER_ONLY","approve","approvedDir","approvedMatches","approvedTargetsPath","diffPlan","diffTargets","excludeRow","readLock","resolveInputs","sha256","signedCopy","verifyLock"],"tests":["tools/golive/search-gate.test.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/ask-assistants.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/authority-anchors.mjs","owner":"seo-and-audits","exports":["DENY_HOSTS","HARD_CAP","INCIDENT","MIN_GAP_MS","anchorsMd","blockRows","blockSpan","brandForms","classifyAnchor","defaultCluster","extractLinks","parseCluster","parseCrawlListing","parseWarcRecord","pickCrawls","releaseWindow","runAnchors","sampleBlocks","surtOf"],"tests":[],"feature":""},
@@ -329,6 +329,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/run-all-diff.mjs","owner":"seo-and-audits","exports":["diffRunAll","snapshotRunAll","toMap"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/section-shots.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/serp-capture.js","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/sign-by-rule.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/sitemap-check.mjs","owner":"seo-and-audits","exports":["BUILD_CLOCK_MIN_URLS","BUILD_CLOCK_NEAR_MS","BUILD_CLOCK_WINDOW_MS","Stop429","buildClockCluster","judge","makeClient","pageKey","parseArgs","parseRobots","readExisting","readPage","renderMd","robotsAllows","run"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/sitemap-submit.mjs","owner":"seo-and-audits","exports":["run"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/snapshot-site.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
@@ -395,6 +396,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-reputation-notread.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-research.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-rules.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-sign-by-rule.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-sitemap.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-snapshot.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-social-words.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
