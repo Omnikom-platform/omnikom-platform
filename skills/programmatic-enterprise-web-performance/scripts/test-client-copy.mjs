@@ -35,8 +35,8 @@ if (args.includes("--mutants")) {
     { id: "draft-contains-unchecked", file: "client-copy.mjs", from: 'if (!isTexts(std.draftContains) || std.draftContains.length !== 3) stop("STOP: how-we-work.json has no draftContains as a list of 3 texts");', to: "", red: "case 7:" },
     { id: "go-ahead-typed-in-code", file: "client-copy-design.mjs", from: "${esc(std.goAhead)}", to: "Tell us to start your draft.", red: "case 7:" },
     { id: "who-typed-in-code", file: "client-copy-design.mjs", from: "fill(f.gets, `row ${f.id} gets`), f.who, f.see]);", to: 'fill(f.gets, `row ${f.id} gets`), "Your developer", f.see]);', red: "case 8:" },
-    { id: "gates-not-called", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words });", to: "", red: "case 21:" },
-    { id: "gates-after-the-first-write", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words });", to: 'fs.mkdirSync(outDir, { recursive: true }); fs.writeFileSync(path.join(outDir, "early.html"), html); gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words });', red: "case 21:" },
+    { id: "gates-not-called", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words, internal });", to: "", red: "case 21:" },
+    { id: "gates-after-the-first-write", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words, internal });", to: 'fs.mkdirSync(outDir, { recursive: true }); fs.writeFileSync(path.join(outDir, "early.html"), html); gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words, internal });', red: "case 21:" },
     { id: "tx-p2-8-running-head-name-row-off", file: "client-copy-design.mjs", from: "TX(\"biz\", NAME, \"business name, running head\", NAME)", to: "esc(NAME)", red: "case 22:" },
     { id: "tx-p1-cover-name-row-off", file: "client-copy-design.mjs", from: "TX(\"biz\", NAME, \"business name, cover\", NAME)", to: "esc(NAME)", red: "case 22:" },
     { id: "tx-p2-city-row-off", file: "client-copy-design.mjs", from: "city(home, \"city, spots in the top three\")", to: "esc(home)", red: "case 22:" },
@@ -96,7 +96,7 @@ if (args.includes("--mutants")) {
     { id: "f1-noun-profile-plan-row", file: "client-copy-design.mjs", from: "\"profiles\", \"rows (length)\")} ${noun(pr.total, \"profile\", \"profiles\")}`;", to: "\"profiles\", \"rows (length)\")} ${\"profiles\"}`;", red: "case 26:" },
     { id: "f1-noun-place", file: "client-copy-design.mjs", from: "${noun(LP.pursue, \"place\", \"places\")} worth asking", to: "places worth asking", red: "case 26:" },
     { id: "f1-noun-helper-plural-only", file: "client-copy-design.mjs", from: "const noun = (n, one, many) => (n === 1 ? one : many);", to: "const noun = (n, one, many) => many;", red: "case 26:" },
-    { id: "f1-gate-new-words-not-called", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words });", to: "gates({ html, tsv, pages, logoUrl });", red: "case 27:" },
+    { id: "f1-gate-new-words-not-called", file: "client-copy.mjs", from: "gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words, internal });", to: "gates({ html, tsv, pages, logoUrl, internal });", red: "case 27:" },
     { id: "f1-gate-plural-rule-off", file: "client-copy-gates.mjs", from: " || ok.has(`${w}s`) || ok.has(`${w}es`) || (w.endsWith(\"es\") && ok.has(w.slice(0, -2))) || (w.endsWith(\"s\") && ok.has(w.slice(0, -1)))", to: "", red: "case 27:" },
     { id: "f1-gate-braces-read", file: "client-copy-gates.mjs", from: ".replace(/\\{[^}]*\\}/g, \" \")", to: "", red: "case 27:" },
     { id: "f1-gate-lists-two", file: "client-copy-gates.mjs", from: "bad.slice(0, 4).map(", to: "bad.slice(0, 2).map(", red: "case 27:" },
@@ -123,6 +123,7 @@ if (args.includes("--mutants")) {
     { id: "ab3-address-empty-is-a-row", file: "client-copy-data.mjs", from: "const gAddr = gRaw ? street(gRaw, home) : null;", to: "const gAddr = street(gRaw, home);", red: "case 35:" },
     { id: "ab3-site-status-required", file: "client-copy-data.mjs", from: "const status = getMaybe(\"comp\", `sites[${i}].status`, \"count\");", to: "const status = get(\"comp\", `sites[${i}].status`, \"count\");", red: "case 36:" },
     { id: "ab3-in-spelling-off", file: "client-copy-data.mjs", from: "wants = [wantQ, `${demand[0].key} in ${home}`.toLowerCase()];", to: "wants = [wantQ];", red: "case 37:" },
+    { id: "ab5b-internal-sheet-not-handed-over", file: "client-copy.mjs", from: "approvedWords: approvedWords.words, internal });", to: "approvedWords: approvedWords.words, internal: [] });", red: "case 38:" },
     { id: "ab3-mobile-list-fallback-back", file: "client-copy-data.mjs", from: "x.e === eng && x.d === \"desktop\");", to: "x.e === eng && x.d === \"desktop\") || sc.find((x) => wants.includes(x.q.toLowerCase()) && x.e === eng);", red: "case 37:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ccopy-mut-"));
@@ -828,6 +829,18 @@ try {
       else if (!norm(inn).includes("Roof help")) bad.push("\"in\" spelling: the list is not printed");
       const mob = one(null, { patch: { "research/serp.json": (j) => homeLists(j, (c) => { c.device = "mobile"; }) } });
       if (!stopLine(mob, "has no desktop capture of \"" + top + " " + s.home.toLowerCase() + "\" on google")) bad.push("only mobile: " + mob.status + " " + JSON.stringify(mob.stderr));
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+
+  // ---------------------------------------------------------------- job AB-5b: the hand-over of the run's internal sheet (.pewp/internal/not-gathered.json) to the gates
+  const sheetOf = (run, rows) => { w(path.join(run.pewp, "internal", "not-gathered.json"), { rows }); return run; };
+  check("case 38: a why of the internal sheet (8 characters or more) that a page prints STOPs the build with the gate internal line and writes nothing; a why no page prints builds; no sheet file builds (that is every other case)",
+    ...T(() => {
+      const bad = [];
+      const a = go(sheetOf(makeRun(A()), [{ why: a0.name }]), { client: cA });
+      if (!(a.status === 1 && a.stderr === "STOP: gate internal: page 1 holds a line of the internal sheet" && emptyOut(a))) bad.push(`a: ${a.status} ${JSON.stringify(a.stderr)} ${a.files}`);
+      const b = go(sheetOf(makeRun(A()), [{ why: "the ranking of a rival could not be gathered" }]), { client: cA });
+      if (b.status !== 0 || norm(b) !== norm(rA)) bad.push(`b: ${b.status} ${b.stderr}`);
       return [bad.length === 0, bad.join(" | ")];
     }));
 } catch (e) {
