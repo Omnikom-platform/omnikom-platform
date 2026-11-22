@@ -11,34 +11,53 @@ its own audit-live sequence is removed, and a test fails if the two ever differ.
 
 ## Owner's plan and rulings (2026-11-20 and 2026-11-21)
 Source: his words M173, M174 (2026-11-20) and M195, M196 (2026-11-21) in `head-of-operations/01-owner-words.md`; the cluster is
-`work/map/clusters.tsv` line 10. Status words below were checked in this worktree on 2026-11-21; "not checked" means I did not look.
-- STATIONS (plan). The audit's commands are grouped into stations. At each station an agent judges only what was skipped, blocked
-  or glitched, and fixes that. The bulk of the run uses no model. Today: `pipeline.json` has no station key (grep: 0 hits), so the
-  grouping, a short station sheet and a gate are NOT BUILT; the checker's grouping becomes a rule-based adapter to `causes.json`
-  (the adapter is still absent, parts AU.D-6 and SS.B-4).
-- WORK BROWSER (plan). A browser on a debugging port with its own seeded profile and its own work account, so the clicks are
-  scripted and the agent is an employee who only checks at stations. First for the four assistants, Bing, Maps and the site reads.
-  Google is tried with ONE page first. A robot check stays a hard stop and is never bypassed (measured 2026-11-11: a fresh
-  signed-out profile over CDP hit Google's robot check; a used signed-in profile is UNPROVEN). His older word of 2026-11-11 (no
-  scripts for Google) changes only as far as he said it here. Built today: the profile seed against the Windows lockouts
-  (`scripts/lib-browser-profile.mjs`); the work browser with a work account and the scripted captures are NOT BUILT (the capture steps
-  are still read in his Edge). The browser extension of M158 is only a fallback for hand driving, not built now.
+`work/map/clusters.tsv` line 10. Status words were checked in the tree on 2026-11-21; the lines that say BUILT 2026-11-22 are the audit
+build's, each proven by its test and seeded faults (the slice that landed them). "not checked" means nobody looked.
+- STATIONS. The audit's commands are grouped into stations. At each station an agent judges only what was skipped, blocked
+  or glitched, and fixes that. The bulk of the run uses no model. BUILT 2026-11-22: `pipeline.json` declares 9 stations in order
+  (site, business, demand, search, assistants, local, rivals, standing, report) and every step names one; the rule engine refuses a
+  step with no declared station, a station with no step, and a step that depends on a later station. `omnikom seo station <key>`
+  writes `{pewp}/stations/sheet.md` and `sheet.json` (only the steps to judge) and exits 0 when every station is CLOSED, 1 when one is
+  OPEN; `omnikom seo rule <key> <step> --why .. --by ..` records "not gathered" (never for an approval, a step that ran, or one not
+  run yet). NOT BUILT: the checker's rule-based adapter to `causes.json` (parts AU.D-6 and SS.B-4); the one command that runs the
+  stations one after another.
+- WORK BROWSER. A browser on a debugging port with its own seeded profile and its own work account, so the clicks are
+  scripted and the agent is an employee who only checks at stations. BUILT 2026-11-22: `scripts/work-browser.mjs open | status |
+  close` runs the audit profile as a normal Edge window, the port bound to this machine only, the traffic through our US machine; a
+  good `Local State` is never rewritten; only an Edge that names the audit profile is ever closed. `scripts/ask-assistants.mjs` asks
+  each assistant the two locked texts in one chat (proven on invented pages; `scripts/work-browser-engines.json` holds no real page
+  description yet). RULES (head of operations, 2026-11-22): a page that tests whether the visitor is a script is a robot check, also
+  when it clears by itself: close, no retry, a 24 hour stop for that host, the source not gathered with the reason. Never change the
+  exit, the profile, the user agent, the timing or the way a tab is opened in order to get past a check. Live runs are the
+  head's, never a builder's (`docs/departments/README.md` rule 12). SEEN 2026-11-22 08:51: ChatGPT showed its "Just a moment..." page to
+  a scripted tab (it had loaded normally 20 minutes before); stopped until 2026-11-23 08:52. Google is tried with ONE page first, as
+  its own reported step; until then no Google page, Gemini included. NOT BUILT: the assistants' real page descriptions, Bing, Maps, the
+  site reads, the one Google page; the fallback (the two prompts typed at a person's pace by desktop control) only if the scripted
+  tabs are refused. The browser extension of M158 is only a fallback for hand driving, not built now.
 - AI ANSWERS (M174). The assistants' station is the two engineered prompts in one chat per assistant: the one-shot, then the
-  follow-up by name; counts with no model. NOT LANDED: the branch `check/seo/ai-oneshot` exists and is not in this tree's HEAD, and
-  `pipeline.json` has no ai-oneshot step.
-- POOL AND PROFILE (plan). The gathered data is pooled into one organized PROFILE per client, filled from the stations.
-- MODEL JUDGE (plan). A model judges the profile and writes the JSON that becomes the analysis and the client PDF. No script of
-  that name was found in `scripts/` (names listed, contents not read): NOT BUILT.
-- GUARDS (plan). Nothing is said or implied about a source that was not read. Every number the model writes must point to a
-  gathered fact, and a script refuses it otherwise. Nearest built piece: `client-copy-data.mjs` reads every number of the hand-built
-  copy through one function and stops when a field is missing; whether it can check a model's JSON is not checked.
-- INTERNAL SHEET (plan). It lists what was not gathered and why. It is never shown to the client. NOT BUILT.
+  follow-up by name; counts with no model. BUILT 2026-11-22 (this slice): `scripts/ai-oneshot.mjs` (build, lock, box, save, count)
+  and its prompts. NOT BUILT: its steps in `pipeline.json` (`capture-ai` is still a waiting step).
+- POOL AND PROFILE. The gathered data is pooled into one organized PROFILE per client, filled from the stations. BUILT
+  2026-11-22: `scripts/client-profile.mjs` (the step `client-profile`, station report) writes `{pewp}/profile.json`: every step under
+  its station as gathered, not gathered (the script's own line and the ruling) or not applicable, with its files and each file's own
+  status and summary. It refuses to pool while a station before its own is OPEN.
+- MODEL JUDGE (plan). A model judges the profile and writes the JSON that becomes the analysis and the client PDF. NOT BUILT:
+  the judge step and its brief, and a copy builder that prints the analysis and leaves out a page whose data was not gathered.
+- GUARDS. Nothing is said or implied about a source that was not read. Every number the model writes must point to a
+  gathered fact, and a script refuses it otherwise. BUILT 2026-11-22: `scripts/analysis-check.mjs`: in the analysis JSON a number or
+  a name may stand only as a slot `{{<file>#<path>}}` into a JSON file of a step the profile lists as gathered; a bare digit, a file
+  of a step that was not gathered, a path to nothing are refused and nothing is written. NOT checked by any script: what a sentence
+  implies.
+- INTERNAL SHEET. It lists what was not gathered and why. It is never shown to the client. BUILT 2026-11-22:
+  `{pewp}/internal/not-gathered.json` and `.md`, written by `client-profile.mjs`; the client copy's last gate, `internal`, stops a build
+  whose page holds one of its lines.
 - MISSING SOURCES (his rule, M195). An audit with every source read is always approved. When some were not gathered (his
   example: 9 sources read), the client gets the analysis of what was gathered and is told nothing about what was not read. Missing
   data never makes an audit impossible. This replaces the idea that an entry report waits for the 11 captures from his Edge.
 - FLOOR (his rule, M196). A report goes to a client only if what was gathered fills an honest report of at least 5 pages; if not it
-  stays an internal draft. BUILT: the 5 to 8 sections gate of the client copy (`scripts/client-copy-gates.mjs:25`). NOT BUILT: the
-  decision "is what was gathered enough for 5 honest pages" made before the copy is written.
+  stays an internal draft. BUILT: the 5 to 8 sections gate of the client copy (`scripts/client-copy-gates.mjs`). NOT BUILT: the
+  decision "is what was gathered enough for 5 honest pages" made before the copy is written; it is built with the copy builder that
+  can leave a page out, so that what counts as printable comes from the code that prints it.
 - SIGN-OFFS (his ruling, M195). The head signs the business, the seeds, the competitors and any research plan up to 150 requests,
   by this written rule, recorded as delegated. "Cost" means the number of requests to free sources; money is always 0. Above 150
   the run stops for him. Built: `approve.mjs` accepts a delegation stamp and `research` has no `--yes` in the manifest, so a plan
