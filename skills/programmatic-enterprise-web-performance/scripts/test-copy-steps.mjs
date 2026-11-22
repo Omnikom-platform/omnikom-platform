@@ -1,10 +1,10 @@
 // Usage: node test-copy-steps.mjs [--scripts <dir>] [--quiet] [--mutants] [--only <id>]
-// Test of the two manifest steps client-copy (scripts/client-copy.mjs) and client-copy-pdf (scripts/client-copy-pdf.mjs) in pipeline.json, read the way the
+// Test of the two manifest steps client-copy (scripts/analysis-copy.mjs since AB-8: the report printed from the judge's analysis) and client-copy-pdf (scripts/client-copy-pdf.mjs) in pipeline.json, read the way the
 // engine reads them, through a fake file system with INVENTED paths and times (no real file is touched, no network, no browser: neither script is run).
-// What is pinned: each step's script, args, inputs, outputs, evidence, dependencies and flags; that the copy lists every file client-copy-data.mjs reads
-// (the engine's own log apart) and depends on each one's writer; that a client file or a source file written after the copy makes the step run again
-// (input-newer) and the engine's log does not; that the copy's evidence is its own html and numbers sheet whatever the client file names them; that a
-// missing client file is a missing input the engine can name; that the PDF follows the html (a newer html makes it not done).
+// What is pinned: each step's script, args, inputs, outputs, evidence, dependencies and flags; that the copy lists the four files analysis-copy.mjs reads
+// (the three analysis files and the profile) and depends on the judge that writes them; that an analysis file or the profile written after the copy makes the
+// step run again (input-newer) and the engine's log does not; that the copy's evidence is its own html and numbers sheet; that a missing analysis file is a
+// missing input the engine can name; that the PDF follows the html (a newer html makes it not done).
 // --mutants: watched-fail. Copies the skill, breaks one thing at a time, runs this test against the copy and requires the named
 //   case to go red (green = the case measures nothing, or the patch never applied; a `from` that occurs other than once is refused).
 // Exit 0 = all pass, exit 1 = a case failed.
@@ -23,17 +23,16 @@ const skill = path.dirname(dir);
 // ---------------------------------------------------------------- mutants
 if (args.includes("--mutants")) {
   const MUT = [
-    { id: "client-file-not-an-input", file: "../pipeline.json", from: '"{pewp}/client-copy.json",\n    "{pewp}/report.json",', to: '"{pewp}/report.json",', red: "case 3:" },
-    { id: "capture-directories-not-a-dependency", file: "../pipeline.json", from: '"local-grid-import",\n    "capture-directories"', to: '"local-grid-import"', red: "case 2:" },
-    { id: "engine-log-an-input", file: "../pipeline.json", from: '"inputs": [\n    "{pewp}/client-copy.json",', to: '"inputs": [\n    "{pewp}/seo-run.json",\n    "{pewp}/client-copy.json",', red: "case 4:" },
+    { id: "checked-file-not-an-input", file: "../pipeline.json", from: '"{pewp}/analysis.checked.json",\n    "{pewp}/analysis.sheet.json",\n    "{pewp}/profile.json"', to: '"{pewp}/analysis.sheet.json",\n    "{pewp}/profile.json"', red: "case 3:" },
+    { id: "judge-not-a-dependency", file: "../pipeline.json", from: '"dependsOn": [\n    "analysis-judge"\n   ],\n   "needsBrowser": "none",\n   "needsAi": false,\n   "needsPerson": false,\n   "needsKeys": [],\n   "heavy": false,\n   "hits": "none",\n   "pace": null,\n   "timeoutMinutes": 5,', to: '"dependsOn": [],\n   "needsBrowser": "none",\n   "needsAi": false,\n   "needsPerson": false,\n   "needsKeys": [],\n   "heavy": false,\n   "hits": "none",\n   "pace": null,\n   "timeoutMinutes": 5,', red: "case 2:" },
+    { id: "engine-log-an-input", file: "../pipeline.json", from: '"inputs": [\n    "{pewp}/analysis.json",', to: '"inputs": [\n    "{pewp}/seo-run.json",\n    "{pewp}/analysis.json",', red: "case 4:" },
     { id: "copy-outputs-empty", file: "../pipeline.json", from: '"outputs": [\n    "{pewp}/client-copy/*.html",\n    "{pewp}/client-copy/numbers-*.tsv"\n   ],', to: '"outputs": [],', red: "case 1:" },
     { id: "pdf-not-heavy", file: "../pipeline.json", from: '"heavy": true,\n   "hits": "none",\n   "pace": null,\n   "timeoutMinutes": 20,', to: '"heavy": false,\n   "hits": "none",\n   "pace": null,\n   "timeoutMinutes": 20,', red: "case 1:" },
     { id: "pdf-no-dependency", file: "../pipeline.json", from: '"dependsOn": [\n    "client-copy"\n   ],', to: '"dependsOn": [],', red: "case 7:" },
     { id: "pdf-no-input", file: "../pipeline.json", from: '"inputs": [\n    "{pewp}/client-copy/*.html"\n   ],', to: '"inputs": [],', red: "case 7:" },
-    { id: "client-by-slug", file: "../pipeline.json", from: '"--client-file",\n    "{pewp}/client-copy.json"', to: '"--client-file",\n    "clients/{client}/client-copy.json"', red: "case 1:" },
+    { id: "the-old-script", file: "../pipeline.json", from: '"script": "scripts/analysis-copy.mjs"', to: '"script": "scripts/client-copy.mjs"', red: "case 1:" },
     { id: "out-folder-moved", file: "../pipeline.json", from: '"--out",\n    "{pewp}/client-copy"', to: '"--out",\n    "{pewp}/copy"', red: "case 1:" },
-    { id: "reader-reads-one-more", file: "client-copy-data.mjs", from: 'P("ads", "research/ads.json", "CAPTURE", "generatedAt");', to: 'P("ads", "research/ads.json", "CAPTURE", "generatedAt");\n  P("zz", "research/zz.json", "RUN", "@mtime");', red: "case 2:" },
-    { id: "psi-not-an-input", file: "../pipeline.json", from: '"{pewp}/psi/",\n    "{pewp}/local/*/grid.json"', to: '"{pewp}/local/*/grid.json"', red: "case 4:" },
+    { id: "profile-not-an-input", file: "../pipeline.json", from: '"{pewp}/analysis.sheet.json",\n    "{pewp}/profile.json"\n   ],\n   "outputs": [\n    "{pewp}/client-copy/*.html"', to: '"{pewp}/analysis.sheet.json"\n   ],\n   "outputs": [\n    "{pewp}/client-copy/*.html"', red: "case 4:" },
     { id: "numbers-sheet-not-evidence", file: "../pipeline.json", from: '"evidence": [\n    "{pewp}/client-copy/*.html",\n    "{pewp}/client-copy/numbers-*.tsv"\n   ],', to: '"evidence": [\n    "{pewp}/client-copy/*.html"\n   ],', red: "case 5:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "copysteps-mut-"));
@@ -103,38 +102,35 @@ try {
     try { valid = lib.validateManifest(man, { skillDir: skill }); } catch (e) { valid = { ok: false, err: e.message }; }
     const noClient = ok && !J(C).includes("{client}") && !J(P).includes("{client}");
     check("case 1: the real manifest holds client-copy and client-copy-pdf as designed: script, args, inputs, outputs, evidence, dependsOn, needsBrowser, heavy, hits, kind, no {client}, and it is valid",
-      ok && C.script === "scripts/client-copy.mjs" && J(C.args) === J(["{key}", "--pewp", "{pewp}", "--client-file", "{pewp}/client-copy.json", "--out", "{pewp}/client-copy"])
-      && J(C.outputs) === J(["{pewp}/client-copy/*.html", "{pewp}/client-copy/numbers-*.tsv"]) && J(C.evidence) === J(C.outputs) && C.needsBrowser === "none" && C.heavy === false && C.hits === "none" && C.kind === "derived" && C.dependsOn.includes("report-live")
+      ok && C.script === "scripts/analysis-copy.mjs" && J(C.args) === J(["{key}", "--pewp", "{pewp}", "--out", "{pewp}/client-copy"])
+      && J(C.outputs) === J(["{pewp}/client-copy/*.html", "{pewp}/client-copy/numbers-*.tsv"]) && J(C.evidence) === J(C.outputs) && C.needsBrowser === "none" && C.heavy === false && C.hits === "none" && C.kind === "derived" && J(C.dependsOn) === J(["analysis-judge"])
       && P.script === "scripts/client-copy-pdf.mjs" && J(P.args) === J(["{pewp}/client-copy"]) && J(P.outputs) === J(["{pewp}/client-copy/*.pdf"]) && J(P.evidence) === J(P.outputs)
       && P.needsBrowser === "headless" && P.heavy === true && P.hits === "none" && P.kind === "derived" && P.timeoutMinutes === 20 && noClient && valid.ok === true,
       J({ C: C && { args: C.args, outputs: C.outputs, evidence: C.evidence, heavy: C.heavy }, P: P && { args: P.args, outputs: P.outputs, heavy: P.heavy, needsBrowser: P.needsBrowser }, noClient, valid: valid.ok ? true : (valid.problems || []).slice(0, 2) || valid.err }));
   }
-  // case 2: what the copy's reader reads, and the writers of it
+  // case 2: what the copy reads, and the writer of it
   {
-    const text = fs.readFileSync(path.join(dir, "client-copy-data.mjs"), "utf8");
-    const rels = [...text.matchAll(/\bP\("([^"]+)", "([^"]+)"/g)].map((m) => m[2]).filter((r) => r !== "seo-run.json");
-    const missing = rels.filter((r) => !(C?.inputs || []).includes(`{pewp}/${r}`));
-    const must = ["{runDir}/snapshots/*/_site.json", "{pewp}/psi/", "{pewp}/local/*/grid.json", "{pewp}/report.json"].filter((x) => !(C?.inputs || []).includes(x));
+    const want = ["{pewp}/analysis.json", "{pewp}/analysis.checked.json", "{pewp}/analysis.sheet.json", "{pewp}/profile.json"];
     const drop = (id) => { const m = structuredClone(man); const c = m.steps.find((s) => s.id === "client-copy"); c.dependsOn = c.dependsOn.filter((d) => d !== id); const v = lib.validateManifest(m, { skillDir: skill }); return v.problems.some((p) => p.rule === "input-order" && p.step === "client-copy"); };
-    const dropped = C ? ["capture-directories", "local-grid-import", "authority-vet"].map((id) => [id, drop(id)]) : [];
+    const dropped = C ? ["analysis-judge"].map((id) => [id, drop(id)]) : [];
     const own = lib.validateManifest(man, { skillDir: skill }).problems.filter((p) => p.rule === "input-order").map((p) => p.step);
-    check("case 2: client-copy lists every file client-copy-data.mjs reads (but the engine's own log) and depends on each one's writer",
-      !!C && rels.length >= 16 && missing.length === 0 && must.length === 0 && !C.inputs.includes("{pewp}/seo-run.json") && dropped.length === 3 && dropped.every(([, bad]) => bad) && own.length === 0,
-      J({ steps: !!C, files: rels.length, notInputs: missing, mustHave: must, dropGivesInputOrder: dropped, inputOrderProblemsOfTheRealManifest: own }));
+    check("case 2: client-copy lists the four files analysis-copy.mjs reads (the three analysis files and the profile) and depends on the writer of them, the judge",
+      !!C && J(C.inputs) === J(want) && !C.inputs.includes("{pewp}/seo-run.json") && dropped.length === 1 && dropped.every(([, bad]) => bad) && own.length === 0,
+      J({ steps: !!C, inputs: C && C.inputs, dropGivesInputOrder: dropped, inputOrderProblemsOfTheRealManifest: own }));
   }
   // case 3: THE FAULT
   {
-    const a = C ? adopt(C, world()) : null, b = C ? adopt(C, world({ "/r/p/client-copy.json": { mtimeMs: T - 10 * MIN } })) : null;
-    check("case 3: THE FAULT: the client file written after the copy makes the step not done (input-newer), an older one leaves it done",
-      !!a && a.ok === true && !!b && b.ok === false && b.rule === "input-newer" && String(b.input).endsWith("client-copy.json"), J([a && a.ok, b && [b.ok, b.rule, b.input]]));
+    const a = C ? adopt(C, world()) : null, b = C ? adopt(C, world({ "/r/p/analysis.checked.json": { mtimeMs: T - 10 * MIN } })) : null;
+    check("case 3: THE FAULT: the checked analysis written after the copy makes the step not done (input-newer), an older one leaves it done",
+      !!a && a.ok === true && !!b && b.ok === false && b.rule === "input-newer" && String(b.input).endsWith("analysis.checked.json"), J([a && a.ok, b && [b.ok, b.rule, b.input]]));
   }
   // case 4: any source file, not the engine's log
   {
     const one = (p) => { const r = adopt(C, world({ [p]: { mtimeMs: T - 10 * MIN } })); return [p.split("/").slice(-2).join("/"), r.ok, r.rule]; };
-    const got = C ? [inputOf(`research/bing.json`), `/r/p/local/${DAY}/grid.json`, `/r/p/psi/${DAY}.json`, inputOf("authority/vetting.json"), inputOf("captures/local/citations.json")].map(one) : [];
+    const got = C ? [inputOf("analysis.json"), inputOf("analysis.checked.json"), inputOf("analysis.sheet.json"), inputOf("profile.json")].map(one) : [];
     const log = C ? adopt(C, world({ "/r/p/seo-run.json": { mtimeMs: T - 5 * MIN } })) : null;
-    check("case 4: any source file written after the copy makes the step not done, the engine's log does not",
-      got.length === 5 && got.every(([, ok, rule]) => ok === false && rule === "input-newer") && !!log && log.ok === true && !C.inputs.some((x) => /seo-run\.json$/.test(x)), J({ got, log: log && [log.ok, log.rule] }));
+    check("case 4: any analysis file or the profile written after the copy makes the step not done, the engine's log does not",
+      got.length === 4 && got.every(([, ok, rule]) => ok === false && rule === "input-newer") && !!log && log.ok === true && !C.inputs.some((x) => /seo-run\.json$/.test(x)), J({ got, log: log && [log.ok, log.rule] }));
   }
   // case 5: the copy's evidence is its own html and numbers sheet, whatever the client file names them
   {
@@ -147,11 +143,11 @@ try {
   }
   // case 6: the client file absent is a missing input the engine can name, not a pass
   {
-    const F = world({ "/r/p/client-copy.json": null }), io = mkio(F);
+    const F = world({ "/r/p/analysis.sheet.json": null }), io = mkio(F);
     const r = C ? lib.adoptStep(C, { vars, now: T, io }) : null;
-    const raw = "{pewp}/client-copy.json", writers = man.steps.filter((s) => (s.outputs || []).some((o) => lib.covers(o, raw) || lib.covers(raw, o))).map((s) => s.id);
-    check("case 6: the client file absent is a missing input the engine can name, not a pass",
-      !!C && C.inputs.includes(raw) && writers.length === 0 && !!r && (r.missingInputs || []).includes("/r/p/client-copy.json") && lib.globPaths("/r/p/client-copy.json", { io }).length === 0,
+    const raw = "{pewp}/analysis.sheet.json", writers = man.steps.filter((s) => (s.outputs || []).some((o) => lib.covers(o, raw) || lib.covers(raw, o))).map((s) => s.id);
+    check("case 6: the analysis sheet absent is a missing input the engine can name, not a pass, and the judge is its writer",
+      !!C && C.inputs.includes(raw) && J(writers) === J(["analysis-judge"]) && !!r && (r.missingInputs || []).includes("/r/p/analysis.sheet.json") && lib.globPaths("/r/p/analysis.sheet.json", { io }).length === 0,
       J({ writers, missing: r && r.missingInputs }));
   }
   // case 7: the PDF step follows the html

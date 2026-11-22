@@ -21,8 +21,8 @@ export function gates({ html, tsv, pages, logoUrl, branches, approvedWords, inte
   const fail = (gate, found) => stop(`STOP: gate ${gate}: ${found}`);
   const secs = html.match(/<section\b[\s\S]*?<\/section>/g) || [];
   const opens = (html.match(/<section\b/g) || []).length, marked = (html.match(/<section class="(?:cover|pg)" id="p\d+">/g) || []).length;
-  // b: 5 to 8 sections, the cover first, then p2, p3 ... in order
-  if (opens !== secs.length || marked !== opens || opens !== pages || opens < 5 || opens > 8) fail("sections", `the copy has ${opens} sections (${marked} marked cover or pg, ${pages} built); it needs 5 to 8, every one marked`);
+  // b: 6 to 8 sections, the cover first, then p2, p3 ... in order
+  if (opens !== secs.length || marked !== opens || opens !== pages || opens < 6 || opens > 8) fail("sections", `the copy has ${opens} sections (${marked} marked cover or pg, ${pages} built); it needs 6 to 8, every one marked`);
   if (!secs[0].startsWith('<section class="cover" id="p1">')) fail("sections", "the first section is not the cover");
   secs.forEach((s, i) => { if (i > 0 && !s.startsWith(`<section class="pg" id="p${i + 1}">`)) fail("sections", `section ${i + 1} is not <section class="pg" id="p${i + 1}">`); });
   // c: a section with no visible text (its header and footer do not count)

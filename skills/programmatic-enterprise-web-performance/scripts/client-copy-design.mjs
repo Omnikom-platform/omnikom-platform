@@ -9,7 +9,7 @@ import { tagOf as ruleTag, starsHold } from "./client-copy-rules.mjs";
 
 const steps = [];
 for (let w = 800; w >= 320; w -= 20) steps.push(`@media screen and (max-width:${w}px){section{zoom:${(w / 816).toFixed(4)}}}`);
-const CSS = `
+export const CSS = `
 :root{--paper:#F4F2EC;--ink:#15161B;--ink-2:#4A4C52;--ink-3:#7D7F85;--lime:#A8D41A;--hair:rgba(21,22,27,.14);}
 @page{size:Letter;margin:0}
 *{box-sizing:border-box}

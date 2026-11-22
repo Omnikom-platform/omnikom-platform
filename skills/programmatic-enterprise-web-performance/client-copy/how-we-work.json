@@ -10,6 +10,11 @@
     "Every page sends its words in the first response, with a list of your pages and the company details Google reads.",
     "Every inquiry lands in your lead list, with an email to the right person."
   ],
+  "draftContainsPlain": [
+    "A page for each thing you sell, built from a plan you approve before anything goes live.",
+    "Every page sends its words in the first response, with a list of your pages and the company details Google reads.",
+    "Every inquiry lands in your lead list, with an email to the right person."
+  ],
   "goAhead": "Tell us to start your draft.",
   "promise": "We can't promise a position on Google or a number of {outcome}."
 }

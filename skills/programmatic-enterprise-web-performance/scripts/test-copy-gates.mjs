@@ -2,7 +2,7 @@
 // Test of client-copy-gates.mjs (scripts/client-copy-gates.mjs): the report rules as gates over the finished html and sheet of the client copy, run on
 // INVENTED pages (no file of a client, no network, no browser). Every gate is a STOP of one line, STOP: gate <name>: <what was found>; the first gate that
 // fails speaks, in the order sections, blank page, pictures, last page, dashes, contact line, internal words, numbers, internal (the lines of the internal sheet).
-// What is pinned: 5 to 8 sections with the cover first; no section without visible text; the logo as the only picture; the pipeline list on the last page
+// What is pinned: 6 to 8 sections with the cover first; no section without visible text; the logo as the only picture; the pipeline list on the last page
 // only; no em or en dash; no contact line; no internal word (a status word only in capitals); every number of a page held by a printed cell of that page's
 // sheet rows, with the four exemptions checked (header month, footer, step and plan counters, page references); the step ids equal the pipeline's.
 // --mutants: watched-fail. Copies the skill, breaks one thing at a time, runs this test against the copy and requires the named
@@ -25,7 +25,8 @@ if (args.includes("--mutants")) {
   const GATES = "client-copy-gates.mjs", LIST = "[WORD, UPPER, BROKEN, FILE, CODE, STEP]";
   const MUT = [
     { id: "sections-marked-unchecked", file: GATES, from: "marked !== opens || ", to: "", red: "case 2:" },
-    { id: "sections-min-one", file: GATES, from: "opens < 5", to: "opens < 1", red: "case 2:" },
+    { id: "sections-min-one", file: GATES, from: "opens < 6", to: "opens < 1", red: "case 2:" },
+    { id: "sections-min-five", file: GATES, from: "opens < 6", to: "opens < 5", red: "case 14:" },
     { id: "sections-max-eighty", file: GATES, from: "opens > 8", to: "opens > 80", red: "case 2:" },
     { id: "sections-built-unchecked", file: GATES, from: "opens !== pages ||", to: "", red: "case 2:" },
     { id: "cover-first-unchecked", file: GATES, from: "!secs[0].startsWith('<section class=\"cover\" id=\"p1\">')", to: "false", red: "case 2:" },
@@ -107,44 +108,44 @@ const STEPS = '<ol class="steps"><li><span class="sn">1</span><div><b>We draft</
 const PLAN = '<table class="plan"><tr><th>#</th><th>Fix</th></tr><tr><td>1</td><td>Fix one</td></tr><tr><td>2</td><td>Fix two</td></tr></table>';
 const W = (i, n, body) => `${HEAD}<div class="in">${body}</div>${FOOT(i, n)}`;
 const BODY = { 2: "<p>Hilltop shows 4 results and 12.5 s.</p>", 3: "<p>Your site sends 1,204 words.</p><p>See page 4.</p>", 4: `<p>2 of 8 answers.</p>${PLAN}` };
-const mkDoc = (n = 5) => `<!doctype html><html><head><style>@font-face{font-family:X;src:url(f.woff2) format("woff2")}</style></head><body>${Array.from({ length: n }, (_, k) => k + 1).map((i) => i === 1
+const mkDoc = (n = 6) => `<!doctype html><html><head><style>@font-face{font-family:X;src:url(f.woff2) format("woff2")}</style></head><body>${Array.from({ length: n }, (_, k) => k + 1).map((i) => i === 1
   ? `<section class="cover" id="p1"><img class="logo" src="${LOGO}" alt="Omnikom"><h1>${NAME}</h1><div class="num"><b>3 of 9</b><span>spots read</span></div></section>`
   : `<section class="pg" id="p${i}">${W(i, n, i === n ? `<h2>How we work</h2>${STEPS}` : BODY[i] || "<p>More text.</p>")}</section>`).join("\n")}</body></html>`;
 const ROWS = [["month of the audit", "1", MONTH], ["spots read", "1", "3 of 9"], ["results", "2", "4 results"], ["seconds", "2", "12.5 s"], ["unused", "2", "777"], ["words", "3", "1,204 words"], ["answers", "4", "2 of 8"]];
 const mkTsv = (rows = ROWS) => ["page\ttext\tprinted\tfile\twhere\tvalue\tmeasured\tkind", ...rows.map(([l, p, v]) => [p, l, v, "f.json", "w", "v", "m", "k"].join("\t"))].join("\n") + "\n";
 const BASE = mkDoc(), TSV = mkTsv();
 const stopOf = (fn) => { try { fn(); return ""; } catch (e) { return e.isStop ? e.message : "NOT A STOP: " + e.message; } };
-const ask = (html, tsv = TSV, pages = 5) => stopOf(() => gates({ html, tsv, pages, logoUrl: LOGO }));
+const ask = (html, tsv = TSV, pages = 6) => stopOf(() => gates({ html, tsv, pages, logoUrl: LOGO }));
 const setPage = (html, i, inner) => html.replace(new RegExp(`(<section class="pg" id="p${i}">)[\\s\\S]*?(</section>)`), (_, a, b) => a + inner + b);
 const on2 = (text) => BASE.replace("<p>Hilltop shows 4 results and 12.5 s.</p>", `<p>${text}</p>`);
 const want = (msg, re) => (re.test(msg) ? [] : [`${JSON.stringify(msg)} vs ${re}`]);
 const gate = (name) => new RegExp(`^STOP: gate ${name}: `);
 const D1 = String.fromCharCode(8212), D2 = String.fromCharCode(8211);
 
-run("case 1: THE BASE: the invented copy (5 sections, and 8 with filler pages) passes every gate and the gate returns nothing; two faults at once give the first gate's line (dashes before numbers)", () => {
+run("case 1: THE BASE: the invented copy (6 sections, and 8 with filler pages) passes every gate and the gate returns nothing; two faults at once give the first gate's line (dashes before numbers)", () => {
   const bad = [];
   if (ask(BASE) !== "") bad.push(`base: ${ask(BASE)}`);
   if (ask(mkDoc(8), TSV, 8) !== "") bad.push(`eight sections: ${ask(mkDoc(8), TSV, 8)}`);
-  let ret = "?"; try { ret = gates({ html: BASE, tsv: TSV, pages: 5, logoUrl: LOGO }); } catch (e) { ret = "threw " + e.message; }
+  let ret = "?"; try { ret = gates({ html: BASE, tsv: TSV, pages: 6, logoUrl: LOGO }); } catch (e) { ret = "threw " + e.message; }
   if (ret !== undefined) bad.push(`returns ${ret}`);
   bad.push(...want(ask(BASE.replace("4 results", "4 results and 31 more").replace("Hilltop", `Hilltop ${D1}`)), gate("dashes")));
   return [bad.length === 0, bad.join(" | ")];
 });
-run("case 2: SECTIONS: fewer than 5, more than 8, a count that differs from the pages built, a first section that is not the cover, a section not marked cover or pg, a section out of order", () => {
+run("case 2: SECTIONS: fewer than 6, more than 8, a count that differs from the pages built, a first section that is not the cover, a section not marked cover or pg, a section out of order", () => {
   const bad = [], at3 = '<section class="pg" id="p3">';
-  bad.push(...want(ask(mkDoc(4), TSV, 4), /^STOP: gate sections: the copy has 4 sections \(4 marked cover or pg, 4 built\); it needs 5 to 8, every one marked$/));
-  bad.push(...want(ask(mkDoc(9), TSV, 9), /^STOP: gate sections: the copy has 9 sections \(9 marked cover or pg, 9 built\); it needs 5 to 8, every one marked$/));
-  bad.push(...want(ask(BASE, TSV, 6), /^STOP: gate sections: the copy has 5 sections \(5 marked cover or pg, 6 built\); it needs 5 to 8, every one marked$/));
+  bad.push(...want(ask(mkDoc(4), TSV, 4), /^STOP: gate sections: the copy has 4 sections \(4 marked cover or pg, 4 built\); it needs 6 to 8, every one marked$/));
+  bad.push(...want(ask(mkDoc(9), TSV, 9), /^STOP: gate sections: the copy has 9 sections \(9 marked cover or pg, 9 built\); it needs 6 to 8, every one marked$/));
+  bad.push(...want(ask(BASE, TSV, 7), /^STOP: gate sections: the copy has 6 sections \(6 marked cover or pg, 7 built\); it needs 6 to 8, every one marked$/));
   bad.push(...want(ask(BASE.replace('<section class="cover" id="p1">', '<section class="pg" id="p1">')), /^STOP: gate sections: the first section is not the cover$/));
-  bad.push(...want(ask(BASE.replace(at3, '<section class="pg sheet" id="p3">')), /^STOP: gate sections: the copy has 5 sections \(4 marked cover or pg, 5 built\); it needs 5 to 8, every one marked$/));
+  bad.push(...want(ask(BASE.replace(at3, '<section class="pg sheet" id="p3">')), /^STOP: gate sections: the copy has 6 sections \(5 marked cover or pg, 6 built\); it needs 6 to 8, every one marked$/));
   bad.push(...want(ask(BASE.replace(at3, '<section class="pg" id="p7">')), /^STOP: gate sections: section 3 is not <section class="pg" id="p3">$/));
   return [bad.length === 0, bad.join(" | ")];
 });
 run("case 3: BLANK PAGE: a section holding only a picture (svg) or only a style has no visible text (its header and footer do not count); a page with an svg and a word passes", () => {
   const bad = [], re = /^STOP: gate blank page: page 3 has no visible text$/;
-  bad.push(...want(ask(setPage(BASE, 3, W(3, 5, "<svg><rect/></svg>"))), re));
-  bad.push(...want(ask(setPage(BASE, 3, W(3, 5, "<style>p{color:red}</style>"))), re));
-  const g = ask(setPage(BASE, 3, W(3, 5, "<svg><rect/></svg><p>Some words</p>")));
+  bad.push(...want(ask(setPage(BASE, 3, W(3, 6, "<svg><rect/></svg>"))), re));
+  bad.push(...want(ask(setPage(BASE, 3, W(3, 6, "<style>p{color:red}</style>"))), re));
+  const g = ask(setPage(BASE, 3, W(3, 6, "<svg><rect/></svg><p>Some words</p>")));
   if (/blank page/.test(g)) bad.push(`green half: ${g}`);
   return [bad.length === 0, bad.join(" | ")];
 });
@@ -161,8 +162,8 @@ run("case 4: PICTURES: the logo is the only picture: a second img, another src, 
 });
 run("case 5: LAST PAGE: the pipeline list (ol.steps) is on the last page and on no other", () => {
   const bad = [];
-  bad.push(...want(ask(BASE.replace(STEPS, "<p>x</p>")), /^STOP: gate last page: the pipeline list is on page none; it belongs on the last page, 5, only$/));
-  bad.push(...want(ask(BASE.replace("2 of 8 answers.</p>", `2 of 8 answers.</p>${STEPS}`)), /^STOP: gate last page: the pipeline list is on page 4, 5; it belongs on the last page, 5, only$/));
+  bad.push(...want(ask(BASE.replace(STEPS, "<p>x</p>")), /^STOP: gate last page: the pipeline list is on page none; it belongs on the last page, 6, only$/));
+  bad.push(...want(ask(BASE.replace("2 of 8 answers.</p>", `2 of 8 answers.</p>${STEPS}`)), /^STOP: gate last page: the pipeline list is on page 4, 6; it belongs on the last page, 6, only$/));
   return [bad.length === 0, bad.join(" | ")];
 });
 run("case 6: DASHES: an em or en dash, as a character or an entity, in the html or in the sheet STOPs; a hyphen passes", () => {
@@ -198,11 +199,11 @@ run("case 9: NUMBERS, uncovered: a number that no printed cell of its page holds
   return [bad.length === 0, bad.join(" | ")];
 });
 run("case 10: THE FOUR EXEMPTIONS ARE CHECKED: a wrong header month, footer, plan row number, step number or page reference STOPs; a right page range passes; a year typed in a body is not the header", () => {
-  const bad = [], re = (s) => new RegExp(`^STOP: gate numbers: ${s}$`), p3 = (f) => setPage(BASE, 3, f(W(3, 5, BODY[3])));
+  const bad = [], re = (s) => new RegExp(`^STOP: gate numbers: ${s}$`), p3 = (f) => setPage(BASE, 3, f(W(3, 6, BODY[3])));
   bad.push(...want(ask(p3((x) => x.replace("March 2031", "March 2032"))), re("the header of page 3 does not end with the sheet's month, March 2031")));
-  bad.push(...want(ask(p3((x) => x.replace("3 / 5", "3 / 6"))), re('the footer of page 3 is not "3 / 5"')));
+  bad.push(...want(ask(p3((x) => x.replace("3 / 6", "3 / 7"))), re('the footer of page 3 is not "3 / 6"')));
   bad.push(...want(ask(BASE.replace("<tr><td>2</td>", "<tr><td>3</td>")), re("a row number of the plan on page 4 is not 2")));
-  bad.push(...want(ask(BASE.replace('<span class="sn">2</span>', '<span class="sn">3</span>')), re("a step number on page 5 is not 2")));
+  bad.push(...want(ask(BASE.replace('<span class="sn">2</span>', '<span class="sn">3</span>')), re("a step number on page 6 is not 2")));
   bad.push(...want(ask(p3((x) => x.replace("See page 4.", "See page 9."))), re("page 3 refers to page 9, which is not in the copy")));
   bad.push(...want(ask(p3((x) => x.replace("1,204 words.", "1,204 words in 2031."))), re("page 3 prints 2031 and no printed cell of page 3 of the sheet holds it")));
   bad.push(...want(ask(p3((x) => x.replace("See page 4.", "See Page 9."))), re("page 3 refers to page 9, which is not in the copy")));
@@ -224,16 +225,22 @@ run("case 12: the module and this test hold no em dash, no en dash and no user-f
   return [bad.length === 0, bad.join()];
 });
 run("case 13: THE INTERNAL SHEET: a page whose visible text holds a line of the internal sheet STOPs (other case and spacing too, the page named); a text of 7 characters is not looked for; no list or an empty list leaves every old case as before; the gate is last", () => {
-  const bad = [], LINE = "Maps capture blocked by the host", askI = (html, internal, tsv = TSV) => stopOf(() => gates({ html, tsv, pages: 5, logoUrl: LOGO, internal }));
+  const bad = [], LINE = "Maps capture blocked by the host", askI = (html, internal, tsv = TSV) => stopOf(() => gates({ html, tsv, pages: 6, logoUrl: LOGO, internal }));
   const page2 = on2(LINE + ".");
   bad.push(...want(askI(page2, [LINE]), /^STOP: gate internal: page 2 holds a line of the internal sheet$/));
   bad.push(...want(askI(on2("MAPS   capture\n blocked  by THE host."), [LINE]), /^STOP: gate internal: page 2 holds a line of the internal sheet$/));
   bad.push(...want(askI(page2, ["maps  CAPTURE blocked by the HOST"]), /^STOP: gate internal: page 2 holds a line of the internal sheet$/));
-  bad.push(...want(askI(setPage(BASE, 3, W(3, 5, "<p>" + LINE + ".</p>")), ["other line to look for", LINE]), /^STOP: gate internal: page 3 holds a line of the internal sheet$/));
+  bad.push(...want(askI(setPage(BASE, 3, W(3, 6, "<p>" + LINE + ".</p>")), ["other line to look for", LINE]), /^STOP: gate internal: page 3 holds a line of the internal sheet$/));
   for (const [nm, h, list] of [["a text of 7 characters", BASE, ["Hilltop"]], ["a line the pages do not hold", page2, ["The review was skipped"]], ["no list", page2, undefined], ["an empty list", page2, []]]) { const g = askI(h, list); if (g !== "") bad.push(`green half ${nm}: ${g}`); }
   bad.push(...want(askI(page2.replace("Maps", `Maps ${D1}`), [LINE]), gate("dashes")));
   bad.push(...want(askI(on2(LINE + " 31."), [LINE]), gate("numbers")));
   if (ask(BASE) !== "") bad.push(`old base: ${ask(BASE)}`);
+  return [bad.length === 0, bad.join(" | ")];
+});
+run("case 14: THE FLOOR: a copy with one analysis page (5 sections) is refused with its own line, and the same copy with one more page passes", () => {
+  const bad = [];
+  bad.push(...want(ask(mkDoc(5), TSV, 5), /^STOP: gate sections: the copy has 5 sections \(5 marked cover or pg, 5 built\); it needs 6 to 8, every one marked$/));
+  for (const n of [6, 7, 8]) { const g = ask(mkDoc(n), TSV, n); if (g !== "") bad.push(`green half ${n} sections: ${g}`); }
   return [bad.length === 0, bad.join(" | ")];
 });
 

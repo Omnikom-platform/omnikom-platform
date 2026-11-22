@@ -1748,49 +1748,27 @@
    "id": "client-copy",
    "station": "report",
    "module": "report",
-   "what": "the client's 8-page copy of this run: one html and one numbers sheet, every number read from a file of the run (the client file holds this client's wording; a draft until it names a contact)",
-   "script": "scripts/client-copy.mjs",
+   "what": "the client's report of 6 to 8 pages, printed from the judge's analysis: one html and one numbers sheet, every number read from a file of the run through the pointers the number guard checked (always a draft: a final copy needs a sign-off)",
+   "script": "scripts/analysis-copy.mjs",
    "args": [
     "{key}",
     "--pewp",
     "{pewp}",
-    "--client-file",
-    "{pewp}/client-copy.json",
     "--out",
     "{pewp}/client-copy"
    ],
    "inputs": [
-    "{pewp}/client-copy.json",
-    "{pewp}/report.json",
-    "{runDir}/snapshots/*/_site.json",
-    "{pewp}/research/bing.json",
-    "{pewp}/research/index.json",
-    "{pewp}/research/serp.json",
-    "{pewp}/research/autocomplete.json",
-    "{pewp}/research/ai-answers.json",
-    "{pewp}/research/ai-citations.json",
-    "{pewp}/approved/business.json",
-    "{pewp}/captures/local/profile.json",
-    "{pewp}/captures/local/citations.json",
-    "{pewp}/research/social.json",
-    "{pewp}/research/ads.json",
-    "{pewp}/research/competitors.json",
-    "{pewp}/approved/competitors.json",
-    "{pewp}/authority.json",
-    "{pewp}/authority/vetting.json",
-    "{pewp}/authority/opportunities.json",
-    "{pewp}/psi/",
-    "{pewp}/local/*/grid.json"
+    "{pewp}/analysis.json",
+    "{pewp}/analysis.checked.json",
+    "{pewp}/analysis.sheet.json",
+    "{pewp}/profile.json"
    ],
    "outputs": [
     "{pewp}/client-copy/*.html",
     "{pewp}/client-copy/numbers-*.tsv"
    ],
    "dependsOn": [
-    "report-live",
-    "authority-vet",
-    "local-grid-import",
-    "capture-directories"
+    "analysis-judge"
    ],
    "needsBrowser": "none",
    "needsAi": false,

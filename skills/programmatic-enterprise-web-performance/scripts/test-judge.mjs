@@ -225,9 +225,9 @@ async function scenarios(dir) {
       if (s.needsAi !== false || s.hits !== "third-party:anthropic.com" || s.needsBrowser !== "none" || s.needsPerson !== false || s.heavy !== false || s.timeoutMinutes !== 35) bad.push("fields " + JSON.stringify([s.needsAi, s.hits, s.needsBrowser, s.needsPerson, s.heavy, s.timeoutMinutes]));
       if (s.script !== "scripts/judge.mjs" || s.args?.join() !== "{key},--cwd,{skill}" || s.dependsOn?.join() !== "client-profile") bad.push("script/args/dependsOn " + JSON.stringify([s.script, s.args, s.dependsOn]));
       if (s.outputs?.join() !== "{pewp}/analysis.json,{pewp}/analysis.checked.json,{pewp}/analysis.sheet.json,{pewp}/judge/run.json" || s.evidence?.join() !== "{pewp}/analysis.checked.json") bad.push("outputs " + JSON.stringify(s.outputs));
-      if (cc.args?.[cc.args.indexOf("--client-file") + 1] !== "{pewp}/client-copy.json" || cc.dependsOn?.includes("analysis-judge") || !cc.inputs?.includes("{pewp}/client-copy.json") || cc.inputs?.includes("{pewp}/analysis.checked.json")) bad.push("client-copy " + JSON.stringify([cc.args, cc.dependsOn, cc.inputs?.slice(0, 2)]));
+      if (cc.script !== "scripts/analysis-copy.mjs" || cc.args?.join() !== "{key},--pewp,{pewp},--out,{pewp}/client-copy" || cc.dependsOn?.join() !== "analysis-judge" || !cc.inputs?.includes("{pewp}/analysis.checked.json") || cc.inputs?.includes("{pewp}/client-copy.json")) bad.push("client-copy " + JSON.stringify([cc.script, cc.args, cc.dependsOn, cc.inputs?.slice(0, 2)]));
       if (!G.STEP_IDS.includes("analysis-judge")) bad.push("STEP_IDS lacks analysis-judge");
-      check("9: the manifest: analysis-judge is in station report after client-profile and before client-copy, needsAi false, hits third-party:anthropic.com; client-copy is not touched (it still reads its own client file and does not depend on it); the page gate knows the step id", bad.length === 0, bad.join(" | "));
+      check("9: the manifest: analysis-judge is in station report after client-profile and before client-copy, needsAi false, hits third-party:anthropic.com; client-copy (AB-8) runs analysis-copy.mjs after it, on its analysis files; the page gate knows the step id", bad.length === 0, bad.join(" | "));
     }
   } finally { rmTmp(tmp); }
   return results;
