@@ -30,10 +30,12 @@ const GOOD = {
 };
 const GOOD_VALUES = 8;
 const st = (id, what, steps) => ({ id, what, verdict: "OPEN", steps });
-const stp = (id, bucket, files, outputs) => ({ id, what: id, state: bucket === "gathered" ? "RUN" : "NOT RUN", bucket, partial: false, why: null, ruling: null, outputs, files: files.map((p) => ({ path: p, bytes: 1 })), fileCount: files.length });
+const stp = (id, bucket, files, outputs, more = []) => ({ id, what: id, state: bucket === "gathered" ? "RUN" : "NOT RUN", bucket, partial: false, why: null, ruling: null, outputs, files: files.map((p) => ({ path: p, bytes: 1 })), fileCount: files.length, ...(bucket === "gathered" ? { jsonFiles: [...files.filter((p) => /\.json$/i.test(p)), ...more] } : {}) });
+// step-a holds 8 .json files, only 3 of them in `files` (a step lists 5 at most): the prompt must name all 8
+const MORE = ["facts/m1.json", "facts/m2.json", "facts/m3.json", "facts/m4.json", "facts/m5.json"];
 const PROFILE = { step: "client-profile", generatedAt: "2031-03-01T00:00:00.000Z", key: "https://x.example.test/", host: "x.example.test", stations: [
-  st("site", "the site itself: reach, snapshot, speed, the checks", [stp("step-a", "gathered", ["research/a.json", "facts/f.json", "research/note.txt"], ["research/a.json", "facts/"]), stp("step-b", "gathered", ["b.json"], ["b.json"])]),
-  st("demand", "what people search for", [stp("step-c", "not gathered", ["c/x.json"], ["c/"])]),
+  st("site", "the site itself: reach, snapshot, speed, the checks", [stp("step-a", "gathered", ["research/a.json", "facts/f.json", "research/note.txt"], ["research/a.json", "facts/"], MORE), stp("step-b", "gathered", ["b.json"], ["b.json"])]),
+  st("demand", "what people search for", [{ ...stp("step-c", "not gathered", ["c/x.json"], ["c/"]), jsonFiles: ["c/x.json"] }]   /* a profile written by hand may name files on a step that gathered nothing: the judge must still leave them out */),
   st("local", "the map, the listing, the directories", [stp("step-d", "gathered", ["local/p.json"], ["local/"])])], notGathered: [], counts: {} };
 const FILES = { "research/a.json": { rows: [{ count: 12, name: "Hilltop" }], title: "Birchwood Plumbing" }, "facts/f.json": { score: 4.5 }, "b.json": { n: 7 }, "c/x.json": { v: 1 }, "local/p.json": { reviews: 31 } };
 const cliJson = (answer, extra = {}) => JSON.stringify({ type: "result", is_error: false, result: answer, total_cost_usd: 0.25, usage: { input_tokens: 11, output_tokens: 22 }, ...extra });
@@ -78,7 +80,7 @@ async function scenarios(dir) {
       else { const k = run.asks[0]; if (k.exitCode !== 0 || !(k.promptChars > 100) || k.answerChars !== text(GOOD).length || k.costUsd !== 0.25 || k.usage?.input_tokens !== 11 || typeof k.seconds !== "number") bad.push("ask row " + JSON.stringify(k)); if (!run.startedAt || !run.endedAt) bad.push("no times"); }
       if (raw.includes("Hilltop") || raw.includes("Birchwood") || raw.includes("Your home page sends") || raw.includes(p.slice(0, 60))) bad.push("run.json holds text of the prompt or the answer");
       if (!p.includes(norm(m.pewp))) bad.push("prompt lacks the pewp path");
-      for (const f of ["research/a.json", "facts/f.json", "b.json"]) if (!p.includes(f)) bad.push("prompt lacks " + f);
+      for (const f of ["research/a.json", "facts/f.json", "b.json", ...MORE]) if (!p.includes("- " + f + " (step ")) bad.push("prompt lacks " + f);
       if (p.includes("c/x.json") || p.includes("step-c")) bad.push("prompt holds a file of the not gathered step");
       if (p.includes("note.txt")) bad.push("prompt holds a file that is not .json");
       for (const k of ["business", "verdict", "numbers", "have", "back", "sections", "plan"]) if (!p.includes(k)) bad.push("prompt lacks the key " + k);
@@ -204,6 +206,11 @@ async function scenarios(dir) {
       }
       check("7: the floor: a profile whose gathered stations hold fewer than two of the topics (one; none): exit 4, the SKIPPED line, ZERO model calls, nothing written but run.json (outcome skipped)", bad.length === 0, bad.join(" | ")); }
 
+    // ---- 7c: a profile written before the judge (no jsonFiles)
+    { const old = { ...PROFILE, stations: PROFILE.stations.map((s) => ({ ...s, steps: s.steps.map((sp) => { const { jsonFiles, ...rest } = sp; return rest; }) })) };
+      const m = mk(true, old), r = await go(m, [text(GOOD)]);
+      check("7c: a profile that names no jsonFiles: exit 3 BLOCKED the profile is older than the judge | unblocks: run client-profile again, and ZERO calls", r.code === 3 && r.last() === "BLOCKED: the profile is older than the judge (it names no jsonFiles) | unblocks: run client-profile again" && r.calls.length === 0, r.code + " " + r.last() + " calls " + r.calls.length); }
+
     // ---- 8: the topics against the manifest, the fixes against the real plan
     { const ml = JSON.parse(fs.readFileSync(path.join(SKILL, "pipeline.json"), "utf8")), want = ml.stations.map((s) => s.id).filter((i) => i !== "business" && i !== "report");
       const usedFix = GOOD.plan.map((x) => x.fix), listed = fs.readFileSync(path.join(SKILL, "client-copy", "fixes.json"), "utf8");
@@ -249,6 +256,8 @@ const MUTANTS = [
   { name: "Write is added to the tool list", patches: [{ file: JM, from: 'export const TOOLS = ["Read", "Grep", "Glob"];', to: 'export const TOOLS = ["Read", "Grep", "Glob", "Write"];' }], expect: [/^1:/] },
   { name: "the checked file is left behind", patches: [{ file: JM, from: "for (const f of OUTPUTS) fs.rmSync(path.join(pewp, f), { force: true });", to: "" }], expect: [/^4:/] },
   { name: "the model is started with no profile", patches: [{ file: JM, from: "if (!isObj(profile)) return blocked(", to: "if (false) return blocked(" }], expect: [/^7:/] },
+  { name: "the judge reads files, not jsonFiles", patches: [{ file: JM, from: "Array.isArray(sp.jsonFiles) ? sp.jsonFiles : []", to: "(Array.isArray(sp.files) ? sp.files : []).map((f) => f?.path)" }], expect: [/^1:/] },
+  { name: "an older profile is accepted", patches: [{ file: JM, from: "if (older) return", to: "if (false) return" }], expect: [/^7c:/] },
   { name: "the answer's text is written into run.json", patches: [{ file: JM, from: "const record = {", to: "const record = { answer: lastAnswer," }], expect: [/^1:/] },
 ];
 

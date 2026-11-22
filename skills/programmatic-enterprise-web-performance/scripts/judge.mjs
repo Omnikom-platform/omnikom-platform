@@ -52,11 +52,11 @@ function stationsGathered(profile) {
   return (Array.isArray(profile?.stations) ? profile.stations : []).filter((st) => (Array.isArray(st?.steps) ? st.steps : []).some((sp) => sp.bucket === "gathered")).map((st) => ({ id: String(st.id), what: String(st.what || "") }));
 }
 
-/** The .json files of the gathered steps of the profile, relative to pewp: "- <file> (step <id>)". */
+/** The .json files (jsonFiles: every one under the outputs, not the 5 of files) of the gathered steps of the profile, relative to pewp: "- <file> (step <id>)". */
 function filesOf(profile) {
   const seen = new Set(), out = [];
   for (const st of Array.isArray(profile?.stations) ? profile.stations : []) for (const sp of Array.isArray(st?.steps) ? st.steps : []) {
-    if (sp.bucket === "gathered") for (const f of Array.isArray(sp.files) ? sp.files : []) if (typeof f?.path === "string" && /\.json$/i.test(f.path) && !seen.has(f.path)) { seen.add(f.path); out.push("- " + f.path + " (step " + sp.id + ")"); }
+    if (sp.bucket === "gathered") for (const f of Array.isArray(sp.jsonFiles) ? sp.jsonFiles : []) if (typeof f === "string" && /\.json$/i.test(f) && !seen.has(f)) { seen.add(f); out.push("- " + f + " (step " + sp.id + ")"); }
   }
   return out;
 }
@@ -90,6 +90,8 @@ export async function judge(io, argv) {
     out("SKIPPED: too little was gathered for a client report (" + topicStations.length + " of the " + TOPICS.length + " kinds of source); the run stays an internal draft");
     return 4;
   }
+  const older = (Array.isArray(profile.stations) ? profile.stations : []).some((st) => (Array.isArray(st?.steps) ? st.steps : []).some((sp) => sp.bucket === "gathered" && !Array.isArray(sp.jsonFiles)));
+  if (older) return blocked("the profile is older than the judge (it names no jsonFiles)", "run client-profile again");
   clearOutputs();
   const fixIds = io.fixes().map((f) => f.id);
   const prompt = fill(io.brief(), pewp, filesOf(profile), topicStations, io.fixes());

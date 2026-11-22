@@ -1,13 +1,14 @@
 // Usage: node client-profile.mjs <url or profile:slug> [--cwd DIR]
 // The profile of one client (AB-4, parts AU.S-3 and AU.S-5): everything the stations gathered, pooled into one file, and the internal sheet of what was not gathered.
-//   {pewp}/profile.json                  every step of every station: gathered, not gathered or not applicable, with its files and each file's own summary
+//   {pewp}/profile.json                  every step of the stations that gather: gathered, not gathered or not applicable, with its files and each file's own summary,
+//                                        and for a gathered step every .json file under its outputs (jsonFiles, at most 300, sorted, relative to {pewp}, forward slashes)
 //   {pewp}/internal/not-gathered.json    one row per step that was not gathered (INTERNAL: never shown to a client)
 //   {pewp}/internal/not-gathered.md      the same, one line per row; its first line says it is internal
 // It reads only: pipeline.json (one folder above scripts/), the run log {pewp}/seo-run.json, {pewp}/stations/sheet.json and rulings.json, and of each gathered step's
 // evidence files the size, the date and, for a JSON object, its top-level status (when text) and summary (when an object). Never a row of a capture or a research file.
 // No model, no network. It writes nothing outside {pewp}/profile.json and {pewp}/internal/.
 // A step's bucket, from its run log entry: RUN and PARTIAL are gathered (PARTIAL says so: partial true); SKIPPED with a manifest rule is not applicable; everything else,
-// and a step with no entry (NOT RUN), is not gathered, and its why is the detail of its row in the sheet, never reworded. This script's own step is not listed (it is the one running).
+// and a step with no entry (NOT RUN), is not gathered, and its why is the detail of its row in the sheet, never reworded. The station that holds this step (it is the one running) is left out whole: it makes the report, it gathers nothing, so it is not in the stations, the counts or the internal sheet.
 // Refuses (BLOCKED, exit 3, nothing written) when: there is no run log; there is no sheet; the sheet is older than the run log; the sheet lacks a station (it was written
 // with --station); or a station other than the one that holds this step is OPEN. Exit 0: last line PROFILE: <g> gathered, <n> not gathered (<r> ruled), <a> not applicable. Exit 2: usage.
 import fs from "node:fs";
@@ -18,7 +19,7 @@ import { loadManifest, makeVars, substitute, norm } from "./lib-pipeline.mjs";
 import { readRun } from "./lib-run.mjs";
 import { stationsOf } from "./lib-stations.mjs";
 
-const OWN = "client-profile", MAX_SUMMARY = 4000, MAX_FILES = 5;
+const OWN = "client-profile", MAX_SUMMARY = 4000, MAX_FILES = 5, MAX_JSON = 300;
 const USAGE = "usage: node client-profile.mjs <url or profile:slug> [--cwd DIR]";
 const skillDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -67,14 +68,27 @@ function pool(argv) {
   const rulings = fs.existsSync(rulingsFile) ? readJson(rulingsFile) : {};
   if (!isObj(rulings)) throw blocked(rulingsFile + " is not an object of step id to ruling", "omnikom seo rule " + key + " (or repair that file)");
 
+  // every .json file under a step's outputs (a file output: that file; a folder: all below it), relative to pewp with forward slashes, sorted by code unit, at most MAX_JSON
+  const jsonOf = (def) => {
+    const found = new Set(), base = norm(pewp), visit = (abs) => {
+      let st; try { st = fs.statSync(abs); } catch { return; }
+      if (st.isDirectory()) { for (const name of fs.readdirSync(abs)) visit(abs + "/" + name); return; }
+      const rel = path.posix.relative(base, norm(abs));
+      if (/\.json$/i.test(abs) && !rel.startsWith("..")) found.add(rel);
+    };
+    for (const o of def.outputs || []) visit(norm(substitute(o, vars)).replace(/\/+$/, ""));
+    const all = [...found].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    return all.length > MAX_JSON ? { jsonFiles: all.slice(0, MAX_JSON), jsonFilesCut: true } : { jsonFiles: all };
+  };
   const steps = new Map(manifest.steps.map((s) => [s.id, s])), outputsOf = (def) => (def.outputs || []).map((o) => {
     const rel = path.posix.relative(norm(pewp), norm(substitute(o, vars)));
     return o.endsWith("/") && !rel.endsWith("/") ? rel + "/" : rel;
   });
+  const gatherers = all.filter((s) => s.id !== ownStation);
   const profileStations = [], notGathered = [], rows = [], counts = { steps: 0, gathered: 0, notGathered: 0, ruled: 0, notApplicable: 0 };
-  for (const st of all) {
+  for (const st of gatherers) {
     const ss = sheet.stations.find((x) => x.id === st.id), outSteps = [];
-    for (const id of st.steps.filter((x) => x !== OWN)) {
+    for (const id of st.steps) {
       const def = steps.get(id), entry = run.steps.find((e) => e.id === id), row = ss.open.find((o) => o.id === id);
       const state = entry ? entry.state : "NOT RUN";
       const gathered = state === "RUN" || state === "PARTIAL", partial = state === "PARTIAL";
@@ -85,7 +99,7 @@ function pool(argv) {
       if (bucket === "not gathered" && row && String(row.ruling).startsWith("not gathered:") && isObj(rulings[id])) { const r = rulings[id]; ruling = { why: r.why, by: r.by, at: r.at }; }
       const found = gathered ? [...new Set(entry.evidence || [])].map((p) => path.resolve(cwd, p)).filter((p) => { try { return fs.statSync(p).isFile(); } catch { return false; } }) : [];
       const files = found.map((p) => describeFile(pewp, p)).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-      outSteps.push({ id, what: def.what, state, bucket, partial, why, ruling, outputs: outputsOf(def), files: files.slice(0, MAX_FILES), fileCount: files.length });
+      outSteps.push({ id, what: def.what, state, bucket, partial, why, ruling, outputs: outputsOf(def), files: files.slice(0, MAX_FILES), fileCount: files.length, ...(gathered ? jsonOf(def) : {}) });
       counts.steps++;
       if (gathered) counts.gathered++;
       else if (notApplicable) counts.notApplicable++;

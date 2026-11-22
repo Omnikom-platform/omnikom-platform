@@ -75,18 +75,18 @@ async function scenarios(dir) {
 
     // 1. every step RUN
     { const m = mk(RUNS()), before = walk(m.data).map(norm), r = await go(m), p = prof(m), i = intJ(m), md = intMd(m), a = stepOf(p, "s-a1"), after = walk(m.data).map(norm).filter((f) => !before.includes(f)).sort();
-      check("1: every step RUN: exit 0 and the PROFILE line", r.code === 0 && r.last === "PROFILE: 5 gathered, 0 not gathered (0 ruled), 0 not applicable", r.out);
-      check("1: the profile holds step, key, host, the four stations in order and the counts", p && p.step === "client-profile" && p.key === "https://client.test/" && p.host === "client.test" && !Number.isNaN(Date.parse(p.generatedAt)) && p.stations.map((s) => s.id).join() === "alpha,beta,gamma,report" && p.stations[0].what === "the first block" && p.stations[0].verdict === "CLOSED"
-        && JSON.stringify(p.counts) === JSON.stringify({ steps: 5, gathered: 5, notGathered: 0, ruled: 0, notApplicable: 0 }) && Array.isArray(p.notGathered) && p.notGathered.length === 0, JSON.stringify(p && p.counts));
-      check("1: a step is under its station with bucket, files, the file's status and summary, no why and no ruling; the profile's own step is not in it", a.state === "RUN" && a.bucket === "gathered" && a.partial === false && a.why === null && a.ruling === null && a.what === "what s-a1 does" && a.fileCount === 1 && a.files.length === 1 && a.files[0].path === "research/a.json"
-        && a.files[0].bytes === fs.statSync(path.join(m.pewp, "research", "a.json")).size && !Number.isNaN(Date.parse(a.files[0].modified)) && a.files[0].status === "ok" && JSON.stringify(a.files[0].summary) === '{"rows":3}' && !stepOf(p, "client-profile").id && p.stations[3].steps.map((s) => s.id).join() === "rep-one", JSON.stringify(a));
+      check("1: every step RUN: exit 0 and the PROFILE line", r.code === 0 && r.last === "PROFILE: 4 gathered, 0 not gathered (0 ruled), 0 not applicable", r.out);
+      check("1: the profile holds step, key, host, the three stations that gather, in order, and the counts", p && p.step === "client-profile" && p.key === "https://client.test/" && p.host === "client.test" && !Number.isNaN(Date.parse(p.generatedAt)) && p.stations.map((s) => s.id).join() === "alpha,beta,gamma" && p.stations[0].what === "the first block" && p.stations[0].verdict === "CLOSED"
+        && JSON.stringify(p.counts) === JSON.stringify({ steps: 4, gathered: 4, notGathered: 0, ruled: 0, notApplicable: 0 }) && Array.isArray(p.notGathered) && p.notGathered.length === 0, JSON.stringify(p && p.counts));
+      check("1: a step is under its station with bucket, files, the file's status and summary, no why and no ruling; the report station (the profile's own, with rep-one) is in no part of it", a.state === "RUN" && a.bucket === "gathered" && a.partial === false && a.why === null && a.ruling === null && a.what === "what s-a1 does" && a.fileCount === 1 && a.files.length === 1 && a.files[0].path === "research/a.json"
+        && a.files[0].bytes === fs.statSync(path.join(m.pewp, "research", "a.json")).size && !Number.isNaN(Date.parse(a.files[0].modified)) && a.files[0].status === "ok" && JSON.stringify(a.files[0].summary) === '{"rows":3}' && !stepOf(p, "client-profile").id && !stepOf(p, "rep-one").id && !JSON.stringify(p).includes("rep-one") && !JSON.stringify(p).includes("report"), JSON.stringify(a));
       check("1: no row of a research file is copied into the profile", p && !JSON.stringify(p).includes("SECRET-ROW-VALUE"), "a row was copied");
       check("1: the internal sheet has no row; the run wrote only profile.json and internal/not-gathered.json and .md", i && i.rows.length === 0 && i.key === "https://client.test/" && !Number.isNaN(Date.parse(i.generatedAt)) && md !== null && md.trim().split(/\r?\n/).length === 1
         && after.join() === [m.pewp + "/internal/not-gathered.json", m.pewp + "/internal/not-gathered.md", m.pewp + "/profile.json"].map(norm).sort().join(), after.join(" ")); }
 
     // 2. a BLOCKED step with a ruling that counts
     { const m = mk(RUNS({ "s-a1": { state: "BLOCKED", exit: 3, line: BL } }), { rulings: { "s-a1": "the key is not ours to get" } }), r = await go(m), p = prof(m), a = stepOf(p, "s-a1"), i = intJ(m), md = intMd(m);
-      check("2: BLOCKED and ruled: exit 0, 4 gathered, 1 not gathered (1 ruled)", r.code === 0 && r.last === "PROFILE: 4 gathered, 1 not gathered (1 ruled), 0 not applicable", r.out);
+      check("2: BLOCKED and ruled: exit 0, 4 gathered, 1 not gathered (1 ruled)", r.code === 0 && r.last === "PROFILE: 3 gathered, 1 not gathered (1 ruled), 0 not applicable", r.out);
       check("2: the step is not gathered; why is the sheet's own words word for word; the ruling holds why, by and at; no files", a.bucket === "not gathered" && a.state === "BLOCKED" && a.why === "exit 3: " + BL && a.partial === false && JSON.stringify(a.ruling) === JSON.stringify({ why: "the key is not ours to get", by: "agent", at: NOW }) && a.files.length === 0 && a.fileCount === 0, JSON.stringify(a));
       check("2: notGathered and counts name it as ruled", p && p.notGathered.length === 1 && JSON.stringify(p.notGathered[0]) === JSON.stringify({ station: "alpha", step: "s-a1", state: "BLOCKED", why: "exit 3: " + BL, ruled: true }) && p.counts.ruled === 1 && p.counts.notGathered === 1, JSON.stringify(p && p.notGathered));
       check("2: one internal row and one .md line with 'ruled by'", i && i.rows.length === 1 && JSON.stringify(i.rows[0]) === JSON.stringify({ station: "alpha", step: "s-a1", what: "what s-a1 does", state: "BLOCKED", why: "exit 3: " + BL, ruled: true, ruledBy: "agent", ruledAt: NOW })
@@ -97,19 +97,19 @@ async function scenarios(dir) {
       check("3: a station before the profile's own is OPEN: exit 3, the last line names the first open station with its counts and what unblocks", r.code === 3 && r.last === "BLOCKED: station alpha is OPEN (1 to judge, 0 not run) | unblocks: omnikom seo station https://client.test/, then judge what it lists", r.out);
       check("3: neither profile.json nor the internal files exist", nothing(m), "something was written"); }
 
-    // 4. the profile's own station holding steps that were not run does not block
-    { const spec = RUNS(); delete spec["rep-one"]; const m = mk(spec), r = await go(m), p = prof(m), a = stepOf(p, "rep-one"), i = intJ(m);
-      check("4: the profile's own station holding a step that was not run does not block: exit 0", r.code === 0 && r.last === "PROFILE: 4 gathered, 1 not gathered (0 ruled), 0 not applicable", r.out);
-      check("4: the step that was not run is NOT RUN, not gathered, why 'not run yet', unruled, one internal row", a.state === "NOT RUN" && a.bucket === "not gathered" && a.why === "not run yet" && a.ruling === null && i && i.rows.length === 1 && i.rows[0].ruled === false && i.rows[0].ruledBy === null && /\| not ruled$/m.test(intMd(m) || ""), intMd(m)); }
+    // 4. the report station (the profile's own) is left out whole, run or not
+    { const spec = RUNS(); delete spec["rep-one"]; const m = mk(spec), r = await go(m), p = prof(m), i = intJ(m), md = intMd(m) || "", all = JSON.stringify(p) + JSON.stringify(i) + md;
+      check("4: the report station holding a step that was not run does not block and is not counted: exit 0, 4 gathered, 0 not gathered", r.code === 0 && r.last === "PROFILE: 4 gathered, 0 not gathered (0 ruled), 0 not applicable", r.out);
+      check("4: the report station's steps are in no part of profile.json and on no line of the internal sheet", p && i && !all.includes("rep-one") && !JSON.stringify(p.stations).includes("client-profile") && !all.includes("NOT RUN") && p.notGathered.length === 0 && i.rows.length === 0 && md.trim().split(/\r?\n/).length === 1, all.slice(0, 300)); }
 
     // 5. SKIPPED with and without a rule
     { const m = mk(RUNS({ "s-a1": { state: "SKIPPED", exit: 4, rule: "site-none", line: "SKIPPED: client has no site" }, "s-a2": { state: "SKIPPED", exit: 4, line: "SKIPPED: no US egress" } }), { rulings: { "s-a2": "no US machine today" } }), r = await go(m), p = prof(m), a = stepOf(p, "s-a1"), b = stepOf(p, "s-a2"), i = intJ(m);
-      check("5: SKIPPED by the manifest's rule: not applicable, why is its line, no internal row; the counts say so", r.code === 0 && r.last === "PROFILE: 3 gathered, 1 not gathered (1 ruled), 1 not applicable" && a.bucket === "not applicable" && a.why === "SKIPPED: client has no site" && a.ruling === null && i && i.rows.length === 1 && i.rows[0].step === "s-a2" && p.counts.notApplicable === 1, r.out + JSON.stringify(a));
+      check("5: SKIPPED by the manifest's rule: not applicable, why is its line, no internal row; the counts say so", r.code === 0 && r.last === "PROFILE: 2 gathered, 1 not gathered (1 ruled), 1 not applicable" && a.bucket === "not applicable" && a.why === "SKIPPED: client has no site" && a.ruling === null && i && i.rows.length === 1 && i.rows[0].step === "s-a2" && p.counts.notApplicable === 1, r.out + JSON.stringify(a));
       check("5: SKIPPED without a rule, ruled: not gathered, with its ruling", b.bucket === "not gathered" && b.state === "SKIPPED" && b.ruling && b.ruling.why === "no US machine today", JSON.stringify(b)); }
 
     // 6. PARTIAL
     { const m = mk(RUNS({ "s-b1": { state: "PARTIAL", exit: 0, line: "PARTIAL: read 10 of 25", files: [{ name: "research/p.json", body: { status: "partial" } }] } }), { rulings: { "s-b1": "the rest is not reachable" } }), r = await go(m), p = prof(m), a = stepOf(p, "s-b1");
-      check("6: PARTIAL is gathered with partial true, why is the run log's line, its files are listed, no internal row", r.code === 0 && r.last === "PROFILE: 5 gathered, 0 not gathered (0 ruled), 0 not applicable" && a.bucket === "gathered" && a.state === "PARTIAL" && a.partial === true && a.why === "PARTIAL: read 10 of 25" && a.files.length === 1 && a.files[0].status === "partial" && intJ(m).rows.length === 0, r.out + JSON.stringify(a)); }
+      check("6: PARTIAL is gathered with partial true, why is the run log's line, its files are listed, no internal row", r.code === 0 && r.last === "PROFILE: 4 gathered, 0 not gathered (0 ruled), 0 not applicable" && a.bucket === "gathered" && a.state === "PARTIAL" && a.partial === true && a.why === "PARTIAL: read 10 of 25" && a.files.length === 1 && a.files[0].status === "partial" && intJ(m).rows.length === 0, r.out + JSON.stringify(a)); }
 
     // 7. nothing to pool from
     { const bad = [["no run log", mk(RUNS(), { noRun: true }), /^BLOCKED: no run log at .*seo-run\.json \| unblocks: /],
@@ -144,6 +144,46 @@ async function scenarios(dir) {
       check("10: a profile:<slug> key works the same way (key and host in the profile)", r2.code === 0 && p2 && p2.key === "profile:acme" && p2.host === "acme", r2.out); }
   } finally { rmTmp(root); }
 
+  // 12. jsonFiles: every .json file under a gathered step's outputs (AB-4b)
+  { const root2 = mkTmp("cprofile12"), skill2 = path.join(root2, "skill"), home2 = path.join(root2, "home");
+    try {
+      fs.cpSync(dir, path.join(skill2, "scripts"), { recursive: true });
+      fs.writeFileSync(path.join(skill2, "pipeline.json"), JSON.stringify(MANIFEST, null, 1));
+      fs.mkdirSync(home2, { recursive: true });
+      const exec2 = runner(path.join(skill2, "scripts"), home2, path.join(root2, "net.log"));
+      let k = 0;
+      // one run folder: the steps other than s-g1 leave their file under out/; s-g1's folder output research/ holds what the caller gives
+      const mk2 = (gFiles, over = {}) => {
+        const data = path.join(root2, "d" + ++k), pewp = path.join(data, "site-checks", "client.test", ".pewp"), put = (name, body) => { fs.mkdirSync(path.dirname(path.join(pewp, name)), { recursive: true }); fs.writeFileSync(path.join(pewp, name), body); };
+        const ids = ["s-a1", "s-a2", "s-b1", "s-g1", "rep-one"], entries = [];
+        for (const id of ids) { const state = (over[id] && over[id].state) || "RUN", names = id === "s-g1" ? gFiles.map((f) => f[0]) : ["out/" + id + ".json"];
+          if (id === "s-g1") for (const [nm, body] of gFiles) put(nm, body); else put(names[0], "{}");
+          entries.push({ id, state, line: state === "RUN" ? "ok" : "exit 3: BLOCKED: x | unblocks: y", exit: state === "RUN" ? 0 : 3, evidence: names.map((x) => norm(path.join(pewp, x))), evidenceCount: names.length }); }
+        const rows = MANIFEST.steps.map((s) => { const e = entries.find((x) => x.id === s.id); return e ? { id: s.id, state: e.state, detail: e.state === "RUN" ? e.evidence[0] : e.line } : { id: s.id, state: "NOT RUN", detail: "not run yet" }; });
+        let rulings = {};
+        for (const id of Object.keys(over)) rulings = lib.ruleStep(MANIFEST, rows, rulings, { step: id, why: "w", by: "agent", now: NOW });
+        fs.mkdirSync(path.join(pewp, "stations"), { recursive: true });
+        fs.writeFileSync(path.join(pewp, "seo-run.json"), JSON.stringify({ version: 1, updatedAt: new Date(T0).toISOString(), steps: entries }));
+        const sf = path.join(pewp, "stations", "sheet.json"); fs.writeFileSync(sf, JSON.stringify(lib.buildSheet(MANIFEST, rows, rulings, {}))); const tt = new Date(T0 + 60000); fs.utimesSync(sf, tt, tt);
+        if (Object.keys(rulings).length) fs.writeFileSync(path.join(pewp, "stations", "rulings.json"), JSON.stringify(rulings));
+        return { data, pewp };
+      };
+      const run2 = async (m) => { const r = await exec2("client-profile.mjs", ["https://client.test/", "--cwd", m.data]); let p = null; try { p = JSON.parse(fs.readFileSync(path.join(m.pewp, "profile.json"), "utf8")); } catch { /* red below */ } return { r, p, step: (id) => (p && p.stations ? p.stations.flatMap((s) => s.steps) : []).find((x) => x.id === id) || {} }; };
+      // (b) a folder output with 8 .json files (one deep, names out of order) and 2 other files
+      const eight = ["research/z8.json", "research/b2.json", "research/deep/sub/h7.json", "research/a1.json", "research/c3.JSON", "research/d4.json", "research/e5.json", "research/f6.json"];
+      const m1 = mk2([...eight.map((n) => [n, "{}"]), ["research/notes.txt", "x"], ["research/pic.png", "x"]]), x1 = await run2(m1), g = x1.step("s-g1");
+      const want = [...eight].filter((n) => /\.json$/i.test(n)).sort();
+      check("12: a gathered step with 8 .json files and 2 others under a folder output: jsonFiles has the .json files, sorted, relative, forward slashes; files still holds 5; no cut mark", x1.r.code === 0 && JSON.stringify(g.jsonFiles) === JSON.stringify(want) && g.jsonFiles.length === 8 && g.files.length === 5 && g.fileCount === 10 && g.jsonFilesCut === undefined && !g.jsonFiles.some((f) => f.includes("\\") || f.startsWith("/") || f.includes(":")), x1.r.out + JSON.stringify(g.jsonFiles));
+      check("12: a gathered step whose output is one file lists that file", JSON.stringify(x1.step("s-a2").jsonFiles) === '["out/s-a2.json"]', JSON.stringify(x1.step("s-a2").jsonFiles));
+      // (c) a step that is not gathered has no jsonFiles key, although its output file exists
+      const m2 = mk2([["research/d.json", "{}"]], { "s-a1": { state: "BLOCKED" } }), x2 = await run2(m2), a = x2.step("s-a1");
+      check("12: a step that is not gathered has no jsonFiles key (and no jsonFilesCut)", x2.r.code === 0 && a.bucket === "not gathered" && !("jsonFiles" in a) && !("jsonFilesCut" in a), x2.r.out + JSON.stringify(a));
+      // (d) 301 files
+      const many = Array.from({ length: 301 }, (_, i) => "research/g" + String(i).padStart(3, "0") + ".json");
+      const m3 = mk2(many.map((n) => [n, "{}"])), x3 = await run2(m3), g3 = x3.step("s-g1");
+      check("12: 301 .json files: the first 300 in order and jsonFilesCut true", x3.r.code === 0 && Array.isArray(g3.jsonFiles) && g3.jsonFiles.length === 300 && g3.jsonFiles[0] === many[0] && g3.jsonFiles[299] === many[299] && g3.jsonFilesCut === true, x3.r.out + String(g3.jsonFiles && g3.jsonFiles.length));
+    } finally { rmTmp(root2); } }
+
   // 11. the real pipeline.json
   { let m = null; try { m = JSON.parse(fs.readFileSync(PIPE, "utf8")); } catch (e) { /* red below */ }
     const L = await import(pathToFileURL(path.join(dir, "lib-pipeline.mjs")).href + "?" + Math.random());
@@ -163,6 +203,10 @@ const MUTANTS = [
   { name: "the ruling's by is dropped", patches: [{ file: CP, from: "{ why: r.why, by: r.by, at: r.at }", to: "{ why: r.why, at: r.at }" }], expect: [/^2: the step is not gathered/] },
   { name: "why is taken from the run log, not the sheet's detail", patches: [{ file: CP, from: "(row ? row.detail : null)", to: "(entry ? entry.line : null)" }], expect: [/^2: the step is not gathered/] },
   { name: "the file limit is removed", patches: [{ file: CP, from: ".slice(0, MAX_FILES)", to: ".slice(0, 99)" }], expect: [/^8: 7 evidence files/] },
+  { name: "the report station is listed again", patches: [{ file: CP, from: "all.filter((s) => s.id !== ownStation)", to: "all" }], expect: [/^4: the report station/] },
+  { name: "jsonFiles is cut to 5", patches: [{ file: CP, from: "MAX_JSON = 300", to: "MAX_JSON = 5" }], expect: [/^12: a gathered step with 8/, /^12: 301/] },
+  { name: "a folder output is not walked", patches: [{ file: CP, from: "st.isDirectory()", to: "false" }], expect: [/^12: a gathered step with 8/] },
+  { name: "a not gathered step gets jsonFiles", patches: [{ file: CP, from: "...(gathered ? jsonOf(def) : {})", to: "...jsonOf(def)" }], expect: [/^12: a step that is not gathered/] },
 ];
 
 if (isMain(import.meta.url)) {
