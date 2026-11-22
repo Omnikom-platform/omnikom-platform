@@ -112,6 +112,18 @@ if (args.includes("--mutants")) {
     { id: "tm-excluded-tag-kept", file: "client-copy-rules.mjs", from: "if (onList(approved.excluded, h)) return null;", to: "", red: "case 28:" },
     { id: "tm-ads-related-not-stopped", file: "client-copy-data.mjs", from: "for (const d of client.adsFor || []) { const x = relHost(d); if (x) stop(", to: "for (const d of client.adsFor || []) { const x = relHost(d); if (false) stop(", red: "case 29:" },
     { id: "tm-rival-name-related-not-stopped", file: "client-copy-data.mjs", from: "for (const r of client.rivals || []) { const x = relName(r.name); if (x) stop(", to: "for (const r of client.rivals || []) { const x = relName(r.name); if (false) stop(", red: "case 29:" },
+    { id: "ab3-graph-members-not-read", file: "client-copy-data.mjs", from: "if (Array.isArray(j[\"@graph\"])) j[\"@graph\"].forEach(", to: "if (false) j[\"@graph\"].forEach(", red: "case 30:" },
+    { id: "ab3-no-sameas-stop-off", file: "client-copy-data.mjs", from: "if (!sdSame) stop(", to: "if (false) stop(", red: "case 30:" },
+    { id: "ab3-no-site-address-empty-row", file: "client-copy-data.mjs", from: "const wAddr = siteAddr === null ? null : street(siteAddr, home);", to: "const wAddr = street(siteAddr || \"\", home);", red: "case 31:" },
+    { id: "ab3-reason-asked-of-read-assistant", file: "client-copy-data.mjs", from: "[\"copilot\", \"gemini\"].filter((e) => eng[e].status === \"blocked\").map(", to: "[\"copilot\", \"gemini\"].map(", red: "case 32:" },
+    { id: "ab3-grid-query-state-kept", file: "client-copy-data.mjs", from: "(?:,\\\\s*[A-Za-z]{2})?$", to: "$", red: "case 33:" },
+    { id: "ab3-services-null-no-stop", file: "client-copy-data.mjs", from: "if (svcList === null && !/^NOT SHOWN/", to: "if (false && !/^NOT SHOWN/", red: "case 34:" },
+    { id: "ab3-services-null-not-empty", file: "client-copy-data.mjs", from: "services = svcList || [];", to: "services = svcList;", red: "case 34:" },
+    { id: "ab3-address-empty-no-stop", file: "client-copy-data.mjs", from: "if (!gRaw && !/^READ AND EMPTY/", to: "if (false && !/^READ AND EMPTY/", red: "case 35:" },
+    { id: "ab3-address-empty-is-a-row", file: "client-copy-data.mjs", from: "const gAddr = gRaw ? street(gRaw, home) : null;", to: "const gAddr = street(gRaw, home);", red: "case 35:" },
+    { id: "ab3-site-status-required", file: "client-copy-data.mjs", from: "const status = getMaybe(\"comp\", `sites[${i}].status`, \"count\");", to: "const status = get(\"comp\", `sites[${i}].status`, \"count\");", red: "case 36:" },
+    { id: "ab3-in-spelling-off", file: "client-copy-data.mjs", from: "wants = [wantQ, `${demand[0].key} in ${home}`.toLowerCase()];", to: "wants = [wantQ];", red: "case 37:" },
+    { id: "ab3-mobile-list-fallback-back", file: "client-copy-data.mjs", from: "x.e === eng && x.d === \"desktop\");", to: "x.e === eng && x.d === \"desktop\") || sc.find((x) => wants.includes(x.q.toLowerCase()) && x.e === eng);", red: "case 37:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ccopy-mut-"));
   let ok = 0;
@@ -726,6 +738,96 @@ try {
       line(go(makeRun(teamRun(true)), { client: clientFor(a0, { rivals: j }) }), "STOP: the client file names the rival hilltop roof two, a brokerage of the business, which stands on the excluded list of .pewp/approved/competitors.json", "rival by name");
       const fine = go(makeRun(A()), { client: clientFor(a0, { adsFor: [a0.rivals[0].domain, "random-blog.test"] }) });
       if (fine.status !== 0) bad.push(`with no relation declared the same client file builds: exit ${fine.status} ${fine.stderr}`);
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+  // ---------------------------------------------------------------- job AB-3: the changes of the ai-oneshot branch to the data reader, one case each (the snapshot file is edited on disk after makeRun: the fixture has no patch hook for it)
+  const snapEdit = (run, rel, fn) => { const p = path.join(run.root, "snapshots", "2026-11-10-2", rel); const j = JSON.parse(fs.readFileSync(p, "utf8")); const r = fn(j); fs.writeFileSync(p, JSON.stringify(r === undefined ? j : r)); return run; };
+  const sdOf = (run, json) => snapEdit(run, "pages/home/browser-mobile.json", (j) => { j.page.structuredData[1].json = json; });
+  const SAME3 = []; // none linked, as in the fixture: the profiles row of page 7 says so
+  const whereRows = (r) => allRows(r.tsv).map((x) => x[4]).join(" | ");
+  const stopLine = (r, tail) => r.status === 1 && r.stderr.startsWith("STOP: ") && r.stderr.endsWith(tail) && emptyOut(r);
+  const one = (s0, extra) => go(makeRun(A(extra)), { client: cA });
+
+  check("case 30: the business's own markup is found at a block's top level or as a member of its @graph (profile links and street address on different members); no sameAs anywhere STOPs with the new line",
+    ...T(() => {
+      const bad = [], s = a0;
+      const g = go(sdOf(makeRun(A()), { "@context": "https://schema.org", "@graph": [{ "@type": "Organization", sameAs: SAME3 }, { "@type": s.sdType, address: { streetAddress: s.siteAddr } }] }), { client: cA });
+      if (g.status !== 0) return [false, "graph: exit " + g.status + " " + g.stderr];
+      const wr = whereRows(g);
+      if (!wr.includes("structuredData[1].json.@graph[0].sameAs (length)")) bad.push("the sameAs of the first graph member is not the source of the profile count");
+      if (!wr.includes("structuredData[1].json.@graph[1].address.streetAddress")) bad.push("the street address of the second graph member is not the source of the website address");
+      const n = go(sdOf(makeRun(A()), { "@type": s.sdType, address: { streetAddress: s.siteAddr } }), { client: cA });
+      if (!stopLine(n, "has no page.structuredData block (or @graph member) with a sameAs list")) bad.push("no sameAs: " + n.status + " " + JSON.stringify(n.stderr));
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+
+  check("case 31: a site whose markup names no street address is no row of the address list (not a STOP); a site that names one is a row",
+    ...T(() => {
+      const bad = [], s = a0;
+      if (!norm(rA).includes("Your website and Google Maps 14 Cedar Row")) bad.push("control: the address list does not name the website beside Google Maps");
+      const r = go(sdOf(makeRun(A()), { "@type": s.sdType, sameAs: SAME3 }), { client: cA });
+      if (r.status !== 0) return [false, "exit " + r.status + " " + r.stderr];
+      const t = norm(r);
+      if (t.includes("Your website")) bad.push("Your website is a row of the address list");
+      if (!t.includes("addresses for one business Google Maps 14 Cedar Row")) bad.push("the list is not the other rows alone");
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+
+  check("case 32: the blocked reason is asked only of an assistant that is blocked (a copilot that was read has no reason in summary.blockedEngines)",
+    ...T(() => {
+      const r = one(null, { patch: { "research/ai-answers.json": (j) => { j.summary.engines.find((e) => e.engine === "copilot").status = "ok"; j.summary.blockedEngines = j.summary.blockedEngines.filter((e) => e.engine !== "copilot"); j.rows.find((x) => x.engine === "copilot").status = "ok-not-asked"; } } });
+      return [r.status === 0, "exit " + r.status + " " + r.stderr];
+    }));
+
+  check("case 33: a grid query that ends \"<city>, <ST>\" is the same product as one that ends \"<city>\" (the build does not STOP)",
+    ...T(() => {
+      const r = one(null, { patch: { "local/2026-11-13/grid.json": (j) => { j.solv.forEach((x) => { x.query += ", WA"; }); j.points.forEach((x) => { x.query += ", WA"; }); } } });
+      if (r.status !== 0) return [false, "exit " + r.status + " " + r.stderr];
+      return [norm(r) === norm(rA), "the page with \", ST\" queries differs from the page without"];
+    }));
+
+  check("case 34: a listing with services null and shown.services starting NOT SHOWN lists no services (same page as []); null without those words STOPs",
+    ...T(() => {
+      const bad = [];
+      const ok = one(null, { patch: { "captures/local/profile.json": (j) => { j.services = null; j.shown = { services: "NOT SHOWN on this listing" }; } } });
+      if (ok.status !== 0) bad.push("NOT SHOWN: exit " + ok.status + " " + ok.stderr); else if (norm(ok) !== norm(rA)) bad.push("the page differs from the page of services []");
+      const no = one(null, { patch: { "captures/local/profile.json": (j) => { j.services = null; } } });
+      if (!stopLine(no, "has no services, and its shown.services does not say the listing shows none")) bad.push("null alone: " + no.status + " " + JSON.stringify(no.stderr));
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+
+  check("case 35: a listing with address \"\" and shown.address starting READ AND EMPTY is no row of the address list; \"\" without those words STOPs",
+    ...T(() => {
+      const bad = [];
+      const ok = one(null, { patch: { "captures/local/profile.json": (j) => { j.address = ""; j.shown = { address: "READ AND EMPTY: a service-area listing" }; } } });
+      if (ok.status !== 0) bad.push("READ AND EMPTY: exit " + ok.status + " " + ok.stderr);
+      else {
+        if (allRows(ok.tsv).some((x) => x[3].endsWith("captures/local/profile.json") && x[4] === "address")) bad.push("a sheet row still draws the listing's address");
+        if (allRows(ok.tsv).some((x) => x[2] === "Google Maps")) bad.push("Google Maps is a row of the address list");
+      }
+      if (!hasRow(rA.tsv, "14 Cedar Row", "captures/local/profile.json", "address")) bad.push("control: the listing's address is no row");
+      const no = one(null, { patch: { "captures/local/profile.json": (j) => { j.address = ""; } } });
+      if (!stopLine(no, "has no address, and its shown.address does not say the listing shows none")) bad.push("empty alone: " + no.status + " " + JSON.stringify(no.stderr));
+      return [bad.length === 0, bad.join(" | ")];
+    }));
+
+  check("case 36: a competitor site that gave no answer (no status) is a site not read, not a STOP: it is not counted as read",
+    ...T(() => {
+      const rs = (r) => (norm(r).match(/(\d+) rival sites and \d+ AI assistants read/) || [])[1];
+      const r = one(null, { patch: { "research/competitors.json": (j) => { j.sites.push({ domain: "silent-roofs.test" }); } } });
+      if (r.status !== 0) return [false, "exit " + r.status + " " + r.stderr];
+      return [rs(r) !== undefined && rs(r) === rs(rA), "rival sites read: " + rs(rA) + " without the silent site, " + rs(r) + " with it"];
+    }));
+
+  const homeLists = (j, fn) => { j.captures.forEach((c) => { if (c.device === "desktop" && c.organic) fn(c); }); };
+  check("case 37: the results list is found as \"<product> <city>\" or \"<product> in <city>\"; with only a mobile capture the copy STOPs naming the missing desktop capture (the page says the list was read on a computer)",
+    ...T(() => {
+      const bad = [], s = a0, top = s.products[s.products.length - 1];
+      const inn = one(null, { patch: { "research/serp.json": (j) => homeLists(j, (c) => { c.query = c.query.replace(" " + s.home, " in " + s.home); }) } });
+      if (inn.status !== 0) bad.push("\"in\" spelling: exit " + inn.status + " " + inn.stderr);
+      else if (!norm(inn).includes("Roof help")) bad.push("\"in\" spelling: the list is not printed");
+      const mob = one(null, { patch: { "research/serp.json": (j) => homeLists(j, (c) => { c.device = "mobile"; }) } });
+      if (!stopLine(mob, "has no desktop capture of \"" + top + " " + s.home.toLowerCase() + "\" on google")) bad.push("only mobile: " + mob.status + " " + JSON.stringify(mob.stderr));
       return [bad.length === 0, bad.join(" | ")];
     }));
 } catch (e) {

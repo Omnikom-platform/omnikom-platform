@@ -522,7 +522,7 @@ export function collect(cfg) {
     const wantQ = `${demand[0].key} ${home}`.toLowerCase(), wants = [wantQ, `${demand[0].key} in ${home}`.toLowerCase()];   // a run asks "<product> <city>" or "<product> in <city>"
     const sc = get("serp", "captures", "array").map((_, i) => ({ i, q: get("serp", `captures[${i}].query`, "text"), e: get("serp", `captures[${i}].engine`, "text"), d: get("serp", `captures[${i}].device`, "text") }));
     const listOf = (eng) => {
-      const c = sc.find((x) => wants.includes(x.q.toLowerCase()) && x.e === eng && x.d === "desktop") || sc.find((x) => wants.includes(x.q.toLowerCase()) && x.e === eng);   // no desktop capture in the run: the device that was captured
+      const c = sc.find((x) => wants.includes(x.q.toLowerCase()) && x.e === eng && x.d === "desktop");
       if (!c) stop(`STOP: ${label(defs.serp)} has no desktop capture of "${wantQ}" on ${eng}`);
       const org = get("serp", `captures[${c.i}].organic`, "array").map((_, k) => ({ position: get("serp", `captures[${c.i}].organic[${k}].position`, "count"), domain: get("serp", `captures[${c.i}].organic[${k}].domain`, "text"), title: get("serp", `captures[${c.i}].organic[${k}].title`, "string") }));
       return { query: c.q, read: org.length, first5: org.filter((o) => o.position <= 5).sort((a, b) => a.position - b.position), localized: get("serp", `captures[${c.i}].location.localized`, "boolean"), ours: getMaybe("serp", `captures[${c.i}].ourPosition.value`, "number") };
