@@ -50,6 +50,30 @@ async function scenarios(dir) {
     let e4 = ""; try { lib.seedProfile(p4, { now: () => NOW }); } catch (e) { e4 = e.message; }
     check("profile: the profile folder is made when it does not exist (nested too)", fs.existsSync(path.join(p4, "Local State")), e4);
 
+    // ---- keepState: a profile that already has sign-ins keeps its Local State byte for byte (audit build AB-2A) ----
+    const keep = (name, content) => {
+      const d = path.join(tmp, name); fs.mkdirSync(d, { recursive: true });
+      if (content !== null) fs.writeFileSync(path.join(d, "Local State"), content);
+      const spawned = []; let err = "";
+      try { lib.spawnBrowser({ exe: "C:/fake/edge.exe", dir: d, args: ["about:blank"] }, { keepState: true, spawn: (exe, args) => { spawned.push(args); return { pid: 2 }; }, now: () => NOW }); } catch (e) { err = e.message; }
+      return { d, spawned, err, after: fs.existsSync(path.join(d, "Local State")) ? fs.readFileSync(path.join(d, "Local State")) : null };
+    };
+    const good = '{\n  "os_crypt": { "encrypted_key": "ZZ" },\n  "password_manager": { "os_password_blank": false, "os_password_last_changed": "1" }\n}\n';
+    const k1 = keep("keep-good", good);
+    check("keepState: a good Local State (os_password_blank false) is byte for byte the same after spawnBrowser, and the browser was spawned", k1.after && k1.after.equals(Buffer.from(good)) && k1.spawned.length === 1 && !k1.err, `${k1.err} ${k1.after}`);
+    const k2 = keep("keep-broken", "{ not json");
+    check("keepState: a Local State that cannot be parsed throws, nothing is spawned, the file is unchanged", /cannot be parsed/.test(k2.err) && k2.spawned.length === 0 && k2.after.toString() === "{ not json", `${k2.err} ${k2.spawned.length} ${k2.after}`);
+    const k2b = keep("keep-list", "[1,2]");
+    check("keepState: a Local State that is a list throws too, nothing is spawned", /cannot be parsed/.test(k2b.err) && k2b.spawned.length === 0 && k2b.after.toString() === "[1,2]", `${k2b.err} ${k2b.spawned.length}`);
+    const k3 = keep("keep-missing", null);
+    const k3j = (() => { try { return JSON.parse(k3.after); } catch { return null; } })();
+    check("keepState: a missing Local State is seeded as today, before the spawn", k3j?.password_manager?.os_password_blank === false && k3j.password_manager.os_password_last_changed === STAMP && k3.spawned.length === 1, `${k3.err} ${k3.after}`);
+    const k4 = keep("keep-blank", JSON.stringify({ keepme: 1, password_manager: { os_password_blank: true } }));
+    const k4j = JSON.parse(k4.after.toString());
+    check("keepState: a Local State that parses but does not say false is seeded as today (merged), then spawned", k4j.keepme === 1 && k4j.password_manager.os_password_blank === false && k4.spawned.length === 1, k4.after.toString());
+    const k5 = (() => { const d = path.join(tmp, "plain-good"); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, "Local State"), good); lib.spawnBrowser({ exe: "x", dir: d }, { spawn: () => ({ pid: 3 }), now: () => NOW }); return fs.readFileSync(path.join(d, "Local State"), "utf8"); })();
+    check("keepState: without keepState nothing changes (a good Local State is rewritten with the new stamp, as before)", JSON.parse(k5).password_manager.os_password_last_changed === STAMP && k5 !== good, k5);
+
     // ---- the guard over every script ----
     const files = fs.readdirSync(dir).filter((f) => f.endsWith(".mjs"));
     const text = (f) => fs.readFileSync(path.join(dir, f), "utf8");
@@ -69,9 +93,17 @@ async function scenarios(dir) {
 }
 
 const LB = "lib-browser-profile.mjs", CM = "cdp-measure.mjs", VA = "vantage.mjs", CP = "client-copy-pdf.mjs";
+const KS = "if (io.keepState) keepLocalState(dir, io);\n  else seedProfile(dir, io);";
 const MUTANTS = [
+  { name: "keepState is ignored (always seeds)", patches: [{ file: LB, from: KS, to: "seedProfile(dir, io);" }], expect: [/^keepState: a good Local State/] },
+  { name: "keepState: a good Local State is still rewritten", patches: [{ file: LB, from: "if (parsed.password_manager?.os_password_blank === false) return parsed;", to: "" }], expect: [/^keepState: a good Local State/] },
+  { name: "keepState: a broken Local State is seeded over instead of an error", patches: [{ file: LB, from: "catch { throw new Error(`Local State cannot be parsed, left as it is: ${file}`); }\n  if (!parsed", to: "catch { return seedProfile(dir, io); }\n  if (!parsed" }], expect: [/^keepState: a Local State that cannot be parsed throws/] },
+  { name: "keepState: a list is accepted as a state", patches: [{ file: LB, from: "if (!parsed || typeof parsed !== \"object\" || Array.isArray(parsed)) throw", to: "if (false) throw" }], expect: [/^keepState: a Local State that is a list throws/] },
+  { name: "keepState: a missing Local State is not seeded", patches: [{ file: LB, from: "if (e && e.code === \"ENOENT\") return seedProfile(dir, io);", to: "if (e && e.code === \"ENOENT\") return null;" }], expect: [/^keepState: a missing Local State is seeded/] },
+  { name: "keepState: a state that does not say false is left alone", patches: [{ file: LB, from: "return seedProfile(dir, io); // parses, but does not say false", to: "return parsed;" }], expect: [/^keepState: a Local State that parses but does not say false/] },
+  { name: "keepState is on for every spawn", patches: [{ file: LB, from: "if (io.keepState) keepLocalState", to: "if (true) keepLocalState" }], expect: [/^keepState: without keepState nothing changes/] },
   { name: "the Local State is not written", patches: [{ file: LB, from: "fs.writeFileSync(file, JSON.stringify(state));", to: "" }], expect: [/^profile: the profile's Local State is written BEFORE/, /^profile: the file is JSON/, /^profile: an existing Local State keeps/] },
-  { name: "the browser is spawned before the seed", patches: [{ file: LB, from: "seedProfile(dir, io);\n  return (io.spawn || nodeSpawn)(exe, [`--user-data-dir=${dir}`, ...args], options);", to: "const c = (io.spawn || nodeSpawn)(exe, [`--user-data-dir=${dir}`, ...args], options);\n  seedProfile(dir, io);\n  return c;" }], expect: [/^profile: the profile's Local State is written BEFORE/] },
+  { name: "the browser is spawned before the seed", patches: [{ file: LB, from: KS + "\n  return (io.spawn || nodeSpawn)(exe, [`--user-data-dir=${dir}`, ...args], options);", to: "const c = (io.spawn || nodeSpawn)(exe, [`--user-data-dir=${dir}`, ...args], options);\n  " + KS + "\n  return c;" }], expect: [/^profile: the profile's Local State is written BEFORE/] },
   { name: "os_password_blank is not false", patches: [{ file: LB, from: "os_password_blank: false,", to: "os_password_blank: true," }], expect: [/^profile: the file is JSON/, /^profile: an existing Local State keeps/] },
   { name: "the last-changed stamp is left out", patches: [{ file: LB, from: ", os_password_last_changed: chromeTime(now()) }", to: " }" }], expect: [/^profile: the file is JSON/] },
   { name: "the stamp is in milliseconds, not Chrome time", patches: [{ file: LB, from: "String((BigInt(ms) + 11644473600000n) * 1000n)", to: "String(BigInt(ms))" }], expect: [/^profile: chromeTime is microseconds/, /^profile: the file is JSON/] },

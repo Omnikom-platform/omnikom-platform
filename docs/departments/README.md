@@ -86,6 +86,12 @@ job runs"); departments remain as the owners of paths and the prefixes of branch
     `omnikom-app-staging` in the same step. A flow or test that writes to the shared test site removes what it wrote.
 11. **A new Chrome or Edge profile is seeded (`Local State`) before its first launch.** Unseeded launches locked the Windows
     account on 2026-11-11. This line goes when the kit's launcher and its CI guard are the only way to launch (work order 47).
+12. **A builder never closes, kills or restarts a window or a process it did not start, and never starts a live run** (a real
+    site, a real browser window): live runs are the head's. Heavy runs (the seeded faults of a large suite, a browser) run in the
+    head's one queue, never from several builders at once. On 2026-11-22 a builder's proof run force-closed the owner's signed-in
+    audit browser, and four builders waiting on the one machine lock each lost 30 minutes, several times. The work browser
+    (`skills/programmatic-enterprise-web-performance/scripts/work-browser.mjs`) is never started through `heavy.mjs`: that tool's
+    kill-on-close job ends the browser when the command ends.
 
 ## Sessions: names, reporting line, stopping
 - Names: `HEAD-OF-OPERATIONS_<model>_<date>`, `LANE_<department>_<date>`; a second one on the same day takes a letter.

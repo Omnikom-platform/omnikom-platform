@@ -26,8 +26,24 @@ export function seedProfile(dir, { fs = nodeFs, now = Date.now } = {}) {
   return state;
 }
 
-/** Seed the profile, THEN spawn the browser on it: `<exe> --user-data-dir=<dir> ...args`. io.spawn and io.fs are injectable for tests. */
+/** For a profile that holds sign-ins (the audit profile): leave a good "Local State" exactly as it is (rewriting it can lose the key that opens the saved sign-ins).
+ *  Missing: seed as seedProfile does. Present but unreadable or not a JSON object: throw, touch nothing. Parses but does not say os_password_blank is false: seed (merge). */
+export function keepLocalState(dir, io = {}) {
+  const fs = io.fs || nodeFs;
+  const file = path.join(dir, "Local State");
+  let raw;
+  try { raw = String(fs.readFileSync(file, "utf8")); } catch (e) { if (e && e.code === "ENOENT") return seedProfile(dir, io); throw e; }
+  let parsed;
+  try { parsed = JSON.parse(raw.replace(/^﻿/, "")); } catch { throw new Error(`Local State cannot be parsed, left as it is: ${file}`); }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(`Local State cannot be parsed, left as it is: ${file}`);
+  if (parsed.password_manager?.os_password_blank === false) return parsed;
+  return seedProfile(dir, io); // parses, but does not say false
+}
+
+/** Seed the profile, THEN spawn the browser on it: `<exe> --user-data-dir=<dir> ...args`. io.spawn and io.fs are injectable for tests.
+ *  io.keepState: true keeps a good existing "Local State" untouched (keepLocalState); without it nothing differs from before. */
 export function spawnBrowser({ exe, dir, args = [], options = {} }, io = {}) {
-  seedProfile(dir, io);
+  if (io.keepState) keepLocalState(dir, io);
+  else seedProfile(dir, io);
   return (io.spawn || nodeSpawn)(exe, [`--user-data-dir=${dir}`, ...args], options);
 }
