@@ -27,10 +27,17 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   good `Local State` is never rewritten; only an Edge that names the audit profile is ever closed. `scripts/ask-assistants.mjs` asks
   each assistant the two locked texts in one chat (proven on invented pages; `scripts/work-browser-engines.json` holds no real page
   description yet). RULES (head of operations, 2026-11-22): a page that tests whether the visitor is a script is a robot check, also
-  when it clears by itself: close, no retry, a 24 hour stop for that host, the source not gathered with the reason. Never change the
-  exit, the profile, the user agent, the timing or the way a tab is opened in order to get past a check. Live runs are the
-  head's, never a builder's (`docs/departments/README.md` rule 12). SEEN 2026-11-22 08:51: ChatGPT showed its "Just a moment..." page to
-  a scripted tab (it had loaded normally 20 minutes before); stopped until 2026-11-23 08:52. Google is tried with ONE page first, as
+  when it clears by itself. Never change the exit, the profile, the user agent, the timing or the way a tab is opened in order to get
+  past a check, and no script of ours answers one. Live runs are the head's, never a builder's (`docs/departments/README.md` rule 12).
+  A HUMAN CHECK, ChatGPT and Perplexity (owner M255, 2026-11-22 11:43: "why does it stop when I saw GPT waiting for the human
+  verification I checked the button"; he answered it by his own hand): when a check shows in a scripted tab the run stops all typing
+  and clicking in that tab, leaves the tab open and in front, rings him and waits a few minutes; it never points at, focuses or keys
+  the check. If HE answers it the run carries on at the same fixed pace; if nobody answers, the source is not gathered and the audit
+  goes on. Once per run and host: a second showing, or a check that comes straight back, closes the tab with a 24 hour stop and no
+  second ring. Every other host, Gemini included (the Google rule): close, no retry, a 24 hour stop, the source not gathered with the
+  reason. NOT BUILT: the ring and the wait (today the script still closes and stops on the first showing). SEEN 2026-11-22 08:51:
+  ChatGPT showed its "Just a moment..." page to a scripted tab (it had loaded normally 20 minutes before); its stop was lifted on his
+  word at 11:45 the same day (the stop file says so). Google is tried with ONE page first, as
   its own reported step; until then no Google page, Gemini included. NOT BUILT: the assistants' real page descriptions, Bing, Maps, the
   site reads, the one Google page; the fallback (the two prompts typed at a person's pace by desktop control) only if the scripted
   tabs are refused. The browser extension of M158 is only a fallback for hand driving, not built now.
@@ -41,7 +48,7 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   What pace is NOT: a changed or invented user agent, a stealth patch, faked pointer movement, a changed exit, a fresh profile to look
   new: those disguise a script and are not ours. No script of ours ticks or answers a "verify you are human" test, whatever risk is
   accepted. THE LIMIT: ChatGPT challenged a scripted tab on its first page load (2026-11-22 08:51), before any typing, so pace does
-  not change that host's answer; after its stop ends the next try is a visible window typed by desktop control, one page first.
+  not change that host's answer; the next try is with him at the laptop, so that he can answer a check himself (M255), one page first.
   NOT on master: the pace block and its test (branch `check/seo/assistants-pace`).
 - AI ANSWERS (M174). The assistants' station is the two engineered prompts in one chat per assistant: the one-shot, then the
   follow-up by name; counts with no model. The assistants are THREE: ChatGPT, Gemini, Perplexity (owner M250, 2026-11-22: "copilot
