@@ -20,15 +20,24 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   writes `{pewp}/stations/sheet.md` and `sheet.json` (only the steps to judge) and exits 0 when every station is CLOSED, 1 when one is
   OPEN; `omnikom seo rule <key> <step> --why .. --by ..` records "not gathered" (never for an approval, a step that ran, or one not
   run yet). BUILT 2026-11-22: the checker's rule-based adapter to `causes.json` (`scripts/checker-rules.mjs`; parts AU.D-6 and
-  SS.B-4). NOT BUILT: a run that goes through every station with no person: eleven `capture-*` steps still wait for a person's
-  browser (the assistants' one becomes a program with the branch `check/seo/assistants-steps`).
+  SS.B-4). RULINGS LET THE RUN GO ON (BUILT 2026-11-22): the runner reads `rulings.json` at `run` and `resume`; a step ruled not
+  gathered settles for the steps behind it, a step whose every source is ruled is skipped by rule, a missing input that only a ruled
+  source could have written no longer holds a step back, and `seo status` ends `finished: yes, <n> not gathered by ruling`
+  (`tools/omnikom-cli/test/seo-run.mjs`, cases R1 to R13). NOT BUILT: readers for nine `capture-*` steps that still wait for a
+  person's browser (Google's pages, Maps, directories, reputation, social, ads): until then an agent rules them not gathered and
+  resumes the run.
 - WORK BROWSER. A browser on a debugging port with its own seeded profile and its own work account, so the clicks are
   scripted and the agent is an employee who only checks at stations. BUILT 2026-11-22: `scripts/work-browser.mjs open | status |
   close` runs the audit profile as a normal Edge window, the port bound to this machine only, the traffic through our US machine; a
   good `Local State` is never rewritten; only an Edge that names the audit profile is ever closed. `scripts/ask-assistants.mjs` asks
   each assistant the two locked texts in one chat (proven on invented pages; `scripts/work-browser-engines.json` holds no real page
-  description yet). RULES (head of operations, 2026-11-22): a page that tests whether the visitor is a script is a robot check, also
-  when it clears by itself. Never change the exit, the profile, the user agent, the timing or the way a tab is opened in order to get
+  description yet). `scripts/read-bing.mjs` reads Bing's result pages the same way: each distinct query once, in the desktop window
+  (the capture says so, and the importer marks the device), never under 45 seconds between loads, nothing typed or clicked; its page
+  description is not set yet either. RULES (head of operations, 2026-11-22): a page that tests whether the visitor is a script is a
+  robot check, also when it clears by itself. A script that drives the work browser opens its tab plainly: no location override and
+  no permission grant, ever (`scripts/test-open-plain.mjs` fails on either call outside the old vantage tool; found 2026-11-22: the
+  asking script had opened its tab through that tool's helper, which sets Sacramento; no client was read with it, and the 08:51
+  probe below ran without it). Never change the exit, the profile, the user agent, the timing or the way a tab is opened in order to get
   past a check, and no script of ours answers one. Live runs are the head's, never a builder's (`docs/departments/README.md` rule 12).
   A HUMAN CHECK, ChatGPT and Perplexity (owner M255, 2026-11-22 11:43: "why does it stop when I saw GPT waiting for the human
   verification I checked the button"; he answered it by his own hand): when a check shows in a scripted tab the run stops all typing
@@ -36,11 +45,16 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   the check. If HE answers it the run carries on at the same fixed pace; if nobody answers, the source is not gathered and the audit
   goes on. Once per run and host: a second showing, or a check that comes straight back, closes the tab with a 24 hour stop and no
   second ring. Every other host, Gemini included (the Google rule): close, no retry, a 24 hour stop, the source not gathered with the
-  reason. NOT BUILT: the ring and the wait (today the script still closes and stops on the first showing). SEEN 2026-11-22 08:51:
+  reason. BUILT 2026-11-22: the ring and the wait (`scripts/ask-assistants.mjs`; its cases run in a real browser on invented pages,
+  by the head, not on GitHub's list). FOCUS (head of operations, 2026-11-22 18:36): the asking script may tell its tab it has the
+  focus, only so that text goes in while the window sits behind the owner's; it is never raised as an answer to a check; the moment
+  a human check shows it is switched off before the tab comes to the front, and on again only after he answered; if one assistant
+  shows a check on the FIRST prompt in two separate runs with it on, that host is set to `"focus": "front"` in the engines file and
+  takes the front for its two prompts. SEEN 2026-11-22 08:51:
   ChatGPT showed its "Just a moment..." page to a scripted tab (it had loaded normally 20 minutes before); its stop was lifted on his
   word at 11:45 the same day (the stop file says so). Google is tried with ONE page first, as
-  its own reported step; until then no Google page, Gemini included. NOT BUILT: the assistants' real page descriptions, Bing, Maps, the
-  site reads, the one Google page; the fallback (the two prompts typed at a person's pace by desktop control) only if the scripted
+  its own reported step; until then no Google page, Gemini included. NOT BUILT: the real page descriptions (the assistants', Bing's),
+  Maps, the site reads, the one Google page; the fallback (the two prompts typed at a person's pace by desktop control) only if the scripted
   tabs are refused. The browser extension of M158 is only a fallback for hand driving, not built now.
 - PACE (owner M250, 2026-11-22: "we just properly pace the browser driving in order for it to not tigger these checks"; the head of
   operations' reading binds). Pace is a fixed design, not a reaction: one tab at a time, one assistant at a time, a steady typing
@@ -50,16 +64,19 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   new: those disguise a script and are not ours. No script of ours ticks or answers a "verify you are human" test, whatever risk is
   accepted. THE LIMIT: ChatGPT challenged a scripted tab on its first page load (2026-11-22 08:51), before any typing, so pace does
   not change that host's answer; the next try is with him at the laptop, so that he can answer a check himself (M255), one page first.
-  NOT on master: the pace block and its test (branch `check/seo/assistants-pace`).
+  BUILT 2026-11-22: the pace block in `scripts/work-browser-engines.json`, checked before any page is loaded
+  (`scripts/lib-ask-pace.mjs`).
 - AI ANSWERS (M174). The assistants' station is the two engineered prompts in one chat per assistant: the one-shot, then the
   follow-up by name; counts with no model. The assistants are THREE: ChatGPT, Gemini, Perplexity (owner M250, 2026-11-22: "copilot
   is just a wrapper for gpt so I think we get rid of it"). BUILT 2026-11-22: `scripts/ai-oneshot.mjs` (build, lock, box, save,
-  count) and its prompts. NOT BUILT: its steps in `pipeline.json` (`capture-ai` is still a waiting step). Copilot leaves the lists
-  with the branch `check/seo/assistants-pace`.
+  count) and its prompts; in `pipeline.json` the station is four program steps (`ai-prompt`, `ai-lock`, `ai-ask`, `ai-count`), and
+  the run opens the work browser once for `ai-ask` and closes only what it opened. UNPROVEN: an assistant asked by script (no real
+  page description is set).
 - POOL AND PROFILE. The gathered data is pooled into one organized PROFILE per client, filled from the stations. BUILT
   2026-11-22: `scripts/client-profile.mjs` (the step `client-profile`, station report) writes `{pewp}/profile.json`: every step under
   its station as gathered, not gathered (the script's own line and the ruling) or not applicable, with its files and each file's own
-  status and summary. It refuses to pool while a station before its own is OPEN.
+  status and summary. A step skipped because its source was ruled reads as not gathered, never as not applicable. It refuses to
+  pool while a station before its own is OPEN.
 - MODEL JUDGE. A model judges the profile and writes the JSON that becomes the analysis and the client PDF. BUILT 2026-11-22:
   the step `analysis-judge` (`scripts/judge.mjs`, `judge-brief.md`: one headless model, two asks at most; its answer passes
   `scripts/analysis-shape.mjs` and `scripts/analysis-check.mjs` or nothing is written) and the copy builder
