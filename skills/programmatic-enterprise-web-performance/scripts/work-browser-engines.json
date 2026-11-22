@@ -9,7 +9,17 @@
     "humanCheck": "stop"
   },
   "perplexity": {
-    "selectors": "NOT SET",
+    "url": "https://www.perplexity.ai/",
+    "mode": "incognito",
+    "signedIn": true,
+    "freshContext": false,
+    "composer": "[contenteditable=\"true\"]",
+    "send": "button[aria-label=\"Submit\"]",
+    "reply": "div.prose",
+    "modeProof": "button[aria-label=\"Exit incognito\"]",
+    "modeSteps": ["button[aria-label^=\"Use incognito\"]"],
+    "capSeconds": 180,
+    "quietSeconds": 8,
     "humanCheck": "ring"
   }
 }

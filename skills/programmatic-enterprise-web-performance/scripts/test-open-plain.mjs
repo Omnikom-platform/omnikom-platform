@@ -115,6 +115,12 @@ async function scenarios(dir) {
     for (const f of ["read-bing.mjs", "ask-assistants.mjs"]) if (!rd(f).includes("no location override and no permission grant")) bad.push(f);
     return [bad.length === 0, "the words are missing in " + bad.join(", ")];
   }); check("O7: work-browser.mjs says \"no location override and no permission grant, ever\" and the what-is-NOT-done sentences of read-bing.mjs and ask-assistants.mjs say it too", ok, detail); }
+  // O8: the shipped engines file holds the perplexity page description measured on the real page (2026-11-23)
+  { const [ok, detail] = await T(async () => {
+    const real = JSON.parse(fs.readFileSync(path.join(dir, "work-browser-engines.json"), "utf8"));
+    const EXPECTED = JSON.parse('{"url":"https://www.perplexity.ai/","mode":"incognito","signedIn":true,"freshContext":false,"composer":"[contenteditable=\\"true\\"]","send":"button[aria-label=\\"Submit\\"]","reply":"div.prose","modeProof":"button[aria-label=\\"Exit incognito\\"]","modeSteps":["button[aria-label^=\\"Use incognito\\"]"],"capSeconds":180,"quietSeconds":8,"humanCheck":"ring"}');
+    return [JSON.stringify(real.perplexity) === JSON.stringify(EXPECTED), "the perplexity object differs: " + JSON.stringify(real.perplexity)];
+  }); check("O8: the shipped work-browser-engines.json holds the perplexity page description measured on the real page 2026-11-23", ok, detail); }
   return results;
 }
 

@@ -30,8 +30,8 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   scripted and the agent is an employee who only checks at stations. BUILT 2026-11-22: `scripts/work-browser.mjs open | status |
   close` runs the audit profile as a normal Edge window, the port bound to this machine only, the traffic through our US machine; a
   good `Local State` is never rewritten; only an Edge that names the audit profile is ever closed. `scripts/ask-assistants.mjs` asks
-  each assistant the two locked texts in one chat (proven on invented pages; `scripts/work-browser-engines.json` holds no real page
-  description yet). `scripts/read-bing.mjs` reads Bing's result pages the same way: each distinct query once, in the desktop window
+  each assistant the two locked texts in one chat (proven on invented pages; `scripts/work-browser-engines.json` holds Perplexity's
+  real page description since 2026-11-23, measured with one incognito question on the real page; ChatGPT and Gemini: not set). `scripts/read-bing.mjs` reads Bing's result pages the same way: each distinct query once, in the desktop window
   (the capture says so, and the importer marks the device), never under 45 seconds between loads, nothing typed or clicked; its page
   description in `scripts/read-pages.json` was measured on real Bing pages 2026-11-22 (three searches read live in the work browser,
   no human check; Bing showed no people-also-ask block and no footer place, so those are not set and the captures say not localized). RULES (head of operations, 2026-11-22): a page that tests whether the visitor is a script is a
@@ -54,7 +54,7 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   takes the front for its two prompts. SEEN 2026-11-22 08:51:
   ChatGPT showed its "Just a moment..." page to a scripted tab (it had loaded normally 20 minutes before); its stop was lifted on his
   word at 11:45 the same day (the stop file says so). Google is tried with ONE page first, as
-  its own reported step; until then no Google page, Gemini included. NOT BUILT: the real page descriptions of the assistants,
+  its own reported step; until then no Google page, Gemini included. NOT BUILT: the real page descriptions of ChatGPT and Gemini,
   Maps, the site reads, the one Google page; the fallback (the two prompts typed at a person's pace by desktop control) only if the scripted
   tabs are refused. The browser extension of M158 is only a fallback for hand driving, not built now.
 - PACE (owner M250, 2026-11-22: "we just properly pace the browser driving in order for it to not tigger these checks"; the head of
