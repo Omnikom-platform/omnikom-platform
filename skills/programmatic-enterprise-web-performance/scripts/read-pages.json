@@ -6,6 +6,11 @@
   "maxPagesPerRun": 30
  },
  "bing": {
-  "selectors": "NOT SET"
+  "selectors": {
+   "result": "#b_results > li.b_algo",
+   "link": "h2 a",
+   "title": "h2",
+   "related": ".b_rs a"
+  }
  }
 }

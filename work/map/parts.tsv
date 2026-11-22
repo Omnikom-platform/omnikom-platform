@@ -135,7 +135,7 @@ AU.D-12	demand-bing	no test seen of the whole call path	BUILT-UNPROVEN		10
 AU.D-13	search-console	stays BLOCKED for a prospect	BUILT		10	
 AU.D-14	research-plan	none	BUILT		10	
 AU.D-15	capture-google	importer on master; the page reading is a session in the owner's Edge, no program. Ruled 2026-11-20 and 21 (M173, item 22): the reads become scripted clicks in a work browser (debugging port, own seeded profile, own work account) run by stations, Google tried with one page first, a robot check a hard stop; until that is built they are read in his Edge, and a report goes out with what was gathered (a missing read no longer blocks it)	HALF		10	
-AU.D-16	capture-bing	as D-15	HALF		10	
+AU.D-16	capture-bing	scripts/read-bing.mjs with the page description of scripts/read-pages.json measured on real Bing pages 2026-11-22: three searches read live in the work browser, no human check, 45 s pace; not yet run as a step of omnikom seo run (job 8)	BUILT		10	
 AU.D-17	capture-index	as D-15	HALF		10	
 AU.D-18	index-import	none	BUILT		10	
 AU.D-19	capture-autocomplete	as D-15	HALF		10	

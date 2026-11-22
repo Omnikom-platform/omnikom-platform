@@ -33,7 +33,8 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   each assistant the two locked texts in one chat (proven on invented pages; `scripts/work-browser-engines.json` holds no real page
   description yet). `scripts/read-bing.mjs` reads Bing's result pages the same way: each distinct query once, in the desktop window
   (the capture says so, and the importer marks the device), never under 45 seconds between loads, nothing typed or clicked; its page
-  description is not set yet either. RULES (head of operations, 2026-11-22): a page that tests whether the visitor is a script is a
+  description in `scripts/read-pages.json` was measured on real Bing pages 2026-11-22 (three searches read live in the work browser,
+  no human check; Bing showed no people-also-ask block and no footer place, so those are not set and the captures say not localized). RULES (head of operations, 2026-11-22): a page that tests whether the visitor is a script is a
   robot check, also when it clears by itself. A script that drives the work browser opens its tab plainly: no location override and
   no permission grant, ever (`scripts/test-open-plain.mjs` fails on either call outside the old vantage tool; found 2026-11-22: the
   asking script had opened its tab through that tool's helper, which sets Sacramento; no client was read with it, and the 08:51
@@ -53,7 +54,7 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   takes the front for its two prompts. SEEN 2026-11-22 08:51:
   ChatGPT showed its "Just a moment..." page to a scripted tab (it had loaded normally 20 minutes before); its stop was lifted on his
   word at 11:45 the same day (the stop file says so). Google is tried with ONE page first, as
-  its own reported step; until then no Google page, Gemini included. NOT BUILT: the real page descriptions (the assistants', Bing's),
+  its own reported step; until then no Google page, Gemini included. NOT BUILT: the real page descriptions of the assistants,
   Maps, the site reads, the one Google page; the fallback (the two prompts typed at a person's pace by desktop control) only if the scripted
   tabs are refused. The browser extension of M158 is only a fallback for hand driving, not built now.
 - PACE (owner M250, 2026-11-22: "we just properly pace the browser driving in order for it to not tigger these checks"; the head of

@@ -84,6 +84,13 @@ async function scenarios(dir) {
       check("P1: the pace block: each bad value is refused with its key (44 refused, 45 accepted, tabsAtOnce 2 refused), the shipped file holds the settled block", bad.length === 0, bad.join(" | "));
     }
 
+    // ------------------------------------------------------------ P1b the bing page description
+    {
+      const real = J(path.join(dir, "read-pages.json"));
+      const want = { result: "#b_results > li.b_algo", link: "h2 a", title: "h2", related: ".b_rs a" };
+      check("P1b: the shipped read-pages.json holds the bing page description measured on real Bing pages 2026-11-22", JSON.stringify(real.bing && real.bing.selectors) === JSON.stringify(want), JSON.stringify(real.bing));
+    }
+
     // ------------------------------------------------------------ P2 which items are read
     {
       // each DISTINCT bing query once, in the order of its first appearance, whatever device or devices the request asks for

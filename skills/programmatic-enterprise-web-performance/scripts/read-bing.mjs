@@ -7,7 +7,7 @@
 // robot-check look, reads the page by its description, writes the capture, and waits out the gap before the next load. It types nothing, clicks nothing, scrolls nothing, opens no
 // second tab, never loads a page a second time and never retries one.
 // THE PACE AND THE PAGE DESCRIPTION are one file, read-pages.json: { "pace": { tabsAtOnce 1, afterLoadSeconds 3..60, gapSeconds 45..600 (never under the 45 s of vantage.mjs), maxPagesPerRun 1..60 },
-//   "bing": { "selectors": "NOT SET" } }. A description, once the head has set it live, is { result, link, title, related?, ask?, footerPlace? } (CSS selectors; the object may stand under "selectors" or
+//   "bing": { "selectors": { result, link, title, related } } } (set 2026-11-22 from real Bing pages). A description is { result, link, title, related?, ask?, footerPlace? } (CSS selectors; the object may stand under "selectors" or
 //   directly under "bing"). NOT SET = blocked, nothing opened. The pace block is checked before any page is loaded (exit 2, the key named). Every wait goes through pause of lib-ask-pace.mjs
 //   (its io.sleep is the one thing a test replaces). Nothing is random, and no flag and no setting outside that file changes a wait.
 // A ROBOT CHECK OR A REFUSAL IS THE HARD STOP: a robot or human check on the page, or an answer of HTTP 429 or 403, closes the tab and writes a 24 h stop for bing (lib-stops.mjs); a sign-in wall or a
