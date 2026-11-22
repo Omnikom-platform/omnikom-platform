@@ -19,8 +19,9 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   step with no declared station, a station with no step, and a step that depends on a later station. `omnikom seo station <key>`
   writes `{pewp}/stations/sheet.md` and `sheet.json` (only the steps to judge) and exits 0 when every station is CLOSED, 1 when one is
   OPEN; `omnikom seo rule <key> <step> --why .. --by ..` records "not gathered" (never for an approval, a step that ran, or one not
-  run yet). NOT BUILT: the checker's rule-based adapter to `causes.json` (parts AU.D-6 and SS.B-4); the one command that runs the
-  stations one after another.
+  run yet). BUILT 2026-11-22: the checker's rule-based adapter to `causes.json` (`scripts/checker-rules.mjs`; parts AU.D-6 and
+  SS.B-4). NOT BUILT: a run that goes through every station with no person: eleven `capture-*` steps still wait for a person's
+  browser (the assistants' one becomes a program with the branch `check/seo/assistants-steps`).
 - WORK BROWSER. A browser on a debugging port with its own seeded profile and its own work account, so the clicks are
   scripted and the agent is an employee who only checks at stations. BUILT 2026-11-22: `scripts/work-browser.mjs open | status |
   close` runs the audit profile as a normal Edge window, the port bound to this machine only, the traffic through our US machine; a
@@ -59,8 +60,11 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   2026-11-22: `scripts/client-profile.mjs` (the step `client-profile`, station report) writes `{pewp}/profile.json`: every step under
   its station as gathered, not gathered (the script's own line and the ruling) or not applicable, with its files and each file's own
   status and summary. It refuses to pool while a station before its own is OPEN.
-- MODEL JUDGE (plan). A model judges the profile and writes the JSON that becomes the analysis and the client PDF. NOT BUILT:
-  the judge step and its brief, and a copy builder that prints the analysis and leaves out a page whose data was not gathered.
+- MODEL JUDGE. A model judges the profile and writes the JSON that becomes the analysis and the client PDF. BUILT 2026-11-22:
+  the step `analysis-judge` (`scripts/judge.mjs`, `judge-brief.md`: one headless model, two asks at most; its answer passes
+  `scripts/analysis-shape.mjs` and `scripts/analysis-check.mjs` or nothing is written) and the copy builder
+  `scripts/analysis-copy.mjs`, which prints the checked analysis and has no page for what was not gathered. UNPROVEN: on a real
+  client's run (seen with a real model on two invented businesses).
 - GUARDS. Nothing is said or implied about a source that was not read. Every number the model writes must point to a
   gathered fact, and a script refuses it otherwise. BUILT 2026-11-22: `scripts/analysis-check.mjs`: in the analysis JSON a number or
   a name may stand only as a slot `{{<file>#<path>}}` into a JSON file of a step the profile lists as gathered; a bare digit, a file
@@ -74,15 +78,18 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   data never makes an audit impossible. This replaces the idea that an entry report waits for the 11 captures from his Edge.
 - FLOOR (his rule, M196; the number is M247's, 2026-11-22: "At least 2 analysis pages"). A report goes to a client only with the
   four fixed pages (cover, summary, plan, how we work) and at least 2 analysis pages filled honestly from gathered facts: 6 pages at
-  the least, 8 at the most; with fewer it stays an internal draft. On master: the 5 to 8 sections gate of the first clients' copy
-  (`scripts/client-copy-gates.mjs`). NOT on master: the floor of 2 in the judge (no model is asked when fewer than 2 kinds of source
-  were gathered) and the gate at 6 to 8 (branch `check/seo/audit-judge`).
+  the least, 8 at the most; with fewer it stays an internal draft. BUILT 2026-11-22: no model is asked when fewer than 2 kinds of
+  source were gathered; an analysis that fills fewer than 2 analysis pages at least half full ends SKIPPED, an internal draft
+  (`scripts/judge.mjs`, `scripts/analysis-shape.mjs`); the copy's gate holds every copy to 6 to 8 sections
+  (`scripts/client-copy-gates.mjs`). How full a printed page is, is measured by no script (a line estimate and the head's eye).
 - SIGN-OFFS (his ruling, M195). The head signs the business, the seeds, the competitors and any research plan up to 150 requests,
   by this written rule, recorded as delegated. "Cost" means the number of requests to free sources; money is always 0. Above 150
   the run stops for him. Built: `approve.mjs` accepts a delegation stamp and `research` has no `--yes` in the manifest, so a plan
-  above 150 stops for a person's signature; NOT BUILT: nothing writes the stamp for this rule yet (part AU.D-8). The contact line
+  above 150 stops for a person's signature. BUILT 2026-11-22 (part AU.D-8): `scripts/sign-by-rule.mjs` writes the stamp from
+  `scripts/sign-off-rule.json` by calling `approve.mjs`; the three sign-offs and the new step `approve-cost` are program steps.
+  UNPROVEN: a whole run over them; `approve-competitors` stays blocked until a step writes the proposed list. The contact line
   on the client's copy is `hello@omnikom.ai` (owner M251, 2026-11-22: one address beside "Tell us to start your draft." on the last
-  page, no phone, no name, nowhere else; a call never prints without it; NOT on master: the copy that prints it). His read of each PDF
+  page, no phone, no name, nowhere else; a call never prints without it; printed by `scripts/analysis-copy.mjs`). His read of each PDF
   before it is sent stays with him (owner item 20).
 - ORDER. After the coming-soon page and the owner list, he and the head finish the audit end to end (skill, tools, scripts, CLI);
   the self-serve path (request form, mailing the audit, sign-up from its link) comes after the audit and before clients go live.
