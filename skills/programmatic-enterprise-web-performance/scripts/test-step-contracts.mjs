@@ -247,6 +247,7 @@ console.log("stand-in crawl done");
         "analysis-judge": "a headless model call (a network host); test-judge.mjs runs it with a fake model",
         "client-copy-pdf": "a headless browser prints the copy",
         "ai-ask": "it drives the work browser: the run opens that browser, never this test; test-ask-assistants.mjs asks invented pages in a test browser (the head runs it through the machine lock)",
+        "capture-bing": "it drives the work browser: the run opens that browser, never this test; test-read-bing.mjs proves it with a fake browser and test-read-bing-browser.mjs reads invented pages in a test browser (the head runs that one through the machine lock)",
         checker: "the rule program judges a snapshot folder; test-checker-rules.mjs builds it",
         "approve-business": "the head's sign-off written by rule through approve.mjs; test-sign-by-rule.mjs runs it with these args on fixture folders", "approve-seeds": "the head's sign-off written by rule through approve.mjs; test-sign-by-rule.mjs runs it with these args on fixture folders",
         "approve-competitors": "the head's sign-off written by rule through approve.mjs; test-sign-by-rule.mjs runs it with these args on fixture folders", "approve-cost": "the head's sign-off of a research plan up to 150 requests, written by rule; test-sign-by-rule.mjs runs it with these args on fixture folders",

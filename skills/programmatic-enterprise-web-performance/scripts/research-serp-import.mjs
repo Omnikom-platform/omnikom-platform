@@ -1,6 +1,7 @@
-// SERP capture importer. Google and Bing pages are NEVER fetched by code (terms, robot checks; owner decision 2026-10-22 and the
+// SERP capture importer. Google pages are NEVER fetched by code (terms, robot checks; owner decision 2026-10-22 and the
 // project's 2026-10-17 precedent). The MAIN SESSION captures them in the owner's browser at human pace (one page at a time, at least
-// 45 s apart, stop at the first robot check) and saves one file per query and engine; this script parses the saved files into rows.
+// 45 s apart, stop at the first robot check) and saves one file per query and engine; this script parses the saved files into rows. Bing pages are also read by read-bing.mjs
+// in the work browser (owner, 2026-11-22), which saves the same files and one record, bing-read.json, that this importer leaves alone.
 // Usage: node research-serp-import.mjs <target> [--dir DIR (default <pewp>/captures/serp)] [--device desktop|mobile] [--max-age-days 30] [--cwd DIR]
 // Accepted files in the directory:
 //   *.json  one capture: { query, engine:"google|bing", capturedAt, browser, device, language, location:{requested, footer, method},
@@ -125,7 +126,7 @@ export async function run(ctx, { dir = null, dirs = [], defaultDevice = null, ma
   const b = needBusiness(ctx);
   const roots = [...(dir ? [dir] : []), ...dirs];
   if (!roots.length) roots.push(path.join(ctx.pewp, "captures", "serp"));
-  const files = roots.flatMap((d) => (fs.existsSync(d) ? fs.readdirSync(d).filter((f) => /\.json$|\.(google|bing)\.md$/i.test(f)).sort().map((f) => path.join(d, f)) : []));
+  const files = roots.flatMap((d) => (fs.existsSync(d) ? fs.readdirSync(d).filter((f) => /\.json$|\.(google|bing)\.md$/i.test(f) && f !== "bing-read.json").sort().map((f) => path.join(d, f)) : []));
   if (!files.length) { writeBlocked(ctx, "serp", UNBLOCK); throw new Blocked(UNBLOCK); }
   const captures = [], rejected = [];
   for (const file of files) {

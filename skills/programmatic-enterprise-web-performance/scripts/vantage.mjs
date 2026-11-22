@@ -160,22 +160,28 @@ export async function connect(port) {
   return { send, listeners, version: ver.Browser, userAgent: ver["User-Agent"], close: () => { try { ws.close(); } catch { /* gone */ } } };
 }
 
-/** Open a tab, give it the Sacramento location, load `url`, wait for load. Returns { sessionId, targetId }. */
-export async function openPage(cdp, url, extraOrigins = []) {
-  await cdp.send("Browser.grantPermissions", { origins: [...ORIGINS, ...extraOrigins], permissions: ["geolocation"] });
+// The one body of both openers, so that they cannot drift. plain: no permission is granted and no location is set (the work browser's own rule: no geolocation override).
+async function openTab(cdp, url, { plain, extraOrigins = [], nap = sleep }) {
+  if (!plain) await cdp.send("Browser.grantPermissions", { origins: [...ORIGINS, ...extraOrigins], permissions: ["geolocation"] });
   const { targetId } = await cdp.send("Target.createTarget", { url: "about:blank" });
   const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
   await cdp.send("Page.enable", {}, sessionId);
-  await cdp.send("Emulation.setGeolocationOverride", { latitude: GEO.lat, longitude: GEO.lon, accuracy: GEO.accuracy }, sessionId);
+  if (!plain) await cdp.send("Emulation.setGeolocationOverride", { latitude: GEO.lat, longitude: GEO.lon, accuracy: GEO.accuracy }, sessionId);
+  let timer = null;
   const loaded = new Promise((res) => {
     const l = (m) => { if (m.sessionId === sessionId && m.method === "Page.loadEventFired") { cdp.listeners.delete(l); res(true); } };
-    cdp.listeners.add(l); setTimeout(() => { cdp.listeners.delete(l); res(false); }, 30_000);
+    cdp.listeners.add(l); timer = setTimeout(() => { cdp.listeners.delete(l); res(false); }, 30_000);
   });
   await cdp.send("Page.navigate", { url }, sessionId);
   const ok = await loaded;
-  await sleep(2000); // let the footer and late scripts settle
+  clearTimeout(timer);
+  await nap(2000); // let the footer and late scripts settle
   return { sessionId, targetId, loaded: ok };
 }
+/** Open a tab, give it the Sacramento location, load `url`, wait for load. Returns { sessionId, targetId }. For the vantage tool's own captures. */
+export const openPage = (cdp, url, extraOrigins = []) => openTab(cdp, url, { plain: false, extraOrigins });
+/** Open a tab PLAINLY (a script that drives the work browser): no permission granted, no location set; then load `url`, wait for load. Returns { sessionId, targetId, loaded }. nap: the settle wait (a test passes its own). */
+export const openPlain = (cdp, url, { sleep: nap = sleep } = {}) => openTab(cdp, url, { plain: true, nap });
 export const evalIn = async (cdp, sessionId, expression) => {
   const r = await cdp.send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }, sessionId, 20_000);
   if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);

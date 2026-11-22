@@ -73,8 +73,8 @@ This is the project's 2026-10-17 precedent, kept as is. Use the claude-in-chrome
    per saved file); `scripts/serp-capture.js` is pasted once into the results tab through the `javascript_tool`, and each page is then saved with
    `await window.__pewpCapture({ query, requested, engine, device })` (the top of that file explains every option). The receiver checks each capture with the
    importer's own rules and answers 400 with the reason, so a bad capture is refused on the spot, not found at import time. The first time, Chrome asks the owner
-   to allow the page to reach devices on the local network (127.0.0.1): **the owner clicks Allow once**; the helper never clicks it for him. Scripts still never
-   fetch Google or Bing; only the owner's browser reads those pages.
+   to allow the page to reach devices on the local network (127.0.0.1): **the owner clicks Allow once**; the helper never clicks it for him. Scripts never
+   fetch Google; only the owner's browser reads those pages. Bing is read by `read-bing.mjs` (point 3).
 1. **Pace.** One page at a time, at least 45 seconds between page loads, no parallel engines. **Stop the whole run at the first robot check**
    (CAPTCHA, "unusual traffic", a sign-in wall): save that capture with `"robotCheck": true`, mark every query not yet run BLOCKED, and do not
    retry or work around it. Read only, one attempt per query, no clicks on ads, never sign in or accept terms. The only clicks allowed are "Show more" / "Show all" inside the AI Overview
@@ -88,7 +88,10 @@ This is the project's 2026-10-17 precedent, kept as is. Use the claude-in-chrome
    **Device.** Capture on the device the item asks for (`business.json` `rankTracking.devices`, default mobile). For mobile, resize the window below 768 px wide
    before loading the page; the extractor refuses a `device` the tab does not look like. If the captures' devices differ from the wanted ones the importer writes
    `deviceMismatch` and a note into `serp.json`. When both devices are wanted, pass `id: "<slug>-mobile"` so the two files differ.
-3. **Bing**: `https://www.bing.com/search?q=<query>`; it cannot be localized, record the machine's location.
+3. **Bing**: `https://www.bing.com/search?q=<query>`; it cannot be localized, record the machine's location. **The run reads these pages itself:** the step `capture-bing` runs `scripts/read-bing.mjs` in the work browser
+   (one tab, one page at a time, at the pace block of `scripts/read-pages.json`, nothing typed or clicked), saves one capture per DISTINCT bing query of the list, once, in the format of point 5 (read in the work browser's own desktop window whatever device the request asks for:
+   nothing is emulated, the capture says `"device": "desktop"` and, when desktop was not asked for, its notes say `asked for <devices>; read in a desktop window`; the importer flags such a capture as `deviceMismatch`, it never rejects it) and one record, `captures/serp/bing-read.json`. A robot check, a refusal (HTTP 429 or 403) or a sign-in or consent wall that hides the results is a 24 hour stop for bing and the run ends. Bing is read from wherever the work browser's exit is and no location is set (the tab is opened plainly), so a reading is a national baseline unless the page itself names the place. A capture a
+   person made in the same format is still accepted and is not read again while it is under 30 days old.
 4. **Location, honestly.** Record the footer text of the page ("Tracy, California - From your device" or "Egypt"). The importer calls a capture
    localized only when the footer shows the requested city; otherwise it is labelled `NOT LOCALIZED (baseline)` and no city ranking claim may
    be made from it (when every capture is baseline, `serp.json` says so: "baseline captures cannot support city ranking claims"). A baseline still shows who wins, which formats, which features.

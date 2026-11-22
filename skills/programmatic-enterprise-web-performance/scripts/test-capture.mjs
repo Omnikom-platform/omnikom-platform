@@ -238,6 +238,10 @@ async function runScenarios(sdir, only = null) {
       check("I8: mobile+desktop wanted, only desktop captured -> deviceMismatch names missing:[mobile], count 0", sd.deviceMismatch?.count === 0 && JSON.stringify(sd.deviceMismatch.missing) === '["mobile"]', JSON.stringify(sd.deviceMismatch));
       const mod = await import(pathToFileURL(path.join(sdir, "research-serp-import.mjs")).href);
       check("I9: validateCapture is exported: ok for a good capture, problems[] for a broken one (no query, no location)", mod.validateCapture(cap()).ok === true && (() => { const v = mod.validateCapture({ engine: "google", capturedAt: "2026-10-25T12:00:00Z", device: "mobile", language: "en", organic: [] }); return !v.ok && v.problems.some((x) => /no query/.test(x)) && v.problems.some((x) => /no location/.test(x)); })() && !mod.validateCapture("nope").ok, "");
+      // the record of read-bing.mjs lives in the same folder as the captures and is not one of them
+      const d7 = path.join(t, "with-record"); w(path.join(d7, "record-test.bing.json"), cap({ engine: "bing", query: "record test" })); w(path.join(d7, "bing-read.json"), { step: "capture-bing", at: "2026-11-22T12:00:00.000Z", read: ["record-test"], already: [], left: [], stop: null });
+      const ir = importer(t, ["--dir", d7]); const sr = ir.status === 0 ? serpOf(t) : null;
+      check("I10: bing-read.json (the record of read-bing.mjs) in the captures folder is not a capture: nothing rejected, exactly the one real capture read", !!sr && sr.rejected.length === 0 && sr.counts.captures === 1 && sr.captures[0].query === "record test", ir.status + " " + (sr ? JSON.stringify(sr.rejected).slice(0, 200) : ir.stdout + ir.stderr));
     } finally { await srv.stop(); }
   }
 
@@ -342,6 +346,7 @@ const MUTANTS = [
   { name: "baseline note never written", file: "research-serp-import.mjs", from: "captures.every((c) => !c.location.localized)", to: "false", sc: "S", expect: [/^I6:/] },
   { name: "no rankTracking assumes mobile", file: "research-serp-import.mjs", from: '.includes(d)))] : [];', to: '.includes(d)))] : ["mobile"];', sc: "S", expect: [/^I7:/] },
   { name: "localized capture still gets the baseline note", file: "research-serp-import.mjs", from: "captures.length && captures.every((c) => !c.location.localized)", to: "captures.length && captures.some((c) => !c.location.localized)", sc: "S", expect: [/^I6:/] },
+  { name: "the importer reads the bing record as a capture", file: "research-serp-import.mjs", from: ' && f !== "bing-read.json"', to: "", sc: "S", expect: [/^I10:/] },
   { name: "extractor keeps duplicates", file: "serp-capture.js", from: "!seen.has(r.url) && seen.add(r.url)", to: "true", sc: "C", expect: [/^C2:/] },
   { name: "extractor keeps Google's own links", file: "serp-capture.js", from: "h && !NOISE_HOST.test(h) && !seen.has(r.url)", to: "h && !seen.has(r.url)", sc: "C", expect: [/^C2:/] },
   { name: "mentioning a captcha counts as a robot check", file: "serp-capture.js", from: 'if (MARKERS.test(text || "") && !organicCount)', to: 'if (MARKERS.test(text || ""))', sc: "C", expect: [/^C7:/] },

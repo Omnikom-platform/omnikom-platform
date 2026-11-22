@@ -603,8 +603,12 @@
    "station": "search",
    "module": "visibility",
    "what": "Bing results pages for the same buyer and brand searches",
-   "script": null,
-   "args": [],
+   "script": "scripts/read-bing.mjs",
+   "args": [
+    "{key}",
+    "--cwd",
+    "{skill}"
+   ],
    "inputs": [
     "{pewp}/research/capture-requests.json"
    ],
@@ -614,20 +618,20 @@
    "dependsOn": [
     "research-plan"
    ],
-   "needsBrowser": "owner",
+   "needsBrowser": "work",
    "needsAi": false,
    "needsPerson": false,
    "needsKeys": [],
    "heavy": false,
    "hits": "third-party:bing.com",
-   "pace": "one page at least 45 s apart; stop at the first robot check",
-   "timeoutMinutes": 0,
+   "pace": "one tab and one page at a time, the wait after each load and the gap between loads of the pace block of read-pages.json, no retry; a robot check, a refusal or a wall is a stop for bing",
+   "timeoutMinutes": 45,
    "evidence": [
-    "{pewp}/captures/serp/*.bing.json"
+    "{pewp}/captures/serp/bing-read.json"
    ],
    "kind": "time-sensitive",
    "maxAgeDays": 30,
-   "brief": "In the owner's Edge, the same buyer searches and the brand searches on bing.com; save each in the serp capture format with engine bing.",
+   "brief": "The run reads the Bing results page of each bing request itself, in the work browser: one tab, one page at a time, at the pace of read-pages.json, nothing typed or clicked. A robot check, a refusal or a wall stops bing for a day. A capture a person made in the same format is still accepted.",
    "engines": [
     "bing"
    ]

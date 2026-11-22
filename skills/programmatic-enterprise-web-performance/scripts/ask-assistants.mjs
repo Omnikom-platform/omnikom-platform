@@ -22,6 +22,7 @@
 //   user agent or timing to get past one. On every other engine (gemini, any other host) the old rule holds: close, no retry, a 24 h stop on the first showing.
 //   Two looks, both read only: at load the whole test (title, text, address); later (before every piece, before the click on send, when the wait for a reply has ended) the title or a check frame, never the page text.
 //   captures/ai-oneshot/<engine>-check.json records every showing: { engine, host, shownAt, stage, rang, answered, waitedSeconds, secondShowing }.
+// The tab is opened plainly (openPlain of vantage.mjs): no permission is granted and no location is set.
 // The limit (2026-11-22 08:51): ChatGPT challenged a scripted tab on its first page load, before any typing, so pace does not change that host's answer.
 // Usage: node ask-assistants.mjs <url> [--engines a,b] [--engines-file F] [--port N] [--cwd DIR]
 //   work-browser-engines.json: the "pace" block above, and per engine { url, mode, signedIn, freshContext, composer, send, reply, busy, modeProof, modeSteps, capSeconds }; optional quietSeconds
@@ -36,7 +37,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { connect, openPage, evalIn, closePage, settle, looksLikeRobotCheck, aiWallReason } from "./vantage.mjs";
+import { connect, openPlain, evalIn, closePage, settle, looksLikeRobotCheck, aiWallReason } from "./vantage.mjs";
 import { isStopped, writeStop } from "./lib-stops.mjs";
 import { context } from "./research-lib.mjs";
 import { io, pause, checkPace, pieces, readingSeconds, wordCount, PaceError } from "./lib-ask-pace.mjs";
@@ -158,7 +159,7 @@ async function main() {
         await c.send("Page.enable", {}, sessionId);
         const loaded = new Promise((res) => { const l = (m) => { if (m.sessionId === sessionId && m.method === "Page.loadEventFired") { c.listeners.delete(l); res(true); } }; c.listeners.add(l); setTimeout(() => { c.listeners.delete(l); res(false); }, 30000); });
         await c.send("Page.navigate", { url: sp.url }, sessionId); await loaded;
-      } else tab = await openPage(c, sp.url);
+      } else tab = await openPlain(c, sp.url);
       opened = true;
       await pause(pace.afterLoadSeconds, "after load");
       const sid = tab.sessionId, ev = (x) => evalIn(c, sid, x), q = (s) => JSON.stringify(s);

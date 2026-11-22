@@ -458,7 +458,7 @@ const MUTANTS = [
   one("the title wording 'checking your browser' is gone", "checking your browser|", "", /^case 14c:/),
   one("the title wording 'attention required' is gone", "|attention required", "", /^case 14d:/),
   one("the page text is not looked at", " || ROBOT_WORDS.test(pageText)", "", /^case 14e:/),
-  one("all blocked still exits 0", "if (!outcomes.some(([, o]) => o === \"already asked\" || o.startsWith(\"read\"))) {", "if (false) {", /^case 15a:/, /^case 15b:/),
+  one("all blocked still exits 0", "if (!anyAsked) {", "if (false) {", /^case 15a:/, /^case 15b:/),
   one("a ring is given on an engine that stops", 'rings = sp.humanCheck === "ring"', "rings = true", /^case 18e:/),
   one("no ring is given", "io.ring(name);", "/* no ring */", /^case 18a:/),
   one("a second ring", "io.ring(name);", "io.ring(name); io.ring(name);", /^case 18a:/),

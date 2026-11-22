@@ -1,0 +1,11 @@
+{
+ "pace": {
+  "tabsAtOnce": 1,
+  "afterLoadSeconds": 8,
+  "gapSeconds": 45,
+  "maxPagesPerRun": 30
+ },
+ "bing": {
+  "selectors": "NOT SET"
+ }
+}
