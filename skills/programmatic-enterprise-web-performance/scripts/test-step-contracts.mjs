@@ -235,6 +235,7 @@ console.log("stand-in crawl done");
         forums: "the Reddit API and its token", "report-live": "every earlier step's output (a whole run)",
         "client-copy": "a finished run and a client file; test-client-copy.mjs builds it",
         "client-profile": "a finished run, its sheet of the stations and its rulings; test-client-profile.mjs builds them",
+        "analysis-judge": "a headless model call (a network host); test-judge.mjs runs it with a fake model",
         "client-copy-pdf": "a headless browser prints the copy",
       };
       const scriptSteps = man.steps.filter((s) => s.script).map((s) => s.id), tested = [...IMPORTERS.map((x) => x[0]), "autocomplete-import", "local-grid-plan", "local-grid-import", "research-plan", "research", "targets-validate"];

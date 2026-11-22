@@ -150,7 +150,7 @@ async function scenarios(dir) {
     const v = m ? L.validateManifest(m, { skillDir: SKILL }) : { ok: false, problems: [{ detail: "no manifest" }] };
     const i = m ? m.steps.findIndex((s) => s.id === "client-profile") : -1;
     check("11: the real pipeline.json is valid (validateManifest)", v.ok === true, v.problems.map(L.describe).join("; "));
-    check("11: the real pipeline.json holds client-profile in station report directly before report-live", i > 0 && m.steps[i].station === "report" && m.steps[i + 1] && m.steps[i + 1].id === "report-live", String(i)); }
+    check("11: the real pipeline.json holds client-profile in station report, then analysis-judge, directly before report-live", i > 0 && m.steps[i].station === "report" && m.steps[i + 1] && m.steps[i + 1].id === "analysis-judge" && m.steps[i + 2] && m.steps[i + 2].id === "report-live", String(i)); }
   return results;
 }
 

@@ -1,0 +1,15 @@
+[
+  { "id": "site", "fix": "Give your business a website of its own, with a page for each thing you sell.", "who": "Omnikom, in the site we draft" },
+  { "id": "words", "fix": "Send the words of every public page in the first response.", "who": "Omnikom, in the site we draft" },
+  { "id": "top-page", "fix": "Build a page for what buyers search for most, first.", "who": "Omnikom and you" },
+  { "id": "other-pages", "fix": "Build a page for each of the other things you sell.", "who": "Omnikom and you" },
+  { "id": "speed", "fix": "Speed up the phone page: main picture first, sized images.", "who": "Omnikom, in the site we draft" },
+  { "id": "card", "fix": "Name your profiles on other sites in the company details your site gives Google.", "who": "Omnikom, in the site we draft" },
+  { "id": "analytics", "fix": "Add a visitor counter, so you can see where each customer came from.", "who": "Omnikom, in the site we draft" },
+  { "id": "application", "fix": "Ask for less in the first step of your form.", "who": "You and Omnikom" },
+  { "id": "profile-link", "fix": "Fix the link to your site on your profiles on other sites.", "who": "You and Omnikom" },
+  { "id": "address", "fix": "One address everywhere; fill in your Google profile; claim the listings that are missing.", "who": "You, then Omnikom" },
+  { "id": "chambers", "fix": "Join your local chambers and ask for listings.", "who": "You and Omnikom" },
+  { "id": "licence", "fix": "Publish your company history and your license details.", "who": "You and Omnikom" },
+  { "id": "mail", "fix": "Prove your email is yours: fix the email records.", "who": "Whoever runs your domain" }
+]

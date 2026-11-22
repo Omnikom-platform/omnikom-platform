@@ -24,7 +24,7 @@ const MAP = [
   ["local", "the map, the listing, the directories", "local-grid-plan capture-maps local-grid-import capture-directories local"],
   ["rivals", "competitors and links", "competitors approve-competitors authority authority-anchors authority-classify authority-vet"],
   ["standing", "reviews, social profiles, ads", "capture-reputation reputation-import capture-social social-import capture-ads ads-import"],
-  ["report", "the report and the client's copy", "client-profile report-live verify client-copy client-copy-pdf"],
+  ["report", "the report and the client's copy", "client-profile analysis-judge report-live verify client-copy client-copy-pdf"],
 ];
 
 async function scenarios(dir) {
@@ -119,7 +119,7 @@ async function scenarios(dir) {
     const stepsOf = (id) => (m ? m.steps.filter((s) => s.station === id).map((s) => s.id).join(" ") : "");
     const bad = MAP.filter(([id, what, steps]) => stepsOf(id) !== steps || !(m && m.stations && m.stations.some((s) => s.id === id && s.what === what)));
     check("11: the real pipeline.json declares the 9 stations in the order of the brief", got === want, got);
-    check("11: the 49 steps are mapped exactly (each station holds its steps, in file order, and every step names a station)", m && m.steps.length === 49 && bad.length === 0 && m.steps.every((s) => typeof s.station === "string") && MAP.flatMap((x) => x[2].split(" ")).length === 49, "wrong: " + bad.map((x) => x[0]).join(", ")); }
+    check("11: the 50 steps are mapped exactly (each station holds its steps, in file order, and every step names a station)", m && m.steps.length === 50 && bad.length === 0 && m.steps.every((s) => typeof s.station === "string") && MAP.flatMap((x) => x[2].split(" ")).length === 50, "wrong: " + bad.map((x) => x[0]).join(", ")); }
   return results;
 }
 

@@ -1608,6 +1608,43 @@
    "maxAgeDays": null
   },
   {
+   "id": "analysis-judge",
+   "station": "report",
+   "module": "report",
+   "what": "the judge: one headless model reads the client's profile and writes the report's analysis as JSON in a fixed shape, which the number guard checks (the model is asked once, and a second time only after a refusal)",
+   "script": "scripts/judge.mjs",
+   "args": [
+    "{key}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/profile.json"
+   ],
+   "outputs": [
+    "{pewp}/analysis.json",
+    "{pewp}/analysis.checked.json",
+    "{pewp}/analysis.sheet.json",
+    "{pewp}/judge/run.json"
+   ],
+   "dependsOn": [
+    "client-profile"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "third-party:anthropic.com",
+   "pace": null,
+   "timeoutMinutes": 35,
+   "evidence": [
+    "{pewp}/analysis.checked.json"
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
+  },
+  {
    "id": "report-live",
    "station": "report",
    "module": "report",
