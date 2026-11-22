@@ -1,6 +1,6 @@
 [
   { "id": "site", "fix": "Give your business a website of its own, with a page for each thing you sell.", "who": "Omnikom, in the site we draft" },
-  { "id": "words", "fix": "Send the words of every public page in the first response.", "who": "Omnikom, in the site we draft" },
+  { "id": "words", "fix": "Let search engines read the words of every page straight away.", "who": "Omnikom, in the site we draft" },
   { "id": "top-page", "fix": "Build a page for what buyers search for most, first.", "who": "Omnikom and you" },
   { "id": "other-pages", "fix": "Build a page for each of the other things you sell.", "who": "Omnikom and you" },
   { "id": "speed", "fix": "Speed up the phone page: main picture first, sized images.", "who": "Omnikom, in the site we draft" },

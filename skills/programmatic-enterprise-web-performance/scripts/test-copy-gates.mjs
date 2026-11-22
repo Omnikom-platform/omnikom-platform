@@ -42,8 +42,8 @@ if (args.includes("--mutants")) {
     { id: "sheet-dash-allowed", file: GATES, from: "const dm = DASH.exec(html) || DASH.exec(tsv);", to: "const dm = DASH.exec(html);", red: "case 6:" },
     { id: "en-dash-allowed", file: GATES, from: "/[\\u2013\\u2014]|&(", to: "/[\\u2014]|&(", red: "case 6:" },
     { id: "dash-entity-numeric-allowed", file: GATES, from: "|&#(?:8212|8211|x2014|x2013);/i", to: "/i", red: "case 6:" },
-    { id: "email-not-checked", file: GATES, from: "EMAIL.exec(t) || PHONE.exec(t)", to: "PHONE.exec(t)", red: "case 7:" },
-    { id: "phone-not-checked", file: GATES, from: "EMAIL.exec(t) || PHONE.exec(t)", to: "EMAIL.exec(t)", red: "case 7:" },
+    { id: "email-not-checked", file: GATES, from: "EMAIL.exec(rest) || PHONE.exec(rest)", to: "PHONE.exec(rest)", red: "case 7:" },
+    { id: "phone-not-checked", file: GATES, from: "EMAIL.exec(rest) || PHONE.exec(rest)", to: "EMAIL.exec(rest)", red: "case 7:" },
     { id: "long-digits-allowed", file: GATES, from: "|\\b\\d{10,}\\b/;", to: "/;", red: "case 7:" },
     { id: "plain-phone-allowed", file: GATES, from: "|\\b\\d{3}[.-]\\d{4}\\b", to: "", red: "case 7:" },
     { id: "mailto-allowed", file: GATES, from: '/mailto:|tel:|class="contact"/i', to: '/class="contact"/i', red: "case 7:" },
@@ -67,6 +67,12 @@ if (args.includes("--mutants")) {
     { id: "step-id-dropped", file: GATES, from: '"capture-maps", ', to: "", red: "case 11:" },
     { id: "internal-gate-removed", file: GATES, from: 'if (i >= 0) fail("internal"', to: 'if (i >= 999) fail("internal"', red: "case 13:" },
     { id: "internal-short-texts-looked-for", file: GATES, from: "(x) => x.length >= 8", to: "(x) => x.length >= 1", red: "case 13:" },
+    { id: "title-gate-not-run", file: GATES, from: "if (topics) for (", to: "if (false) for (", red: "case 15:" },
+    { id: "header-pins-the-fixed-title", file: GATES, from: "`${title}, ${mrow[2]}`", to: "`SEO, AI search and local audit, ${mrow[2]}`", red: "case 15:" },
+    { id: "contact-address-on-any-page", file: GATES, from: "contact && i === last ?", to: "contact ?", red: "case 16:" },
+    { id: "contact-any-address-on-last-page", file: GATES, from: 't.replace(contact, " ")', to: '""', red: "case 16:" },
+    { id: "contact-second-copy-allowed", file: GATES, from: 't.replace(contact, " ")', to: 't.split(contact).join(" ")', red: "case 16:" },
+    { id: "contact-mailto-on-any-page", file: GATES, from: "html.replace(secs[last], () => keep)", to: "html.replace(/mailto:/g, () => \"\")", red: "case 16:" },
     { id: "dash-in-source", file: GATES, from: "// client-copy-gates.mjs: the report rules", to: "// client-copy-gates.mjs: the report rules" + String.fromCharCode(8212), red: "case 12:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "copygates-mut-"));
@@ -241,6 +247,35 @@ run("case 14: THE FLOOR: a copy with one analysis page (5 sections) is refused w
   const bad = [];
   bad.push(...want(ask(mkDoc(5), TSV, 5), /^STOP: gate sections: the copy has 5 sections \(5 marked cover or pg, 5 built\); it needs 6 to 8, every one marked$/));
   for (const n of [6, 7, 8]) { const g = ask(mkDoc(n), TSV, n); if (g !== "") bad.push(`green half ${n} sections: ${g}`); }
+  return [bad.length === 0, bad.join(" | ")];
+});
+run("case 15: THE TITLE SAYS ONLY WHAT WAS READ: a title with AI search and no assistants topic, local and no local topic, SEO and none of its five topics is refused with its line; a title that matches its topics passes; no topics handed in refuses nothing", () => {
+  const bad = [], MIN = "SEO, AI search and local audit";
+  const T = (title, topics) => stopOf(() => gates({ html: BASE.split(MIN).join(title), tsv: TSV, pages: 6, logoUrl: LOGO, title, topics }));
+  const rows = [
+    ["SEO, AI search and local audit", ["site", "local"], "AI search"],
+    ["SEO and local audit", ["site"], "local"],
+    ["SEO and AI search audit", ["assistants"], "SEO"],
+  ];
+  for (const [t, tp, w] of rows) { const g = T(t, tp); if (g !== `STOP: gate title: the title says ${w} and no page is about it`) bad.push(`${t} with ${tp.join()}: ${JSON.stringify(g)}`); }
+  for (const [t, tp] of [["SEO and local audit", ["site", "local"]], ["Local audit", ["local"]], ["AI search audit", ["assistants"]], ["SEO audit", ["demand"]], ["SEO, AI search and local audit", ["standing", "assistants", "local"]], ["SEO, AI search and local audit", undefined], ["Local audit", undefined]]) { const g = T(t, tp); if (g !== "") bad.push(`green half ${t} with ${tp}: ${g}`); }
+  return [bad.length === 0, bad.join(" | ")];
+});
+run("case 16: THE CALL HAS ITS ADDRESS: with the address handed in, the last page may hold it once as text and once as its mailto link; on another page, a second copy, another address, a second link or a phone is refused; with none handed in an address on the last page is refused as before", () => {
+  const bad = [], MAIL = "hello@omnikom.ai", link = `<a href="mailto:${MAIL}">${MAIL}</a>`;
+  const lastWith = (x) => setPage(BASE, 6, W(6, 6, `<h2>How we work</h2>${STEPS}${x}`));
+  const A = (html, contact = MAIL) => stopOf(() => gates({ html, tsv: TSV, pages: 6, logoUrl: LOGO, contact }));
+  const want1 = (g, re, nm) => { if (!re.test(g)) bad.push(`${nm}: ${JSON.stringify(g)}`); };
+  want1(A(lastWith(`<p>${link}</p>`)), /^$/, "the address once as text and once as the link");
+  want1(A(lastWith(`<p>${MAIL}</p>`)), /^$/, "the address once as text only");
+  want1(A(on2(MAIL)), /^STOP: gate contact line: page 2 prints "hello@omnikom\.ai"$/, "the address on page 2");
+  want1(A(on2(link)), /^STOP: gate contact line: page 2 prints "hello@omnikom\.ai"$/, "the link on page 2");
+  want1(A(lastWith(`<p>${link}</p><p>${MAIL}</p>`)), /^STOP: gate contact line: page 6 prints "hello@omnikom\.ai"$/, "a second copy as text");
+  want1(A(lastWith(`<p>${link} and other@omnikom.ai</p>`)), /^STOP: gate contact line: page 6 prints "other@omnikom\.ai"$/, "another address");
+  want1(A(lastWith(`<p>${link}</p><a href="mailto:${MAIL}">write</a>`)), /^STOP: gate contact line: the html holds mailto:$/, "a second link");
+  want1(A(lastWith(`<p>${link} or call 555-0100</p>`)), /^STOP: gate contact line: page 6 prints "555-0100"$/, "a phone");
+  want1(A(on2(`<a href="mailto:${MAIL}">write</a>`)), /^STOP: gate contact line: the html holds mailto:$/, "a link on page 2 with no address text");
+  want1(stopOf(() => gates({ html: lastWith(`<p>${link}</p>`), tsv: TSV, pages: 6, logoUrl: LOGO })), /^STOP: gate contact line: page 6 prints "hello@omnikom\.ai"$/, "no contact handed in");
   return [bad.length === 0, bad.join(" | ")];
 });
 

@@ -17,7 +17,9 @@ const NUM = /\d+(?:[.,]\d+)*/g;
 /** The text a reader sees: style, script and svg dropped, tags to spaces, the entities of the design decoded, white space squeezed. */
 export const visible = (h) => String(h).replace(/<(style|script|svg)\b[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;|&middot;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 
-export function gates({ html, tsv, pages, logoUrl, branches, approvedWords, internal }) {
+// title: the title of the report as the running heads print it (default the fixed text of the first clients' copy); topics: the topics of the sections printed, when
+// the title is built from them; contact: the one address the last page may print (once as text, once as a mail link).
+export function gates({ html, tsv, pages, logoUrl, branches, approvedWords, internal, title = "SEO, AI search and local audit", topics, contact }) {
   const fail = (gate, found) => stop(`STOP: gate ${gate}: ${found}`);
   const secs = html.match(/<section\b[\s\S]*?<\/section>/g) || [];
   const opens = (html.match(/<section\b/g) || []).length, marked = (html.match(/<section class="(?:cover|pg)" id="p\d+">/g) || []).length;
@@ -39,9 +41,11 @@ export function gates({ html, tsv, pages, logoUrl, branches, approvedWords, inte
   const dm = DASH.exec(html) || DASH.exec(tsv);
   if (dm) fail("dashes", `the ${DASH.exec(html) ? "html" : "sheet"} holds a dash (${dm[0]})`);
   const text = secs.map(visible);
-  // g: no contact line: an e-mail address, a phone number, mailto:, tel:, an element of class contact
-  text.forEach((t, i) => { const m = EMAIL.exec(t) || PHONE.exec(t); if (m) fail("contact line", `page ${i + 1} prints "${m[0]}"`); });
-  const ct = /mailto:|tel:|class="contact"/i.exec(html);
+  // g: no contact line: an e-mail address, a phone number, mailto:, tel:, an element of class contact; with a contact handed in, the LAST page alone may hold that exact address once as text and once as its mailto link
+  const last = secs.length - 1;
+  text.forEach((t, i) => { const rest = contact && i === last ? t.replace(contact, " ") : t; const m = EMAIL.exec(rest) || PHONE.exec(rest); if (m) fail("contact line", `page ${i + 1} prints "${m[0]}"`); });
+  const keep = contact ? secs[last].replace("mailto:" + contact, "") : "";
+  const ct = /mailto:|tel:|class="contact"/i.exec(contact ? html.replace(secs[last], () => keep) : html);
   if (ct) fail("contact line", `the html holds ${ct[0]}`);
   // d: no word of the report rule and no internal name in the visible text
   text.forEach((t, i) => { for (const re of [WORD, UPPER, BROKEN, FILE, CODE, STEP]) { const m = re.exec(t); if (m) fail("internal words", `page ${i + 1} prints "${m[0]}"`); } });
@@ -51,7 +55,7 @@ export function gates({ html, tsv, pages, logoUrl, branches, approvedWords, inte
   if (!mrow) fail("numbers", 'the sheet has no row "month of the audit" on page 1');
   secs.forEach((s, i) => {
     const pg = i + 1; let n = 0, k = 0;
-    const t = s.replace(/<div class="rh">([\s\S]*?)<\/div>/, (_, x) => { if (!visible(x).endsWith(`SEO, AI search and local audit, ${mrow[2]}`)) fail("numbers", `the header of page ${pg} does not end with the sheet's month, ${mrow[2]}`); return " "; })
+    const t = s.replace(/<div class="rh">([\s\S]*?)<\/div>/, (_, x) => { if (!visible(x).endsWith(`${title}, ${mrow[2]}`)) fail("numbers", `the header of page ${pg} does not end with the sheet's month, ${mrow[2]}`); return " "; })
       .replace(/<div class="rf">([\s\S]*?)<\/div>/, (_, x) => { if (visible(x) !== `Prepared by Omnikom ${pg} / ${secs.length}`) fail("numbers", `the footer of page ${pg} is not "${pg} / ${secs.length}"`); return " "; })
       .replace(/<span class="sn">([\s\S]*?)<\/span>/g, (_, x) => { if (visible(x) !== String(++n)) fail("numbers", `a step number on page ${pg} is not ${n}`); return " "; })
       .replace(/<table class="plan">[\s\S]*?<\/table>/, (tb) => tb.replace(/<tr\b[^>]*>\s*<td>([\s\S]*?)<\/td>/g, (_, x) => { if (visible(x) !== String(++k)) fail("numbers", `a row number of the plan on page ${pg} is not ${k}`); return "<tr>"; }));
@@ -67,6 +71,8 @@ export function gates({ html, tsv, pages, logoUrl, branches, approvedWords, inte
     for (const [id, t] of Object.entries(branches)) for (const w of String(t).replace(/\{[^}]*\}/g, " ").toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g) || []) if (!known(w) && !bad.some((b) => b[0] === w && b[1] === id)) bad.push([w, id]);
     if (bad.length) fail("new words", bad.length === 1 ? `"${bad[0][0]}" in ${bad[0][1]} is not a word of the approved print` : `${bad.slice(0, 4).map((b) => `"${b[0]}" in ${b[1]}`).join(", ")}${bad.length > 4 ? ` and ${bad.length - 4} more` : ""} are not words of the approved print`);
   }
+  // k: the title says only what was read: a word of it needs a section about it (with no topics handed in the gate does nothing)
+  if (topics) for (const [word, re, held] of [["AI search", /\bAI search\b/i, topics.includes("assistants")], ["local", /\blocal\b/i, topics.includes("local")], ["SEO", /\bSEO\b/i, ["site", "demand", "search", "rivals", "standing"].some((t) => topics.includes(t))]]) if (re.test(title) && !held) fail("title", `the title says ${word} and no page is about it`);
   // j: the internal sheet (what the run did not gather) never reaches a client page: a page whose visible text holds one of its lines (8 characters or more, case and white space ignored) is refused
   const sq = (x) => String(x).toLowerCase().replace(/\s+/g, " ").trim();
   for (const n of (internal || []).map(sq).filter((x) => x.length >= 8)) { const i = text.findIndex((t) => sq(t).includes(n)); if (i >= 0) fail("internal", `page ${i + 1} holds a line of the internal sheet`); }

@@ -24,7 +24,7 @@ const GOOD = {
   have: [{ value: S("facts/f.json", "score"), text: "Your average rating is good." }],
   back: ["Your home page sends too few words."],
   sections: [
-    { topic: "site", title: "Your site", lede: "The first response your site gives holds few words for search engines to read.", points: ["Rivals send more words than you do."], table: { columns: ["Business", "Words"], rows: [[S("research/a.json", "rows[0].name"), S("research/a.json", "rows[0].count")]] } },
+    { topic: "site", title: "Your site", lede: "The text your site gives search engines holds few words to read.", points: ["Rivals send more words than you do."], table: { columns: ["Business", "Words"], rows: [[S("research/a.json", "rows[0].name"), S("research/a.json", "rows[0].count")]] } },
     { topic: "local", title: "Your map listing", lede: "People who search on the map can find you, with a small number of reviews.", points: ["Ask past customers for a review."] }],
   plan: [{ fix: FIX_IDS[0], why: "Your home page sends " + S("research/a.json", "rows[0].count") + " words." }, { fix: FIX_IDS[1], why: "Your rating is " + S("facts/f.json", "score") + "." }],
 };
@@ -103,6 +103,9 @@ async function scenarios(dir) {
       for (const w of ["pending", "not run", "could not read", "not in this review", "BLOCKED", "UNPROVEN", "PARTIAL", "PARTLY", "MISSING", "WORKS", "TODO", "TBD", "undefined", "NaN", "no dash as punctuation", "no email address", "no phone number", "simply absent"]) if (!b.toLowerCase().includes(w.toLowerCase())) bad.push("the brief lacks: " + w);
       if (/[\u2013\u2014]/.test(b)) bad.push("the brief holds a dash");
       const ex = /```json\r?\n([\s\S]*?)\r?\n```/.exec(b); let exo = null; try { exo = JSON.parse(ex[1]); } catch { bad.push("the brief's example is not JSON"); }
+      for (const p of ["first response", "words sent", "sends its words"]) { if (!b.includes('"' + p + '"')) bad.push("the brief does not forbid the phrase " + p); if (exo && JSON.stringify(exo).toLowerCase().includes(p)) bad.push("the example holds the phrase " + p); }
+      if (!b.includes("the text search engines can read on your site")) bad.push("the brief does not say what to write instead of our words");
+      if (!/at least three figures or a table of three rows to stand as a page of its own; thinner sections are printed together on one page/.test(b)) bad.push("the brief lacks the rule of a thin section");
       if (exo) { const sh = Shape.checkShape(exo, { gatheredStations: ["site", "local"], fixIds: FIX_IDS }); if (sh.length) bad.push("the example: " + sh.join("; ")); }
       check("1: the brief carries the wording bars of the copy's gates (the words, the capitals, no dash, no contact, a source not gathered is absent) and its example is a good answer by checkShape", bad.length === 0, bad.join(" | ")); }
 

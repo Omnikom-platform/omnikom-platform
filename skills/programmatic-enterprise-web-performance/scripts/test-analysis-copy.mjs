@@ -24,19 +24,24 @@ const S = (f, p) => "{{" + f + "#" + p + "}}";
 const EVIL = "<img src=x onerror=alert(1)>", AMP = 'Tom & "Jerry" <b>bold</b>';
 const DATA = {
   site: { name: "Birchwood Plumbing", pages: 12, words: 1234567, route: "Route 66 Diner", evil: EVIL, amp: AMP, term: "drain repair" },
-  search: { share: 5 },
+  search: { share: 5, rank: 2, clicks: 40 },
+  assistants: { named: 4, asked: 10, first: "Hilltop" },
   local: { name: "Acme Heating", spots: 3, n: 9, reviews: 41 },
-  rivals: { top: "Hilltop Pipes" },
+  rivals: { top: "Hilltop Pipes", second: "Valley Pipes", third: "Creek Plumbing" },
 };
-const sec = (topic, extra = {}) => ({ topic, title: "What we read about " + topic, lede: "A plain sentence about " + topic + " in your market today.", points: ["A plain point about " + topic], ...extra });
+const PTR = { site: ["pages", "words", "term"], search: ["share", "rank", "clicks"], local: ["spots", "n", "reviews"], rivals: ["top", "second", "third"], assistants: ["named", "asked", "first"] };
+const ptrs = (topic) => PTR[topic].map((k) => S(topic + ".json", k));
+// a section with substance (3 pointers in its points), and a thin one with k pointers in all (k = 0 to 3)
+const sec = (topic, extra = {}) => ({ topic, title: "What we read about " + topic, lede: "A plain sentence about " + topic + " in your market today.", points: ["A plain point about " + topic, "Here are " + ptrs(topic).join(", ") + " today"], ...extra });
+const thin = (topic, k) => ({ topic, title: "What we read about " + topic, lede: "A plain sentence about " + topic + " in your market today.", points: ["A plain point about " + topic, ...ptrs(topic).slice(0, k).map((p) => "Here is " + p)] });
 const A1 = () => ({
   business: S("site.json", "name"),
   verdict: "Buyers who search for what you sell are shown other firms.",
-  numbers: [{ value: S("site.json", "pages"), label: "pages Google can list for you" }, { value: S("site.json", "words"), label: "words sent in the first response" }, { value: S("local.json", "spots") + " of " + S("local.json", "n"), label: "map spots where you are shown" }],
+  numbers: [{ value: S("site.json", "pages"), label: "pages Google can list for you" }, { value: S("site.json", "words"), label: "words your pages send to search engines" }, { value: S("local.json", "spots") + " of " + S("local.json", "n"), label: "map spots where you are shown" }],
   have: [{ value: S("site.json", "pages"), text: "pages already built for you" }, { value: S("local.json", "reviews"), text: "reviews from happy buyers" }],
   back: ["Searches for " + S("site.json", "term") + " show other firms", "Your phone page is slow"],
-  sections: [sec("site", { table: { columns: ["Page", "Words"], rows: [[S("site.json", "route"), S("site.json", "words")]] } }), sec("local", { points: ["You are shown on " + S("local.json", "spots") + " spots"] }), sec("rivals", { points: ["The leader is " + S("rivals.json", "top")] })],
-  plan: [{ fix: "site", why: "Buyers find " + S("site.json", "pages") + " pages today" }, { fix: "words", why: "Your words must reach the first response" }, { fix: "speed", why: "A slow page loses buyers" }],
+  sections: [sec("site", { points: ["A plain point about site", "You have " + S("site.json", "pages") + " pages and " + S("site.json", "term") + " is your top search"], table: { columns: ["Page", "Words"], rows: [[S("site.json", "route"), S("site.json", "words")]] } }), sec("local", { points: ["You are shown on " + S("local.json", "spots") + " spots", S("local.json", "n") + " spots were looked at and " + S("local.json", "reviews") + " reviews were read"] }), sec("rivals", { points: ["The leader is " + S("rivals.json", "top"), "The map shows " + S("local.json", "reviews") + " reviews and " + S("site.json", "term") + " is the main one"] })],
+  plan: [{ fix: "site", why: "Buyers find " + S("site.json", "pages") + " pages today" }, { fix: "words", why: "Your words must reach search engines" }, { fix: "speed", why: "A slow page loses buyers" }],
 });
 
 const profileOf = (topics) => ({ step: "client-profile", generatedAt: GEN, stations: [...topics.map((t) => ({ id: t, what: t, verdict: "OPEN", steps: [{ id: "step-" + t, what: t, state: "RUN", bucket: "gathered", partial: false, why: null, ruling: null, outputs: [t + ".json"], files: [], fileCount: 0 }] })), { id: "ads", what: "ads", verdict: "OPEN", steps: [{ id: "step-ads", what: "ads", state: "SKIPPED", bucket: "not gathered", outputs: ["ads.json"], files: [], fileCount: 0 }] }], notGathered: [], counts: {} });
@@ -78,9 +83,9 @@ async function scenarios(dir) {
   const A1_PTR = {
     1: [["$.business", "site.json#name"], ["$.numbers[0].value", "site.json#pages"], ["$.numbers[1].value", "site.json#words"], ["$.numbers[2].value", "local.json#spots"], ["$.numbers[2].value", "local.json#n"]],
     2: [["$.business", "site.json#name"], ["$.have[0].value", "site.json#pages"], ["$.have[1].value", "local.json#reviews"], ["$.back[0]", "site.json#term"]],
-    3: [["$.business", "site.json#name"], ["$.sections[0].table.rows[0][0]", "site.json#route"], ["$.sections[0].table.rows[0][1]", "site.json#words"]],
-    4: [["$.business", "site.json#name"], ["$.sections[1].points[0]", "local.json#spots"]],
-    5: [["$.business", "site.json#name"], ["$.sections[2].points[0]", "rivals.json#top"]],
+    3: [["$.business", "site.json#name"], ["$.sections[0].points[1]", "site.json#pages"], ["$.sections[0].points[1]", "site.json#term"], ["$.sections[0].table.rows[0][0]", "site.json#route"], ["$.sections[0].table.rows[0][1]", "site.json#words"]],
+    4: [["$.business", "site.json#name"], ["$.sections[1].points[0]", "local.json#spots"], ["$.sections[1].points[1]", "local.json#n"], ["$.sections[1].points[1]", "local.json#reviews"]],
+    5: [["$.business", "site.json#name"], ["$.sections[2].points[0]", "rivals.json#top"], ["$.sections[2].points[1]", "local.json#reviews"], ["$.sections[2].points[1]", "site.json#term"]],
     6: [["$.business", "site.json#name"], ["$.plan[0].why", "site.json#pages"]],
     7: [["$.business", "site.json#name"], ["$.numbers[0].value", "site.json#pages"], ["$.numbers[1].value", "site.json#words"], ["$.numbers[2].value", "local.json#spots"], ["$.numbers[2].value", "local.json#n"]],
   };
@@ -94,7 +99,7 @@ async function scenarios(dir) {
       if (c1.files.join() !== "c1.example.test-audit-2031-03-01-draft.html,numbers-2031-03-01.tsv") bad.push("files " + c1.files.join());
       if (c1.lines.length !== 3 || !/^wrote .*-draft\.html$/.test(c1.lines[0]) || !/^wrote .*numbers-2031-03-01\.tsv$/.test(c1.lines[1]) || c1.lines[2] !== "sections: 7") bad.push("console " + JSON.stringify(c1.lines));
       if (s.length !== 7 || !s[0].startsWith('<section class="cover" id="p1">') || s.some((x, i) => i > 0 && !x.startsWith('<section class="pg" id="p' + (i + 1) + '">'))) bad.push("sections " + s.length);
-      try { G.gates({ html: c1.html, tsv: c1.tsv, pages: 7, logoUrl: LOGO, internal: [] }); } catch (e) { bad.push("gates again: " + e.message); }
+      try { G.gates({ html: c1.html, tsv: c1.tsv, pages: 7, logoUrl: LOGO, internal: [], title: "SEO and local audit", topics: ["site", "local", "rivals"], contact: HW.contact }); } catch (e) { bad.push("gates again: " + e.message); }
       const rows = rowsOf(c1.tsv);
       if (c1.tsv.split("\n")[0] !== ["page", "the text it stands in", "printed", "file", "where in the file", "value there", "measured", "kind"].join("\t")) bad.push("sheet header");
       const month = rows.find((r) => r[1] === "month of the audit");
@@ -187,7 +192,7 @@ async function scenarios(dir) {
     {
       const bad = [], s = secs(c1.html)[5] || "", t = (s.match(/<table class="plan">[\s\S]*?<\/table>/) || [""])[0];
       const rows = [...t.matchAll(/<tr\b[^>]*>\s*<td>([\s\S]*?)<\/td>\s*<td>([\s\S]*?)<\/td>\s*<td>([\s\S]*?)<\/td>\s*<td>([\s\S]*?)<\/td>/g)].map((m) => m.slice(1, 5).map((x) => x.replace(/<[^>]+>/g, "").trim()));
-      const ids = ["site", "words", "speed"], whys = ["Buyers find 12 pages today", "Your words must reach the first response", "A slow page loses buyers"];
+      const ids = ["site", "words", "speed"], whys = ["Buyers find 12 pages today", "Your words must reach search engines", "A slow page loses buyers"];
       if (rows.length !== 3) bad.push("plan rows " + rows.length);
       rows.forEach((r, i) => { const f = FIX.find((x) => x.id === ids[i]); if (r[0] !== String(i + 1) || r[1] !== f.fix || r[2] !== whys[i] || r[3] !== f.who) bad.push("row " + (i + 1) + " " + JSON.stringify(r)); });
       if (!/Action plan/.test(s) || !/What to fix, in this order/.test(s) || !/What to do/.test(t) || !/>Why</.test(t) || !/>Who</.test(t)) bad.push("plan words");
@@ -257,16 +262,128 @@ async function scenarios(dir) {
       const bad = ["analysis-copy.mjs", "test-analysis-copy.mjs"].filter((f) => { let x = ""; try { x = fs.readFileSync(path.join(dir, f), "utf8"); } catch { return true; } return dashes.some((d) => x.includes(d)); });
       check("case 10: the module and this test hold no em dash and no en dash", bad.length === 0, bad.join());
     }
+
+    // ---- 11 to 15 share these builders: the bakery case (site with a table of 3 rows, search with 2 points and 3 pointers in all and no table, local with a table of 3 rows)
+    const table3 = (topic) => ({ columns: ["Name", "Figure"], rows: [0, 1, 2].map(() => [S(topic + ".json", PTR[topic][0]), S(topic + ".json", PTR[topic][1])]) });
+    const searchRich = () => sec("search", { points: ["Here are " + S("search.json", "share") + " and " + S("search.json", "rank"), "And " + S("search.json", "clicks") + " too"] });
+    const bakery = () => ({ ...A1(), sections: [thin("site", 0), searchRich(), thin("local", 0)].map((s, i) => (i === 1 ? s : { ...s, table: table3(s.topic) })) });
+    const labelOf = (s) => ((s.match(/<div class="label">([^<]*)<\/div>/) || [])[1] || "");
+    const MAIL = "hello@omnikom.ai", OURS = /first response|words sent|sends its words/i;
+
+    // ---- 11: the title says only what was read
+    {
+      const bad = [], r = mk("bk", ["site", "search", "local"], bakery()), c = copy(r), s = secs(c.html);
+      if (c.code !== 0) bad.push("exit " + c.code + " " + c.err.slice(0, 300));
+      if (!c.html.includes("<h1>SEO and local audit</h1>")) bad.push("the cover title is not SEO and local audit");
+      if (!c.html.includes(": SEO and local audit, March 2031 (draft)</title>")) bad.push("the html title");
+      const heads = c.html.match(/<div class="rh">[\s\S]*?<\/div>/g) || [];
+      if (heads.length !== 6 || heads.some((h) => !h.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().endsWith("SEO and local audit, March 2031"))) bad.push("running heads: " + heads.length);
+      if (/AI search/i.test(c.html)) bad.push("AI search is in the html");
+      if (c.code === 0) { try { G.gates({ html: c.html, tsv: c.tsv, pages: 7, logoUrl: LOGO, internal: [], title: "SEO and local audit", topics: ["site", "search", "local"], contact: HW.contact }); } catch (e) { bad.push("gates again: " + e.message); } }
+      if (s.length !== 7 || labelOf(s[3]) !== "Found in search") bad.push("the search section has no page of its own: " + s.length + " " + labelOf(s[3] || ""));
+      check("case 11: the bakery case (site with a table of 3 rows, search with 3 pointers in all and no table, local with a table of 3 rows, no assistants): the title is SEO and local audit on the cover, in the html title and in every running head, AI search is nowhere in the html, the gates pass", bad.length === 0, bad.join(" | "));
+    }
+
+    // ---- 12: a section about the assistants puts AI search in the title
+    {
+      const bad = [], r = mk("as", ["site", "assistants", "local"], { ...A1(), sections: [sec("site"), sec("assistants"), sec("local")] }), c = copy(r), s = secs(c.html);
+      if (c.code !== 0) bad.push("exit " + c.code + " " + c.err.slice(0, 300));
+      if (!c.html.includes("<h1>SEO, AI search and local audit</h1>") || !c.html.includes(": SEO, AI search and local audit, March 2031 (draft)</title>")) bad.push("the title");
+      if (!s.some((x) => labelOf(x) === "Named in AI answers")) bad.push("no page labelled Named in AI answers");
+      const r2 = mk("as2", ["assistants", "local"], { ...A1(), business: S("local.json", "name"), have: [], numbers: [A1().numbers[2]], back: ["Your phone page is slow"], sections: [sec("assistants"), sec("local")], plan: [A1().plan[1]] }, { site: false }), c2 = copy(r2);
+      if (c2.code !== 0 || !c2.html.includes("<h1>AI search and local audit</h1>")) bad.push("assistants and local: " + c2.code + " " + c2.err.slice(0, 200));
+      check("case 12: a case with an assistants section: AI search is in the title (all three words, and AI search and local with no SEO section) and a page labelled Named in AI answers exists", bad.length === 0, bad.join(" | "));
+    }
+
+    // ---- 13: our own words leave the report
+    {
+      const bad = [], texts = [...FIX.flatMap((f) => [f.fix, f.who]), ...HW.nextSteps.flat(), ...HW.draftContainsPlain, HW.goAhead, HW.promise];
+      for (const t of texts) if (OURS.test(t)) bad.push("a real text holds our words: " + t.slice(0, 70));
+      if (OURS.test(c1.html)) bad.push("the real report holds our words");
+      const trip = (name, edit, re) => { const a = A1(); edit(a); bad.push(...stopped(copy(mk(name, ["site", "local", "rivals"], a)), re, name)); };
+      trip("w1", (a) => { a.numbers[1].label = "words sent to search engines"; }, /^STOP: gate our words: page 1 prints "words sent"$/);
+      trip("w2", (a) => { a.sections[0].points[0] = "The first   response is slow"; }, /^STOP: gate our words: page 3 prints "first response"$/);
+      trip("w3", (a) => { a.back[1] = "Your page Sends Its Words late"; }, /^STOP: gate our words: page 2 prints "Sends Its Words"$/);
+      check("case 13: our words: the real fixes.json and how-we-work.json hold none of first response, words sent, sends its words in the texts this builder prints, and the real report none; an analysis with words sent in a label, first response (spaced) in a point or Sends Its Words in a line of the back list is the STOP of gate our words, nothing written", bad.length === 0, bad.join(" | "));
+    }
+
+    // ---- 14: thin pages do not count
+    {
+      const bad = [], P = (n, ...a) => bad.push("(" + n + ") " + a.join(" "));
+      const withSecs = (name, list) => { const r = mk(name, [...new Set([...list.map((s) => s.topic), "site", "local"])], { ...A1(), sections: list }); return copy(r); };
+      const floor = /^STOP: too little for a client's report: 1 analysis page\(s\) with substance \(it needs 2\); the run stays an internal draft$/;
+      // (a) the search section cut to 2 pointers and no table has no page of its own: its page is the merged page, after the pages of the sections with substance
+      const a = bakery(); a.sections[1] = thin("search", 2);
+      const ca = copy(mk("ta", ["site", "search", "local"], a)), sa = secs(ca.html);
+      if (ca.code !== 0 || sa.length !== 7) P("a", "exit " + ca.code + " " + ca.err.slice(0, 200) + " " + sa.length);
+      else {
+        if (labelOf(sa[2]) !== "Your website" || labelOf(sa[3]) !== "Seen on the map" || labelOf(sa[4]) !== "Found in search") P("a", "the order of the pages", [2, 3, 4].map((i) => labelOf(sa[i])).join(" / "));
+        if (!/<h3[^>]*>What we read about search<\/h3>/.test(sa[4]) || /<h2>/.test(sa[4]) || !/<h2>What we read about site<\/h2>/.test(sa[2])) P("a", "the search title is not a smaller heading on the merged page");
+      }
+      // (b) two thin sections: ONE merged page with the joined label and both titles as smaller headings
+      const cb = withSecs("tb", [sec("site"), thin("search", 2), thin("local", 2)]), sb = secs(cb.html);
+      if (cb.code !== 0 || sb.length !== 6) P("b", "exit " + cb.code + " " + cb.err.slice(0, 200) + " " + sb.length);
+      else {
+        if (labelOf(sb[3]) !== "Found in search and seen on the map") P("b", "label " + labelOf(sb[3]));
+        for (const t of ["search", "local"]) if (!new RegExp("<h3[^>]*>What we read about " + t + "</h3>").test(sb[3]) || !sb[3].includes("A plain sentence about " + t + " in your market today.")) P("b", "the title or lede of " + t);
+        if (/<h2>/.test(sb[3])) P("b", "the merged page has an h2");
+        if (!rowsOf(cb.tsv).some((x) => x[0] === "4" && x[1] === "$.sections[1].points[1]") || !rowsOf(cb.tsv).some((x) => x[0] === "4" && x[1] === "$.sections[2].points[1]")) P("b", "the sheet rows of the merged page");
+        if (!cb.html.includes("<h1>SEO and local audit</h1>")) P("b", "the title follows the sections printed");
+      }
+      // (c) the floor is counted after merging
+      const cc = withSecs("tc", [sec("site"), thin("search", 2), thin("local", 1)]);
+      if (cc.code !== 0 || secs(cc.html).length !== 6 || cc.lines[cc.lines.length - 1] !== "sections: 6") P("c", "one section with substance and a merged page of 3 pointers: exit " + cc.code + " " + cc.err.slice(0, 200));
+      bad.push(...stopped(withSecs("tc2", [sec("site"), thin("search", 1), thin("local", 1)]), floor, "(c) a merged page of 2 pointers"));
+      bad.push(...stopped(withSecs("tc3", [thin("site", 2), thin("search", 2)]), floor, "(c) two thin sections only"));
+      // (d) four sections with substance: 8 pages as before
+      const cd = withSecs("td", [sec("site"), sec("search"), sec("local"), sec("rivals")]);
+      if (cd.code !== 0 || cd.lines[cd.lines.length - 1] !== "sections: 8") P("d", "four sections: exit " + cd.code + " " + cd.err.slice(0, 200));
+      // a table of 3 rows alone is substance; a table of 2 rows with no pointers is not
+      const t2 = withSecs("te", [sec("site"), { ...thin("search", 0), table: { columns: ["A", "B"], rows: [["x", "y"], ["z", "w"]] } }, thin("local", 2)]);
+      if (t2.code !== 1 || !floor.test(t2.err)) P("e", "a table of 2 rows counts: exit " + t2.code + " " + t2.err.slice(0, 160));
+      check("case 14: thin pages: (a) a section of 2 pointers and no table has no page of its own; (b) two thin sections are one merged page with the joined label and both titles as smaller headings; (c) the floor is counted after merging: 1 + a merged page of 3 pointers is built (6 pages), 1 + a merged page of 2 pointers, or two thin sections only, is the STOP line with nothing written; (d) four sections with substance: 8 pages; a table of 2 rows is not substance", bad.length === 0, bad.join(" | "));
+    }
+
+    // ---- 15: the last page and its address
+    {
+      const bad = [], s = secs(c1.html), last = s[6] || "", count = (t, x) => t.split(x).length - 1;
+      const link = '<a href="mailto:' + MAIL + '">' + MAIL + "</a>";
+      if (HW.contact !== MAIL) bad.push("how-we-work.json contact is " + JSON.stringify(HW.contact));
+      if (!last.includes('<div class="goahead">') || !last.includes(HW.goAhead) || count(last, link) !== 1) bad.push("the box, goAhead and the mail link on the last page");
+      if (count(c1.html, MAIL) !== 2 || count(c1.html, "mailto:") !== 1 || s.slice(0, 6).some((x) => x.includes(MAIL))) bad.push("the address is not once as text and once as the link, on the last page only: " + count(c1.html, MAIL));
+      if (c1.code !== 0) bad.push("exit " + c1.code);
+      // no contact: the key left out, or empty
+      const noBox = (tag, hw) => {
+        const wd = path.join(tmp, "words-" + tag); fs.mkdirSync(wd, { recursive: true });
+        for (const f of ["fixes.json", "backing.json"]) fs.copyFileSync(path.join(WORDS, f), path.join(wd, f));
+        writeFile(path.join(wd, "how-we-work.json"), hw);
+        const c = copy(mk("nb" + tag, ["site", "local", "rivals"], A1()), { words: wd }), lp = secs(c.html).pop() || "", pr = HW.promise.replace("{outcome}", "customers");
+        if (c.code !== 0) bad.push(tag + ": exit " + c.code + " " + c.err.slice(0, 200));
+        else if (c.html.includes('class="goahead"') || lp.includes(HW.goAhead) || count(c.html, pr) !== 1 || !lp.includes("<p>" + pr + "</p>") || /mailto:|[\w.]+@[\w.]+/.test(c.html)) bad.push(tag + ": the box, goAhead or an address is there, or the promise is not once as a paragraph");
+      };
+      const { contact: _c, ...rest } = HW;
+      noBox("none", rest); noBox("empty", { ...rest, contact: "" });
+      // the address in the analysis is on the cover: another page than the last, refused
+      const a = A1(); a.numbers[0].label = "Write to " + MAIL;
+      bad.push(...stopped(copy(mk("ct1", ["site", "local", "rivals"], a)), /^STOP: gate contact line: page 1 prints "hello@omnikom\.ai"$/, "the address on the cover"));
+      check("case 15: the last page with the real how-we-work.json: the box with goAhead and hello@omnikom.ai once as text and once as the mail link, on the last page only, the gates pass; with no contact key or an empty one: no box, no goAhead, no address, the promise once as a paragraph; the address typed into the analysis (the cover) is refused", bad.length === 0, bad.join(" | "));
+    }
   } finally { rmTmp(tmp); }
   return results;
 }
 
 const AC = "analysis-copy.mjs";
+const GATE_CALL = "gates({ html, tsv, pages, logoUrl, internal, title, topics: sections.map((s) => s.topic), contact: contact || undefined });";
 const MUTANTS = [
+  { name: "the title is fixed again", patches: [{ file: AC, from: "const title = titleOf(sections.map((s) => s.topic));", to: 'const title = "SEO, AI search and local audit";' }], expect: [/^case 11:/] },
+  { name: "the our words gate is not called", patches: [{ file: AC, from: "ourWords(html);", to: "" }], expect: [/^case 13:/] },
+  { name: "a thin section is given its own page", patches: [{ file: AC, from: "const substance = (s) => ", to: "const substance = (s) => true || " }], expect: [/^case 14:/] },
+  { name: "the floor is counted before merging", patches: [{ file: AC, from: "thin.length > 0 && thinPointers >= 3 ? 1 : 0", to: "thin.length > 0 ? 1 : 0" }], expect: [/^case 14:/] },
+  { name: "the box is printed with no contact", patches: [{ file: AC, from: "const box = contact\n", to: "const box = true\n" }], expect: [/^case 15:/] },
   { name: "a value is printed without escaping", patches: [{ file: AC, from: "return esc(printed); // @value", to: "return printed;" }], expect: [/^case 5:/] },
   { name: "the freshness of the checked file is not asked", patches: [{ file: AC, from: "if (stale) stop(", to: "if (false) stop(" }], expect: [/^case 3:/] },
-  { name: "the gates are not called", patches: [{ file: AC, from: "gates({ html, tsv, pages, logoUrl, internal });", to: "" }], expect: [/^case 4:/] },
-  { name: "a file is written before the gates", patches: [{ file: AC, from: "gates({ html, tsv, pages, logoUrl, internal });", to: 'fs.mkdirSync(outDir, { recursive: true }); fs.writeFileSync(path.join(outDir, "early.html"), html);\n  gates({ html, tsv, pages, logoUrl, internal });' }], expect: [/^case 4:/] },
+  { name: "the gates are not called", patches: [{ file: AC, from: GATE_CALL, to: "" }], expect: [/^case 4:/] },
+  { name: "a file is written before the gates", patches: [{ file: AC, from: GATE_CALL, to: 'fs.mkdirSync(outDir, { recursive: true }); fs.writeFileSync(path.join(outDir, "early.html"), html);\n  ' + GATE_CALL }], expect: [/^case 4:/] },
   { name: "the plan's fix is taken from the analysis", patches: [{ file: AC, from: "const fixText = fx.fix;", to: "const fixText = p.fix;" }], expect: [/^case 7:/] },
   { name: "the month row is left out", patches: [{ file: AC, from: 'add([1, "month of the audit", MONTH, "profile.json", "generatedAt", gen, gen, "RUN"]);', to: "" }], expect: [/^case 1:/] },
   { name: "the already-have heading is printed when the list is empty", patches: [{ file: AC, from: "have.length > 0 ?", to: "true ?" }], expect: [/^case 2:/] },
