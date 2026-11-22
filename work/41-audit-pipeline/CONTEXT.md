@@ -74,7 +74,9 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   by this written rule, recorded as delegated. "Cost" means the number of requests to free sources; money is always 0. Above 150
   the run stops for him. Built: `approve.mjs` accepts a delegation stamp and `research` has no `--yes` in the manifest, so a plan
   above 150 stops for a person's signature; NOT BUILT: nothing writes the stamp for this rule yet (part AU.D-8). The contact line
-  on the client's copy and his read of each PDF stay with him (owner item 20).
+  on the client's copy is `hello@omnikom.ai` (owner M251, 2026-11-22: one address beside "Tell us to start your draft." on the last
+  page, no phone, no name, nowhere else; a call never prints without it; NOT on master: the copy that prints it). His read of each PDF
+  before it is sent stays with him (owner item 20).
 - ORDER. After the coming-soon page and the owner list, he and the head finish the audit end to end (skill, tools, scripts, CLI);
   the self-serve path (request form, mailing the audit, sign-up from its link) comes after the audit and before clients go live.
 
