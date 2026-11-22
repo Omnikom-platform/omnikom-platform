@@ -234,6 +234,7 @@ console.log("stand-in crawl done");
         "authority-classify": "the link opportunities that authority leaves (a crawl of the opportunity sites)", "authority-vet": "a visit to each opportunity site", local: "the local profile, pack, citations and reviews (captures, a browser)",
         forums: "the Reddit API and its token", "report-live": "every earlier step's output (a whole run)",
         "client-copy": "a finished run and a client file; test-client-copy.mjs builds it",
+        "client-profile": "a finished run, its sheet of the stations and its rulings; test-client-profile.mjs builds them",
         "client-copy-pdf": "a headless browser prints the copy",
       };
       const scriptSteps = man.steps.filter((s) => s.script).map((s) => s.id), tested = [...IMPORTERS.map((x) => x[0]), "autocomplete-import", "local-grid-plan", "local-grid-import", "research-plan", "research", "targets-validate"];

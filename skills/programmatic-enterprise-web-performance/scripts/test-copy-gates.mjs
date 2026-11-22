@@ -210,12 +210,12 @@ run("case 10: THE FOUR EXEMPTIONS ARE CHECKED: a wrong header month, footer, pla
   for (const t of ["See pages 3 to 5.", "See Page 4.", "See pages 3 and 4."]) { const g = ask(p3((x) => x.replace("See page 4.", t))); if (g !== "") bad.push(`green half ${t}: ${g}`); }
   return [bad.length === 0, bad.join(" | ")];
 });
-run("case 11: THE STEP IDS FOLLOW THE PIPELINE: the hyphenated step ids of pipeline.json, less the two ordinary words, equal STEP_IDS (32)", () => {
+run("case 11: THE STEP IDS FOLLOW THE PIPELINE: the hyphenated step ids of pipeline.json, less the two ordinary words, equal STEP_IDS (33)", () => {
   const ids = JSON.parse(fs.readFileSync(path.join(skill, "pipeline.json"), "utf8")).steps.map((s) => s.id).filter((i) => i.includes("-") && !["city-centres", "search-console"].includes(i));
   const have = new Set(STEP_IDS), need = new Set(ids), bad = [];
   for (const i of ids) if (!have.has(i)) bad.push(`pipeline step missing in STEP_IDS: ${i}`);
   for (const i of STEP_IDS) if (!need.has(i)) bad.push(`STEP_IDS holds a name that is not a step: ${i}`);
-  if (STEP_IDS.length !== 32) bad.push(`length ${STEP_IDS.length}`);
+  if (STEP_IDS.length !== 33) bad.push(`length ${STEP_IDS.length}`);
   return [bad.length === 0, bad.join(" | ")];
 });
 run("case 12: the module and this test hold no em dash, no en dash and no user-folder or drive path", () => {

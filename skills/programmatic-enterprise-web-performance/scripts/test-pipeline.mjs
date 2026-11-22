@@ -559,7 +559,7 @@ const MUTANTS = [
   { name: "[stations] a station object may hold any key", patches: [{ file: LP, from: 'Object.keys(x).sort().join() !== "id,what"', to: "false" }], expect: [/^V: a station object with an extra key is refused/] },
   { name: "[station] a step may name no station", patches: [{ file: LP, from: 'if (!("station" in s)) bad("station", at,', to: 'if (false) bad("station", at,' }], expect: [/^V: a step with no station is refused/] },
   { name: "[station-order] a step may depend on a later station", patches: [{ file: LP, from: "if (rank.get(dep.station) > rank.get(s.station)) bad(", to: "if (false) bad(" }], expect: [/^V: a step that depends on a step of a later station is refused/] },
-  { name: "[nosite-skip] the two keys are unknown to the validator", patches: [{ file: LP, from: "\"partialSettles\", \"skipWhen\", \"unlessSkipped\"];", to: "\"partialSettles\"];" }], expect: [/^V: the real pipeline\.json is valid/, /^S: start\.mjs audit-live in plan mode exits 0/] },
+  { name: "[nosite-skip] the two keys are unknown to the validator", patches: [{ file: LP, from: "\"partialSettles\", \"skipWhen\", \"unlessSkipped\", \"station\"];", to: "\"partialSettles\", \"station\"];" }], expect: [/^V: the real pipeline\.json is valid/, /^S: start\.mjs audit-live in plan mode exits 0/] },
 ];
 
 if (isMain(import.meta.url)) {

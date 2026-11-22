@@ -1575,6 +1575,39 @@
    "maxAgeDays": 30
   },
   {
+   "id": "client-profile",
+   "station": "report",
+   "module": "report",
+   "what": "the client's profile: what every station gathered, pooled in one file, and the internal sheet of what was not gathered",
+   "script": "scripts/client-profile.mjs",
+   "args": [
+    "{key}",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/stations/sheet.json"
+   ],
+   "outputs": [
+    "{pewp}/profile.json",
+    "{pewp}/internal/not-gathered.md"
+   ],
+   "dependsOn": [],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 5,
+   "evidence": [
+    "{pewp}/profile.json"
+   ],
+   "kind": "derived",
+   "maxAgeDays": null
+  },
+  {
    "id": "report-live",
    "station": "report",
    "module": "report",

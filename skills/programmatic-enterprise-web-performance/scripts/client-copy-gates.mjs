@@ -2,7 +2,7 @@
 // before anything is written; the first gate that fails is a STOP of one line: STOP: gate <name>: <what was found>. Reads nothing, writes nothing.
 import { stop } from "./client-copy-data.mjs";
 
-export const STEP_IDS = ["approve-business", "approve-seeds", "demand-bing", "research-plan", "capture-google", "capture-bing", "capture-index", "index-import", "capture-autocomplete", "autocomplete-import", "capture-trends", "trends-import", "capture-ai", "ai-import", "targets-validate", "local-grid-plan", "capture-maps", "approve-competitors", "authority-anchors", "authority-classify", "authority-vet", "local-grid-import", "capture-directories", "capture-reputation", "reputation-import", "capture-social", "social-import", "capture-ads", "ads-import", "report-live", "client-copy", "client-copy-pdf"];
+export const STEP_IDS = ["approve-business", "approve-seeds", "demand-bing", "research-plan", "capture-google", "capture-bing", "capture-index", "index-import", "capture-autocomplete", "autocomplete-import", "capture-trends", "trends-import", "capture-ai", "ai-import", "targets-validate", "local-grid-plan", "capture-maps", "approve-competitors", "authority-anchors", "authority-classify", "authority-vet", "local-grid-import", "capture-directories", "capture-reputation", "reputation-import", "capture-social", "social-import", "capture-ads", "ads-import", "client-profile", "report-live", "client-copy", "client-copy-pdf"];
 const WORD = /\b(?:pending|not run|not read in this review|could not read|not in this review)\b/i;
 const UPPER = /\b(?:BLOCKED|UNPROVEN|PARTIAL|PARTLY|MISSING|WORKS|TODO|TBD)\b/;
 const BROKEN = /\bundefined\b|\bNaN\b|\bnull\b|\[object |[{}]|@@/;
