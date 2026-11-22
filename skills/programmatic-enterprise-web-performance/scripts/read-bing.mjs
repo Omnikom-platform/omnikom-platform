@@ -15,7 +15,7 @@
 //   nothing is opened. A page whose description matches no result block is not written as an empty capture ("not read"); two of those in a row end the run (the description is stale; no stop).
 // The tab is opened plainly (openPlain of vantage.mjs): no permission is granted and no location is set. Bing is read from wherever the work browser's exit is, so a reading is a national baseline
 // unless the page itself names the place (the capture's location.footer says what the page said).
-// What is NOT done here, ever: a changed or invented browser identity, a stealth patch, a faked pointer, a fresh profile, a changed exit. They disguise a script and are not ours.
+// What is NOT done here, ever: a changed or invented browser identity, a stealth patch, a faked pointer, a fresh profile, a changed exit, no location override and no permission grant. They disguise a script and are not ours.
 // The capture is the one research-serp-import.mjs reads (captures/serp/<id>.bing.json). One record per run: captures/serp/bing-read.json { step, at, read, already, left, stop } (an exit 3 adds
 // status "blocked" and blocked, so that a resume does not take a run that read nothing as done). Last line: READ: bing <r> read, <a> already there, <l> left (, stopped: <reason>).
 // Exit 0 = at least one capture read or already there. 3 = BLOCKED (nothing could be read, a stop, no work browser, no description). 2 = usage or a bad pace block.

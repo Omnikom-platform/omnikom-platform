@@ -5,7 +5,7 @@
 // Run it through the machine heavy lock (a browser): node ~/.claude/scripts/heavy.mjs -- node test-ask-assistants.mjs
 // Case 18 (owner, 2026-11-22 11:43, M255: a human check is answered by the owner's own hand and the run waits for it): the invented pages can show a check by themselves (by title, by a check frame, by words in the
 // body) and take it away by themselves after 3 looks that saw it, as a person's answer does (see CHECKJS); while it shows they report every key, input, click, mouse move, focus and scroll as a "touch".
-// ASK_TEST_FROM=18 (an environment variable of this TEST only, for runs that want cases 18 and 19 alone) skips every case before 18 and case 10; the last line then says how many cases ran. The sleep hook makes a wait whose why is
+// ASK_TEST_FROM=18 (an environment variable of this TEST only, for runs that want cases 18 to 20 alone) skips every case before 18 and case 10; the last line then says how many cases ran. The sleep hook makes a wait whose why is
 // "after check" last 700 real ms (the page of 18f loads itself again at the look that finds its check gone: the wait lets that load end before the next look); every other wait, the "human check" waits too, is recorded and skipped (the checks go by looks, not by time). io.ring is replaced by a recorder.
 import fs from "node:fs";
 import os from "node:os";
@@ -56,6 +56,7 @@ const PAGES = {
   c18d: { kind: "chat", modeOn: true, check: { by: "title", looks: "always", at: "load" } }, c18d2: { kind: "chat", modeOn: true },
   c18e1: { kind: "robot", title: "Just a moment...", text: "Please stand by." }, c18e2: { kind: "chat", modeOn: true },
   c18f: { kind: "chat", modeOn: true, check: { by: "frame", at: "typing2", reload: true } },   // shows at the first input of text 2 and loads the page again when it goes
+  c20a: { kind: "chat", modeOn: true, check: { by: "frame", at: "text1", atChars: 0 } }, c20b: { kind: "chat", modeOn: true }, c20c: { kind: "chat", modeOn: true, check: { by: "title", at: "load" } }, c20d: { kind: "chat", modeOn: true },   // case 20: a check while text 1 is typed | a plain page | a check at load | a page that must never be loaded
   robotTitle: { kind: "robot", title: "Attention Required", text: "Please stand by." }, robotText: { kind: "robot", title: "Just a page", text: "Verifying you are human. This may take a few seconds." },
 };
 // The page side of a check, deterministic by LOOK COUNT (no timer). What is hooked: an own property "title" on the document (a getter over the real Document.prototype one). Every look of
@@ -417,6 +418,38 @@ async function scenarios(dir) {
       r19c.code === 0 && last(r19c) === "ASKED: chatgpt already asked, perplexity already asked" && JSON.stringify(a19c?.outcomes) === JSON.stringify({ chatgpt: "already asked", perplexity: "already asked" }) && Date.parse(a19c?.at) > Date.parse(a19a?.at) && m19c > m19 && count("a19a1", "load") === 1 && count("a19a2", "load") === 1,
       d(r19c) + " | " + JSON.stringify(a19c) + " | mtime " + m19 + " -> " + m19c);
 
+    // ---- case 20 (AB-13): the focus emulation is a declared behaviour. The script's CDP methods are recorded by a second preload (cdp-hook.mjs, the test's own --import beside the sleep hook): it wraps the global
+    // WebSocket, so every message the script sends to the browser is appended as { m: method, e: params.enabled }, and it wraps io.sleep a second time so that every wait is appended as { s: why } in the same file and in the
+    // same order. "A check is answered" is read from that order: the wait "after check" comes right after the look that found the check gone. Nothing here reads the server's clock.
+    // This case stands outside the ASK_TEST_FROM guard: the run with ASK_TEST_FROM=18 runs cases 18 to 20.
+    const cdpHook = path.join(tmp, "cdp-hook.mjs");
+    fs.writeFileSync(cdpHook, 'import fs from "node:fs";\nimport { io } from ' + JSON.stringify(pathToFileURL(path.join(dir, "lib-ask-pace.mjs")).href) + ';\nconst L = (o) => fs.appendFileSync(process.env.ASK_CDP_LOG, JSON.stringify(o) + "\\n");\nconst Real = globalThis.WebSocket;\nglobalThis.WebSocket = class extends Real { send(d) { try { const m = JSON.parse(d); L({ m: m.method, e: m.params && m.params.enabled }); } catch { /* not JSON */ } return super.send(d); } };\nconst prev = io.sleep;\nio.sleep = (ms, why) => { L({ s: why }); return prev(ms, why); };\n');
+    let c20n = 0;
+    const ask20 = async (w, engines, over = {}) => {
+      const f = path.join(tmp, "cdp" + c20n++ + ".log");
+      const r = await ask(w, engines, { env: { NODE_OPTIONS: "--import " + pathToFileURL(hook).href + " --import " + pathToFileURL(cdpHook).href, ASK_CDP_LOG: f }, ...over });
+      r.cdp = fs.existsSync(f) ? fs.readFileSync(f, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+      return r;
+    };
+    const EMU = "Emulation.setFocusEmulationEnabled", idx = (r, f) => r.cdp.map((x, i) => [x, i]).filter(([x]) => f(x)).map(([, i]) => i);
+    const K20a = await world(); PAGES.c20a.check.atChars = K20a.lock.text1.length;
+    const r20a = await ask20(K20a, { chatgpt: spec("c20a", RING) }), ck20a = jr(cap(K20a, "chatgpt-check.json"));
+    const offs = idx(r20a, (x) => x.m === EMU && x.e === false), ons = idx(r20a, (x) => x.m === EMU && x.e === true), fronts = idx(r20a, (x) => x.m === "Page.bringToFront"), afters = idx(r20a, (x) => x.s === "after check"), inserts = idx(r20a, (x) => x.m === "Input.insertText");
+    const iOn = ons.find((i) => offs.length && i > offs[0]), iIns = inserts.find((i) => afters.length && i > afters[0]);
+    check("case 20a: a ring engine, a check shows while text 1 is typed: the emulation is on from the start, enabled false is sent ONCE and BEFORE Page.bringToFront, no enabled true is sent until the check is answered (the 'after check' wait), and enabled true is sent after it and before the next Input.insertText (none was typed in between); exit 0",
+      K20a.ok && r20a.code === 0 && last(r20a) === "ASKED: chatgpt read" && ons.length >= 2 && ons[0] < offs[0] && offs.length === 1 && fronts.length === 1 && offs[0] < fronts[0] && afters.length === 1 && ons.every((i) => i < offs[0] || i > afters[0]) && iOn !== undefined && iOn > afters[0] && iIns !== undefined && iOn < iIns && !inserts.some((i) => i > offs[0] && i < iOn),
+      d(r20a) + " | offs " + offs + " ons " + ons + " fronts " + fronts + " afters " + afters + " iOn " + iOn + " iIns " + iIns + " | inserts " + inserts.length);
+    const K20b = await world(), r20b = await ask20(K20b, { chatgpt: spec("c20b", { focus: "front" }) });
+    const ins20 = idx(r20b, (x) => x.m === "Input.insertText"), fr20 = idx(r20b, (x) => x.m === "Page.bringToFront"), p1 = Math.ceil(nch(K20b.lock.text1) / PACE.typeCharactersPerSecond);
+    check("case 20b: an engine with focus 'front': no Emulation.* method at all in the log, Page.bringToFront sent exactly twice, once before the first Input.insertText of each of the two texts; exit 0",
+      K20b.ok && r20b.code === 0 && last(r20b) === "ASKED: chatgpt read" && !r20b.cdp.some((x) => String(x.m).startsWith("Emulation.")) && ins20.length > p1 && fr20.length === 2 && fr20[0] < ins20[0] && fr20[1] > ins20[p1 - 1] && fr20[1] < ins20[p1],
+      d(r20b) + " | emulation calls " + JSON.stringify(r20b.cdp.filter((x) => String(x.m).startsWith("Emulation."))) + " | fronts " + fr20 + " first insert " + ins20[0] + " last of text 1 " + ins20[p1 - 1] + " first of text 2 " + ins20[p1]);
+    const K20c = await world(), r20c = await ask20(K20c, { chatgpt: spec("c20c", { ...RING, focus: "front" }) }), ck20c = jr(cap(K20c, "chatgpt-check.json"));
+    check("case 20c: the check record holds the focus mode: 'emulated' (the default, absent in the engine) on the run of 20a, 'front' on a run with a check and focus front, where still no Emulation.* method was sent",
+      ck20a?.focus === "emulated" && r20c.code === 0 && ck20c?.focus === "front" && ck20c?.rang === true && !r20c.cdp.some((x) => String(x.m).startsWith("Emulation.")), d(r20c) + " | " + JSON.stringify(ck20a) + " | " + JSON.stringify(ck20c));
+    const K20d = await world(), r20d = await ask20(K20d, { chatgpt: spec("c20d", { focus: "sideways" }) });
+    check("case 20d: a focus value that is neither 'emulated' nor 'front' is exit 2 before any page is loaded, naming the engine and the key", K20d.ok && r20d.code === 2 && /chatgpt/.test(r20d.out) && /focus/.test(r20d.out) && count("c20d", "load") === 0 && r20d.cdp.length === 0, d(r20d));
+
     if (!ONLY18) {
     // ---- case 10: the side list is in no file written and no line printed
     const files = walk(tmp).filter((f) => !/[\\/]net\.log$/.test(f)), hits = files.filter((f) => { try { return fs.readFileSync(f, "utf8").includes("HISTORY-MARKER"); } catch { return false; } });
@@ -473,11 +506,17 @@ const MUTANTS = [
   lib("checkLookSeconds 1 is accepted", "checkLookSeconds: [2, 30]", "checkLookSeconds: [1, 30]", /^case 17d:/),
   one("asked.json is not written when the run ends BLOCKED", 'fs.writeFileSync(askedFile, JSON.stringify({ step: "ai-ask"', 'if (anyAsked) fs.writeFileSync(askedFile, JSON.stringify({ step: "ai-ask"', /^case 19b:/),
   one("asked.json is not written again by a second run", 'fs.writeFileSync(askedFile, JSON.stringify({ step: "ai-ask"', 'if (!fs.existsSync(askedFile)) fs.writeFileSync(askedFile, JSON.stringify({ step: "ai-ask"', /^case 19c:/),
+  one("the emulation is left on when the check shows", 'await c.send("Emulation.setFocusEmulationEnabled", { enabled: false }, sid); emuOff = true;', "emuOff = true;", /^case 20a:/),
+  one("the emulation is switched on again while the check still shows", 'await pause(w, "human check"); waited += w;', 'await pause(w, "human check"); waited += w; try { await c.send("Emulation.setFocusEmulationEnabled", { enabled: true }, sid); } catch { /* x */ }', /^case 20a:/),
+  one("a front engine still gets the emulation", 'if (focus !== "front") { try { await c.send("Emulation.setFocusEmulationEnabled", { enabled: true }, sid); }', 'if (true) { try { await c.send("Emulation.setFocusEmulationEnabled", { enabled: true }, sid); }', /^case 20b:/),
+  one("a front engine is not brought to the front before its texts", 'if (focus === "front") await front();', "", /^case 20b:/),
+  one("the check record does not say the focus mode", "secondShowing: false, focus };", "secondShowing: false };", /^case 20c:/),
+  lib("a bad focus value is accepted", "if (!FOCUS_MODES.has(v)) throw new Error(", "if (false) throw new Error(", /^case 20d:/),
   one("an outcome is cut to its first word in asked.json", "outcomes: Object.fromEntries(outcomes) }", "outcomes: Object.fromEntries(outcomes.map(([n, o]) => [n, o.split(\" \")[0]])) }", /^case 19b:/, /^case 19c:/),
 ];
 
-// with ASK_TEST_FROM=18 only the faults whose cases ran can be judged: those that expect a case 18, case 19 or case 17d and nothing else
-const FAULTS = ONLY18 ? MUTANTS.filter((m) => m.expect.every((re) => /case 18|case 19|case 17d/.test(String(re)))) : MUTANTS;
+// with ASK_TEST_FROM=18 only the faults whose cases ran can be judged: those that expect a case 18, case 19, case 20 or case 17d and nothing else
+const FAULTS = ONLY18 ? MUTANTS.filter((m) => m.expect.every((re) => /case 18|case 19|case 20|case 17d/.test(String(re)))) : MUTANTS;
 const code = await main({ label: "ASK ASSISTANTS", scenarios, MUTANTS: FAULTS, scriptsDir: here, argv: process.argv.slice(2) });
 closeBrowser();
 if (ONLY18) console.log("ASK_TEST_FROM=18: the cases before case 18 and case 10 did not run; " + RAN + " cases ran in the last pass");

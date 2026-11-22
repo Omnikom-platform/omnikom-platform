@@ -24,6 +24,13 @@
 //   captures/ai-oneshot/<engine>-check.json records every showing: { engine, host, shownAt, stage, rang, answered, waitedSeconds, secondShowing }.
 // The tab is opened plainly (openPlain of vantage.mjs): no permission is granted and no location is set.
 // The limit (2026-11-22 08:51): ChatGPT challenged a scripted tab on its first page load, before any typing, so pace does not change that host's answer.
+// FOCUS (owner's head of operations, 2026-11-22 18:36): the window of the work browser may sit behind the owner's own, and a page that is not in front does not take text. So, by default (engine key
+//   "focus": "emulated", also when the key is absent), the tab is told to behave as if it had the focus (Emulation.setFocusEmulationEnabled) where it is set today, right after the page has loaded; its only purpose is
+//   that the texts go into the box while the window sits behind his. Three conditions: (1) it is never raised or changed as an answer to a check. (2) The moment a HUMAN CHECK shows on a ring engine the script sends
+//   the same call with enabled false BEFORE Page.bringToFront, and nothing switches it on again while the check shows: what he ticks is a truly focused page; after he answered (the after-load pause and the one more look)
+//   it is switched on again right before the next piece is typed. On every path that closes the tab nothing more is needed. (3) "focus": "front" = NO Emulation call at all for that engine, and Page.bringToFront is
+//   sent once before each of its two texts is typed; any other value is exit 2 before any page is loaded, the key named. The check record <engine>-check.json says which ("focus"). The rule the key serves: if one
+//   assistant shows a check on the FIRST prompt in two separate runs with the emulation on, that host is set to front: its part takes the front for its two prompts (applied by the head from the check records; no counter is built).
 // Usage: node ask-assistants.mjs <url> [--engines a,b] [--engines-file F] [--port N] [--cwd DIR]
 //   work-browser-engines.json: the "pace" block above, and per engine { url, mode, signedIn, freshContext, composer, send, reply, busy, modeProof, modeSteps, capSeconds }; optional quietSeconds
 //   (how long the reply must stay unchanged, default 5). "selectors": "NOT SET" = no page description yet: blocked, nothing opened.
@@ -31,7 +38,7 @@
 // Whatever ai-oneshot.mjs refuses (no lock, a changed text) ends the run with its own line and exit code, nothing sent; the one exception is a reply that save refuses (exit 1):
 // for message 1 that assistant is recorded blocked ('reply refused: ...') and the run goes on, for message 2 the line says 'read, follow-up refused: ...' and the run goes on.
 // When no assistant of the run ended read or already asked, the last line is BLOCKED: no assistant could be asked (...) and the exit is 3; every reason an active stop adds ' | outside: stop'.
-// Never change the exit, the profile, the user agent, the timing or the way a tab is opened in order to get past a check: that is evasion and is not ours to do. A check is recorded and its source is not gathered.
+// Never change the exit, the profile, the user agent, the timing or the way a tab is opened in order to get past a check: that is evasion and is not ours to do; and no location override and no permission grant, ever. A check is recorded and its source is not gathered.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -40,7 +47,7 @@ import { fileURLToPath } from "node:url";
 import { connect, openPlain, evalIn, closePage, settle, looksLikeRobotCheck, aiWallReason } from "./vantage.mjs";
 import { isStopped, writeStop } from "./lib-stops.mjs";
 import { context } from "./research-lib.mjs";
-import { io, pause, checkPace, pieces, readingSeconds, wordCount, PaceError } from "./lib-ask-pace.mjs";
+import { io, pause, checkPace, pieces, readingSeconds, wordCount, PaceError, focusOf } from "./lib-ask-pace.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BROWSER_WORDS = "work browser (Edge, US exit)";
@@ -114,6 +121,8 @@ async function main() {
     if (v !== undefined && !HUMAN_CHECK.has(v)) throw new Stop("the engine " + n + " has humanCheck " + JSON.stringify(v) + ": it is \"ring\" or \"stop\" (or absent, which means stop)\n" + USAGE, 2);
   }
 
+  for (const n of names) { try { focusOf(n, all[n]); } catch (e) { throw new Stop(e.message + "\n" + USAGE, 2); } }   // the engine key "focus", before any page is loaded
+
   let port = opt.has("port") ? Number(opt.get("port")) : null;
   if (opt.has("port") && !Number.isInteger(port)) throw new Stop("--port is a whole number\n" + USAGE, 2);
   if (!port) {
@@ -163,7 +172,11 @@ async function main() {
       opened = true;
       await pause(pace.afterLoadSeconds, "after load");
       const sid = tab.sessionId, ev = (x) => evalIn(c, sid, x), q = (s) => JSON.stringify(s);
-      try { await c.send("Emulation.setFocusEmulationEnabled", { enabled: true }, sid); } catch { /* an older browser: the page still takes the paste */ }
+      const focus = focusOf(name, sp);   // "emulated" | "front" (checked before any page was loaded)
+      let emuOff = false;   // the emulation was switched off by a human check and is not yet on again
+      if (focus !== "front") { try { await c.send("Emulation.setFocusEmulationEnabled", { enabled: true }, sid); } catch { /* an older browser: the page still takes the paste */ } }
+      const emuBack = async () => { if (!emuOff) return; emuOff = false; try { await c.send("Emulation.setFocusEmulationEnabled", { enabled: true }, sid); } catch { /* an older browser */ } };   // right before the next piece is typed, after a person answered
+      const front = async () => { try { await c.send("Page.bringToFront", {}, sid); } catch { /* the tab is in front or it is not; nothing else is sent */ } };
       const has = async (sel) => !!sel && await ev("!!document.querySelector(" + q(sel) + ")");
       // an element is brought into view on its own, and the page is given 120 ms for its scroll event, BEFORE the click, so the click itself sends no scroll. This is tidier, not a fix of
       // anything seen: a scroll that a test saw 38 ms after a check appeared (2026-11-22) turned out to be the invented page's own text box scrolling itself back, not ours.
@@ -197,11 +210,12 @@ async function main() {
       // a check shows. Returns null when a person answered it and the page is clear again, else the outcome of this assistant. Nothing is sent to the tab until the check is gone.
       const onCheck = async (look) => {
         const second = shownHosts.has(host), was = shownHosts.get(host);
-        if (!rec) rec = { engine: name, host, shownAt: new Date().toISOString(), stage, rang: false, answered: null, waitedSeconds: 0, secondShowing: false };
+        if (!rec) rec = { engine: name, host, shownAt: new Date().toISOString(), stage, rang: false, answered: null, waitedSeconds: 0, secondShowing: false, focus };
         rec.stage = stage; rec.secondShowing = second; writeRec();
         if (!rings) return hardStop("robot check");
         if (second) return hardStop(was === "answered" ? "robot check shown again after a person answered it" : "robot check");
         shownHosts.set(host, "unanswered");
+        if (focus !== "front") { try { await c.send("Emulation.setFocusEmulationEnabled", { enabled: false }, sid); emuOff = true; } catch { /* an older browser */ } }   // a truly focused page for the person, BEFORE the front
         try { await c.send("Page.bringToFront", {}, sid); } catch { /* the tab is shown or it is not; nothing else is sent */ }
         console.log("RING: " + name + " shows a human check: answer it in the work browser window; the run waits up to " + pace.checkWaitSeconds + " s and sends nothing to that tab");
         io.ring(name);
@@ -251,11 +265,13 @@ async function main() {
       for (const n of [1, 2]) {
         // g: the text in pieces at the fixed rate, one piece each second, the box read back, the box check
         const g0 = await guard("typing " + n); if (g0 && g0 !== true) return g0;
+        if (focus === "front") await front();   // once before each of the two texts
         await focusBox();
         const text = texts[n];
         for (const piece of pieces(text, pace.typeCharactersPerSecond)) {
           let g = await guard("typing " + n); if (g && g !== true) return g;
           if (g === true) await focusBox();   // a person answered a check: the box is pointed at again, now that the check is gone
+          await emuBack();
           await c.send("Input.insertText", { text: piece }, sid);
           await pause(1, "piece");
         }

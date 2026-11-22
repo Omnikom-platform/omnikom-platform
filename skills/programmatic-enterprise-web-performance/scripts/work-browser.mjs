@@ -11,7 +11,7 @@
 // Never start this through heavy.mjs: that tool's kill-on-close job ends the browser when the command ends (seen 2026-11-22: no port in 60 s, the window gone).
 // Exit codes: 0 ok, 2 usage, 3 BLOCKED (the last line is "BLOCKED: <what> | unblocks: <what would>").
 // Hard limits: only a pid whose command line passes isAuditMain() is ever closed (the owner's own Edge has no profile flag there and is never touched); the profile is read only
-// for "Local State" (a parse check, in lib-browser-profile.mjs) and "DevToolsActivePort"; no sign-in or cookie handling; no geolocation override; no headless; no retry around a failed exit check.
+// for "Local State" (a parse check, in lib-browser-profile.mjs) and "DevToolsActivePort"; no sign-in or cookie handling; no location override and no permission grant, ever; no headless; no retry around a failed exit check.
 // Every outside thing (process list, taskkill, ssh, curl, spawn, fetch, clock, files) comes in through one io object, so test-work-browser.mjs starts nothing.
 import nodeFs from "node:fs";
 import os from "node:os";

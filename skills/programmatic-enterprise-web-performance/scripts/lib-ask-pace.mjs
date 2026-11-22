@@ -21,6 +21,15 @@ export const io = {
 };
 export const pause = (seconds, why) => io.sleep(seconds * 1000, why);
 
+// An engine's "focus" (ask-assistants.mjs, header FOCUS): "emulated" (the default when the key is absent) or "front"; any other value is refused, the engine and the key named.
+export const FOCUS_MODES = new Set(["emulated", "front"]);
+export function focusOf(name, spec) {
+  const v = spec && spec.focus;
+  if (v === undefined) return "emulated";
+  if (!FOCUS_MODES.has(v)) throw new Error("the engine " + name + " has focus " + JSON.stringify(v) + ": it is \"emulated\" or \"front\" (or absent, which means emulated)");
+  return v;
+}
+
 // key: [lowest, highest]; null for the highest of readSecondsMax means "300", and its lowest is readSecondsMin's own value (checked below)
 const RANGES = { tabsAtOnce: [1, 1], afterLoadSeconds: [3, 60], typeCharactersPerSecond: [1, 15], beforeSendSeconds: [1, 30], readSecondsPer100Words: [1, 60], readSecondsMin: [5, 120], readSecondsMax: [5, 300], betweenAssistantsSeconds: [60, 900], checkWaitSeconds: [60, 600], checkLookSeconds: [2, 30] };
 export const PACE_KEYS = Object.keys(RANGES);
