@@ -60,7 +60,7 @@ and `adoptDefault` in `lib-pipeline.mjs` are the same rule for `omnikom seo run`
 - Options of `start.mjs` that shape the run (remembered for the run): `--exclude`, `--max-pages`, `--research-args`, `--seed-args`, `--no-authority`, `--fresh`, `--client`,
   `--env-file`; `--stage <id>` runs one step (after its dependencies); `--pipeline <file>` uses another manifest (tests). `{work}` for the checker's headless workers is
   `<run>/work`, or `<os temp>/pewp-work/<host>` when the run lives under `~/.claude` (those workers cannot write there).
-- The captures a script never makes: Google, Bing, ChatGPT, Perplexity, Copilot, Maps, Trends, directories, review sites, social and ad libraries are read in the owner's
+- The captures a script never makes: Google, Bing, ChatGPT, Perplexity, Maps, Trends, directories, review sites, social and ad libraries are read in the owner's
   browser at human pace and saved in the format at the top of each importer (`scripts/import-*.mjs`, `research-autocomplete.mjs`, `local-nap.mjs`).
 - Stations: `pipeline.json` groups its steps into 9 `stations` (site, business, demand, search, assistants, local, rivals, standing, report); every step names one. A station is CLOSED when each of its steps is RUN,
   skipped by the manifest's own rule, or left by its script BLOCKED, WAITING, PARTIAL, FAILED or SKIPPED and then judged by an agent as "not gathered" (a ruling that stops counting when the row changes). Never ruled: an approval, a step not run yet.

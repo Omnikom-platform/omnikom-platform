@@ -100,7 +100,7 @@ This is the project's 2026-10-17 precedent, kept as is. Use the claude-in-chrome
    (`--device` overrides); their location is `NOT LOCALIZED (baseline)` when the footer did not show the city (this project's run: 221 of 222). They hold domains
    only: clustering then treats a niche domain as its one page and a portal by domain + title, and they give no `competitorsTop3`; the report says so.
    The same capture saved in two folders counts once.
-6. **AI engines** (ChatGPT, Perplexity, Copilot, Gemini app): the owner's browser, a fresh chat with memory off, the exact question, 3 runs,
+6. **AI engines** (ChatGPT, Perplexity, Gemini app): the owner's browser, a fresh chat with memory off, the exact question, 3 runs,
    same pace and stop rule; the answer can go through the same receiver (`POST /save-ai?file=<id>.json`, checked and paced like the results pages). An engine that needs a sign-in or new terms is BLOCKED until the owner does it himself. Save
    `<pewp>/captures/ai/<id>.json`: `{"engine":"chatgpt","question","prompt","model":"as shown","capturedAt","browser","location":"what the assistant said it assumed","answer","sources":["https://..."]}`
    (one file per run). The project's `AI-<ID>.<engine>.md` files are read too.
@@ -128,7 +128,7 @@ least 2026-11-12 04:29 local** (see "What was proven").
   place line and records `{footer, footerLocation, query, url, at}` plus a browser session id. `status` passes only if that proof exists, passed (Sacramento or
   California), is under 12 hours old and belongs to the browser that is running now. Every Google capture also records its own footer location in
   `vantage.footerLocation`, so each capture proves its own vantage.
-- **Pace and walls.** At least 45 s between Google pages and between Bing pages; 60 s per host for every other host (ChatGPT, Perplexity, Copilot, LinkedIn,
+- **Pace and walls.** At least 45 s between Google pages and between Bing pages; 60 s per host for every other host (ChatGPT, Perplexity, LinkedIn,
   Facebook, Reddit, BBB, Trustpilot). `capture` refuses inside the gap. A robot check, CAPTCHA or sign-in wall is BLOCKED and writes that engine's 24 h stop, never
   solved, never bypassed. No loop over a query list; the agent asks for each page.
 - **Stops** are one file per engine in the shared format, `~/.claude/state/omnikom-stops/<engine>.json` (`lib-stops.mjs`: engine, hosts, until, reason, setBy, setAt,

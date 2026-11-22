@@ -108,7 +108,7 @@ storing or monitoring grounded results and building a database from them; the ow
 tier. The script therefore stores only cited domains, counts and a hash, never the answer text, never caches the raw response,
 and **stays BLOCKED until `ai.geminiTermsAcknowledged` is set to true** after the owner has confirmed (the research stage reads the same
 confirmation as `PEWP_GEMINI_TERMS_ACK=1`; `doctor.mjs` lists it as source `gemini-terms`). Tell the owner this once.
-ChatGPT, Perplexity and Copilot are captured by the owner at human pace into `captures/ai/`: either JSON
+ChatGPT and Perplexity are captured by the owner at human pace into `captures/ai/`: either JSON
 `{ "question", "engine", "model", "capturedAt", "capturedIn", "location", "citedDomains": [..] }` (research-ai's `sources` field works
 too) or the project's `AI-<ID>.<engine>.md` files (read with research-ai's parser); an answer without a date is rejected; one file per answer;
 files of the same question and engine are grouped into one row, and fewer than 3 answers is flagged `lowSample`.

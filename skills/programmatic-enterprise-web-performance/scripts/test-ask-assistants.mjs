@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import http from "node:http";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { runner, J, W, walk, mkTmp, rmTmp, checker, main } from "./lib-test-kit.mjs";
 import { spawnBrowser } from "./lib-browser-profile.mjs";
 import { CHROME_PATH } from "./cdp-measure.mjs";
@@ -21,6 +21,8 @@ const BIZ = { name: "Sample Valley Realty", domain: HOST, phone: "(555) 010-2000
   locations: [{ name: "Sampleville, CA", address: "1 Main St, Sampleville, CA 90000", serviceArea: ["Sampleville, CA", "Testburg, CA"] }],
   vocabulary: ["homes for sale", "real estate agent", "sell my house", "home valuation"], related: [{ relation: "brokerage", name: "Beta Realty", domain: "beta-realty.test" }] };
 const BROWSER_WORDS = "work browser (Edge, US exit)";
+// the pace the head of operations settled (owner, 2026-11-22, M250); case 17e holds the real engines file to exactly these numbers
+const PACE = { tabsAtOnce: 1, afterLoadSeconds: 8, typeCharactersPerSecond: 8, beforeSendSeconds: 3, readSecondsPer100Words: 12, readSecondsMin: 15, readSecondsMax: 90, betweenAssistantsSeconds: 180 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---------------------------------------------------------------- the invented assistant pages
@@ -34,6 +36,9 @@ const PAGES = {
   ck1: { kind: "chat", modeOn: true }, ck2: { kind: "chat", modeOn: true },   // two assistants on ONE host: the server sets a cookie on the first visit and logs the Cookie header
   short1: { kind: "chat", modeOn: true, short: 1 }, short2: { kind: "chat", modeOn: true, short: 2 }, lockGone: { kind: "chat", modeOn: true },   // reply number `short` is 20 characters; lockGone: the server deletes the lock when a send arrives
   robotJam: { kind: "robot", title: "Just a moment...", text: "Please stand by." }, robotVerify: { kind: "robot", title: "Verify you are human", text: "Please stand by." }, robotCheck: { kind: "robot", title: "Checking your browser", text: "Please stand by." },
+  words10: { kind: "chat", modeOn: true, words: 10 }, words500: { kind: "chat", modeOn: true, words: 500 }, words2000: { kind: "chat", modeOn: true, words: 2000 },   // every reply is that many words (30 letters each)
+  p17d: { kind: "chat", modeOn: true }, p17f: { kind: "chat", modeOn: true },
+  p17a1: { kind: "chat", modeOn: true }, p17a2: { kind: "chat", modeOn: true },   // case 17a's own two pages (the log is one for the whole run: a page another case asked would be counted twice)
   robotTitle: { kind: "robot", title: "Attention Required", text: "Please stand by." }, robotText: { kind: "robot", title: "Just a page", text: "Verifying you are human. This may take a few seconds." },
 };
 const html = (name, cfg) => {
@@ -51,10 +56,10 @@ const html = (name, cfg) => {
     + 'setInterval(()=>ev("beat"),200);'
     + (chat ? '(function(){const box=document.getElementById("box"),chat=document.getElementById("chat"),busyArea=document.getElementById("busy-area");let n=0;'
       + 'const mb=document.getElementById("mode-btn");if(mb)mb.addEventListener("click",()=>{if(!document.getElementById("temp-on")){const d=document.createElement("div");d.id="temp-on";d.textContent="Temporary chat is on";document.getElementById("mode-area").appendChild(d);}});'
-      + 'box.addEventListener("input",()=>{ev("input");if(CFG.mangle&&!box.dataset.m){box.dataset.m="1";box.value+=" XTRA";}});'
-      + 'document.getElementById("send").addEventListener("click",()=>{ev("send",String(box.value.length));if(CFG.silent)return;n++;const k=n;box.value="";busyArea.innerHTML=\'<div id="busy">Thinking</div>\';'
+      + 'box.addEventListener("input",()=>{ev("input",String(box.value.length-(box._l||0)));box._l=box.value.length;if(CFG.mangle&&!box.dataset.m){box.dataset.m="1";box.value+=" XTRA";}});'
+      + 'document.getElementById("send").addEventListener("click",()=>{ev("send",String(box.value.length));if(CFG.silent)return;n++;const k=n;box.value="";box._l=0;busyArea.innerHTML=\'<div id="busy">Thinking</div>\';'
       + 'const r=document.createElement("div");r.className="reply";chat.appendChild(r);'
-      + 'const chunks=CFG.short===k?["<p>Too short reply no."+k+"</p>"]:["<h2>Part 1: your recommendations ("+k+")</h2>","<p>Filler paragraph with enough words so that the whole reply is longer than two hundred characters for the saved record, reply number "+k+", going on and on a little more.</p>",'
+      + 'const chunks=CFG.short===k?["<p>Too short reply no."+k+"</p>"]:CFG.words?["<p>"+Array.from({length:CFG.words},(_,i)=>"w"+String(i).padStart(29,"0")).join(" ")+"</p>"]:["<h2>Part 1: your recommendations ("+k+")</h2>","<p>Filler paragraph with enough words so that the whole reply is longer than two hundred characters for the saved record, reply number "+k+", going on and on a little more.</p>",'
       + '"<table><thead><tr><th>Rank</th><th>Name</th><th>Source</th></tr></thead><tbody><tr><td>1</td><td>Alpha Homes</td><td><a href=\\"https://alpha-homes.test/q"+k+"\\">Alpha Homes site</a></td></tr></tbody></table>",'
       + '"<ul><li>first point</li><li>second point</li></ul>","<p>Plain address: <a href=\\"https://zeta.test/\\">https://zeta.test/</a></p>","<p>END-OF-REPLY-"+k+"</p>"];'
       + 'let i=0;const t=setInterval(()=>{r.insertAdjacentHTML("beforeend",chunks[i++]);if(i>=chunks.length){clearInterval(t);busyArea.innerHTML="";}},350);});})();' : "")
@@ -116,9 +121,15 @@ async function scenarios(dir) {
   };
   const spec = (page, over = {}) => ({ url: srv.base + "/p/" + page, mode: "temporary chat", signedIn: false, freshContext: false, composer: "#box", send: "#send", reply: ".reply", busy: "#busy", modeProof: "#temp-on", modeSteps: [], capSeconds: 40, quietSeconds: 2, ...over });
   let ef = 0;
-  const ask = async (w, engines, { port = br.port, extra = [] } = {}) => {
-    const file = path.join(tmp, "engines" + ef++ + ".json"); W(file, engines);
-    const r = await run("ask-assistants.mjs", [SITE, "--engines-file", file, ...(port ? ["--port", String(port)] : []), "--cwd", w.cwd, ...extra], { env: { OMNIKOM_STOPS_DIR: w.stops, TEMP: w.temp, TMP: w.temp, TMPDIR: w.temp }, timeout: 240000 });
+  // every wait of the script goes through io.sleep of lib-ask-pace.mjs; a preload replaces it by one that appends { ms, why } to a file and returns at once, so the
+  // test is fast and reads back exactly which waits were asked for (the numbers still come from the pace block in the engines file, which the script reads)
+  const hook = path.join(tmp, "sleep-hook.mjs");
+  fs.writeFileSync(hook, 'import fs from "node:fs";\nimport { io } from ' + JSON.stringify(pathToFileURL(path.join(dir, "lib-ask-pace.mjs")).href) + ';\nio.sleep = (ms, why) => { fs.appendFileSync(process.env.ASK_SLEEP_LOG, JSON.stringify({ ms, why }) + "\\n"); return Promise.resolve(); };\n');
+  // pace: the block written beside the engines (the real numbers by default); "none" writes no block; env: more environment for the run
+  const ask = async (w, engines, { port = br.port, extra = [], pace = PACE, env = {} } = {}) => {
+    const file = path.join(tmp, "engines" + ef + ".json"), log = path.join(tmp, "sleeps" + ef++ + ".log"); W(file, pace === "none" ? engines : { ...engines, pace });
+    const r = await run("ask-assistants.mjs", [SITE, "--engines-file", file, ...(port ? ["--port", String(port)] : []), "--cwd", w.cwd, ...extra], { env: { OMNIKOM_STOPS_DIR: w.stops, TEMP: w.temp, TMP: w.temp, TMPDIR: w.temp, NODE_OPTIONS: "--import " + pathToFileURL(hook).href, ASK_SLEEP_LOG: log, ...env }, timeout: 240000 });
+    r.sleeps = fs.existsSync(log) ? fs.readFileSync(log, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
     allOut.push(r.out); return r;
   };
   const cap = (w, f) => path.join(w.pewp, "captures", "ai-oneshot", f), jr = (p) => (fs.existsSync(p) ? J(p) : null);
@@ -232,6 +243,50 @@ async function scenarios(dir) {
     const S3 = await world(); stopFor(S3, "chatgpt"); const rs3 = await ask(S3, { chatgpt: spec("unused"), perplexity: spec("ask2") });
     check("case 15c: two assistants, one stopped and one read: exit 0 and the ASKED line", rs3.code === 0 && !!jr(cap(S3, "perplexity-2.json")) && last(rs3) === "ASKED: chatgpt blocked (robot check), perplexity read", d(rs3) + " | last: " + last(rs3));
 
+    // ---- case 17: the pace (every number is the engines file's; the waits are read back from the recorder that replaces io.sleep)
+    const nch = (t) => Array.from(t).length, words = (t) => (String(t).match(/\S+/g) || []).length;
+    const readFor = (reply) => Math.min(PACE.readSecondsMax, Math.max(PACE.readSecondsMin, Math.round(words(reply) / 100 * PACE.readSecondsPer100Words)));
+    // the waits one assistant that loaded a page, was asked both texts and answered asks for; first: false adds the wait before its page
+    const waitsOf = (w, reply1, first) => [...(first ? [] : [["between assistants", PACE.betweenAssistantsSeconds]]), ["after load", PACE.afterLoadSeconds],
+      ...[1, 2].flatMap((m) => [...Array(Math.ceil(nch(m === 1 ? w.lock.text1 : w.lock.text2) / PACE.typeCharactersPerSecond)).fill(["piece", 1]), ["before send", PACE.beforeSendSeconds], ...(m === 1 ? [["reading", readFor(reply1)]] : [])])];
+    const asked = (r) => JSON.stringify(r.sleeps.map((s) => [s.why, s.ms / 1000]));
+    // the browser also reports input events that add nothing (seen 2026-11-22: 99 of them beside 528 pieces, on a text with line breaks); a size of 0 is not a piece
+    const pieceSizes = (page) => srv.log.filter((e) => e.page === page && e.kind === "input").map((e) => Number(e.x));
+    const P1w = await world(), r17 = await ask(P1w, { chatgpt: spec("p17a1"), perplexity: spec("p17a2") });
+    const re1 = jr(cap(P1w, "chatgpt-1.json"))?.answerText || "", re2 = jr(cap(P1w, "perplexity-1.json"))?.answerText || "";
+    const want17 = JSON.stringify([...waitsOf(P1w, re1, true), ...waitsOf(P1w, re2, false)]);
+    check("case 17a: two assistants: the waits asked for are afterLoadSeconds after each load, one second per piece, beforeSendSeconds before each of the four sends, a reading pause after each first reply, betweenAssistantsSeconds exactly once, nothing else, in that order",
+      P1w.ok && r17.code === 0 && re1.length > 0 && re2.length > 0 && asked(r17) === want17 && r17.sleeps.filter((s) => s.why === "between assistants").length === 1, d(r17) + " | asked " + asked(r17).slice(0, 300) + " | wanted " + want17.slice(0, 300));
+    const sz = [...pieceSizes("p17a1"), ...pieceSizes("p17a2")], sum = (p) => pieceSizes(p).reduce((a, b) => a + b, 0), both = nch(P1w.lock.text1) + nch(P1w.lock.text2);
+    check("case 17a2: each piece a page received is at most typeCharactersPerSecond characters, and the pieces of the two texts add up to the two locked texts (the box check passed for both)",
+      sz.length > 0 && sz.every((x) => x >= 0 && x <= PACE.typeCharactersPerSecond) && sz.filter((x) => x > 0).length >= 2 * Math.ceil(both / PACE.typeCharactersPerSecond) - 4 && sum("p17a1") === both && sum("p17a2") === both && count("p17a1", "send") === 2 && count("p17a2", "send") === 2 && count("p17a1", "load") === 1 && count("p17a2", "load") === 1, "sizes max " + Math.max(...sz) + " count " + sz.length + " sums " + sum("p17a1") + " and " + sum("p17a2") + " of " + both + " sends " + count("p17a1", "send") + " and " + count("p17a2", "send") + " loads " + count("p17a1", "load") + " and " + count("p17a2", "load") + " sizes seen " + JSON.stringify(sz.reduce((o, x) => { o[x] = (o[x] || 0) + 1; return o; }, {})));
+    const reading = async (page) => { const w = await world(), r = await ask(w, { chatgpt: spec(page) }), reply = jr(cap(w, "chatgpt-1.json"))?.answerText || ""; return { r, got: r.sleeps.filter((s) => s.why === "reading").map((s) => s.ms / 1000), n: words(reply) }; };
+    const w10 = await reading("words10"), w500 = await reading("words500"), w2000 = await reading("words2000");
+    check("case 17b: the reading pause: a first reply of 10 words waits readSecondsMin (15), one of 2000 words waits readSecondsMax (90), one of 500 words waits 60",
+      w10.n === 10 && w500.n === 500 && w2000.n === 2000 && JSON.stringify(w10.got) === "[15]" && JSON.stringify(w500.got) === "[60]" && JSON.stringify(w2000.got) === "[90]", JSON.stringify([w10.got, w10.n, w500.got, w500.n, w2000.got, w2000.n]) + " | " + d(w10.r));
+    const P3w = await world(), r17c = await ask(P3w, { chatgpt: spec("robot"), perplexity: spec("ask2") }), re3 = jr(cap(P3w, "perplexity-1.json"))?.answerText || "";
+    check("case 17c: the first assistant shows a check: its page is not touched, the wait before the second is betweenAssistantsSeconds, and the second's pieces and pauses are those of 17a (the pace did not change)",
+      r17c.code === 0 && blockedWhy(P3w, "chatgpt") === "robot check" && count("robot", "click") === 0 && count("robot", "key") === 0 && asked(r17c) === JSON.stringify([["after load", PACE.afterLoadSeconds], ...waitsOf(P3w, re3, false)]), d(r17c) + " | asked " + asked(r17c).slice(0, 300));
+    // the pace block is checked before any page is loaded: exit 2, the key named, nothing loaded, nothing waited for
+    const without = (k) => { const o = { ...PACE }; delete o[k]; return o; };
+    const BAD = [["no block at all", "none", "pace"], ["a key missing", without("readSecondsMin"), "readSecondsMin"], ["tabsAtOnce 2", { ...PACE, tabsAtOnce: 2 }, "tabsAtOnce"], ["typeCharactersPerSecond 0", { ...PACE, typeCharactersPerSecond: 0 }, "typeCharactersPerSecond"],
+      ["typeCharactersPerSecond 16", { ...PACE, typeCharactersPerSecond: 16 }, "typeCharactersPerSecond"], ["a text for a number", { ...PACE, afterLoadSeconds: "8" }, "afterLoadSeconds"], ["a fraction", { ...PACE, beforeSendSeconds: 2.5 }, "beforeSendSeconds"],
+      ["betweenAssistantsSeconds 59", { ...PACE, betweenAssistantsSeconds: 59 }, "betweenAssistantsSeconds"], ["readSecondsMax under readSecondsMin", { ...PACE, readSecondsMax: 10 }, "readSecondsMax"], ["an unknown key", { ...PACE, extraSeconds: 1 }, "extraSeconds"]];
+    const bad = [], Zw = await world();
+    for (const [label, pace, key] of BAD) { const r = await ask(Zw, { chatgpt: spec("p17d") }, { pace }); bad.push({ label, ok: r.code === 2 && r.out.includes(key) && r.sleeps.length === 0, why: label + ": " + d(r) }); }
+    check("case 17d: a bad pace block (" + BAD.map((b) => b[0]).join("; ") + "): exit 2, the key named, NO page loaded and nothing waited for", bad.every((b) => b.ok) && count("p17d", "load") === 0 && (await openTabs(br.port, srv.base))?.length === 0, bad.filter((b) => !b.ok).map((b) => b.why).join(" || ") + " loads " + count("p17d", "load"));
+    const realFile = J(path.join(dir, "work-browser-engines.json")), plib = await import(pathToFileURL(path.join(dir, "lib-ask-pace.mjs")).href);
+    let realOk = false, realWhy = ""; try { plib.checkPace(realFile.pace); realOk = true; } catch (e) { realWhy = e.message; }
+    check("case 17e: the real work-browser-engines.json: its engines are exactly chatgpt, gemini, perplexity, and its pace block passes the check and holds the settled numbers", JSON.stringify(Object.keys(realFile).filter((k) => k !== "pace").sort()) === JSON.stringify(["chatgpt", "gemini", "perplexity"]) && realOk && JSON.stringify(realFile.pace) === JSON.stringify(PACE), realWhy + " | " + JSON.stringify(Object.keys(realFile)) + " | " + JSON.stringify(realFile.pace));
+    // no environment variable and no flag changes the pace
+    const looks = {}; for (const k of Object.keys(PACE)) { const up = k.replace(/([A-Z])/g, "_$1").toUpperCase(); for (const n of [k, up, "PACE_" + up, "ASK_" + up, "ASK_ASSISTANTS_" + up, "PEWP_" + up]) looks[n] = "1"; }
+    const Ew = await world(), rEnv = await ask(Ew, { chatgpt: spec("p17f") }, { env: { ...looks, PACE: "1", ASK_PACE: "fast" } }), reEnv = jr(cap(Ew, "chatgpt-1.json"))?.answerText || "";
+    const flagged = []; for (const fl of [["--afterLoadSeconds", "1"], ["--after-load-seconds", "1"], ["--pace", "1"], ["--seconds", "1"]]) { const r = await ask(Ew, { chatgpt: spec("p17f") }, { extra: fl }); flagged.push({ fl: fl.join(" "), ok: r.code === 2 && /usage/i.test(r.out) && r.sleeps.length === 0, why: fl.join(" ") + ": " + d(r) }); }
+    check("case 17f: environment variables that look like pace numbers change nothing (the waits are those of the block), and a flag that looks like a pace number is a usage error (exit 2) with nothing loaded or waited for",
+      rEnv.code === 0 && asked(rEnv) === JSON.stringify(waitsOf(Ew, reEnv, true)) && flagged.every((x) => x.ok) && count("p17f", "load") === 1, d(rEnv) + " | asked " + asked(rEnv).slice(0, 200) + " | " + flagged.filter((x) => !x.ok).map((x) => x.why).join(" || ") + " loads " + count("p17f", "load"));
+    const own = ["ask-assistants.mjs", "lib-ask-pace.mjs"].map((n) => [n, fs.readFileSync(path.join(dir, n), "utf8")]);
+    check("case 17g: nothing in the script or its pace file is chance: the word \"random\" is in neither (a random wait would be there to look like a person)", own.every(([, s]) => !/random/i.test(s)), own.filter(([, s]) => /random/i.test(s)).map(([n]) => n).join(", "));
+
     // ---- case 10: the side list is in no file written and no line printed
     const files = walk(tmp).filter((f) => !/[\\/]net\.log$/.test(f)), hits = files.filter((f) => { try { return fs.readFileSync(f, "utf8").includes("HISTORY-MARKER"); } catch { return false; } });
     check("case 10: a side list on the page holds HISTORY-MARKER: the word is in no file written (" + files.length + " files looked at) and no line printed", files.length > 20 && hits.length === 0 && !allOut.some((o) => o.includes("HISTORY-MARKER")), "in: " + hits.join(", "));
@@ -243,14 +298,24 @@ async function scenarios(dir) {
 }
 
 const one = (name, from, to, ...expect) => ({ name, patches: [{ file: "ask-assistants.mjs", from, to }], expect });
+const lib = (name, from, to, ...expect) => ({ name, patches: [{ file: "lib-ask-pace.mjs", from, to }], expect });
+const PAUSE = "export const pause = (seconds, why) => io.sleep(seconds * 1000, why);";
 const MUTANTS = [
+  lib("the pauses are cut (no sleep is asked for)", PAUSE, "export const pause = (seconds, why) => Promise.resolve();", /^case 17a:/, /^case 17b:/, /^case 17c:/),
+  one("the text is pasted in one piece", "pieces(text, pace.typeCharactersPerSecond)", "pieces(text, text.length + 1)", /^case 17a2:/),
+  lib("the reading pause has no upper bound", "return Math.min(pace.readSecondsMax, Math.max(pace.readSecondsMin, wanted));", "return Math.max(pace.readSecondsMin, wanted);", /^case 17b:/),
+  one("the wait between assistants is left out after a check", "if (robot) {", "if (robot) { opened = false;", /^case 17c:/),
+  one("a pace number is read from the environment", "pace = checkPace(all.pace);", "pace = { ...checkPace(all.pace), afterLoadSeconds: Number(process.env.AFTER_LOAD_SECONDS) || all.pace.afterLoadSeconds };", /^case 17f:/),
+  one("a flag that looks like a pace number is ignored", "if (!FLAGS.has(argv[i].slice(2))) throw", "if (false) throw", /^case 17f:/),
+  lib("tabsAtOnce 2 is accepted", 'if (v !== 1) throw new PaceError(k, "pace tabsAtOnce must be exactly 1', 'if (v < 1) throw new PaceError(k, "pace tabsAtOnce must be exactly 1', /^case 17d:/),
+  lib("a wait gets chance added", PAUSE, "export const pause = (seconds, why) => io.sleep(seconds * 1000 + Math.floor(Math.random() * 400), why);", /^case 17a:/, /^case 17g:/),
   one("the mode test is skipped", "if (!(await modeOn())) {", "if (false) {", /^case 3a:/),
   one("the robot test is skipped", "if (robot) {", "if (false) {", /^case 4a:/),
   one("the box check is skipped", "if (bx.code !== 0) {", "if (false) {", /^case 6:/),
   one("the already-asked test is removed", "if (fs.existsSync(first)) return \"already asked\";", "if (false) return \"already asked\";", /^case 7:/),
   one("the reader drops link addresses", "return text + \" [\" + href + \"]\";", "return text;", /^case 2:/),
   one("both engines are started at once", "for (const name of names) outcomes.push([name, await askEngine(name)]);", "await Promise.all(names.map(async (name) => outcomes.push([name, await askEngine(name)])));", /^case 8:/),
-  one("the text goes in by key presses", "await c.send(\"Input.insertText\", { text }, sid);", "for (const ch of text) await c.send(\"Input.dispatchKeyEvent\", { type: \"keyDown\", key: ch, text: ch }, sid);", /^case 1b:/),
+  one("the text goes in by key presses", "await c.send(\"Input.insertText\", { text: piece }, sid);", "for (const ch of piece) await c.send(\"Input.dispatchKeyEvent\", { type: \"keyDown\", key: ch, text: ch }, sid);", /^case 1b:/),
   one("the page text is written to a file", "pageText = null;", "fs.writeFileSync(path.join(cwd, \"page-text.txt\"), pageText); pageText = null;", /^case 10:/),
   one("a fresh context is ignored", "if (sp.freshContext) {", "if (false) {", /^case 12a:/),
   one("a refused reply ends the run", "if (sv.code !== 1) throw refused(sv);", "throw refused(sv);", /^case 13a:/, /^case 13b:/),

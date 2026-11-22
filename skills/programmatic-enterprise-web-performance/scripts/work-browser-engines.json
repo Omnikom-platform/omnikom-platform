@@ -1,4 +1,5 @@
 {
+  "pace": { "tabsAtOnce": 1, "afterLoadSeconds": 8, "typeCharactersPerSecond": 8, "beforeSendSeconds": 3, "readSecondsPer100Words": 12, "readSecondsMin": 15, "readSecondsMax": 90, "betweenAssistantsSeconds": 180 },
   "chatgpt": {
     "selectors": "NOT SET"
   },
@@ -6,9 +7,6 @@
     "selectors": "NOT SET"
   },
   "perplexity": {
-    "selectors": "NOT SET"
-  },
-  "copilot": {
     "selectors": "NOT SET"
   }
 }

@@ -841,7 +841,7 @@
    "id": "capture-ai",
    "station": "assistants",
    "module": "ai",
-   "what": "AI answers beyond Google: ChatGPT, Perplexity, Copilot (no login), Gemini web (only if signed in); the buyer questions and 'who is <business>'",
+   "what": "AI answers beyond Google: ChatGPT, Perplexity, Gemini web (only if signed in); the buyer questions and 'who is <business>'",
    "script": null,
    "args": [],
    "inputs": [

@@ -1,10 +1,21 @@
 // The assistants, asked by a script (owner, 2026-11-22): for each assistant, one after the other, the locked text 1 and then the locked text 2 in the SAME
-// chat of the work browser (a browser on a debugging port). The texts are pasted (one Input.insertText), never typed; ai-oneshot.mjs does every check and every
+// chat of the work browser (a browser on a debugging port). The texts go in by Input.insertText in small pieces at the fixed pace below, never by key presses; ai-oneshot.mjs does every check and every
 // save (box, save, blocked). No model is called. An assistant is never asked twice, a robot check is never passed (a 24 h stop, nothing clicked), a sign-in
 // form is never typed into, and no chat history or side list is read: the script reads only the page's own composer, send, reply, busy and mode elements, and the
 // whole page's text ONLY to test for a robot check or a sign-in wall (tested and thrown away, never written or printed).
+// THE PACE (owner, 2026-11-22 10:20, M250: "properly pace the browser driving in order for it to not trigger these checks"; the head of operations' reading binds).
+// The pace is a fixed design, not a reaction: one tab at a time, one assistant at a time, a steady typing rate and reading pauses, the two texts in one chat and nothing
+// more per assistant per audit, minutes between assistants, no reload, no retry. The numbers are ONE block, "pace", in work-browser-engines.json beside the engines:
+//   tabsAtOnce 1 | afterLoadSeconds (after a page has loaded, before anything else) | typeCharactersPerSecond (a text goes into the box in pieces of that many characters,
+//   one piece each second, in order) | beforeSendSeconds (before each send) | readSecondsPer100Words, readSecondsMin, readSecondsMax (after the first reply is whole: its words / 100
+//   x readSecondsPer100Words seconds, never under the least, never over the most; then the second text) | betweenAssistantsSeconds (after one assistant's tab is closed, before the next page is loaded).
+// The block is read once at the start and checked before any page is loaded (exit 2, the key named); nothing changes a wait or the rate afterwards, not a check, not a stop,
+// not a refused reply, and no flag and no environment variable can. Every wait goes through io.sleep (lib-ask-pace.mjs), which only the test replaces. No wait has a jitter: fixed numbers anyone can read in the file.
+// The pace pretends nothing and the pace is the same before and after any check. What pace is NOT: no changed or invented user agent, no stealth patch, no faked pointer movement,
+// no changed exit, no fresh profile to look new: those disguise a script and are not ours. A check that shows anyway is the hard stop.
+// The limit (2026-11-22 08:51): ChatGPT challenged a scripted tab on its first page load, before any typing, so pace does not change that host's answer.
 // Usage: node ask-assistants.mjs <url> [--engines a,b] [--engines-file F] [--port N] [--cwd DIR]
-//   work-browser-engines.json: per engine { url, mode, signedIn, freshContext, composer, send, reply, busy, modeProof, modeSteps, capSeconds }; optional quietSeconds
+//   work-browser-engines.json: the "pace" block above, and per engine { url, mode, signedIn, freshContext, composer, send, reply, busy, modeProof, modeSteps, capSeconds }; optional quietSeconds
 //   (how long the reply must stay unchanged, default 5). "selectors": "NOT SET" = no page description yet: blocked, nothing opened.
 // Exit 0 = at least one assistant ended read or already asked, the others read, already asked or recorded blocked (the ASKED line says which). 2 = usage. 3 = BLOCKED (no work browser, no lock, or no assistant could be asked).
 // Whatever ai-oneshot.mjs refuses (no lock, a changed text) ends the run with its own line and exit code, nothing sent; the one exception is a reply that save refuses (exit 1):
@@ -19,11 +30,12 @@ import { fileURLToPath } from "node:url";
 import { connect, openPage, evalIn, closePage, settle, looksLikeRobotCheck, aiWallReason } from "./vantage.mjs";
 import { isStopped, writeStop } from "./lib-stops.mjs";
 import { context } from "./research-lib.mjs";
+import { pause, checkPace, pieces, readingSeconds, wordCount, PaceError } from "./lib-ask-pace.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BROWSER_WORDS = "work browser (Edge, US exit)";
 const USAGE = "usage: node ask-assistants.mjs <url> [--engines a,b] [--engines-file F] [--port N] [--cwd DIR]";
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const FLAGS = new Set(["engines", "engines-file", "port", "cwd"]);   // no other flag: none of them changes the pace
 const ROBOT_WORDS = /just a moment|verifying you are human|verify you are (?:a )?human|checking your browser|attention required/i;   // a robot check's title or text
 class Stop extends Error { constructor(line, code) { super(line); this.line = line; this.code = code; } }
 
@@ -59,6 +71,7 @@ const argv = process.argv.slice(2), pos = [], opt = new Map();
 try {
   for (let i = 0; i < argv.length; i++) {
     if (!argv[i].startsWith("--")) { pos.push(argv[i]); continue; }
+    if (!FLAGS.has(argv[i].slice(2))) throw new Stop("unknown option " + argv[i] + " (no flag changes the pace; it is the pace block of the engines file)\n" + USAGE, 2);
     if (i + 1 >= argv.length) throw new Stop(argv[i] + " needs a value\n" + USAGE, 2);
     opt.set(argv[i].slice(2), argv[++i]);
   }
@@ -77,9 +90,12 @@ async function main() {
   const file = opt.get("engines-file") || path.join(here, "work-browser-engines.json");
   let all;
   try { all = JSON.parse(fs.readFileSync(file, "utf8").replace(/^﻿/, "")); } catch (e) { throw new Stop("cannot read " + file + ": " + e.message, 2); }
-  const names = opt.has("engines") ? opt.get("engines").split(",").map((s) => s.trim()).filter(Boolean) : Object.keys(all);
-  const unknown = names.filter((n) => !Object.hasOwn(all, n));
-  if (!names.length || unknown.length) throw new Stop("the engines file has no engine " + (unknown.join(", ") || "(none given)") + "; it has " + Object.keys(all).join(", ") + "\n" + USAGE, 2);
+  let pace;   // read once, here, and checked before any page is loaded; nothing below changes it
+  try { pace = checkPace(all.pace); } catch (e) { if (e instanceof PaceError) throw new Stop(e.message + " (key: " + e.key + ")\n" + USAGE, 2); throw e; }
+  const engineNames = Object.keys(all).filter((k) => k !== "pace");
+  const names = opt.has("engines") ? opt.get("engines").split(",").map((s) => s.trim()).filter(Boolean) : engineNames;
+  const unknown = names.filter((n) => !engineNames.includes(n));
+  if (!names.length || unknown.length) throw new Stop("the engines file has no engine " + (unknown.join(", ") || "(none given)") + "; it has " + engineNames.join(", ") + "\n" + USAGE, 2);
 
   let port = opt.has("port") ? Number(opt.get("port")) : null;
   if (opt.has("port") && !Number.isInteger(port)) throw new Stop("--port is a whole number\n" + USAGE, 2);
@@ -105,6 +121,7 @@ async function main() {
     return "blocked (" + reason + ")";
   };
 
+  let opened = false;   // a page of an earlier assistant was loaded: the next page waits betweenAssistantsSeconds after that tab is closed
   async function askEngine(name) {
     const sp = all[name], first = path.join(dirOf, name + "-1.json");
     const stop = isStopped(name);
@@ -112,6 +129,7 @@ async function main() {
     if (fs.existsSync(first)) return "already asked";
     if (sp.selectors === "NOT SET") return block(name, "page description not set");
     const cap = Number(sp.capSeconds) > 0 ? Number(sp.capSeconds) : 300, quietMs = (Number(sp.quietSeconds) > 0 ? Number(sp.quietSeconds) : 5) * 1000;
+    if (opened) await pause(pace.betweenAssistantsSeconds, "between assistants");
     const c = await getCdp();
     let tab = null, ctxId = null;
     try {
@@ -124,6 +142,8 @@ async function main() {
         const loaded = new Promise((res) => { const l = (m) => { if (m.sessionId === sessionId && m.method === "Page.loadEventFired") { c.listeners.delete(l); res(true); } }; c.listeners.add(l); setTimeout(() => { c.listeners.delete(l); res(false); }, 30000); });
         await c.send("Page.navigate", { url: sp.url }, sessionId); await loaded;
       } else tab = await openPage(c, sp.url);
+      opened = true;
+      await pause(pace.afterLoadSeconds, "after load");
       const sid = tab.sessionId, ev = (x) => evalIn(c, sid, x), q = (s) => JSON.stringify(s);
       try { await c.send("Emulation.setFocusEmulationEnabled", { enabled: true }, sid); } catch { /* an older browser: the page still takes the paste */ }
       const has = async (sel) => !!sel && await ev("!!document.querySelector(" + q(sel) + ")");
@@ -154,16 +174,19 @@ async function main() {
       // f: the temporary chat must be on
       const modeOn = () => has(sp.modeProof);
       if (!(await modeOn())) {
-        for (const s of sp.modeSteps || []) { if (!(await click(s))) break; await sleep(500); }
+        for (const s of sp.modeSteps || []) { if (!(await click(s))) break; await pause(0.5, "mode step"); }
         await quiet(1000, 10000);
         if (!(await modeOn())) return block(name, "temporary chat not confirmed");
       }
 
       for (const n of [1, 2]) {
-        // g: one paste, the box read back, the box check
+        // g: the text in pieces at the fixed rate, one piece each second, the box read back, the box check
         await ev("document.querySelector(" + q(sp.composer) + ").focus()");
         const text = texts[n];
-        await c.send("Input.insertText", { text }, sid);
+        for (const piece of pieces(text, pace.typeCharactersPerSecond)) {
+          await c.send("Input.insertText", { text: piece }, sid);
+          await pause(1, "piece");
+        }
         const boxFile = path.join(tmp, name + "-" + n + "-box.txt");
         fs.writeFileSync(boxFile, await ev("(() => { const e = document.querySelector(" + q(sp.composer) + "); return !e ? '' : (typeof e.value === 'string' ? e.value : e.innerText); })()"));
         const bx = oneshot(["box", url, name, String(n), "--file", boxFile]);
@@ -172,6 +195,7 @@ async function main() {
           throw refused(bx);
         }
         // h: send, wait for the reply to stop changing
+        await pause(pace.beforeSendSeconds, "before send");
         const before = Number(await ev("document.querySelectorAll(" + q(sp.reply) + ").length"));
         if (!(await click(sp.send))) return block(name, "send button not found");
         const state = () => ev("(() => { const els = document.querySelectorAll(" + q(sp.reply) + "), l = els[els.length - 1]; return JSON.stringify([" + (sp.busy ? "!!document.querySelector(" + q(sp.busy) + ")" : "false") + ", els.length, l ? l.innerText : '']); })()");
@@ -180,7 +204,8 @@ async function main() {
         if (k <= before || !String(said).trim()) return block(name, "no reply in " + cap + " s");
         // i: the reply, read by the page-side reader, saved by ai-oneshot
         const replyFile = path.join(tmp, name + "-" + n + "-reply.txt");
-        fs.writeFileSync(replyFile, await ev("(" + readerInPage.toString() + ")(" + q(sp.reply) + ")"));
+        const replyText = await ev("(" + readerInPage.toString() + ")(" + q(sp.reply) + ")");
+        fs.writeFileSync(replyFile, replyText);
         const sv = oneshot(["save", url, name, String(n), "--file", replyFile, "--browser", BROWSER_WORDS, "--mode", sp.mode, ...(sp.signedIn ? ["--signed-in"] : [])]);
         if (sv.code !== 0) {
           if (sv.code !== 1) throw refused(sv);   // a reply ai-oneshot will not take ends this assistant, not the run
@@ -188,6 +213,7 @@ async function main() {
           if (n === 1) return block(name, "reply refused: " + line);
           return "read, follow-up refused: " + line;
         }
+        if (n === 1) await pause(readingSeconds(wordCount(replyText), pace), "reading");   // the reply is read before the second text goes in
       }
       return "read";
     } finally {

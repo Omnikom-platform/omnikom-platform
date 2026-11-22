@@ -18,7 +18,7 @@
 //                                       them as before. A reply about another place or one that ignored the layout is never counted as "not listed".
 //                                       Older files in captures/ai/ (answers to other questions) stop the count; --retire-old moves them, unchanged, to
 //                                       captures/ai-retired/.
-// Engines: chatgpt, perplexity, copilot, gemini. Exit 0 = done, 1 = REFUSED (a rule above), 2 = usage, 3 = BLOCKED (something is missing).
+// Engines: chatgpt, perplexity, gemini (owner, 2026-11-22: copilot is a wrapper for GPT and is out; an old copilot capture is still read by the old reader, never asked again). Exit 0 = done, 1 = REFUSED (a rule above), 2 = usage, 3 = BLOCKED (something is missing).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -30,7 +30,7 @@ import { relatedOf } from "./lib-related.mjs";
 
 class Refused extends Error {}
 const here = path.dirname(fileURLToPath(import.meta.url));
-const ENGINES = ["chatgpt", "perplexity", "copilot", "gemini"];
+const ENGINES = ["chatgpt", "perplexity", "gemini"];
 const CLASSES = ["listed", "not listed", "no list", "layout not followed", "not reached", "other place"];
 const MARK = "---PROMPT---";
 const STATES = { AL: "alabama", AK: "alaska", AZ: "arizona", AR: "arkansas", CA: "california", CO: "colorado", CT: "connecticut", DE: "delaware", FL: "florida", GA: "georgia", HI: "hawaii", ID: "idaho", IL: "illinois", IN: "indiana", IA: "iowa", KS: "kansas", KY: "kentucky", LA: "louisiana", ME: "maine", MD: "maryland", MA: "massachusetts", MI: "michigan", MN: "minnesota", MS: "mississippi", MO: "missouri", MT: "montana", NE: "nebraska", NV: "nevada", NH: "new hampshire", NJ: "new jersey", NM: "new mexico", NY: "new york", NC: "north carolina", ND: "north dakota", OH: "ohio", OK: "oklahoma", OR: "oregon", PA: "pennsylvania", RI: "rhode island", SC: "south carolina", SD: "south dakota", TN: "tennessee", TX: "texas", UT: "utah", VT: "vermont", VA: "virginia", WA: "washington", WV: "west virginia", WI: "wisconsin", WY: "wyoming", DC: "district of columbia" };
