@@ -29,7 +29,7 @@ const PROFILE_FLAG = ["--user", "data", "dir"].join("-") + "=";
 const BROWSER_ARGS = ["--remote-debugging-port=0", `--proxy-server=socks5://127.0.0.1:${TUNNEL_PORT}`, "--disable-features=msImplicitSignin", "--disable-sync", "--no-first-run",
   "--no-default-browser-check", "--new-window", "--window-size=1300,900", "about:blank"];
 
-export const auditDir = (env = process.env) => env.OMNIKOM_AUDIT_BROWSER_DIR || path.join(env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "omnikom-audit-browser");
+export const auditDir = (env = process.env) => env.OMNIKOM_AUDIT_BROWSER_DIR || path.win32.join(env.LOCALAPPDATA || path.win32.join(os.homedir(), "AppData", "Local"), "omnikom-audit-browser"); // a Windows folder: joined by Windows' rules on any machine (GitHub's runner joined it with a slash)
 const stateFile = (env = process.env) => path.join(env.WORK_BROWSER_HOME || path.join(os.homedir(), ".claude", "state", "omnikom-work-browser"), "state.json");
 const readState = (io) => { try { return JSON.parse(io.fs.readFileSync(stateFile(io.env), "utf8")); } catch { return null; } };
 const writeState = (io, s) => { const f = stateFile(io.env); io.fs.mkdirSync(path.dirname(f), { recursive: true }); io.fs.writeFileSync(f, JSON.stringify(s, null, 2) + "\n"); };
