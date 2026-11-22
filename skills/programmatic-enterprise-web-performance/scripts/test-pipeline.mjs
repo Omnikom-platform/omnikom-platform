@@ -92,6 +92,26 @@ async function scenarios(sdir) {
 
     { const m = clone(); step(m, "psi").partialSettles = true; const ok = val(m); check("V: partialSettles true is accepted", ok.length === 0, ok.join(" | ") || "accepted"); }
 
+    // ---------------- V (AB-1 stations): the three station rules, each refused on one broken copy of the real manifest, for its own rule id ----------------
+    const STATION_RULES = [
+      ["a step with no station", "station", (m) => { delete step(m, "psi").station; }, /step psi: has no station/],
+      ["a station that is not declared", "station", (m) => { step(m, "psi").station = "nowhere"; }, /step psi: station 'nowhere' is not declared/],
+      ["a declared station with no step", "station", (m) => { m.stations.push({ id: "unused", what: "nothing" }); }, /station 'unused' has no step/],
+      ["stations that is an empty list", "stations", (m) => { m.stations = []; }, /stations must be a non-empty list/],
+      ["two stations with one id", "stations", (m) => { m.stations.push({ id: "site", what: "again" }); }, /station id 'site' is used twice/],
+      ["a station object with an extra key", "stations", (m) => { m.stations[0].colour = "red"; }, /stations\[0\] must be an object with exactly id and what/],
+      ["a step that depends on a step of a later station", "station-order", (m) => { step(m, "psi").dependsOn.push("forums"); }, /step psi: depends on forums, a step of the later station 'demand'/],
+      ["a manifest with no stations and one step that carries a station", "station", (m) => { delete m.stations; for (const s of m.steps) if (s.id !== "psi") delete s.station; }, /step psi: has a station but the manifest declares no stations/],
+    ];
+    for (const [name, rule, mutate, re] of STATION_RULES) {
+      const m = clone();
+      let probs; try { mutate(m); probs = lib.validateManifest(m, { skillDir }).problems; } catch (e) { probs = [{ rule: "threw", step: null, detail: e.message }]; }
+      check(`V: ${name} is refused`, probs.some((p) => p.rule === rule && re.test(lib.describe(p))), `wanted rule ${rule} ${re}; got ${probs.map((p) => `[${p.rule}] ${lib.describe(p)}`).join(" | ") || "no problem at all"}`);
+    }
+    { const nop = clone(); delete nop.stations; for (const s of nop.steps) delete s.station; const ok = val(nop);
+      check("V: a manifest that declares no stations and has no step with a station stays valid (the fixture manifests of other tests)", ok.length === 0, ok.join(" | ")); }
+    check("V: the real manifest declares its stations (9, and every one of its steps names one of them)", Array.isArray(manifest.stations) && manifest.stations.length === 9 && manifest.steps.every((s) => manifest.stations.some((x) => x.id === s.station)), JSON.stringify(manifest.stations?.map((x) => x.id)));
+
     // ---------------- O: the run order ----------------
     const ordered = lib.runOrder(manifest.steps).ids;
     const pos = new Map(ordered.map((id, i) => [id, i]));
@@ -536,6 +556,9 @@ const MUTANTS = [
   { name: "[nosite-skip] skipWhen accepts any word", patches: [{ file: LP, from: "\"skipWhen\" in s && s.skipWhen !== \"site-none\"", to: "\"skipWhen\" in s && false" }], expect: [/^V: a skipWhen other than site-none is refused/] },
   { name: "[nosite-skip] unlessSkipped may name an input the step lacks", patches: [{ file: LP, from: "Array.isArray(s.inputs) && s.inputs.includes(inp)", to: "true" }], expect: [/^V: an unlessSkipped that names an input/] },
   { name: "[nosite-skip] unlessSkipped may name a step without skipWhen", patches: [{ file: LP, from: "x.id === id && x.skipWhen === \"site-none\"", to: "x.id === id" }], expect: [/^V: an unlessSkipped that names a step/] },
+  { name: "[stations] a station object may hold any key", patches: [{ file: LP, from: 'Object.keys(x).sort().join() !== "id,what"', to: "false" }], expect: [/^V: a station object with an extra key is refused/] },
+  { name: "[station] a step may name no station", patches: [{ file: LP, from: 'if (!("station" in s)) bad("station", at,', to: 'if (false) bad("station", at,' }], expect: [/^V: a step with no station is refused/] },
+  { name: "[station-order] a step may depend on a later station", patches: [{ file: LP, from: "if (rank.get(dep.station) > rank.get(s.station)) bad(", to: "if (false) bad(" }], expect: [/^V: a step that depends on a step of a later station is refused/] },
   { name: "[nosite-skip] the two keys are unknown to the validator", patches: [{ file: LP, from: "\"partialSettles\", \"skipWhen\", \"unlessSkipped\"];", to: "\"partialSettles\"];" }], expect: [/^V: the real pipeline\.json is valid/, /^S: start\.mjs audit-live in plan mode exits 0/] },
 ];
 

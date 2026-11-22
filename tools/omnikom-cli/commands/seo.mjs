@@ -1,6 +1,8 @@
 // seo run <url or profile:<slug>> --client <slug> [--only id,id] [--from id] [--module name] [--fresh] [--env-file <f>] [--json]   every mechanical step of a client SEO audit
 // seo resume <url or profile:<slug>> [--only ..] [--from ..] [--module ..] [--env-file <f>] [--json]                                the same run, from its log (the client is read from it, nothing is redone)
 // seo status <url or profile:<slug>> [--json]                                                                                       the coverage table from the run log; runs nothing
+// seo station <url or profile:<slug>> [--station <id>] [--json]                                                              the sheet of the stations (only the steps an agent must judge): exit 0 every station CLOSED, 1 one is OPEN, 2 usage; writes {pewp}/stations/sheet.json and sheet.md
+// seo rule <url or profile:<slug>> <step> --why <text> --by <who> [--json]                                                     records "not gathered" for one step in {pewp}/stations/rulings.json: exit 0 written, 1 REFUSED, 2 usage
 // seo vantage status [--json] [--pewp <dir>]                                                                      SEO's vantage.mjs status, its output unchanged; its exit code too, except 4 (SKIPPED) comes back as 3
 // The steps come ONLY from SEO's manifest (skills/programmatic-enterprise-web-performance/pipeline.json, read from this repository, never from ~/.claude):
 // lib/seo-manifest.mjs validates it (a bad manifest is exit 2 with every problem listed) and lib/seo-run.mjs runs it. This file adds no step, rewrites no
@@ -9,9 +11,9 @@
 // invalid manifest; seo vantage status returns the script's own lines and exit code (0 ok, 2 usage, 3 BLOCKED) except that its 4 (SKIPPED: no allowed US egress) comes
 // back as 3, and a missing script is BLOCKED (3) naming it. seo run and seo resume run the skill check (commands/skill.mjs) first: a skill that is not the repository's copy is exit 2.
 // In text mode (no --json) omnikom.mjs prints seoText() instead of the JSON object; vantage always prints the script's own output.
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { Usage, Blocked } from '../lib/errors.mjs';
 import { SLUG } from '../lib/args.mjs';
 import { importRepo, repoPath } from '../lib/repo.mjs';
@@ -21,7 +23,7 @@ import { loadManifest as readManifest, validateManifest, hostOf, profileSlug, no
 import { runSeo, statusSeo, STATES, NOT_RUN } from '../lib/seo-run.mjs';
 import { skillCheck } from './skill.mjs';
 
-const VERBS = ['run', 'resume', 'status', 'vantage'];
+const VERBS = ['run', 'resume', 'status', 'vantage', 'station', 'rule'];
 const VANTAGE_VERBS = ['status'];
 const VANTAGE_MINUTES = 10;
 export const SKILL = ['skills', 'programmatic-enterprise-web-performance'];
@@ -74,11 +76,12 @@ const seoVerb = async ctx => {
   const skillDir = skillDirOf(ctx);
   if (verb === 'vantage') return vantage(ctx, skillDir);
   if (ctx.positionals.length < 3) throw new Usage(`seo ${verb} needs the site's url (or profile:<slug> for a client with no site)`);
-  if (ctx.positionals.length > 3) throw new Usage(`seo ${verb}: unexpected argument '${ctx.positionals[3]}'`);
+  if (verb === 'rule' && ctx.positionals.length < 4) throw new Usage('seo rule needs the site\'s url (or profile:<slug>) and the step id');
+  if (ctx.positionals.length > (verb === 'rule' ? 4 : 3)) throw new Usage(`seo ${verb}: unexpected argument '${ctx.positionals[verb === 'rule' ? 4 : 3]}'`);
   const url = ctx.positionals[2];
   if (profileSlug(url) === null) hostOf(url);   // the third word is a run key: a url, or profile:<slug> (a malformed one is the engine's PipelineError, exit 2)
   if (f.expect !== undefined) throw new Usage('seo takes no --expect: a run that can be told to match a failure is not a coverage table');
-  const allowed = { run: RUN_OPTIONS, resume: ['only', 'from', 'module', 'env-file', 'json', 'client'], status: ['json'] }[verb];
+  const allowed = { run: RUN_OPTIONS, resume: ['only', 'from', 'module', 'env-file', 'json', 'client'], status: ['json'], station: ['json', 'station'], rule: ['json', 'why', 'by'] }[verb];
   for (const k of Object.keys(f)) if (!allowed.includes(k)) throw new Usage(`seo ${verb} takes no --${k}${k === 'fresh' ? ' (a resume redoes nothing; use seo run --fresh)' : ''}`);
   if (verb === 'run' && (f.client === undefined || f.client === true || f.client === '')) throw new Usage('--client <slug> is required');
   if (f.client !== undefined && !SLUG.test(String(f.client))) throw new Usage('--client must be a slug (lowercase words joined by hyphens)');
@@ -89,6 +92,7 @@ const seoVerb = async ctx => {
   }
   const manifest = loadManifest(ctx, skillDir);
   if (verb === 'status') return fromData(statusSeo({ manifest, skillDir, data: skillDir, url, client: undefined }));
+  if (verb === 'station' || verb === 'rule') return stations(ctx, verb, manifest, skillDir, url);
   const data = await runSeo({
     manifest, skillDir, data: skillDir, repoRoot: ctx.repo, url, client: f.client, resume: verb === 'resume', only: list('only', f.only), from: f.from, module: f.module,
     fresh: Boolean(f.fresh), envFile: f['env-file'] === undefined ? undefined : resolve(f['env-file']), env: ctx.env,
@@ -98,6 +102,39 @@ const seoVerb = async ctx => {
   });
   return fromData(data);
 };
+// station and rule: thin. The rows are statusSeo's; the sheet, its text and the rulings are lib-stations.mjs (the skill's, loaded here only when a station verb runs); this writes the files and picks the exit.
+async function stations(ctx, verb, manifest, skillDir, url) {
+  const f = ctx.flags;
+  const L = await importRepo('skills/programmatic-enterprise-web-performance/scripts/lib-stations.mjs');
+  if (L.stationsOf(manifest).length === 0) throw new Usage('the manifest declares no stations');
+  if (f.station !== undefined && (f.station === true || f.station === '')) throw new Usage('--station needs a station id');
+  const data = statusSeo({ manifest, skillDir, data: skillDir, url, client: undefined });
+  const dir = join(dirname(data.logFile), 'stations'), rulingsFile = join(dir, 'rulings.json');
+  let rulings = {};
+  if (existsSync(rulingsFile)) {
+    try { rulings = JSON.parse(readFileSync(rulingsFile, 'utf8')); } catch { throw new Usage(`${norm(rulingsFile)} is not JSON`); }
+    if (rulings === null || typeof rulings !== 'object' || Array.isArray(rulings)) throw new Usage(`${norm(rulingsFile)} is not an object of step id to ruling`);
+  }
+  const say = (ok, code, text, more = {}) => result(ok, code, { text, ...more });
+  try {
+    if (verb === 'rule') {
+      const step = ctx.positionals[3], text = x => (x === undefined || x === true ? '' : String(x));
+      const next = L.ruleStep(manifest, data.steps, rulings, { step, why: text(f.why), by: text(f.by), now: new Date().toISOString() });
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(rulingsFile, JSON.stringify(next, null, 1) + '\n');
+      return say(true, 'ok', `ruled ${step}: not gathered (${next[step].why})`, { step, ruling: next[step], file: norm(rulingsFile) });
+    }
+    const sheet = L.buildSheet(manifest, data.steps, rulings, { station: f.station }), text = L.sheetText(sheet);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'sheet.json'), JSON.stringify(sheet, null, 1) + '\n');
+    writeFileSync(join(dir, 'sheet.md'), text + '\n');
+    return say(sheet.ok, sheet.ok ? 'ok' : 'SEO-STATION-OPEN', text, { ...sheet, files: [norm(join(dir, 'sheet.json')), norm(join(dir, 'sheet.md'))] });
+  } catch (e) {
+    if (!(e instanceof L.StationError)) throw e;
+    if (e.exit === 2) throw new Usage(e.message);
+    return say(false, 'SEO-RULE-REFUSED', e.message);   // REFUSED: nothing was written
+  }
+}
 const fromData = d => result(d.failed === 0, d.failed === 0 ? 'ok' : 'SEO-FAILED', d);
 
 // What text mode prints (instead of the JSON object); every line passes through redact (section 5 rule 1):
@@ -112,6 +149,8 @@ export function seoText(obj, env) {
   if (obj.error || !d) {
     out.push(`ERROR ${obj.error || obj.code}`);
     if (obj.unblock) out.push(`unblocks: ${obj.unblock}`);
+  } else if (obj.command === 'seo station' || obj.command === 'seo rule') {
+    out.push(d.text);
   } else {
     const idw = Math.max(4, ...d.steps.map(r => r.id.length)), mw = Math.max(6, ...d.steps.map(r => r.module.length));
     if (d.mode === 'RESUME') out.push('mode RESUME: finishing the existing run for this client (steps already done are adopted; only missing or stale steps run)');

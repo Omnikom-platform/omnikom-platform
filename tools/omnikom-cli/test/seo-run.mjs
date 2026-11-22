@@ -769,6 +769,40 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
       writeFileSync(join(sk.pewp, 'was.json'), REC); r = await run(sk);
       check('seo adopt: C12 a step the log holds as RUN whose evidence became a BLOCKED record runs again [adopt]', starts(sk, 'was') === 2 && how(r, 'was').includes('holds only BLOCKED records'), JSON.stringify(row(r, 'was')));
     }
+
+    // ---- stations (AB-1): `seo station` writes the sheet and exits 0 / 1, `seo rule` records "not gathered" for one step [stations]
+    {
+      const SM = () => ({ ...M(S('ok-a', {}), S('blk', { script: 'scripts/blocked.mjs', args: ['--id', 'blk'] }), S('ok-b', {})), stations: [{ id: 'one', what: 'the first block' }, { id: 'two', what: 'the second block' }] });
+      const withStation = m => { const to = { 'ok-a': 'one', blk: 'two', 'ok-b': 'two' }; for (const x of m.steps) x.station = to[x.id]; return m; };
+      const sheetJson = s => join(s.pewp, 'stations', 'sheet.json'), sheetMd = s => join(s.pewp, 'stations', 'sheet.md'), rulingsFile = s => join(s.pewp, 'stations', 'rulings.json');
+      const sx = site(withStation(SM()));
+      await run(sx);
+      let r = await go(sx, ['station', URL_]);
+      const mdText = existsSync(sheetMd(sx)) ? readFileSync(sheetMd(sx), 'utf8') : '', js = existsSync(sheetJson(sx)) ? JSON.parse(readFileSync(sheetJson(sx), 'utf8')) : null;
+      check('seo station: one BLOCKED step: exit 1, both sheet files written, the text names the open station and carries the script\'s line word for word [stations]',
+        r.exit === 1 && /^STATION one: CLOSED$/m.test(r.stdout) && r.stdout.includes('STATION two: OPEN (1 to judge, 0 not run)') && r.stdout.includes('blk | BLOCKED | BLOCKED: the key is not set | unblocks: set the key | no ruling') && mdText === r.stdout.replace(/\n$/, '') + '\n' && js && js.stations.find(x => x.id === 'two').verdict === 'OPEN', r.all.slice(0, 500));
+      r = await go(sx, ['rule', URL_, 'blk', '--why', 'the key is not ours to get', '--by', 'agent', '--json']);
+      const rl = existsSync(rulingsFile(sx)) ? JSON.parse(readFileSync(rulingsFile(sx), 'utf8')) : {};
+      check('seo rule: a ruling on the BLOCKED step exits 0 and writes rulings.json (not gathered, the why, who, and the row\'s state and detail) [stations]', r.exit === 0 && rl.blk && rl.blk.ruling === 'not gathered' && rl.blk.why === 'the key is not ours to get' && rl.blk.by === 'agent' && rl.blk.state === 'BLOCKED' && rl.blk.detail === 'BLOCKED: the key is not set | unblocks: set the key', r.all.slice(0, 400) + JSON.stringify(rl));
+      r = await go(sx, ['station', URL_]);
+      check('seo station: after the ruling every station is CLOSED, exit 0, and the ruled step\'s line carries the why [stations]', r.exit === 0 && r.stdout.includes('STATION two: CLOSED') && r.stdout.includes('| not gathered: the key is not ours to get'), r.all.slice(0, 500));
+      r = await go(sx, ['station', URL_, '--station', 'one', '--json']);
+      check('seo station: --station picks one station [stations]', r.exit === 0 && r.json && r.json.data.stations.length === 1 && r.json.data.stations[0].id === 'one', r.all.slice(0, 300));
+      r = await go(sx, ['station', URL_, '--station', 'nowhere']);
+      check('seo station: an unknown --station is exit 2 and lists the ids [stations]', r.exit === 2 && r.stdout.includes('nowhere') && r.stdout.includes('one') && r.stdout.includes('two'), r.all.slice(0, 300));
+      r = await go(sx, ['rule', URL_, 'no-such-step', '--why', 'x', '--by', 'agent']);
+      check('seo rule: an unknown step id is exit 2 and names the step [stations]', r.exit === 2 && r.stdout.includes("no step 'no-such-step'") && !r.stdout.includes('seo takes'), r.all.slice(0, 300));
+      const sy = site(withStation(SM()));
+      await run(sy);
+      r = await go(sy, ['rule', URL_, 'ok-a', '--why', 'x', '--by', 'agent']);
+      check('seo rule: a ruling on a RUN step is exit 1 with REFUSED and writes nothing [stations]', r.exit === 1 && r.stdout.includes('REFUSED') && !existsSync(rulingsFile(sy)) && !existsSync(sheetJson(sy)), r.all.slice(0, 300));
+      r = await go(sy, ['rule', URL_, 'blk', '--why', '  ', '--by', 'agent']);
+      check('seo rule: a blank why is exit 1 with REFUSED and writes nothing [stations]', r.exit === 1 && r.stdout.includes('REFUSED') && !existsSync(rulingsFile(sy)), r.all.slice(0, 300));
+      const sz = site(M(S('ok-a', {})));
+      await run(sz);
+      r = await go(sz, ['station', URL_]);
+      check('seo station: a manifest that declares no stations is exit 2 [stations]', r.exit === 2 && r.stdout.includes('no stations'), r.all.slice(0, 300));
+    }
   } catch (e) {
     if (!(e && e.seoDeadline)) throw e;
     try { guard.killFolderProcs(root); } catch { /* the list of processes failed; the folder removal below may then fail too */ }   // whatever the command left running under the test folder

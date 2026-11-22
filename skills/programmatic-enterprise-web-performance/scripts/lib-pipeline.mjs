@@ -23,10 +23,13 @@
 // `io` is an injectable file system ({ existsSync, statSync, readdirSync, readFileSync }; default node:fs) so a reader can test with fake files.
 //
 // Validity rules (rule ids in brackets; a manifest that breaks one is invalid and neither runner runs it):
-//   [top-level] only version (1), name, what, conventions, vars, steps, coverage; a name [vars] vars keys are placeholders [steps] a non-empty list
+//   [top-level] only version (1), name, what, conventions, vars, stations, steps, coverage; a name [vars] vars keys are placeholders [steps] a non-empty list
 //   [step-key] a step has exactly the keys in REQUIRED, plus optionally brief, exit, engines, partialSettles, skipWhen and unlessSkipped [required-key] [type] every value the right type (kind and maxAgeDays are required on every step)
 //   [id] [duplicate-id] ids unique, lower-case words joined by single hyphens [module] the same pattern [kind] stable | time-sensitive | derived [pace] text or null
 //   [placeholder] only {url} {client} {host} {skill} {data} {runDir} {pewp} {work} {key}, in args, inputs, outputs, evidence and brief; none in the script path
+//   [stations] when present, stations is a non-empty list of objects with exactly id (lower-case letters and hyphens, unique) and what (non-empty text)
+//   [station] when stations is declared, every step has a station that is a declared id and every declared station has at least one step; when it is NOT declared, a step with a station key is refused
+//   [station-order] no step depends on a step of a LATER station (the stations are in the order the audit goes)
 //   [dependsOn] names an id that exists [self-dependency] never itself [cycle] no cycle
 //   [script] a node file (.mjs, .cjs, .js) under the skill folder (or `repo:` under the repository): not absolute, no drive letter, no `..`
 //   [script-missing] the file exists (a `repo:` path is looked up only when repoRoot is given) [vantage-start] a step never calls `vantage start`
@@ -52,9 +55,9 @@ import path from "node:path";
 import { KNOWN_ENGINES, isStopped as realIsStopped } from "./lib-stops.mjs";
 
 export const PLACEHOLDERS = ["url", "client", "host", "skill", "data", "runDir", "pewp", "work", "key"];
-export const TOP_KEYS = ["version", "name", "what", "conventions", "vars", "steps", "coverage"];
+export const TOP_KEYS = ["version", "name", "what", "conventions", "vars", "stations", "steps", "coverage"];
 export const REQUIRED = ["id", "module", "what", "script", "args", "inputs", "outputs", "dependsOn", "needsBrowser", "needsAi", "needsPerson", "needsKeys", "heavy", "hits", "pace", "timeoutMinutes", "evidence", "kind", "maxAgeDays"];
-export const OPTIONAL = ["brief", "exit", "engines", "partialSettles", "skipWhen", "unlessSkipped"];
+export const OPTIONAL = ["brief", "exit", "engines", "partialSettles", "skipWhen", "unlessSkipped", "station"];
 export const STEP_KEYS = [...REQUIRED, ...OPTIONAL];
 export const BROWSER = ["none", "headless", "owner"];
 export const KINDS = ["stable", "time-sensitive", "derived"];
@@ -65,6 +68,7 @@ const EXIT_FOR = { 0: "ok", 1: "failed", 2: "failed", 3: "blocked", 4: "skipped"
 const ID = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const KEY_NAME = /^[A-Z][A-Z0-9_]*$/;
 const SCRIPT_EXT = /\.(mjs|cjs|js)$/;
+const STATION_ID = /^[a-z]+(-[a-z]+)*$/;
 
 export class PipelineError extends Error {}
 export class PlaceholderError extends PipelineError {
@@ -218,6 +222,17 @@ export function validateManifest(m, { skillDir = null, repoRoot = null, scriptEx
   if (m.version !== 1) bad("top-level", null, `version must be 1 (got ${JSON.stringify(m.version)})`);
   if (!isStr(m.name)) bad("top-level", null, "name must be a non-empty string");
   if (isObj(m.vars)) for (const k of Object.keys(m.vars)) if (!PLACEHOLDERS.includes(k)) bad("vars", null, `vars: '${k}' is not a placeholder`);
+  const declared = "stations" in m, stationIds = new Set();   // [stations]
+  if (declared) {
+    if (!Array.isArray(m.stations) || m.stations.length === 0) bad("stations", null, "stations must be a non-empty list of { id, what }");
+    else m.stations.forEach((x, i) => {
+      if (!isObj(x) || Object.keys(x).sort().join() !== "id,what") { bad("stations", null, `stations[${i}] must be an object with exactly id and what`); return; }
+      if (!(typeof x.id === "string" && STATION_ID.test(x.id))) bad("stations", null, `stations[${i}]: id must be lower-case letters and hyphens`);
+      else if (stationIds.has(x.id)) bad("stations", null, `station id '${x.id}' is used twice`);
+      else stationIds.add(x.id);
+      if (!isStr(x.what) || !x.what.trim()) bad("stations", null, `stations[${i}]: what must be non-empty text`);
+    });
+  }
   if (!Array.isArray(m.steps) || m.steps.length === 0) { bad("steps", null, "steps must be a non-empty array"); return done(); }
   const known = new Set(), dup = new Set();
   for (const s of m.steps) if (isObj(s) && typeof s.id === "string") (known.has(s.id) ? dup : known).add(s.id);
@@ -238,6 +253,11 @@ export function validateManifest(m, { skillDir = null, repoRoot = null, scriptEx
     if ("pace" in s && s.pace !== null && typeof s.pace !== "string") bad("pace", at, "pace must be a string or null");
     if ("brief" in s && typeof s.brief !== "string") bad("type", at, "brief must be a string");
     if ("kind" in s && !KINDS.includes(s.kind)) bad("kind", at, "kind must be stable, time-sensitive or derived");
+    if (!declared) { if ("station" in s) bad("station", at, "has a station but the manifest declares no stations"); }   // [station]
+    else if (stationIds.size) {
+      if (!("station" in s)) bad("station", at, "has no station (every step names one of the declared stations)");
+      else if (!stationIds.has(s.station)) bad("station", at, `station '${s.station}' is not declared`);
+    }
     if ("skipWhen" in s && s.skipWhen !== "site-none") bad("skip-when", at, `skipWhen must be "site-none" (got ${JSON.stringify(s.skipWhen)})`);
     if ("unlessSkipped" in s) {   // an input the step does not need when the run has no site: { input as written: id of a step that skipWhen skips }
       if (!isObj(s.unlessSkipped)) bad("skip-when", at, "unlessSkipped must be an object of input -> step id");
@@ -318,6 +338,16 @@ export function validateManifest(m, { skillDir = null, repoRoot = null, scriptEx
       for (const inp of s.inputs) {
         const makers = [...byId.values()].filter((w) => w.id !== s.id && isStrings(w.outputs) && writes(w.outputs, inp));
         if (makers.length && !makers.some((w) => anc.has(w.id))) bad("input-order", s.id, `input ${inp} is written by step ${makers.map((w) => w.id).join(", ")}, which it does not depend on`);
+      }
+    }
+  }
+  if (declared) for (const id of stationIds) if (!m.steps.some((x) => isObj(x) && x.station === id)) bad("station", null, `station '${id}' has no step`);
+  if (stationIds.size) {   // [station-order]: the stations are in the order the audit goes, so a step never waits for a step of a later one
+    const rank = new Map([...stationIds].map((id, i) => [id, i])), byName = new Map(m.steps.filter((x) => isObj(x) && isStr(x.id)).map((x) => [x.id, x]));
+    for (const s of byName.values()) for (const d of isStrings(s.dependsOn) ? s.dependsOn : []) {
+      const dep = byName.get(d);
+      if (dep && rank.has(s.station) && rank.has(dep.station)) {
+        if (rank.get(dep.station) > rank.get(s.station)) bad("station-order", s.id, `depends on ${d}, a step of the later station '${dep.station}' (this step is in '${s.station}')`);
       }
     }
   }

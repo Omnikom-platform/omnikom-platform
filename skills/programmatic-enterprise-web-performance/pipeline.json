@@ -25,9 +25,21 @@
   "pewp": "{runDir}/.pewp",
   "work": "{runDir}/work"
  },
+ "stations": [
+  { "id": "site", "what": "the site itself: reach, snapshot, speed, the checks" },
+  { "id": "business", "what": "who the business is, what it sells, the seeds" },
+  { "id": "demand", "what": "what people search for" },
+  { "id": "search", "what": "where the site stands in Google and Bing" },
+  { "id": "assistants", "what": "what the AI assistants answer" },
+  { "id": "local", "what": "the map, the listing, the directories" },
+  { "id": "rivals", "what": "competitors and links" },
+  { "id": "standing", "what": "reviews, social profiles, ads" },
+  { "id": "report", "what": "the report and the client's copy" }
+ ],
  "steps": [
   {
    "id": "doctor",
+   "station": "site",
    "module": "setup",
    "what": "which free sources and keys are connected; the latest Common Crawl release",
    "script": "scripts/doctor.mjs",
@@ -58,6 +70,7 @@
   },
   {
    "id": "vantage",
+   "station": "site",
    "module": "visibility",
    "what": "US vantage (Sacramento) verified before any capture",
    "script": "scripts/vantage.mjs",
@@ -90,6 +103,7 @@
   },
   {
    "id": "snapshot",
+   "station": "site",
    "skipWhen": "site-none",
    "module": "technical",
    "what": "polite snapshot of the site, raw HTML and rendered in real Chrome, phone speed in the lab (a snapshot younger than 7 days is reused; either way snapshots/latest.json says which one this run handed on)",
@@ -122,6 +136,7 @@
   },
   {
    "id": "psi",
+   "station": "site",
    "skipWhen": "site-none",
    "module": "technical",
    "what": "Google's PageSpeed test, phone and desktop, three runs each: every run's raw answer is kept and the median is recorded (medianOf says how many runs it is a median of)",
@@ -162,6 +177,7 @@
   },
   {
    "id": "crux",
+   "station": "site",
    "skipWhen": "site-none",
    "module": "technical",
    "what": "real-visitor speed from the Chrome UX Report, for the page and its origin on phones and desktops; NO DATA (too little traffic) is a result, not a failure",
@@ -196,6 +212,7 @@
   },
   {
    "id": "checker",
+   "station": "site",
    "skipWhen": "site-none",
    "module": "technical",
    "what": "the shipgate checker: ONE coordinator agent groups failures into root causes",
@@ -228,6 +245,7 @@
   },
   {
    "id": "intake",
+   "station": "business",
    "module": "setup",
    "what": "who the client is (business.json): name, address, phone, services, service area, market",
    "script": "scripts/intake.mjs",
@@ -259,6 +277,7 @@
   },
   {
    "id": "approve-business",
+   "station": "business",
    "module": "setup",
    "what": "the owner confirms the business definition, including serviceArea (local-grid refuses without it: work order 40)",
    "script": null,
@@ -289,6 +308,7 @@
   },
   {
    "id": "city-centres",
+   "station": "business",
    "module": "local",
    "what": "each service-area city's centre (latitude, longitude, source page, date) read from the coordinates of the city's Wikipedia page, one polite request per city; a city with no coordinates is BLOCKED by name",
    "script": "scripts/local-centres.mjs",
@@ -322,6 +342,7 @@
   },
   {
    "id": "seeds",
+   "station": "business",
    "module": "keywords",
    "what": "search seeds proposed from the business's own words and places; nothing fetched",
    "script": "scripts/research-seeds.mjs",
@@ -355,6 +376,7 @@
   },
   {
    "id": "approve-seeds",
+   "station": "business",
    "module": "keywords",
    "what": "the owner approves the seeds before any call is spent on them",
    "script": null,
@@ -385,6 +407,7 @@
   },
   {
    "id": "demand-bing",
+   "station": "demand",
    "module": "demand",
    "what": "Bing keyword estimates and related keywords for every seed, plain and with the city and state; the client's own site statistics are BLOCKED until the client adds us as a user in Bing Webmaster Tools (the estimates go on)",
    "script": "scripts/research-bing.mjs",
@@ -423,6 +446,7 @@
   },
   {
    "id": "search-console",
+   "station": "demand",
    "skipWhen": "site-none",
    "module": "visibility",
    "what": "the client's own search data; BLOCKED until the client adds us as a user",
@@ -455,6 +479,7 @@
   },
   {
    "id": "research-plan",
+   "station": "demand",
    "module": "visibility",
    "what": "the research run's plan and the capture requests for the owner's browser (dry run: nothing fetched)",
    "script": "scripts/research.mjs",
@@ -490,6 +515,7 @@
   },
   {
    "id": "capture-google",
+   "station": "search",
    "module": "visibility",
    "what": "Google results pages: every buyer search, the brand searches, each service + city, with the AI answer, People Also Ask and related searches",
    "script": null,
@@ -523,6 +549,7 @@
   },
   {
    "id": "capture-bing",
+   "station": "search",
    "module": "visibility",
    "what": "Bing results pages for the same buyer and brand searches",
    "script": null,
@@ -556,6 +583,7 @@
   },
   {
    "id": "capture-index",
+   "station": "search",
    "skipWhen": "site-none",
    "module": "visibility",
    "what": "index coverage: site: searches on Google and Bing, and whether each service has an indexed page",
@@ -588,6 +616,7 @@
   },
   {
    "id": "index-import",
+   "station": "search",
    "skipWhen": "site-none",
    "module": "visibility",
    "what": "index captures become counts: the pages each engine lists for site:<host>, and which services have a listed page",
@@ -622,6 +651,7 @@
   },
   {
    "id": "capture-autocomplete",
+   "station": "demand",
    "module": "keywords",
    "what": "autocomplete suggestions on Google and Bing for each service + city and the brand",
    "script": null,
@@ -656,6 +686,7 @@
   },
   {
    "id": "autocomplete-import",
+   "station": "demand",
    "module": "keywords",
    "what": "autocomplete captures become sourced demand estimates and new queries",
    "script": "scripts/research-autocomplete.mjs",
@@ -689,6 +720,7 @@
   },
   {
    "id": "capture-trends",
+   "station": "demand",
    "module": "demand",
    "what": "Google Trends interest by region for each service: the state among states, the metro within the state",
    "script": null,
@@ -722,6 +754,7 @@
   },
   {
    "id": "trends-import",
+   "station": "demand",
    "module": "demand",
    "what": "Trends region tables become ranks: the client's state among the states and its metro, per service",
    "script": "scripts/import-trends.mjs",
@@ -755,6 +788,7 @@
   },
   {
    "id": "capture-ai",
+   "station": "assistants",
    "module": "ai",
    "what": "AI answers beyond Google: ChatGPT, Perplexity, Copilot (no login), Gemini web (only if signed in); the buyer questions and 'who is <business>'",
    "script": null,
@@ -785,6 +819,7 @@
   },
   {
    "id": "ai-import",
+   "station": "assistants",
    "module": "ai",
    "what": "AI answers beyond Google become counts per engine: questions, how often the business is named (checked against the text), who is named instead, which sources are cited; a blocked engine is a BLOCKED row",
    "script": "scripts/import-ai.mjs",
@@ -818,6 +853,7 @@
   },
   {
    "id": "research",
+   "station": "search",
    "module": "visibility",
    "what": "imports the captures and runs clustering, competitors, winners, citations and AI citations; writes targets.json",
    "script": "scripts/research.mjs",
@@ -862,6 +898,7 @@
   },
   {
    "id": "targets-validate",
+   "station": "search",
    "module": "keywords",
    "what": "the target list is well formed and every target is sourced",
    "script": "scripts/targets-validate.mjs",
@@ -898,6 +935,7 @@
   },
   {
    "id": "local-grid-plan",
+   "station": "local",
    "module": "local",
    "what": "a grid of points around each service-area city and the capture requests for Maps",
    "script": "scripts/local-grid.mjs",
@@ -938,6 +976,7 @@
   },
   {
    "id": "capture-maps",
+   "station": "local",
    "module": "local",
    "what": "Google Maps by viewport: the client's own listing, and each service at the city centre and the grid points",
    "script": null,
@@ -972,6 +1011,7 @@
   },
   {
    "id": "competitors",
+   "station": "rivals",
    "module": "competitors",
    "what": "competitor sites read the way a crawler reads them: words, sitemap, schema, FAQ, llms.txt, AI crawler access",
    "script": "scripts/research-competitors.mjs",
@@ -1009,6 +1049,7 @@
   },
   {
    "id": "approve-competitors",
+   "station": "rivals",
    "module": "competitors",
    "what": "the owner approves the competitor list (national, local lenders and brokers, aggregators) before authority compares against it",
    "script": null,
@@ -1039,6 +1080,7 @@
   },
   {
    "id": "authority",
+   "station": "rivals",
    "module": "authority",
    "what": "linking domains for the client and its competitors from the free Common Crawl web graph",
    "script": "scripts/authority.mjs",
@@ -1079,6 +1121,7 @@
   },
   {
    "id": "authority-anchors",
+   "station": "rivals",
    "skipWhen": "site-none",
    "module": "authority",
    "what": "anchor text and follow/nofollow of the links from the referring domains to the client and its competitors, read from Common Crawl's own copies of the pages (no referring site is requested)",
@@ -1122,6 +1165,7 @@
   },
   {
    "id": "authority-classify",
+   "station": "rivals",
    "module": "authority",
    "what": "the link gap ranked into places to earn links, mentions and citations",
    "script": "scripts/authority-classify.mjs",
@@ -1157,6 +1201,7 @@
   },
   {
    "id": "authority-vet",
+   "station": "rivals",
    "module": "authority",
    "what": "a polite read-only visit to each link opportunity: indexable, follow or nofollow, free or paid",
    "script": "scripts/authority-vet.mjs",
@@ -1194,6 +1239,7 @@
   },
   {
    "id": "local-grid-import",
+   "station": "local",
    "module": "local",
    "what": "Maps captures become a per-point position table and a share of local voice",
    "script": "scripts/local-grid.mjs",
@@ -1228,6 +1274,7 @@
   },
   {
    "id": "capture-directories",
+   "station": "local",
    "module": "reputation",
    "what": "the business's listings on directories (Yelp, BBB, Bing Places, Apple Maps, Manta, Yellow Pages and the market's own) for name, address and phone",
    "script": null,
@@ -1258,6 +1305,7 @@
   },
   {
    "id": "local",
+   "station": "local",
    "partialSettles": true,
    "module": "local",
    "what": "the local suite: Business Profile, map-pack positions, NAP consistency, review gap",
@@ -1295,6 +1343,7 @@
   },
   {
    "id": "capture-reputation",
+   "station": "standing",
    "module": "reputation",
    "what": "reviews and complaints: Google reviews, BBB (rating, accreditation, complaints), Trustpilot, Yelp; for the client and the top local competitors",
    "script": null,
@@ -1325,6 +1374,7 @@
   },
   {
    "id": "reputation-import",
+   "station": "standing",
    "module": "reputation",
    "what": "review captures become ratings, review counts, newest review and complaints per business and site (no reviewer names ever stored)",
    "script": "scripts/import-reputation.mjs",
@@ -1358,6 +1408,7 @@
   },
   {
    "id": "capture-social",
+   "station": "standing",
    "module": "social",
    "what": "public social profiles: YouTube, TikTok, Instagram, LinkedIn (company and people), Facebook; counts, newest post, the link to the site",
    "script": null,
@@ -1388,6 +1439,7 @@
   },
   {
    "id": "social-import",
+   "station": "standing",
    "module": "social",
    "what": "social captures become followers, posts, newest post, active or not, and whether the profile's link works",
    "script": "scripts/import-social.mjs",
@@ -1421,6 +1473,7 @@
   },
   {
    "id": "capture-ads",
+   "station": "standing",
    "module": "ads",
    "what": "ads the client and its top competitors run: Google Ads Transparency Center and the Meta Ad Library",
    "script": null,
@@ -1451,6 +1504,7 @@
   },
   {
    "id": "ads-import",
+   "station": "standing",
    "module": "ads",
    "what": "ad library captures become running or not, ad count and since when, per advertiser and library",
    "script": "scripts/import-ads.mjs",
@@ -1484,6 +1538,7 @@
   },
   {
    "id": "forums",
+   "station": "demand",
    "module": "reputation",
    "what": "Reddit mentions of the business and of its services in its city",
    "script": "scripts/research-forums.mjs",
@@ -1521,6 +1576,7 @@
   },
   {
    "id": "report-live",
+   "station": "report",
    "module": "report",
    "what": "the six-question report in plain words, every number sourced",
    "script": "scripts/report-live.mjs",
@@ -1581,6 +1637,7 @@
   },
   {
    "id": "verify",
+   "station": "report",
    "module": "report",
    "what": "a fresh agent that did not write the report re-checks every number against its source",
    "script": null,
@@ -1619,6 +1676,7 @@
   },
   {
    "id": "client-copy",
+   "station": "report",
    "module": "report",
    "what": "the client's 8-page copy of this run: one html and one numbers sheet, every number read from a file of the run (the client file holds this client's wording; a draft until it names a contact)",
    "script": "scripts/client-copy.mjs",
@@ -1681,6 +1739,7 @@
   },
   {
    "id": "client-copy-pdf",
+   "station": "report",
    "module": "report",
    "what": "the copy printed to a PDF with headless Chrome on the shared profile, and the print checked (page count, no blank page)",
    "script": "scripts/client-copy-pdf.mjs",
