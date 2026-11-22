@@ -283,9 +283,14 @@
    "id": "approve-business",
    "station": "business",
    "module": "setup",
-   "what": "the owner confirms the business definition, including serviceArea (local-grid refuses without it: work order 40)",
-   "script": null,
-   "args": [],
+   "what": "the business definition is signed by the head's written rule (the owner's ruling of 2026-11-21), including serviceArea (local-grid refuses without it: work order 40)",
+   "script": "scripts/sign-by-rule.mjs",
+   "args": [
+    "{key}",
+    "business",
+    "--cwd",
+    "{skill}"
+   ],
    "inputs": [
     "{pewp}/business.json"
    ],
@@ -297,18 +302,18 @@
    ],
    "needsBrowser": "none",
    "needsAi": false,
-   "needsPerson": true,
+   "needsPerson": false,
    "needsKeys": [],
    "heavy": false,
    "hits": "none",
    "pace": null,
-   "timeoutMinutes": 0,
+   "timeoutMinutes": 2,
    "evidence": [
     "{pewp}/approved/business.json"
    ],
    "kind": "stable",
    "maxAgeDays": null,
-   "brief": "Show the owner business.json as pickable options. On his answer, record it with `node scripts/approve.mjs {key} business --by \"<owner>\" --cwd {skill}`."
+   "brief": "The head's stamp is written by rule (the owner's ruling of 2026-11-21, scripts/sign-off-rule.json): every owner-only field that has a value and was not answered by the owner is stamped delegated, then approve.mjs signs. A person is asked only for an owner-only field with no value (the step prints one NEEDS-INPUT line naming each): ask the owner as pickable options, write the answer as {\"value\":..., \"answeredBy\":\"owner\"} in intake-answers.json and run intake again. A field the owner answered himself is never touched. His own signature stays possible: `node scripts/approve.mjs {key} business --by \"<owner>\" --cwd {skill}`."
   },
   {
    "id": "city-centres",
@@ -382,9 +387,14 @@
    "id": "approve-seeds",
    "station": "business",
    "module": "keywords",
-   "what": "the owner approves the seeds before any call is spent on them",
-   "script": null,
-   "args": [],
+   "what": "the seeds are signed by the head's written rule (the owner's ruling of 2026-11-21) before any call is spent on them",
+   "script": "scripts/sign-by-rule.mjs",
+   "args": [
+    "{key}",
+    "seeds",
+    "--cwd",
+    "{skill}"
+   ],
    "inputs": [
     "{pewp}/research/seeds.json"
    ],
@@ -396,18 +406,18 @@
    ],
    "needsBrowser": "none",
    "needsAi": false,
-   "needsPerson": true,
+   "needsPerson": false,
    "needsKeys": [],
    "heavy": false,
    "hits": "none",
    "pace": null,
-   "timeoutMinutes": 0,
+   "timeoutMinutes": 2,
    "evidence": [
     "{pewp}/approved/seeds.json"
    ],
    "kind": "stable",
    "maxAgeDays": null,
-   "brief": "Show the owner the seeds as pickable options. Record the answer with `node scripts/approve.mjs {key} seeds --by \"<owner>\" --cwd {skill}`."
+   "brief": "The head's stamp is written by rule (the owner's ruling of 2026-11-21, scripts/sign-off-rule.json): approve.mjs checks the seeds and signs. A person is asked only when approve.mjs refuses them (the step prints one NEEDS-INPUT line with its reason): fix research/seeds.json (run research-seeds.mjs again) and run this step again. His own signature stays possible: `node scripts/approve.mjs {key} seeds --by \"<owner>\" --cwd {skill}`."
   },
   {
    "id": "demand-bing",
@@ -498,7 +508,8 @@
    ],
    "outputs": [
     "{pewp}/research/capture-requests.json",
-    "{pewp}/research/research-plan.json"
+    "{pewp}/research/research-plan.json",
+    "{pewp}/research/research-cost.json"
    ],
    "dependsOn": [
     "approve-seeds"
@@ -516,6 +527,42 @@
    ],
    "kind": "derived",
    "maxAgeDays": null
+  },
+  {
+   "id": "approve-cost",
+   "station": "demand",
+   "module": "visibility",
+   "what": "the research plan's cost (a number of requests to free sources; money is always 0) is signed by the head's written rule when it is 150 or fewer; above 150 the run stops for the owner",
+   "script": "scripts/sign-by-rule.mjs",
+   "args": [
+    "{key}",
+    "research-cost",
+    "--cwd",
+    "{skill}"
+   ],
+   "inputs": [
+    "{pewp}/research/research-cost.json"
+   ],
+   "outputs": [
+    "{pewp}/approved/research-cost.json"
+   ],
+   "dependsOn": [
+    "research-plan"
+   ],
+   "needsBrowser": "none",
+   "needsAi": false,
+   "needsPerson": false,
+   "needsKeys": [],
+   "heavy": false,
+   "hits": "none",
+   "pace": null,
+   "timeoutMinutes": 2,
+   "evidence": [
+    "{pewp}/approved/research-cost.json"
+   ],
+   "kind": "stable",
+   "maxAgeDays": null,
+   "brief": "The head's stamp is written by rule (the owner's ruling of 2026-11-21, scripts/sign-off-rule.json): a plan of 150 requests or fewer is signed through approve.mjs research-cost. Above 150 the step prints one NEEDS-INPUT line with the total, the ceiling and the owner's own command and signs nothing: the owner signs it himself (`node scripts/approve.mjs {key} research-cost --by \"<owner>\" --cwd {skill}`), then run this step again."
   },
   {
    "id": "capture-google",
@@ -881,7 +928,8 @@
     "capture-google",
     "capture-bing",
     "demand-bing",
-    "autocomplete-import"
+    "autocomplete-import",
+    "approve-cost"
    ],
    "needsBrowser": "none",
    "needsAi": false,
@@ -1055,9 +1103,14 @@
    "id": "approve-competitors",
    "station": "rivals",
    "module": "competitors",
-   "what": "the owner approves the competitor list (national, local lenders and brokers, aggregators) before authority compares against it",
-   "script": null,
-   "args": [],
+   "what": "the competitor list is signed by the head's written rule (the owner's ruling of 2026-11-21): national, local lenders and brokers, aggregators, before authority compares against it",
+   "script": "scripts/sign-by-rule.mjs",
+   "args": [
+    "{key}",
+    "competitors",
+    "--cwd",
+    "{skill}"
+   ],
    "inputs": [
     "{pewp}/research/competitors-proposed.json"
    ],
@@ -1069,18 +1122,18 @@
    ],
    "needsBrowser": "none",
    "needsAi": false,
-   "needsPerson": true,
+   "needsPerson": false,
    "needsKeys": [],
    "heavy": false,
    "hits": "none",
    "pace": null,
-   "timeoutMinutes": 0,
+   "timeoutMinutes": 2,
    "evidence": [
     "{pewp}/approved/competitors.json"
    ],
    "kind": "stable",
    "maxAgeDays": null,
-   "brief": "Show the owner {pewp}/research/competitors-proposed.md, local ones first, as pickable options: the page of {pewp}/research/competitors-proposed.json, the list approve.mjs approves and this step reads. No step of this manifest writes them: `node scripts/competitors-discover.mjs {key} --cwd {skill}` does, from what the discovery agents found (stages/overhaul.md step 4). Record the answer with `node scripts/approve.mjs {key} competitors --by \"<owner>\" --cwd {skill}`."
+   "brief": "The head's stamp is written by rule (the owner's ruling of 2026-11-21, scripts/sign-off-rule.json): approve.mjs checks {pewp}/research/competitors-proposed.json and signs. No step of this manifest writes that file: `node scripts/competitors-discover.mjs {key} --cwd {skill}` does, from what the discovery agents found (stages/overhaul.md step 4); the step is BLOCKED until it is there. A person is asked only when approve.mjs refuses the list (the step prints one NEEDS-INPUT line with its reason): show the owner {pewp}/research/competitors-proposed.md, local ones first, as pickable options, fix the rows and run this step again. His own signature stays possible: `node scripts/approve.mjs {key} competitors --by \"<owner>\" --cwd {skill}`."
   },
   {
    "id": "authority",

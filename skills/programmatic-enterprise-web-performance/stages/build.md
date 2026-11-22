@@ -27,7 +27,7 @@ node "<skill>/scripts/build-site.mjs" <target dir> [--brief <file>] [--go] [--bu
 1. **Plan.** `build-site.mjs <target> --brief <file>` (no `--go`). Tell the owner in two sentences what will be produced,
    that it uses free sources only, and that the builder session is the main cost. For the research cost, also run
    `node "<skill>/scripts/research.mjs" <target> --dry` once intake is done (it prints the external calls and writes `research/research-cost.json`; above 150 the owner approves that cost with
-   `approve.mjs <target> research-cost --by "<name>"`). Ask: go / change something (pickable options, recommended first).
+   `approve.mjs <target> research-cost --by "<name>"`; up to 150 the head's stamp is written by rule, owner 2026-11-21, `sign-by-rule.mjs`). Ask: go / change something (pickable options, recommended first).
 2. **Run.** `build-site.mjs <target> --go` (PowerShell, in the background). Read its last lines. Exactly one ends every run:
 
 | Last line starts with | Exit | Meaning | The main session does |

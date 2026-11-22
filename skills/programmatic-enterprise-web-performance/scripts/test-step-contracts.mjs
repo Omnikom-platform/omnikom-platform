@@ -238,6 +238,8 @@ console.log("stand-in crawl done");
         "analysis-judge": "a headless model call (a network host); test-judge.mjs runs it with a fake model",
         "client-copy-pdf": "a headless browser prints the copy",
         checker: "the rule program judges a snapshot folder; test-checker-rules.mjs builds it",
+        "approve-business": "the head's sign-off written by rule through approve.mjs; test-sign-by-rule.mjs runs it with these args on fixture folders", "approve-seeds": "the head's sign-off written by rule through approve.mjs; test-sign-by-rule.mjs runs it with these args on fixture folders",
+        "approve-competitors": "the head's sign-off written by rule through approve.mjs; test-sign-by-rule.mjs runs it with these args on fixture folders", "approve-cost": "the head's sign-off of a research plan up to 150 requests, written by rule; test-sign-by-rule.mjs runs it with these args on fixture folders",
       };
       const scriptSteps = man.steps.filter((s) => s.script).map((s) => s.id), tested = [...IMPORTERS.map((x) => x[0]), "autocomplete-import", "local-grid-plan", "local-grid-import", "research-plan", "research", "targets-validate"];
       check(`T: the other ${Object.keys(NOT_RUN_HERE).length} script steps are named with one reason each (${Object.keys(NOT_RUN_HERE).join(", ")}); ${tested.length} + ${Object.keys(NOT_RUN_HERE).length} are the manifest's ${scriptSteps.length} script steps, none twice, none left out`, tested.length + Object.keys(NOT_RUN_HERE).length === scriptSteps.length && [...tested, ...Object.keys(NOT_RUN_HERE)].every((id) => scriptSteps.includes(id)) && new Set([...tested, ...Object.keys(NOT_RUN_HERE)]).size === scriptSteps.length, `script steps ${scriptSteps.join(", ")}; tested ${tested.join(", ")}`);

@@ -213,7 +213,7 @@ async function scenarios(sdir) {
 
     // ---------------- AP: an approval step watches the file its approval covers (SKILL-APPROVE-1 A1): the real manifest's approve-competitors ----------------
     {
-      const H = 3_600_000, T = Date.now(), s = step(manifest, "approve-competitors"), sOld = { ...s, inputs: ["{pewp}/research/competitors.json"] };
+      const H = 3_600_000, T = Date.now(), s = { ...step(manifest, "approve-competitors"), script: null, args: [], needsPerson: true }, sOld = { ...s, inputs: ["{pewp}/research/competitors.json"] };
       const AC = `${vars.pewp}/approved/competitors.json`, PR = `${vars.pewp}/research/competitors-proposed.json`, CJ = `${vars.pewp}/research/competitors.json`;
       const L2 = '{"rows":[{"name":"Sample Rival One"},{"name":"Sample Rival Two"}]}', L3 = '{"rows":[{"name":"Sample Rival One"},{"name":"Sample Rival Two"},{"name":"Sample Rival Three"}]}';
       const world = (prAt, prBody) => { const C = { [AC]: [T - 2 * H, L2], [CJ]: [T - H, '{"sites":[{"domain":"rival-one.example"}]}'], [PR]: [prAt, prBody] }; return { existsSync: (p) => p in C, statSync: (p) => ({ size: C[p][1].length, mtimeMs: C[p][0], isDirectory: () => false }), readdirSync: () => [], readFileSync: (p) => Buffer.from(C[p][1]) }; };
@@ -235,7 +235,7 @@ async function scenarios(sdir) {
     check("A: validateManifest returns { ok: false, problems: [{ rule, step, detail }] } (rule 'step-key', step 'psi'); the real manifest is { ok: true, problems: [] }", !vm.ok && vm.problems.length === 1 && vm.problems[0].rule === "step-key" && vm.problems[0].step === "psi" && /unknown key 'surprise'/.test(vm.problems[0].detail) && lib.validateManifest(manifest, { skillDir }).ok === true, JSON.stringify(vm));
     const ro = lib.runOrder(cyc);
     check("A: runOrder returns { ok, steps, ids, problems } and a cycle is a problem value (rule 'cycle'), never a throw", !ro.ok && ro.problems[0].rule === "cycle" && lib.runOrder(manifest).ok && lib.runOrder(manifest).steps.length === manifest.steps.length, JSON.stringify(ro.problems));
-    check("A: stepKind says script, person, browser or agent", lib.stepKind(step(manifest, "psi")) === "script" && lib.stepKind(step(manifest, "approve-business")) === "person" && lib.stepKind(step(manifest, "capture-google")) === "browser" && lib.stepKind(step(manifest, "verify")) === "agent", "");
+    check("A: stepKind says script, person, browser or agent", lib.stepKind(step(manifest, "psi")) === "script" && lib.stepKind(step(manifest, "approve-business")) === "script" && lib.stepKind({ ...step(manifest, "approve-business"), script: null, args: [], needsPerson: true }) === "person" && lib.stepKind(step(manifest, "capture-google")) === "browser" && lib.stepKind(step(manifest, "verify")) === "agent", "");
     const S0 = { exit: {} }, okEv = { state: "done", problems: [] }, badEv = { state: "missing", problems: ["/x (no non-empty file)"] };
     const so = (step2, o) => lib.stepOutcome(step2, o);
     const OUT = [

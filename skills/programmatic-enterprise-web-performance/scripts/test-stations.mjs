@@ -18,7 +18,7 @@ const PIPE = path.join(path.resolve(here, ".."), "pipeline.json");
 const MAP = [
   ["site", "the site itself: reach, snapshot, speed, the checks", "doctor vantage snapshot psi crux checker"],
   ["business", "who the business is, what it sells, the seeds", "intake approve-business city-centres seeds approve-seeds"],
-  ["demand", "what people search for", "demand-bing search-console research-plan capture-autocomplete autocomplete-import capture-trends trends-import forums"],
+  ["demand", "what people search for", "demand-bing search-console research-plan approve-cost capture-autocomplete autocomplete-import capture-trends trends-import forums"],
   ["search", "where the site stands in Google and Bing", "capture-google capture-bing capture-index index-import research targets-validate"],
   ["assistants", "what the AI assistants answer", "capture-ai ai-import"],
   ["local", "the map, the listing, the directories", "local-grid-plan capture-maps local-grid-import capture-directories local"],
@@ -119,7 +119,7 @@ async function scenarios(dir) {
     const stepsOf = (id) => (m ? m.steps.filter((s) => s.station === id).map((s) => s.id).join(" ") : "");
     const bad = MAP.filter(([id, what, steps]) => stepsOf(id) !== steps || !(m && m.stations && m.stations.some((s) => s.id === id && s.what === what)));
     check("11: the real pipeline.json declares the 9 stations in the order of the brief", got === want, got);
-    check("11: the 50 steps are mapped exactly (each station holds its steps, in file order, and every step names a station)", m && m.steps.length === 50 && bad.length === 0 && m.steps.every((s) => typeof s.station === "string") && MAP.flatMap((x) => x[2].split(" ")).length === 50, "wrong: " + bad.map((x) => x[0]).join(", ")); }
+    check("11: the 51 steps are mapped exactly (each station holds its steps, in file order, and every step names a station)", m && m.steps.length === 51 && bad.length === 0 && m.steps.every((s) => typeof s.station === "string") && MAP.flatMap((x) => x[2].split(" ")).length === 51, "wrong: " + bad.map((x) => x[0]).join(", ")); }
   return results;
 }
 

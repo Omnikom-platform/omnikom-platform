@@ -31,5 +31,6 @@
   { "file": "test-authority.mjs", "plain": ["--quiet"], "mutants": [] },
   { "file": "test-approve.mjs", "plain": ["--no-mutants"], "mutants": [] },
   { "file": "test-reports.mjs", "plain": ["--no-mutants"], "mutants": [] },
-  { "file": "test-pipeline.mjs", "plain": ["--no-mutants", "--no-scripts"], "mutants": ["--no-mutants", "--no-scripts"] }
+  { "file": "test-pipeline.mjs", "plain": ["--no-mutants", "--no-scripts"], "mutants": ["--no-mutants", "--no-scripts"] },
+  { "file": "test-sign-by-rule.mjs", "plain": ["--no-mutants"], "mutants": [] }
 ]

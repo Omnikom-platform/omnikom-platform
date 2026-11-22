@@ -1,0 +1,12 @@
+{
+ "ruledBy": "owner",
+ "ruledOn": "2026-11-21",
+ "signer": "head of operations",
+ "kinds": [
+  "business",
+  "seeds",
+  "competitors",
+  "research-cost"
+ ],
+ "costCeiling": 150
+}

@@ -39,6 +39,7 @@ measure) reads this one file, so a wrong country or a missing service area here 
 6. **Check it**: `node "<skill>/scripts/targets-validate.mjs" <pewp> --business <pewp>/business.json` (rule B-001) must pass.
 7. **The owner approves the business** (overhaul mode, and any run that wants a signed definition): `node "<skill>/scripts/approve.mjs" <target> business --by "<owner name>"`
    after the owner has read the one-screen definition. The script refuses (exit 1) while an owner-only field was not answered by the owner; see "Who answered".
+   In `omnikom seo run` the head's stamp is written by rule (owner, 2026-11-21: `scripts/sign-by-rule.mjs`, recorded as delegated): a person is asked only for an owner-only field that has no value.
 
 ## Who answered (`answeredBy`)
 An answer in `intake-answers.json` is bare (`"kind": "real-estate-agent"`, the old form: still accepted, recorded as `unstated`) or stamped:
