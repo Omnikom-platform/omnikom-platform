@@ -67,7 +67,9 @@ and `adoptDefault` in `lib-pipeline.mjs` are the same rule for `omnikom seo run`
   `omnikom seo station <url> [--station <id>]` writes `{pewp}/stations/sheet.md` and `sheet.json` (only the steps to judge; exit 0 all CLOSED, 1 one OPEN); `omnikom seo rule <url> <step> --why .. --by ..` records the ruling.
 - Run state and proof: `site-checks/<host>/.pewp/state.json`; every start writes `runs/<date>-audit-live.md` (command, exit code, first 40 lines, doctor result).
 
-## The checker (audit-repo, and the `checker` step of audit-live)
+## The checker (audit-repo by agents, and the `checker` step of audit-live by program)
+The `checker` step of audit-live is a program, `scripts/checker-rules.mjs`, with no model: it runs the rule program (`tools/audit`, 32 rules of the checklist's 547) on the run's newest complete snapshot and writes one root cause for each rule that has a FAIL or a WARN to `{work}/checker/.checks/causes.json`, with `plan.json` and `REPORT.md` beside it; the other rules of the checklist are NOT checked in a live audit, and the report says how many rules the program checked, never that the whole checklist was. The coordinator and its workers below remain the way of audit-repo.
+
 The main session never reads the code. Start ONE agent: `subagent_type: "general-purpose"`, `model: "sonnet"`,
 `effort: "high"`, prompt:
 > Read `<skill>/coordinator.md` and follow it exactly. Repo root: `<path>`. Focus: `<focus>`. Max parallel workers: `<n, default 4>`. Return only the short summary it specifies.
@@ -78,7 +80,7 @@ any source file changed). Output in `<root>/.checks/`:
 - `causes.json` (data for reports and PDFs) · `run-all.mjs` (re-runs every check, no usage) · `scripts/check-*.mjs`
   (exit 0 fixed, 1 still there, 2 cannot judge) · `scripts/know-*.mjs` (facts about the code, so nobody opens it).
 After fixes: `node .checks/run-all.mjs`. After big changes, run the skill again (the previous run moves to `.checks/prev/`).
-In audit-live the checker step's root is `{work}/checker` (a copy of the newest snapshot) and the `report-live` step reads its `.checks/` (`report-live.mjs --checks {work}/checker/.checks`): no readable list of causes there is BLOCKED, and a newer `causes.json` makes the report stale. Without `--checks` (the overhaul chain, a hand run) it reads `<snapshot>/.checks/`.
+In audit-live the checker step (the program above) writes to `{work}/checker/.checks/` and the `report-live` step reads that folder (`report-live.mjs --checks {work}/checker/.checks`): no readable list of causes there is BLOCKED, and a newer `causes.json` makes the report stale. Without `--checks` (the overhaul chain, a hand run) it reads `<snapshot>/.checks/`.
 
 ## Rules
 - Audit modes never edit the target: workers write only under `.checks/` (scratch in `.checks/tmp/`), the guard proves it.

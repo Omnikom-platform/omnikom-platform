@@ -215,33 +215,37 @@
    "station": "site",
    "skipWhen": "site-none",
    "module": "technical",
-   "what": "the shipgate checker: ONE coordinator agent groups failures into root causes",
-   "script": null,
-   "args": [],
+   "what": "the shipgate checker by program: the measurable rules judge the snapshot and write the root causes, no model",
+   "script": "scripts/checker-rules.mjs",
+   "args": [
+    "{key}",
+    "--cwd",
+    "{skill}"
+   ],
    "inputs": [
     "{runDir}/snapshots/*/_site.json"
    ],
    "outputs": [
     "{work}/checker/.checks/causes.json",
-    "{work}/checker/.checks/REPORT.md"
+    "{work}/checker/.checks/REPORT.md",
+    "{work}/checker/.checks/plan.json"
    ],
    "dependsOn": [
     "snapshot"
    ],
    "needsBrowser": "none",
-   "needsAi": true,
+   "needsAi": false,
    "needsPerson": false,
    "needsKeys": [],
-   "heavy": true,
+   "heavy": false,
    "hits": "none",
    "pace": null,
-   "timeoutMinutes": 120,
+   "timeoutMinutes": 10,
    "evidence": [
     "{work}/checker/.checks/causes.json"
    ],
    "kind": "time-sensitive",
-   "maxAgeDays": 7,
-   "brief": "Copy the newest snapshot folder to {work}/checker, then run ONE coordinator agent on it exactly as SKILL.md 'The checker' says, with the repo root = that copy."
+   "maxAgeDays": 7
   },
   {
    "id": "intake",

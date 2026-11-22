@@ -105,6 +105,9 @@ if (checksDir && !Array.isArray(causes)) { console.log(`BLOCKED: no readable che
 const sev = { critical: 0, high: 1, medium: 2, low: 3 };
 const RULES = (() => { try { const m = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "checklist", "INDEX.md"), "utf8").match(/shipgate spec ([\d.]+), (\d+) rules/); return m ? `${m[2]} rules, shipgate spec ${m[1]}` : "shipgate checklist"; } catch { return "shipgate checklist"; } })();
 const count = (s) => (causes || []).filter((c) => c.severity === s).length;
+// the checker step by program (checker-rules.mjs) says in plan.json how many rules it ran; then the causes were found by those rules, not by the whole checklist
+const checkPlan = J(path.join(checksDir || path.join(snapDir, ".checks"), "plan.json")), engine = checkPlan?.engine && Number.isInteger(checkPlan.engine.rulesRun) && Number.isInteger(checkPlan.engine.rulesInChecklist) ? checkPlan.engine : null;
+const FOUND_BY = engine ? `${engine.rulesRun} of ${engine.rulesInChecklist} rules, checked by program` : RULES;
 const q1Facts = {
   pagesChecked: fact(pages.length, src(path.join(snapDir, "_site.json")), snapAt, rel(path.join(snapDir, "_site.json"))),
   robotsStatus: fact(robots.status ?? "missing", src(robotsFile), snapAt, rel(robotsFile)),
@@ -118,7 +121,7 @@ const q1Facts = {
   pagesWithoutStructuredData: fact(noLd.length, "rendered pages", snapAt, rel(path.join(snapDir, "pages"))),
   pagesWithoutSharingTags: fact(noOg.length, "rendered pages", snapAt, rel(path.join(snapDir, "pages"))),
   ...speed,
-  rootCauses: causes ? fact({ total: causes.length, critical: count("critical"), high: count("high"), medium: count("medium"), low: count("low") }, `the checker's root causes (${RULES})`, J(path.join(path.dirname(causesFile), "plan.json"))?.createdAt || snapAt, rel(causesFile)) : null,
+  rootCauses: causes ? fact({ total: causes.length, critical: count("critical"), high: count("high"), medium: count("medium"), low: count("low") }, `the checker's root causes (${FOUND_BY})`, J(path.join(path.dirname(causesFile), "plan.json"))?.createdAt || snapAt, rel(causesFile)) : null,
 };
 
 // ---------- G9: how far to trust the lab speed, and what PageSpeed Insights (Google's servers) says ----------
@@ -679,7 +682,7 @@ const md = [
   `- Pages without ${term("structured data")}: ${noLd.length}; without sharing tags: ${noOg.length}`,
   `- Phone speed (lab): typical ${term("LCP")} ${sec(speed.lcpMedianMs.value)} (slowest ${sec(speed.lcpWorst?.value)}, ${speed.lcpWorst?.source || "-"}); typical ${term("TBT")} ${sec(speed.tbtMedianMs.value)}; worst ${term("CLS")} ${speed.clsWorst?.value ?? "n/a"}; heaviest page ${speed.heaviestKb ? `${(speed.heaviestKb.value / 1024).toFixed(1)} MB` : "n/a"}${labUntrusted ? " (UNTRUSTED, see below)" : ""}`,
   ...speedTrustLines,
-  causes ? `- The checklist (${RULES}) found ${causes.length} ${term("root cause")}s: ${count("critical")} critical, ${count("high")} high, ${count("medium")} medium, ${count("low")} low (fix order in section 6)` : `- The shipgate checklist (${RULES}) has not run on this snapshot yet: run the skill's checker on the snapshot folder.`,
+  causes ? `- The checklist (${FOUND_BY}) found ${causes.length} ${term("root cause")}s: ${count("critical")} critical, ${count("high")} high, ${count("medium")} medium, ${count("low")} low (fix order in section 6)` : `- The shipgate checklist (${RULES}) has not run on this snapshot yet: run the skill's checker on the snapshot folder.`,
   "",
   "## 2. Is there a page for what people actually search?",
   "",

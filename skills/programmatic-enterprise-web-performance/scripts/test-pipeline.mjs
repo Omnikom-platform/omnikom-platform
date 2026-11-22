@@ -63,14 +63,14 @@ async function scenarios(sdir) {
       ["hits that is not none, client or third-party:<name>", (m) => { step(m, "psi").hits = "somewhere"; }, /hits must be client, none or third-party/],
       ["an unknown placeholder in args", (m) => { step(m, "psi").args.push("{nope}"); }, /args uses the placeholder \{nope\}/],
       ["an unknown placeholder in evidence", (m) => { step(m, "psi").evidence.push("{nope}/x.json"); }, /evidence uses the placeholder \{nope\}/],
-      ["an unknown placeholder in a brief", (m) => { step(m, "checker").brief += " {nope}"; }, /brief uses the placeholder \{nope\}/],
+      ["an unknown placeholder in a brief", (m) => { step(m, "verify").brief += " {nope}"; }, /brief uses the placeholder \{nope\}/],
       ["a dependsOn id that is not a step", (m) => { step(m, "psi").dependsOn.push("ghost"); }, /dependsOn 'ghost' is not a step/],
       ["a step that depends on itself", (m) => { step(m, "psi").dependsOn.push("psi"); }, /dependency cycle: psi -> psi/],
       ["a cycle", (m) => { step(m, "doctor").dependsOn = ["snapshot"]; }, /^dependency cycle: /],
       ["a script that does not exist", (m) => { step(m, "psi").script = "scripts/no-such-step.mjs"; }, /script 'scripts\/no-such-step\.mjs' does not exist/],
-      ["script null on a step that is not WAITING", (m) => { step(m, "checker").needsAi = false; }, /a step the runner runs needs a script/],
-      ["a WAITING step without a brief", (m) => { delete step(m, "checker").brief; }, /a waiting step needs a brief/],
-      ["a WAITING step with args", (m) => { step(m, "checker").args = ["x"]; }, /a WAITING step has no args/],
+      ["script null on a step that is not WAITING", (m) => { step(m, "verify").needsAi = false; }, /a step the runner runs needs a script/],
+      ["a WAITING step without a brief", (m) => { delete step(m, "verify").brief; }, /a waiting step needs a brief/],
+      ["a WAITING step with args", (m) => { step(m, "verify").args = ["x"]; }, /a WAITING step has no args/],
       ["a script step that needs a person", (m) => { step(m, "psi").needsPerson = true; }, /a waiting step \(owner browser, AI or person\) must have script null, not a script/],
       ["an engines name that lib-stops does not know", (m) => { step(m, "capture-google").engines = ["nope"]; }, /engines holds 'nope'/],
       ["engines that is not a list of names", (m) => { step(m, "capture-google").engines = "google"; }, /engines must be a list of strings/],
@@ -235,7 +235,7 @@ async function scenarios(sdir) {
     check("A: validateManifest returns { ok: false, problems: [{ rule, step, detail }] } (rule 'step-key', step 'psi'); the real manifest is { ok: true, problems: [] }", !vm.ok && vm.problems.length === 1 && vm.problems[0].rule === "step-key" && vm.problems[0].step === "psi" && /unknown key 'surprise'/.test(vm.problems[0].detail) && lib.validateManifest(manifest, { skillDir }).ok === true, JSON.stringify(vm));
     const ro = lib.runOrder(cyc);
     check("A: runOrder returns { ok, steps, ids, problems } and a cycle is a problem value (rule 'cycle'), never a throw", !ro.ok && ro.problems[0].rule === "cycle" && lib.runOrder(manifest).ok && lib.runOrder(manifest).steps.length === manifest.steps.length, JSON.stringify(ro.problems));
-    check("A: stepKind says script, person, browser or agent", lib.stepKind(step(manifest, "psi")) === "script" && lib.stepKind(step(manifest, "approve-business")) === "person" && lib.stepKind(step(manifest, "capture-google")) === "browser" && lib.stepKind(step(manifest, "checker")) === "agent", "");
+    check("A: stepKind says script, person, browser or agent", lib.stepKind(step(manifest, "psi")) === "script" && lib.stepKind(step(manifest, "approve-business")) === "person" && lib.stepKind(step(manifest, "capture-google")) === "browser" && lib.stepKind(step(manifest, "verify")) === "agent", "");
     const S0 = { exit: {} }, okEv = { state: "done", problems: [] }, badEv = { state: "missing", problems: ["/x (no non-empty file)"] };
     const so = (step2, o) => lib.stepOutcome(step2, o);
     const OUT = [
