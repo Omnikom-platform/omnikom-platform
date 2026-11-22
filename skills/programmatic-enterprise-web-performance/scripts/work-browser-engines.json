@@ -1,0 +1,14 @@
+{
+  "chatgpt": {
+    "selectors": "NOT SET"
+  },
+  "gemini": {
+    "selectors": "NOT SET"
+  },
+  "perplexity": {
+    "selectors": "NOT SET"
+  },
+  "copilot": {
+    "selectors": "NOT SET"
+  }
+}
