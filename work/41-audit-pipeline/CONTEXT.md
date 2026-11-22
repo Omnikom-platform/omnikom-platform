@@ -34,9 +34,20 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   its own reported step; until then no Google page, Gemini included. NOT BUILT: the assistants' real page descriptions, Bing, Maps, the
   site reads, the one Google page; the fallback (the two prompts typed at a person's pace by desktop control) only if the scripted
   tabs are refused. The browser extension of M158 is only a fallback for hand driving, not built now.
+- PACE (owner M250, 2026-11-22: "we just properly pace the browser driving in order for it to not tigger these checks"; the head of
+  operations' reading binds). Pace is a fixed design, not a reaction: one tab at a time, one assistant at a time, a steady typing
+  rate and reading pauses, the two prompts in one chat and nothing more per assistant per audit, minutes between assistants, no
+  reloads, no retries; the numbers live in one block and nothing in them is random; the pace is the same before and after any check.
+  What pace is NOT: a changed or invented user agent, a stealth patch, faked pointer movement, a changed exit, a fresh profile to look
+  new: those disguise a script and are not ours. No script of ours ticks or answers a "verify you are human" test, whatever risk is
+  accepted. THE LIMIT: ChatGPT challenged a scripted tab on its first page load (2026-11-22 08:51), before any typing, so pace does
+  not change that host's answer; after its stop ends the next try is a visible window typed by desktop control, one page first.
+  NOT on master: the pace block and its test (branch `check/seo/assistants-pace`).
 - AI ANSWERS (M174). The assistants' station is the two engineered prompts in one chat per assistant: the one-shot, then the
-  follow-up by name; counts with no model. BUILT 2026-11-22 (this slice): `scripts/ai-oneshot.mjs` (build, lock, box, save, count)
-  and its prompts. NOT BUILT: its steps in `pipeline.json` (`capture-ai` is still a waiting step).
+  follow-up by name; counts with no model. The assistants are THREE: ChatGPT, Gemini, Perplexity (owner M250, 2026-11-22: "copilot
+  is just a wrapper for gpt so I think we get rid of it"). BUILT 2026-11-22: `scripts/ai-oneshot.mjs` (build, lock, box, save,
+  count) and its prompts. NOT BUILT: its steps in `pipeline.json` (`capture-ai` is still a waiting step). Copilot leaves the lists
+  with the branch `check/seo/assistants-pace`.
 - POOL AND PROFILE. The gathered data is pooled into one organized PROFILE per client, filled from the stations. BUILT
   2026-11-22: `scripts/client-profile.mjs` (the step `client-profile`, station report) writes `{pewp}/profile.json`: every step under
   its station as gathered, not gathered (the script's own line and the ruling) or not applicable, with its files and each file's own
@@ -54,10 +65,11 @@ build's, each proven by its test and seeded faults (the slice that landed them).
 - MISSING SOURCES (his rule, M195). An audit with every source read is always approved. When some were not gathered (his
   example: 9 sources read), the client gets the analysis of what was gathered and is told nothing about what was not read. Missing
   data never makes an audit impossible. This replaces the idea that an entry report waits for the 11 captures from his Edge.
-- FLOOR (his rule, M196). A report goes to a client only if what was gathered fills an honest report of at least 5 pages; if not it
-  stays an internal draft. BUILT: the 5 to 8 sections gate of the client copy (`scripts/client-copy-gates.mjs`). NOT BUILT: the
-  decision "is what was gathered enough for 5 honest pages" made before the copy is written; it is built with the copy builder that
-  can leave a page out, so that what counts as printable comes from the code that prints it.
+- FLOOR (his rule, M196; the number is M247's, 2026-11-22: "At least 2 analysis pages"). A report goes to a client only with the
+  four fixed pages (cover, summary, plan, how we work) and at least 2 analysis pages filled honestly from gathered facts: 6 pages at
+  the least, 8 at the most; with fewer it stays an internal draft. On master: the 5 to 8 sections gate of the first clients' copy
+  (`scripts/client-copy-gates.mjs`). NOT on master: the floor of 2 in the judge (no model is asked when fewer than 2 kinds of source
+  were gathered) and the gate at 6 to 8 (branch `check/seo/audit-judge`).
 - SIGN-OFFS (his ruling, M195). The head signs the business, the seeds, the competitors and any research plan up to 150 requests,
   by this written rule, recorded as delegated. "Cost" means the number of requests to free sources; money is always 0. Above 150
   the run stops for him. Built: `approve.mjs` accepts a delegation stamp and `research` has no `--yes` in the manifest, so a plan
