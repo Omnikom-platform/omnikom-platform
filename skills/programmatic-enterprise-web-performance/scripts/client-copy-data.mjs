@@ -23,7 +23,7 @@ const upperFirst = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // A field path: a.b[3].c, an array element by its fields: rows[engine=chatgpt&type=buyer], a nested key inside brackets with "/".
 // For a text file the field is "text" (the whole file) or "match:<regex>" (group 1 if the regex has one, else the match).
-function parsePath(p) {
+export function parsePath(p) {
   const segs = [];
   const re = /([^.[\]]+)|\[([^\]]*)\]/g;
   let m;
@@ -34,7 +34,7 @@ function parsePath(p) {
   }
   return segs;
 }
-function walk(root, segs) {
+export function walk(root, segs) {
   let cur = root;
   for (const s of segs) {
     if (cur === null || cur === undefined) return undefined;

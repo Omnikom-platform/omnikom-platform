@@ -1,7 +1,7 @@
 // Usage: node test-copy-gates.mjs [--scripts <dir>] [--quiet] [--mutants] [--only <id>]
 // Test of client-copy-gates.mjs (scripts/client-copy-gates.mjs): the report rules as gates over the finished html and sheet of the client copy, run on
 // INVENTED pages (no file of a client, no network, no browser). Every gate is a STOP of one line, STOP: gate <name>: <what was found>; the first gate that
-// fails speaks, in the order sections, blank page, pictures, last page, dashes, contact line, internal words, numbers.
+// fails speaks, in the order sections, blank page, pictures, last page, dashes, contact line, internal words, numbers, internal (the lines of the internal sheet).
 // What is pinned: 5 to 8 sections with the cover first; no section without visible text; the logo as the only picture; the pipeline list on the last page
 // only; no em or en dash; no contact line; no internal word (a status word only in capitals); every number of a page held by a printed cell of that page's
 // sheet rows, with the four exemptions checked (header month, footer, step and plan counters, page references); the step ids equal the pipeline's.
@@ -64,6 +64,8 @@ if (args.includes("--mutants")) {
     { id: "page-reference-case-sensitive", file: GATES, from: "(?![\\d%])/gi, (_, xs)", to: "(?![\\d%])/g, (_, xs)", red: "case 10:" },
     { id: "page-reference-eats-a-percent", file: GATES, from: "(?![\\d%])/gi, (_, xs)", to: "/gi, (_, xs)", red: "case 10:" },
     { id: "step-id-dropped", file: GATES, from: '"capture-maps", ', to: "", red: "case 11:" },
+    { id: "internal-gate-removed", file: GATES, from: 'if (i >= 0) fail("internal"', to: 'if (i >= 999) fail("internal"', red: "case 13:" },
+    { id: "internal-short-texts-looked-for", file: GATES, from: "(x) => x.length >= 8", to: "(x) => x.length >= 1", red: "case 13:" },
     { id: "dash-in-source", file: GATES, from: "// client-copy-gates.mjs: the report rules", to: "// client-copy-gates.mjs: the report rules" + String.fromCharCode(8212), red: "case 12:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "copygates-mut-"));
@@ -220,6 +222,19 @@ run("case 12: the module and this test hold no em dash, no en dash and no user-f
   const dashes = [D1, D2], paths = [["C:", "Users"].join("\\"), "E:" + "\\"];
   const bad = ["client-copy-gates.mjs", "test-copy-gates.mjs"].filter((f) => { const s = fs.readFileSync(path.join(dir, f), "utf8"); return dashes.some((d) => s.includes(d)) || paths.some((p) => s.includes(p)); });
   return [bad.length === 0, bad.join()];
+});
+run("case 13: THE INTERNAL SHEET: a page whose visible text holds a line of the internal sheet STOPs (other case and spacing too, the page named); a text of 7 characters is not looked for; no list or an empty list leaves every old case as before; the gate is last", () => {
+  const bad = [], LINE = "Maps capture blocked by the host", askI = (html, internal, tsv = TSV) => stopOf(() => gates({ html, tsv, pages: 5, logoUrl: LOGO, internal }));
+  const page2 = on2(LINE + ".");
+  bad.push(...want(askI(page2, [LINE]), /^STOP: gate internal: page 2 holds a line of the internal sheet$/));
+  bad.push(...want(askI(on2("MAPS   capture\n blocked  by THE host."), [LINE]), /^STOP: gate internal: page 2 holds a line of the internal sheet$/));
+  bad.push(...want(askI(page2, ["maps  CAPTURE blocked by the HOST"]), /^STOP: gate internal: page 2 holds a line of the internal sheet$/));
+  bad.push(...want(askI(setPage(BASE, 3, W(3, 5, "<p>" + LINE + ".</p>")), ["other line to look for", LINE]), /^STOP: gate internal: page 3 holds a line of the internal sheet$/));
+  for (const [nm, h, list] of [["a text of 7 characters", BASE, ["Hilltop"]], ["a line the pages do not hold", page2, ["The review was skipped"]], ["no list", page2, undefined], ["an empty list", page2, []]]) { const g = askI(h, list); if (g !== "") bad.push(`green half ${nm}: ${g}`); }
+  bad.push(...want(askI(page2.replace("Maps", `Maps ${D1}`), [LINE]), gate("dashes")));
+  bad.push(...want(askI(on2(LINE + " 31."), [LINE]), gate("numbers")));
+  if (ask(BASE) !== "") bad.push(`old base: ${ask(BASE)}`);
+  return [bad.length === 0, bad.join(" | ")];
 });
 
 const failed = results.filter((r) => !r.ok);

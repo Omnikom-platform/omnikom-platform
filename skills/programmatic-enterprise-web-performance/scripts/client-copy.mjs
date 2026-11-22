@@ -130,7 +130,14 @@ try {
   const stem = `${D.biz.shortName}-website-review-${date}${draft ? "-draft" : ""}`;
   const logoUrl = pathToFileURL(path.join(assetsDir, "omnikom-logo-full.png")).href;
   const { html, tsv, pages } = buildPages({ D, S, fmt, w: words, std, fixes, branches, draft, notRead, client, logoUrl, fontsUrl: pathToFileURL(cssFile).href });
-  gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words }); // the report rules: one STOP line, nothing written
+  // the internal sheet of the run (what was not gathered): a page that holds one of its lines is refused; no file, no list
+  let internal = [];
+  const intFile = path.join(pewp, "internal", "not-gathered.json");
+  if (fs.existsSync(intFile)) {
+    let sheet; try { sheet = JSON.parse(fs.readFileSync(intFile, "utf8").replace(/^\uFEFF/, "")); } catch { stop("STOP: .pewp/internal/not-gathered.json is not JSON"); }
+    internal = (Array.isArray(sheet?.rows) ? sheet.rows : []).map((r) => r?.why).filter((w) => typeof w === "string");
+  }
+  gates({ html, tsv, pages, logoUrl, branches, approvedWords: approvedWords.words, internal }); // the report rules: one STOP line, nothing written
 
   // ---- nothing is written before every number has been read and every page built
   fs.mkdirSync(outDir, { recursive: true });

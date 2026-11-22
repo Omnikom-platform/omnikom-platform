@@ -17,7 +17,7 @@ const NUM = /\d+(?:[.,]\d+)*/g;
 /** The text a reader sees: style, script and svg dropped, tags to spaces, the entities of the design decoded, white space squeezed. */
 export const visible = (h) => String(h).replace(/<(style|script|svg)\b[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;|&middot;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 
-export function gates({ html, tsv, pages, logoUrl, branches, approvedWords }) {
+export function gates({ html, tsv, pages, logoUrl, branches, approvedWords, internal }) {
   const fail = (gate, found) => stop(`STOP: gate ${gate}: ${found}`);
   const secs = html.match(/<section\b[\s\S]*?<\/section>/g) || [];
   const opens = (html.match(/<section\b/g) || []).length, marked = (html.match(/<section class="(?:cover|pg)" id="p\d+">/g) || []).length;
@@ -67,4 +67,7 @@ export function gates({ html, tsv, pages, logoUrl, branches, approvedWords }) {
     for (const [id, t] of Object.entries(branches)) for (const w of String(t).replace(/\{[^}]*\}/g, " ").toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g) || []) if (!known(w) && !bad.some((b) => b[0] === w && b[1] === id)) bad.push([w, id]);
     if (bad.length) fail("new words", bad.length === 1 ? `"${bad[0][0]}" in ${bad[0][1]} is not a word of the approved print` : `${bad.slice(0, 4).map((b) => `"${b[0]}" in ${b[1]}`).join(", ")}${bad.length > 4 ? ` and ${bad.length - 4} more` : ""} are not words of the approved print`);
   }
+  // j: the internal sheet (what the run did not gather) never reaches a client page: a page whose visible text holds one of its lines (8 characters or more, case and white space ignored) is refused
+  const sq = (x) => String(x).toLowerCase().replace(/\s+/g, " ").trim();
+  for (const n of (internal || []).map(sq).filter((x) => x.length >= 8)) { const i = text.findIndex((t) => sq(t).includes(n)); if (i >= 0) fail("internal", `page ${i + 1} holds a line of the internal sheet`); }
 }
