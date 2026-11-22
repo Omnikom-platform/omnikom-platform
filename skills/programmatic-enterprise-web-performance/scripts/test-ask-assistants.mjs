@@ -12,6 +12,8 @@ import { fileURLToPath } from "node:url";
 import { runner, J, W, walk, mkTmp, rmTmp, checker, main } from "./lib-test-kit.mjs";
 import { spawnBrowser } from "./lib-browser-profile.mjs";
 import { CHROME_PATH } from "./cdp-measure.mjs";
+import { connect } from "./vantage.mjs";
+import { writeStop } from "./lib-stops.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SITE = "https://sample-valley-realty.test/", HOST = "sample-valley-realty.test";
@@ -29,14 +31,18 @@ const PAGES = {
   modeNever: { kind: "chat" }, modeSteps: { kind: "chat", modeBtn: true },
   robot: { kind: "robot" }, signin: { kind: "signin" }, mangle: { kind: "chat", modeOn: true, mangle: true }, silent: { kind: "chat", modeOn: true, silent: true },
   unused: { kind: "chat", modeOn: true }, ask1: { kind: "chat", modeOn: true }, ask2: { kind: "chat", modeOn: true },
+  ck1: { kind: "chat", modeOn: true }, ck2: { kind: "chat", modeOn: true },   // two assistants on ONE host: the server sets a cookie on the first visit and logs the Cookie header
+  short1: { kind: "chat", modeOn: true, short: 1 }, short2: { kind: "chat", modeOn: true, short: 2 }, lockGone: { kind: "chat", modeOn: true },   // reply number `short` is 20 characters; lockGone: the server deletes the lock when a send arrives
+  robotJam: { kind: "robot", title: "Just a moment...", text: "Please stand by." }, robotVerify: { kind: "robot", title: "Verify you are human", text: "Please stand by." }, robotCheck: { kind: "robot", title: "Checking your browser", text: "Please stand by." },
+  robotTitle: { kind: "robot", title: "Attention Required", text: "Please stand by." }, robotText: { kind: "robot", title: "Just a page", text: "Verifying you are human. This may take a few seconds." },
 };
 const html = (name, cfg) => {
   const chat = cfg.kind === "chat";
-  const body = cfg.kind === "robot" ? '<p>Please verify you are human. captcha</p><button id="x">Verify</button>'
+  const body = cfg.kind === "robot" ? '<p>' + (cfg.text || "Please verify you are human. captcha") + '</p><button id="x">Verify</button>'
     : cfg.kind === "signin" ? '<p>Please sign in to continue</p><form><input type="password" id="pw"><button id="go">Sign in</button></form>'
     : '<div id="mode-area">' + (cfg.modeOn ? '<div id="temp-on">Temporary chat is on</div>' : "") + (cfg.modeBtn ? '<button id="mode-btn">Temporary chat</button>' : "") + '</div>'
       + '<div id="chat"></div><div id="busy-area"></div><textarea id="box" rows="4" cols="60"></textarea><button id="send">Send</button>';
-  return '<!doctype html><html><head><meta charset="utf-8"><title>' + name + '</title></head><body><h1>Invented assistant</h1>'
+  return '<!doctype html><html><head><meta charset="utf-8"><title>' + (cfg.title || name) + '</title></head><body><h1>Invented assistant</h1>'
     + '<aside id="side"><ul><li>HISTORY-MARKER an earlier chat about something</li></ul></aside><main>' + body + '</main><script>'
     + 'const P=' + JSON.stringify(name) + ', CFG=' + JSON.stringify(cfg) + ';'
     + 'const ev=(k,x)=>navigator.sendBeacon("/__ev?k="+k+"&p="+P+"&x="+encodeURIComponent(x||""));'
@@ -48,22 +54,23 @@ const html = (name, cfg) => {
       + 'box.addEventListener("input",()=>{ev("input");if(CFG.mangle&&!box.dataset.m){box.dataset.m="1";box.value+=" XTRA";}});'
       + 'document.getElementById("send").addEventListener("click",()=>{ev("send",String(box.value.length));if(CFG.silent)return;n++;const k=n;box.value="";busyArea.innerHTML=\'<div id="busy">Thinking</div>\';'
       + 'const r=document.createElement("div");r.className="reply";chat.appendChild(r);'
-      + 'const chunks=["<h2>Part 1: your recommendations ("+k+")</h2>","<p>Filler paragraph with enough words so that the whole reply is longer than two hundred characters for the saved record, reply number "+k+", going on and on a little more.</p>",'
+      + 'const chunks=CFG.short===k?["<p>Too short reply no."+k+"</p>"]:["<h2>Part 1: your recommendations ("+k+")</h2>","<p>Filler paragraph with enough words so that the whole reply is longer than two hundred characters for the saved record, reply number "+k+", going on and on a little more.</p>",'
       + '"<table><thead><tr><th>Rank</th><th>Name</th><th>Source</th></tr></thead><tbody><tr><td>1</td><td>Alpha Homes</td><td><a href=\\"https://alpha-homes.test/q"+k+"\\">Alpha Homes site</a></td></tr></tbody></table>",'
       + '"<ul><li>first point</li><li>second point</li></ul>","<p>Plain address: <a href=\\"https://zeta.test/\\">https://zeta.test/</a></p>","<p>END-OF-REPLY-"+k+"</p>"];'
       + 'let i=0;const t=setInterval(()=>{r.insertAdjacentHTML("beforeend",chunks[i++]);if(i>=chunks.length){clearInterval(t);busyArea.innerHTML="";}},350);});})();' : "")
     + '</script></body></html>';
 };
 async function startServer() {
-  const log = [];
+  const log = [], hooks = {};   // hooks[page]: run when that page's send arrives
   const server = http.createServer((req, res) => {
     const u = new URL(req.url, "http://x"), t = Date.now(), m = u.pathname.match(/^\/p\/([A-Za-z0-9]+)$/);
-    if (u.pathname === "/__ev") { log.push({ t, kind: u.searchParams.get("k"), page: u.searchParams.get("p"), x: u.searchParams.get("x") || "" }); res.statusCode = 204; return res.end(); }
-    if (m && PAGES[m[1]]) { log.push({ t, kind: "load", page: m[1], x: "" }); res.setHeader("content-type", "text/html; charset=utf-8"); return res.end(html(m[1], PAGES[m[1]])); }
+    const cookie = String(req.headers.cookie || "");   // every request is logged with the Cookie header it carried
+    if (u.pathname === "/__ev") { log.push({ t, kind: u.searchParams.get("k"), page: u.searchParams.get("p"), x: u.searchParams.get("x") || "", cookie }); if (u.searchParams.get("k") === "send" && hooks[u.searchParams.get("p")]) hooks[u.searchParams.get("p")](); res.statusCode = 204; return res.end(); }
+    if (m && PAGES[m[1]]) { log.push({ t, kind: "load", page: m[1], x: "", cookie }); res.setHeader("content-type", "text/html; charset=utf-8"); if (!cookie) res.setHeader("set-cookie", "visited=1; Path=/"); return res.end(html(m[1], PAGES[m[1]])); }
     res.statusCode = 404; res.end();
   });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
-  return { base: "http://127.0.0.1:" + server.address().port, log, close: () => server.close() };
+  return { base: "http://127.0.0.1:" + server.address().port, log, hooks, close: () => server.close() };
 }
 
 // ---------------------------------------------------------------- one real headless browser for the whole file
@@ -140,7 +147,7 @@ async function scenarios(dir) {
     // ---- case 3: the mode
     const B = await world(), rb = await ask(B, { chatgpt: spec("modeNever", { modeSteps: [] }) });
     check("case 3a: modeProof never matches: the box stayed empty, 0 sends, blocked 'temporary chat not confirmed', nothing saved",
-      rb.code === 0 && count("modeNever", "input") === 0 && count("modeNever", "send") === 0 && blockedWhy(B, "chatgpt") === "temporary chat not confirmed" && !fs.existsSync(cap(B, "chatgpt-1.json")), d(rb));
+      rb.code === 3 && count("modeNever", "input") === 0 && count("modeNever", "send") === 0 && blockedWhy(B, "chatgpt") === "temporary chat not confirmed" && !fs.existsSync(cap(B, "chatgpt-1.json")), d(rb));
     const B2 = await world(), rb2 = await ask(B2, { chatgpt: spec("modeSteps", { modeSteps: ["#mode-btn"] }) });
     check("case 3b: with modeSteps that switch it on (clicked once): asked normally, both saved, the mode is in the record",
       rb2.code === 0 && srv.log.filter((e) => e.page === "modeSteps" && e.kind === "click" && e.x === "mode-btn").length === 1 && !!jr(cap(B2, "chatgpt-2.json")) && count("modeSteps", "send") === 2, d(rb2) + " mode clicks " + srv.log.filter((e) => e.page === "modeSteps" && e.kind === "click" && e.x === "mode-btn").length);
@@ -149,18 +156,18 @@ async function scenarios(dir) {
     const C = await world(), rc = await ask(C, { chatgpt: spec("robot") }), stopFile = path.join(C.stops, "chatgpt.json");
     const loadsAfter1 = count("robot", "load"), rc2 = await ask(C, { chatgpt: spec("robot") });
     check("case 4a: a robot-check page: 0 clicks and 0 key presses, blocked 'robot check', a stop file for the engine",
-      rc.code === 0 && count("robot", "click") === 0 && count("robot", "key") === 0 && blockedWhy(C, "chatgpt") === "robot check" && fs.existsSync(stopFile) && /robot check/.test(fs.readFileSync(stopFile, "utf8")), d(rc));
-    check("case 4b: a second run does not load the page again (the stop holds)", loadsAfter1 === 1 && count("robot", "load") === 1 && rc2.code === 0 && /blocked/.test(last(rc2)), "loads " + count("robot", "load") + " | " + d(rc2));
+      rc.code === 3 && count("robot", "click") === 0 && count("robot", "key") === 0 && blockedWhy(C, "chatgpt") === "robot check" && fs.existsSync(stopFile) && /robot check/.test(fs.readFileSync(stopFile, "utf8")), d(rc));
+    check("case 4b: a second run does not load the page again (the stop holds)", loadsAfter1 === 1 && count("robot", "load") === 1 && rc2.code === 3 && /stopped until/.test(last(rc2)), "loads " + count("robot", "load") + " | " + d(rc2));
 
     // ---- case 5: a sign-in wall
     const D = await world(), rd = await ask(D, { chatgpt: spec("signin") });
     check("case 5: a sign-in wall: blocked 'sign-in wall', no stop file, 0 key presses, 0 inputs, 0 clicks",
-      rd.code === 0 && blockedWhy(D, "chatgpt") === "sign-in wall" && !fs.existsSync(path.join(D.stops, "chatgpt.json")) && count("signin", "key") === 0 && count("signin", "input") === 0 && count("signin", "click") === 0, d(rd));
+      rd.code === 3 && blockedWhy(D, "chatgpt") === "sign-in wall" && !fs.existsSync(path.join(D.stops, "chatgpt.json")) && count("signin", "key") === 0 && count("signin", "input") === 0 && count("signin", "click") === 0, d(rd));
 
     // ---- case 6: a box that changes the text
     const E = await world(), re = await ask(E, { chatgpt: spec("mangle") });
     check("case 6: a box that changes the text put into it: 0 sends, blocked 'the box did not hold the text', nothing saved",
-      re.code === 0 && count("mangle", "input") >= 1 && count("mangle", "send") === 0 && blockedWhy(E, "chatgpt") === "the box did not hold the text" && !fs.existsSync(cap(E, "chatgpt-1.json")), d(re));
+      re.code === 3 && count("mangle", "input") >= 1 && count("mangle", "send") === 0 && blockedWhy(E, "chatgpt") === "the box did not hold the text" && !fs.existsSync(cap(E, "chatgpt-1.json")), d(re));
 
     // ---- case 7: reply 1 already on file
     const F = await world(), boxF = path.join(tmp, "f-box.txt"), ansF = path.join(tmp, "f-reply.txt");
@@ -171,15 +178,59 @@ async function scenarios(dir) {
 
     // ---- case 9: a page that never answers
     const G = await world(), rg = await ask(G, { chatgpt: spec("silent", { capSeconds: 3 }) });
-    check("case 9: a page that never answers, capSeconds 3: blocked 'no reply in 3 s'", rg.code === 0 && count("silent", "send") === 1 && blockedWhy(G, "chatgpt") === "no reply in 3 s" && !fs.existsSync(cap(G, "chatgpt-1.json")), d(rg));
+    check("case 9: a page that never answers, capSeconds 3: blocked 'no reply in 3 s'", rg.code === 3 && count("silent", "send") === 1 && blockedWhy(G, "chatgpt") === "no reply in 3 s" && !fs.existsSync(cap(G, "chatgpt-1.json")), d(rg));
 
     // ---- case 11: no port, a page description not set, an engine the file does not have
     const H = await world(), rh = await ask(H, { chatgpt: spec("unused") }, { port: null });
     check("case 11a: no port given and none to find: exit 3 with the BLOCKED line, nothing loaded", rh.code === 3 && /^BLOCKED: the work browser is not open \| unblocks: node work-browser\.mjs open/m.test(rh.out) && count("unused", "load") === 0, d(rh));
     const I = await world(), ri = await ask(I, { chatgpt: { selectors: "NOT SET" } });
-    check("case 11b: an engine with \"selectors\": \"NOT SET\": blocked 'page description not set', 0 loads, nothing opened", ri.code === 0 && blockedWhy(I, "chatgpt") === "page description not set" && /chatgpt blocked \(page description not set\)/.test(last(ri)) && (await openTabs(br.port, srv.base))?.length === 0, d(ri));
+    check("case 11b: an engine with \"selectors\": \"NOT SET\": blocked 'page description not set', 0 loads, nothing opened", ri.code === 3 && blockedWhy(I, "chatgpt") === "page description not set" && /chatgpt: page description not set/.test(last(ri)) && (await openTabs(br.port, srv.base))?.length === 0, d(ri));
     const rj = await ask(I, { chatgpt: spec("unused") }, { extra: ["--engines", "bing"] });
     check("case 11c: an engine name the file does not have is a usage error (exit 2)", rj.code === 2 && count("unused", "load") === 0, d(rj));
+
+    // ---- case 12: a fresh context carries no cookie of the browser's own session
+    const ctxCount = async () => { const k = await connect(br.port); try { return (await k.send("Target.getBrowserContexts")).browserContextIds.length; } finally { k.close(); } };
+    const ctx0 = await ctxCount(), ck = (page) => srv.log.filter((e) => e.page === page), seen = (page) => ck(page).filter((e) => e.cookie).length;
+    const K = await world(), rk = await ask(K, { chatgpt: spec("ck1"), perplexity: spec("ck2", { freshContext: true }) });
+    const ctx1 = await ctxCount();
+    check("case 12a: the second assistant is marked freshContext: its page load carried NO cookie (the first assistant's visit left one in the browser's own session), and both assistants' replies are saved",
+      rk.code === 0 && ck("ck1").length > 1 && count("ck2", "load") === 1 && ck("ck2").length > 2 && ck("ck2").find((e) => e.kind === "load").cookie === "" && ck("ck1").some((e) => e.cookie) && !!jr(cap(K, "chatgpt-2.json")) && !!jr(cap(K, "perplexity-1.json")) && !!jr(cap(K, "perplexity-2.json")), d(rk) + " | ck2 load cookie: '" + ((ck("ck2").find((e) => e.kind === "load") || {}).cookie || "") + "'");
+    const K2 = await world(), rk2 = await ask(K2, { chatgpt: spec("ck1"), perplexity: spec("ck2") });
+    check("case 12b: the control, the same two without freshContext: the server DID see the cookie on the second assistant", rk2.code === 0 && seen("ck2") > 0 && ck("ck2").some((e) => e.kind === "load" && e.cookie), d(rk2) + " | ck2 requests with a cookie " + seen("ck2"));
+    check("case 12c: after the run the browser has no more browser contexts than before it", ctx1 === ctx0, "before " + ctx0 + " after the fresh-context run " + ctx1);
+
+    // ---- case 13: a reply that ai-oneshot save refuses
+    const R1 = await world(), rr1 = await ask(R1, { chatgpt: spec("short1"), perplexity: spec("ask1") });
+    check("case 13a: message 1 of the first answered with 20 characters: the first is blocked 'reply refused: REFUSED: the text is 20 characters...', nothing saved for it, the second is read, exit 0, the last line names both",
+      rr1.code === 0 && /^reply refused: REFUSED: the text is 20 characters/.test(String(blockedWhy(R1, "chatgpt"))) && !fs.existsSync(cap(R1, "chatgpt-1.json")) && !!jr(cap(R1, "perplexity-2.json")) && /^ASKED: chatgpt blocked \(reply refused: REFUSED: the text is 20 characters.*\), perplexity read$/.test(last(rr1)), d(rr1));
+    const R2 = await world(), rr2 = await ask(R2, { chatgpt: spec("short2") });
+    check("case 13b: the second reply is 20 characters: reply 1 is on file, no blocked record, no reply 2, exit 0, the last line says 'follow-up refused'",
+      rr2.code === 0 && !!jr(cap(R2, "chatgpt-1.json")) && !fs.existsSync(cap(R2, "chatgpt-blocked.json")) && !fs.existsSync(cap(R2, "chatgpt-2.json")) && /^ASKED: chatgpt read, follow-up refused: REFUSED: the text is 20 characters/.test(last(rr2)), d(rr2));
+    const R3 = await world(); srv.hooks.lockGone = () => { try { fs.rmSync(path.join(R3.pewp, "captures", "ai-oneshot", "prompt-lock.json")); } catch { /* gone */ } };
+    const lockLoads = count("ask1", "load"), rr3 = await ask(R3, { chatgpt: spec("lockGone"), perplexity: spec("ask1") });
+    check("case 13c: a save that exits 3 (the lock was removed while the reply came in) still ends the run: exit 3, the BLOCKED line, the second assistant is never opened",
+      rr3.code === 3 && /^BLOCKED: the prompt is not locked/m.test(rr3.out) && count("ask1", "load") === lockLoads, d(rr3));
+
+    // ---- case 14: a robot check that shows in the page's title (the body holds none of the words)
+    const titled = async (page, label) => { const w = await world(), r = await ask(w, { chatgpt: spec(page) }), stopF = path.join(w.stops, "chatgpt.json"), loads = count(page, "load"), r2 = await ask(w, { chatgpt: spec(page) });
+      return { label, ok: r.code === 3 && blockedWhy(w, "chatgpt") === "robot check" && fs.existsSync(stopF) && count(page, "click") === 0 && count(page, "key") === 0 && loads === 1 && count(page, "load") === 1 && r2.code === 3, why: label + ": " + d(r) + " loads " + count(page, "load") }; };
+    const q1 = await titled("robotJam", "Just a moment..."), q2 = await titled("robotVerify", "Verify you are human"), q3 = await titled("robotCheck", "Checking your browser"), q4 = await titled("robotTitle", "Attention Required"), q5 = await titled("robotText", "a neutral title, the words only in the body");
+    check("case 14a: a page titled 'Just a moment...' whose body holds none of the words: blocked 'robot check', a stop file, 0 clicks, 0 key presses, a second run does not load it", q1.ok, q1.why);
+    check("case 14b: a page titled 'Verify you are human' (body without the words): the same", q2.ok, q2.why);
+    check("case 14c: a page titled 'Checking your browser' (body without the words): the same", q3.ok, q3.why);
+    check("case 14d: a page titled 'Attention Required' (body without the words): the same", q4.ok, q4.why);
+    check("case 14e: a neutral title and the body 'Verifying you are human. This may take a few seconds.': the same", q5.ok, q5.why);
+
+    // ---- case 15: the run ends BLOCKED when no assistant could be asked
+    const stopFor = (w, engine) => writeStop({ engine, reason: "robot check", setBy: "the test", dir: w.stops });
+    const S1 = await world(); stopFor(S1, "chatgpt"); const rs1 = await ask(S1, { chatgpt: spec("unused") });
+    check("case 15a: one assistant, stopped: exit 3, the BLOCKED line says 'stopped until' and ends ' | outside: stop', a blocked record is on file, 0 pages loaded",
+      rs1.code === 3 && /^BLOCKED: no assistant could be asked \(chatgpt: robot check, stopped until \d{4}-\d\d-\d\dT[\d:.]+Z\) \| unblocks: the stops end or the owner lifts them; the page descriptions are set \| outside: stop$/.test(last(rs1)) && blockedWhy(S1, "chatgpt") === "robot check" && count("unused", "load") === 0, d(rs1) + " | last: " + last(rs1));
+    const S2 = await world(); stopFor(S2, "chatgpt"); const rs2 = await ask(S2, { chatgpt: spec("unused"), perplexity: { selectors: "NOT SET" } });
+    check("case 15b: two assistants, one stopped and one 'NOT SET': exit 3, no 'outside' mark, both reasons named",
+      rs2.code === 3 && /^BLOCKED: no assistant could be asked \(chatgpt: robot check, stopped until .*Z, perplexity: page description not set\) \| unblocks: /.test(last(rs2)) && !/outside:/.test(last(rs2)) && count("unused", "load") === 0, d(rs2) + " | last: " + last(rs2));
+    const S3 = await world(); stopFor(S3, "chatgpt"); const rs3 = await ask(S3, { chatgpt: spec("unused"), perplexity: spec("ask2") });
+    check("case 15c: two assistants, one stopped and one read: exit 0 and the ASKED line", rs3.code === 0 && !!jr(cap(S3, "perplexity-2.json")) && last(rs3) === "ASKED: chatgpt blocked (robot check), perplexity read", d(rs3) + " | last: " + last(rs3));
 
     // ---- case 10: the side list is in no file written and no line printed
     const files = walk(tmp).filter((f) => !/[\\/]net\.log$/.test(f)), hits = files.filter((f) => { try { return fs.readFileSync(f, "utf8").includes("HISTORY-MARKER"); } catch { return false; } });
@@ -201,6 +252,15 @@ const MUTANTS = [
   one("both engines are started at once", "for (const name of names) outcomes.push([name, await askEngine(name)]);", "await Promise.all(names.map(async (name) => outcomes.push([name, await askEngine(name)])));", /^case 8:/),
   one("the text goes in by key presses", "await c.send(\"Input.insertText\", { text }, sid);", "for (const ch of text) await c.send(\"Input.dispatchKeyEvent\", { type: \"keyDown\", key: ch, text: ch }, sid);", /^case 1b:/),
   one("the page text is written to a file", "pageText = null;", "fs.writeFileSync(path.join(cwd, \"page-text.txt\"), pageText); pageText = null;", /^case 10:/),
+  one("a fresh context is ignored", "if (sp.freshContext) {", "if (false) {", /^case 12a:/),
+  one("a refused reply ends the run", "if (sv.code !== 1) throw refused(sv);", "throw refused(sv);", /^case 13a:/, /^case 13b:/),
+  one("the page title is not looked at", "ROBOT_WORDS.test(title) || ", "", /^case 14a:/, /^case 14b:/, /^case 14c:/, /^case 14d:/),
+  one("the title wording 'just a moment' is gone", "just a moment|", "", /^case 14a:/),
+  one("the title wording 'verify you are human' is gone", "verify you are (?:a )?human|", "", /^case 14b:/),
+  one("the title wording 'checking your browser' is gone", "checking your browser|", "", /^case 14c:/),
+  one("the title wording 'attention required' is gone", "|attention required", "", /^case 14d:/),
+  one("the page text is not looked at", " || ROBOT_WORDS.test(pageText)", "", /^case 14e:/),
+  one("all blocked still exits 0", "if (!outcomes.some(([, o]) => o === \"already asked\" || o.startsWith(\"read\"))) {", "if (false) {", /^case 15a:/, /^case 15b:/),
 ];
 
 const code = await main({ label: "ASK ASSISTANTS", scenarios, MUTANTS, scriptsDir: here, argv: process.argv.slice(2) });

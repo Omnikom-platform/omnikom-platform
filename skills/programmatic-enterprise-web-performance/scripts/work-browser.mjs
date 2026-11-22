@@ -7,6 +7,8 @@
 //   status  one line: the port and where the traffic exits
 //   close   Browser.close over the port (it saves the sign-ins), wait for the process to be gone
 // Other scripts: import { workPort } and ask for the port; null means it is not open.
+// Never change the exit, the profile, the user agent, the timing or the way a tab is opened in order to get past a check: that is evasion and is not ours to do. A check is recorded and its source is not gathered.
+// Never start this through heavy.mjs: that tool's kill-on-close job ends the browser when the command ends (seen 2026-11-22: no port in 60 s, the window gone).
 // Exit codes: 0 ok, 2 usage, 3 BLOCKED (the last line is "BLOCKED: <what> | unblocks: <what would>").
 // Hard limits: only a pid whose command line passes isAuditMain() is ever closed (the owner's own Edge has no profile flag there and is never touched); the profile is read only
 // for "Local State" (a parse check, in lib-browser-profile.mjs) and "DevToolsActivePort"; no sign-in or cookie handling; no geolocation override; no headless; no retry around a failed exit check.

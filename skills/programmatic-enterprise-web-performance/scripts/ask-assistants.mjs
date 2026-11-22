@@ -6,8 +6,11 @@
 // Usage: node ask-assistants.mjs <url> [--engines a,b] [--engines-file F] [--port N] [--cwd DIR]
 //   work-browser-engines.json: per engine { url, mode, signedIn, freshContext, composer, send, reply, busy, modeProof, modeSteps, capSeconds }; optional quietSeconds
 //   (how long the reply must stay unchanged, default 5). "selectors": "NOT SET" = no page description yet: blocked, nothing opened.
-// Exit 0 = every engine asked ended as read, already asked or recorded blocked (the last line says which). 2 = usage. 3 = BLOCKED (no work browser, no lock).
-// Whatever ai-oneshot.mjs refuses (no lock, a changed text) ends the run with its own line and exit code, nothing sent.
+// Exit 0 = at least one assistant ended read or already asked, the others read, already asked or recorded blocked (the ASKED line says which). 2 = usage. 3 = BLOCKED (no work browser, no lock, or no assistant could be asked).
+// Whatever ai-oneshot.mjs refuses (no lock, a changed text) ends the run with its own line and exit code, nothing sent; the one exception is a reply that save refuses (exit 1):
+// for message 1 that assistant is recorded blocked ('reply refused: ...') and the run goes on, for message 2 the line says 'read, follow-up refused: ...' and the run goes on.
+// When no assistant of the run ended read or already asked, the last line is BLOCKED: no assistant could be asked (...) and the exit is 3; every reason an active stop adds ' | outside: stop'.
+// Never change the exit, the profile, the user agent, the timing or the way a tab is opened in order to get past a check: that is evasion and is not ours to do. A check is recorded and its source is not gathered.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -21,6 +24,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const BROWSER_WORDS = "work browser (Edge, US exit)";
 const USAGE = "usage: node ask-assistants.mjs <url> [--engines a,b] [--engines-file F] [--port N] [--cwd DIR]";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const ROBOT_WORDS = /just a moment|verifying you are human|verify you are (?:a )?human|checking your browser|attention required/i;   // a robot check's title or text
 class Stop extends Error { constructor(line, code) { super(line); this.line = line; this.code = code; } }
 
 // ---------------------------------------------------------------- the page-side reader (handed to evalIn): the last element matching sel, as text the counter can read
@@ -93,16 +97,18 @@ async function main() {
     try { cdp = await connect(port); } catch (e) { throw new Stop("BLOCKED: the work browser does not answer on port " + port + " (" + e.message + ") | unblocks: node work-browser.mjs open", 3); }
     return cdp;
   };
-  const block = (name, reason) => {
+  const why = new Map();   // per assistant ended blocked: its reason, and the stop's until when the reason is an active stop
+  const block = (name, reason, until = null) => {
     const r = oneshot(["blocked", url, name, "--reason", reason, "--browser", BROWSER_WORDS]);
     if (r.code !== 0) throw refused(r);
+    why.set(name, { reason, until });
     return "blocked (" + reason + ")";
   };
 
   async function askEngine(name) {
     const sp = all[name], first = path.join(dirOf, name + "-1.json");
     const stop = isStopped(name);
-    if (stop) return block(name, stop.reason);
+    if (stop) return block(name, stop.reason, stop.until);
     if (fs.existsSync(first)) return "already asked";
     if (sp.selectors === "NOT SET") return block(name, "page description not set");
     const cap = Number(sp.capSeconds) > 0 ? Number(sp.capSeconds) : 300, quietMs = (Number(sp.quietSeconds) > 0 ? Number(sp.quietSeconds) : 5) * 1000;
@@ -134,11 +140,12 @@ async function main() {
 
       // d, e: a robot check or a sign-in wall. The page text is tested here and thrown away.
       const here1 = await ev("location.href"); let pageText = await ev("document.body ? document.body.innerText : ''");
-      const wall = aiWallReason(here1, pageText, 0), robot = looksLikeRobotCheck(here1, pageText) || wall === "bot wall or CAPTCHA" || wall === "robot check";
-      pageText = null;
+      let title = await ev("document.title");   // the title is tested and thrown away like the text
+      const wall = aiWallReason(here1, pageText, 0), robot = looksLikeRobotCheck(here1, pageText) || wall === "bot wall or CAPTCHA" || wall === "robot check" || ROBOT_WORDS.test(title) || ROBOT_WORDS.test(pageText);
+      pageText = null; title = null;
       if (robot) {
-        writeStop({ engine: name, hosts: [new URL(sp.url).hostname], reason: "robot check", setBy: "ask-assistants.mjs", evidence: sp.url });
-        return block(name, "robot check");
+        const st = writeStop({ engine: name, hosts: [new URL(sp.url).hostname], reason: "robot check", setBy: "ask-assistants.mjs", evidence: sp.url });
+        return block(name, "robot check", st.stop.until);
       }
       const composerThere = await has(sp.composer);
       if (wall || (!composerThere && await has("input[type=password], input[type=email], input[autocomplete=username]"))) return block(name, "sign-in wall");
@@ -175,7 +182,12 @@ async function main() {
         const replyFile = path.join(tmp, name + "-" + n + "-reply.txt");
         fs.writeFileSync(replyFile, await ev("(" + readerInPage.toString() + ")(" + q(sp.reply) + ")"));
         const sv = oneshot(["save", url, name, String(n), "--file", replyFile, "--browser", BROWSER_WORDS, "--mode", sp.mode, ...(sp.signedIn ? ["--signed-in"] : [])]);
-        if (sv.code !== 0) throw refused(sv);
+        if (sv.code !== 0) {
+          if (sv.code !== 1) throw refused(sv);   // a reply ai-oneshot will not take ends this assistant, not the run
+          const line = sv.out.trim().split("\n")[0] || "ai-oneshot.mjs failed";
+          if (n === 1) return block(name, "reply refused: " + line);
+          return "read, follow-up refused: " + line;
+        }
       }
       return "read";
     } finally {
@@ -189,6 +201,10 @@ async function main() {
     for (const name of names) outcomes.push([name, await askEngine(name)]);
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
   console.log("ASKED: " + outcomes.map(([n, o]) => n + " " + o).join(", "));
+  if (!outcomes.some(([, o]) => o === "already asked" || o.startsWith("read"))) {
+    const reasons = outcomes.map(([n]) => n + ": " + (why.get(n)?.until ? why.get(n).reason + ", stopped until " + why.get(n).until : why.get(n)?.reason)), allStops = outcomes.every(([n]) => why.get(n)?.until);
+    throw new Stop("BLOCKED: no assistant could be asked (" + reasons.join(", ") + ") | unblocks: the stops end or the owner lifts them; the page descriptions are set" + (allStops ? " | outside: stop" : ""), 3);
+  }
 }
 
 try { await main(); if (cdp) cdp.close(); process.exit(0); }
