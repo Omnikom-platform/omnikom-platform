@@ -2,12 +2,27 @@
 // pace block in work-browser-engines.json, how a text is cut into pieces, and how long a reply is read. Nothing here is chosen by chance and nothing
 // reads a flag or an environment variable: the numbers are the file's, they are checked once before any page is loaded, and nothing changes them afterwards.
 // The test replaces io.sleep by a recorder (it records the seconds asked for and returns at once); that is the only way a wait is ever shortened.
+// A human check (owner, 2026-11-22 11:43, M255: "why does it stop when I saw GPT waiting for the human verification I checked the button"): on ChatGPT and Perplexity a
+// check that shows in a scripted tab stops all typing and clicking in that tab, rings the owner (io.ring) and waits checkWaitSeconds, looking every checkLookSeconds. If HE
+// answers it the run goes on at the same pace; if nobody does the source is not gathered. A second showing in the same run on the same host is the hard stop (24 h). The two
+// numbers are in the pace block like the others. Never ours: answering a check by script, or any change of exit, profile, user agent or timing made to get past one.
 
-export const io = { sleep: (ms, _why) => new Promise((r) => setTimeout(r, ms)) };
+import { spawnSync } from "node:child_process";
+
+export const io = {
+  sleep: (ms, _why) => new Promise((r) => setTimeout(r, ms)),
+  // rings the person at the machine: the bell character and, on Windows, three beeps; a failure is ignored. The test replaces it by a recorder.
+  ring: (_name) => {
+    try { process.stdout.write("\x07\n"); } catch { /* no terminal */ }
+    if (process.platform === "win32") {
+      try { spawnSync("powershell", ["-NoProfile", "-Command", "[console]::beep(880,300);[console]::beep(880,300);[console]::beep(1175,500)"], { stdio: "ignore", windowsHide: true, timeout: 10000 }); } catch { /* no sound */ }
+    }
+  },
+};
 export const pause = (seconds, why) => io.sleep(seconds * 1000, why);
 
 // key: [lowest, highest]; null for the highest of readSecondsMax means "300", and its lowest is readSecondsMin's own value (checked below)
-const RANGES = { tabsAtOnce: [1, 1], afterLoadSeconds: [3, 60], typeCharactersPerSecond: [1, 15], beforeSendSeconds: [1, 30], readSecondsPer100Words: [1, 60], readSecondsMin: [5, 120], readSecondsMax: [5, 300], betweenAssistantsSeconds: [60, 900] };
+const RANGES = { tabsAtOnce: [1, 1], afterLoadSeconds: [3, 60], typeCharactersPerSecond: [1, 15], beforeSendSeconds: [1, 30], readSecondsPer100Words: [1, 60], readSecondsMin: [5, 120], readSecondsMax: [5, 300], betweenAssistantsSeconds: [60, 900], checkWaitSeconds: [60, 600], checkLookSeconds: [2, 30] };
 export const PACE_KEYS = Object.keys(RANGES);
 
 export class PaceError extends Error { constructor(key, message) { super(message); this.key = key; } }

@@ -95,7 +95,11 @@ In audit-live the checker step (the program above) writes to `{work}/checker/.ch
 - In reports "GEO" means generative engine optimization (AI engines); map coordinates are "geo-coordinates".
 - Scripts never fetch Google, Bing, ChatGPT or Perplexity result pages: the main session captures them in the owner's
   browser at human pace (one page at a time, at least 45 s apart, stop at the first robot check) and the scripts import
-  the saved captures. `--exclude` covers every request the crawler makes (pages, sitemaps, probes) and, in `migrate.mjs`, every
+  the saved captures. The asking script `ask-assistants.mjs` (ChatGPT, Perplexity, Gemini in the work browser) has one exception to "stop at the first robot check",
+  by the owner's words of 2026-11-22 11:43 (M255: "why does it stop when I saw GPT waiting for the human verification I checked the button"): on ChatGPT and Perplexity
+  (`"humanCheck": "ring"` in `work-browser-engines.json`) a human check stops ALL typing and clicking in that tab, rings the owner and waits up to 300 s; if HE answers it the
+  run goes on at the fixed pace, if nobody does that source is NOT GATHERED. Once per run and host: a second showing closes the tab and stops that host for 24 h. Never ours:
+  answering a check by script, or any change of exit, profile, user agent or timing to get past one. Gemini and every other host keep the old rule (close, no retry, 24 h stop). `--exclude` covers every request the crawler makes (pages, sitemaps, probes) and, in `migrate.mjs`, every
   gate and `--probe-old` request; a client's off-limits paths are passed to both.
 - Questions for the owner (intake, decisions) are asked by the main session as pickable options; scripts never prompt.
 - Writing gate: `node "<skill>/scripts/writing-gate.mjs" <built site dir> [--url <live base>] [--psi-dir <dir>]` checks a BUILT site against the 7 rules every

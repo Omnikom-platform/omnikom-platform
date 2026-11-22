@@ -1,12 +1,15 @@
 {
-  "pace": { "tabsAtOnce": 1, "afterLoadSeconds": 8, "typeCharactersPerSecond": 8, "beforeSendSeconds": 3, "readSecondsPer100Words": 12, "readSecondsMin": 15, "readSecondsMax": 90, "betweenAssistantsSeconds": 180 },
+  "pace": { "tabsAtOnce": 1, "afterLoadSeconds": 8, "typeCharactersPerSecond": 8, "beforeSendSeconds": 3, "readSecondsPer100Words": 12, "readSecondsMin": 15, "readSecondsMax": 90, "betweenAssistantsSeconds": 180, "checkWaitSeconds": 300, "checkLookSeconds": 5 },
   "chatgpt": {
-    "selectors": "NOT SET"
+    "selectors": "NOT SET",
+    "humanCheck": "ring"
   },
   "gemini": {
-    "selectors": "NOT SET"
+    "selectors": "NOT SET",
+    "humanCheck": "stop"
   },
   "perplexity": {
-    "selectors": "NOT SET"
+    "selectors": "NOT SET",
+    "humanCheck": "ring"
   }
 }

@@ -3,6 +3,10 @@
 // reads back what each page counted (key presses, clicks, sends, loads, a heartbeat while its tab is open). The run is invented as test-ai-oneshot.mjs invents
 // one (a business file, the two texts built and locked); every save is ai-oneshot.mjs's own file. No network, no real assistant, no clipboard.
 // Run it through the machine heavy lock (a browser): node ~/.claude/scripts/heavy.mjs -- node test-ask-assistants.mjs
+// Case 18 (owner, 2026-11-22 11:43, M255: a human check is answered by the owner's own hand and the run waits for it): the invented pages can show a check by themselves (by title, by a check frame, by words in the
+// body) and take it away by themselves after 3 looks that saw it, as a person's answer does (see CHECKJS); while it shows they report every key, input, click, mouse move, focus and scroll as a "touch".
+// ASK_TEST_FROM=18 (an environment variable of this TEST only, for runs that want case 18 alone) skips every case before 18 and case 10; the last line then says how many cases ran. The sleep hook makes a wait whose why is
+// "after check" last 700 real ms (the page of 18f loads itself again at the look that finds its check gone: the wait lets that load end before the next look); every other wait, the "human check" waits too, is recorded and skipped (the checks go by looks, not by time). io.ring is replaced by a recorder.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -22,8 +26,13 @@ const BIZ = { name: "Sample Valley Realty", domain: HOST, phone: "(555) 010-2000
   vocabulary: ["homes for sale", "real estate agent", "sell my house", "home valuation"], related: [{ relation: "brokerage", name: "Beta Realty", domain: "beta-realty.test" }] };
 const BROWSER_WORDS = "work browser (Edge, US exit)";
 // the pace the head of operations settled (owner, 2026-11-22, M250); case 17e holds the real engines file to exactly these numbers
-const PACE = { tabsAtOnce: 1, afterLoadSeconds: 8, typeCharactersPerSecond: 8, beforeSendSeconds: 3, readSecondsPer100Words: 12, readSecondsMin: 15, readSecondsMax: 90, betweenAssistantsSeconds: 180 };
+const PACE = { tabsAtOnce: 1, afterLoadSeconds: 8, typeCharactersPerSecond: 8, beforeSendSeconds: 3, readSecondsPer100Words: 12, readSecondsMin: 15, readSecondsMax: 90, betweenAssistantsSeconds: 180, checkWaitSeconds: 300, checkLookSeconds: 5 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// ASK_TEST_FROM (an environment variable of THIS TEST, never of the product script): "18" runs case 18 alone. Anything else is a usage error. Unset: the whole test, as always.
+const FROM = process.env.ASK_TEST_FROM;
+if (FROM !== undefined && FROM !== "18") { console.error("ASK_TEST_FROM can only be 18 (case 18 alone), not " + JSON.stringify(FROM)); process.exit(2); }
+const ONLY18 = FROM === "18";
+let RAN = 0;   // how many assertions the last pass of scenarios() made
 
 // ---------------------------------------------------------------- the invented assistant pages
 // cfg: kind "chat" | "robot" | "signin"; modeOn (the temporary chat is already on) | modeBtn (a button switches it on); mangle (the box changes what is put in it);
@@ -39,8 +48,41 @@ const PAGES = {
   words10: { kind: "chat", modeOn: true, words: 10 }, words500: { kind: "chat", modeOn: true, words: 500 }, words2000: { kind: "chat", modeOn: true, words: 2000 },   // every reply is that many words (30 letters each)
   p17d: { kind: "chat", modeOn: true }, p17f: { kind: "chat", modeOn: true },
   p17a1: { kind: "chat", modeOn: true }, p17a2: { kind: "chat", modeOn: true },   // case 17a's own two pages (the log is one for the whole run: a page another case asked would be counted twice)
+  c18a: { kind: "chat", modeOn: true, check: { by: "title", at: "load" } }, c18a2: { kind: "chat", modeOn: true, check: { by: "text", at: "load" } },   // case 18: a check that goes by itself after 3 looks that saw it (looks: "always" never)
+  c18b1: { kind: "chat", modeOn: true, check: { by: "frame", at: "send1" } }, c18b2: { kind: "chat", modeOn: true, check: { by: "frame", at: "text1", atChars: 0 } },   // at send 1 | when the box holds all of text 1 (atChars is set from the locked text)
+  c18bp: { kind: "chat", modeOn: true, phrase: true },   // no check, but every reply holds the words "verify you are human"
+  c18c: { kind: "chat", modeOn: true, check: { by: "title", at: "load", again: "afterClear" } }, c18c2: { kind: "chat", modeOn: true },   // the check is back at the look after the one that saw it gone, and stays
+  c18d: { kind: "chat", modeOn: true, check: { by: "title", looks: "always", at: "load" } }, c18d2: { kind: "chat", modeOn: true },
+  c18e1: { kind: "robot", title: "Just a moment...", text: "Please stand by." }, c18e2: { kind: "chat", modeOn: true },
+  c18f: { kind: "chat", modeOn: true, check: { by: "frame", at: "typing2", reload: true } },   // shows at the first input of text 2 and loads the page again when it goes
   robotTitle: { kind: "robot", title: "Attention Required", text: "Please stand by." }, robotText: { kind: "robot", title: "Just a page", text: "Verifying you are human. This may take a few seconds." },
 };
+// The page side of a check, deterministic by LOOK COUNT (no timer). What is hooked: an own property "title" on the document (a getter over the real Document.prototype one). Every look of
+// ask-assistants.mjs reads document.title exactly once (the look at load and the later look both do, and nothing else in the script reads it), so one call of the getter after the check
+// was triggered IS one look, whatever the kind of check, and nothing else counts. Look number j (1 = the look that finds it) sees the check when j <= looks (default 3, "always" = never goes);
+// with again "afterClear" it is gone at look looks + 1 and back, for good, at look looks + 2. By title: the getter returns the check's title. By frame: the iframe is put in or taken out
+// BEFORE the title is returned (the later look reads the title first, then asks for the frame). By text: the paragraph is changed AFTER the title is returned for the NEXT look (the look at
+// load reads the text first, the title last). The page reports "shown" and "gone" when what the script can see changes; while it shows it reports every key, input, click, mouse down,
+// mouse move, focus and scroll as a "touch", except a scroll whose target is the box itself (the page scrolls its own text box back when it is emptied at a send, seen 2026-11-22: not ours).
+// Every report carries a number in the page's own order (s) and an id of the page's load (l): what came before or after what is read from those, never from the server's clock.
+const CHECKJS = [
+  '(function(){const C=CFG.check;if(!C)return;const N=C.looks==="always"?Infinity:(C.looks||3);let shown=false,vis=false,j=0,el=null;',
+  'const D=Object.getOwnPropertyDescriptor(Document.prototype,"title");',
+  'const touch=(t)=>{if(vis)ev("touch",t);};',
+  '["keydown","input","click","mousedown","mousemove"].forEach((t)=>document.addEventListener(t,()=>touch(t),true));',
+  'document.addEventListener("scroll",(e)=>{if(!(e.target&&e.target.id==="box"))touch("scroll");},true);',
+  'document.addEventListener("focusin",()=>touch("focus"),true);',
+  'const want=(k)=>k<=N||(C.again==="afterClear"&&k>=N+2);',
+  'const setVis=(v)=>{if(v===vis)return;vis=v;ev(v?"shown":"gone",C.by);',
+  'if(C.by==="frame"){if(v){el=document.createElement("iframe");el.src="about:blank#challenges.cloudflare.com";document.body.appendChild(el);}else if(el){el.remove();el=null;}}',
+  'if(C.by==="text"){if(v){el=document.createElement("p");el.textContent="Verifying you are human. This may take a few seconds.";document.body.appendChild(el);}else if(el){el.remove();el=null;}}',
+  'if(!v&&C.reload)location.reload();};',
+  'Object.defineProperty(document,"title",{configurable:true,get(){const base=D.get.call(document);if(!shown)return base;j++;',
+  'if(C.by==="title"){setVis(want(j));return vis?"Just a moment...":base;}',
+  'if(C.by==="frame"){setVis(want(j));return base;}',
+  'setVis(want(j+1));return base;},set(v){D.set.call(document,v);}});',
+  'window.__chk=()=>{if(shown)return;shown=true;j=0;setVis(true);};if(C.at==="load")window.__chk();})();',
+].join("");
 const html = (name, cfg) => {
   const chat = cfg.kind === "chat";
   const body = cfg.kind === "robot" ? '<p>' + (cfg.text || "Please verify you are human. captcha") + '</p><button id="x">Verify</button>'
@@ -50,18 +92,18 @@ const html = (name, cfg) => {
   return '<!doctype html><html><head><meta charset="utf-8"><title>' + (cfg.title || name) + '</title></head><body><h1>Invented assistant</h1>'
     + '<aside id="side"><ul><li>HISTORY-MARKER an earlier chat about something</li></ul></aside><main>' + body + '</main><script>'
     + 'const P=' + JSON.stringify(name) + ', CFG=' + JSON.stringify(cfg) + ';'
-    + 'const ev=(k,x)=>navigator.sendBeacon("/__ev?k="+k+"&p="+P+"&x="+encodeURIComponent(x||""));'
+    + 'let SQ=0;const LID=Math.random().toString(36).slice(2);const ev=(k,x)=>navigator.sendBeacon("/__ev?k="+k+"&p="+P+"&s="+(++SQ)+"&l="+LID+"&x="+encodeURIComponent(x||""));'
     + 'document.addEventListener("keydown",()=>ev("key"),true);document.addEventListener("keypress",()=>ev("key"),true);'
     + 'document.addEventListener("click",(e)=>ev("click",e.target.id||e.target.tagName),true);'
-    + 'setInterval(()=>ev("beat"),200);'
+    + 'setInterval(()=>ev("beat"),200);' + CHECKJS
     + (chat ? '(function(){const box=document.getElementById("box"),chat=document.getElementById("chat"),busyArea=document.getElementById("busy-area");let n=0;'
       + 'const mb=document.getElementById("mode-btn");if(mb)mb.addEventListener("click",()=>{if(!document.getElementById("temp-on")){const d=document.createElement("div");d.id="temp-on";d.textContent="Temporary chat is on";document.getElementById("mode-area").appendChild(d);}});'
-      + 'box.addEventListener("input",()=>{ev("input",String(box.value.length-(box._l||0)));box._l=box.value.length;if(CFG.mangle&&!box.dataset.m){box.dataset.m="1";box.value+=" XTRA";}});'
-      + 'document.getElementById("send").addEventListener("click",()=>{ev("send",String(box.value.length));if(CFG.silent)return;n++;const k=n;box.value="";box._l=0;busyArea.innerHTML=\'<div id="busy">Thinking</div>\';'
+      + 'box.addEventListener("input",()=>{ev("input",String(box.value.length-(box._l||0)));box._l=box.value.length;if(window.__chk&&CFG.check){const a=CFG.check.at;if((a==="typing2"&&n>=1)||(a==="text1"&&n===0&&box.value.length>=CFG.check.atChars))window.__chk();}if(CFG.mangle&&!box.dataset.m){box.dataset.m="1";box.value+=" XTRA";}});'
+      + 'document.getElementById("send").addEventListener("click",()=>{ev("send",String(box.value.length));if(CFG.silent)return;n++;const k=n;if(window.__chk&&CFG.check&&CFG.check.at==="send1"&&k===1)window.__chk();box.value="";box._l=0;busyArea.innerHTML=\'<div id="busy">Thinking</div>\';'
       + 'const r=document.createElement("div");r.className="reply";chat.appendChild(r);'
       + 'const chunks=CFG.short===k?["<p>Too short reply no."+k+"</p>"]:CFG.words?["<p>"+Array.from({length:CFG.words},(_,i)=>"w"+String(i).padStart(29,"0")).join(" ")+"</p>"]:["<h2>Part 1: your recommendations ("+k+")</h2>","<p>Filler paragraph with enough words so that the whole reply is longer than two hundred characters for the saved record, reply number "+k+", going on and on a little more.</p>",'
       + '"<table><thead><tr><th>Rank</th><th>Name</th><th>Source</th></tr></thead><tbody><tr><td>1</td><td>Alpha Homes</td><td><a href=\\"https://alpha-homes.test/q"+k+"\\">Alpha Homes site</a></td></tr></tbody></table>",'
-      + '"<ul><li>first point</li><li>second point</li></ul>","<p>Plain address: <a href=\\"https://zeta.test/\\">https://zeta.test/</a></p>","<p>END-OF-REPLY-"+k+"</p>"];'
+      + '"<ul><li>first point</li><li>second point</li></ul>","<p>Plain address: <a href=\\"https://zeta.test/\\">https://zeta.test/</a></p>","<p>END-OF-REPLY-"+k+"</p>"].concat(CFG.phrase?["<p>Please verify you are human before you rely on this answer.</p>"]:[]);'
       + 'let i=0;const t=setInterval(()=>{r.insertAdjacentHTML("beforeend",chunks[i++]);if(i>=chunks.length){clearInterval(t);busyArea.innerHTML="";}},350);});})();' : "")
     + '</script></body></html>';
 };
@@ -70,7 +112,7 @@ async function startServer() {
   const server = http.createServer((req, res) => {
     const u = new URL(req.url, "http://x"), t = Date.now(), m = u.pathname.match(/^\/p\/([A-Za-z0-9]+)$/);
     const cookie = String(req.headers.cookie || "");   // every request is logged with the Cookie header it carried
-    if (u.pathname === "/__ev") { log.push({ t, kind: u.searchParams.get("k"), page: u.searchParams.get("p"), x: u.searchParams.get("x") || "", cookie }); if (u.searchParams.get("k") === "send" && hooks[u.searchParams.get("p")]) hooks[u.searchParams.get("p")](); res.statusCode = 204; return res.end(); }
+    if (u.pathname === "/__ev") { log.push({ t, kind: u.searchParams.get("k"), page: u.searchParams.get("p"), x: u.searchParams.get("x") || "", s: Number(u.searchParams.get("s")) || 0, l: u.searchParams.get("l") || "", cookie }); if (u.searchParams.get("k") === "send" && hooks[u.searchParams.get("p")]) hooks[u.searchParams.get("p")](); res.statusCode = 204; return res.end(); }
     if (m && PAGES[m[1]]) { log.push({ t, kind: "load", page: m[1], x: "", cookie }); res.setHeader("content-type", "text/html; charset=utf-8"); if (!cookie) res.setHeader("set-cookie", "visited=1; Path=/"); return res.end(html(m[1], PAGES[m[1]])); }
     res.statusCode = 404; res.end();
   });
@@ -124,12 +166,13 @@ async function scenarios(dir) {
   // every wait of the script goes through io.sleep of lib-ask-pace.mjs; a preload replaces it by one that appends { ms, why } to a file and returns at once, so the
   // test is fast and reads back exactly which waits were asked for (the numbers still come from the pace block in the engines file, which the script reads)
   const hook = path.join(tmp, "sleep-hook.mjs");
-  fs.writeFileSync(hook, 'import fs from "node:fs";\nimport { io } from ' + JSON.stringify(pathToFileURL(path.join(dir, "lib-ask-pace.mjs")).href) + ';\nio.sleep = (ms, why) => { fs.appendFileSync(process.env.ASK_SLEEP_LOG, JSON.stringify({ ms, why }) + "\\n"); return Promise.resolve(); };\n');
+  fs.writeFileSync(hook, 'import fs from "node:fs";\nimport { io } from ' + JSON.stringify(pathToFileURL(path.join(dir, "lib-ask-pace.mjs")).href) + ';\nconst REAL = { "after check": 700 };\nio.sleep = (ms, why) => { fs.appendFileSync(process.env.ASK_SLEEP_LOG, JSON.stringify({ ms, why }) + "\\n"); return REAL[why] ? new Promise((r) => setTimeout(r, REAL[why])) : Promise.resolve(); };\nio.ring = (name) => { fs.appendFileSync(process.env.ASK_RING_LOG, JSON.stringify(name) + "\\n"); };\n');
   // pace: the block written beside the engines (the real numbers by default); "none" writes no block; env: more environment for the run
   const ask = async (w, engines, { port = br.port, extra = [], pace = PACE, env = {} } = {}) => {
-    const file = path.join(tmp, "engines" + ef + ".json"), log = path.join(tmp, "sleeps" + ef++ + ".log"); W(file, pace === "none" ? engines : { ...engines, pace });
-    const r = await run("ask-assistants.mjs", [SITE, "--engines-file", file, ...(port ? ["--port", String(port)] : []), "--cwd", w.cwd, ...extra], { env: { OMNIKOM_STOPS_DIR: w.stops, TEMP: w.temp, TMP: w.temp, TMPDIR: w.temp, NODE_OPTIONS: "--import " + pathToFileURL(hook).href, ASK_SLEEP_LOG: log, ...env }, timeout: 240000 });
+    const file = path.join(tmp, "engines" + ef + ".json"), log = path.join(tmp, "sleeps" + ef + ".log"), ringLog = path.join(tmp, "rings" + ef++ + ".log"); W(file, pace === "none" ? engines : { ...engines, pace });
+    const r = await run("ask-assistants.mjs", [SITE, "--engines-file", file, ...(port ? ["--port", String(port)] : []), "--cwd", w.cwd, ...extra], { env: { OMNIKOM_STOPS_DIR: w.stops, TEMP: w.temp, TMP: w.temp, TMPDIR: w.temp, NODE_OPTIONS: "--import " + pathToFileURL(hook).href, ASK_SLEEP_LOG: log, ASK_RING_LOG: ringLog, ...env }, timeout: 240000 });
     r.sleeps = fs.existsSync(log) ? fs.readFileSync(log, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
+    r.rings = fs.existsSync(ringLog) ? fs.readFileSync(ringLog, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];   // every io.ring call: the engine's name
     allOut.push(r.out); return r;
   };
   const cap = (w, f) => path.join(w.pewp, "captures", "ai-oneshot", f), jr = (p) => (fs.existsSync(p) ? J(p) : null);
@@ -138,6 +181,18 @@ async function scenarios(dir) {
   const blockedWhy = (w, e) => jr(cap(w, e + "-blocked.json"))?.blocked ?? null;
   const last = (r) => r.out.trim().split("\n").pop();
   try {
+    // the helpers of case 17 and the real engines file are also used by case 18, so they stand outside the guard
+    const nch = (t) => Array.from(t).length, words = (t) => (String(t).match(/\S+/g) || []).length;
+    const readFor = (reply) => Math.min(PACE.readSecondsMax, Math.max(PACE.readSecondsMin, Math.round(words(reply) / 100 * PACE.readSecondsPer100Words)));
+    // the waits one assistant that loaded a page, was asked both texts and answered asks for; first: false adds the wait before its page
+    const waitsOf = (w, reply1, first) => [...(first ? [] : [["between assistants", PACE.betweenAssistantsSeconds]]), ["after load", PACE.afterLoadSeconds],
+      ...[1, 2].flatMap((m) => [...Array(Math.ceil(nch(m === 1 ? w.lock.text1 : w.lock.text2) / PACE.typeCharactersPerSecond)).fill(["piece", 1]), ["before send", PACE.beforeSendSeconds], ...(m === 1 ? [["reading", readFor(reply1)]] : [])])];
+    const asked = (r) => JSON.stringify(r.sleeps.map((s) => [s.why, s.ms / 1000]));
+    // the browser also reports input events that add nothing (seen 2026-11-22: 99 of them beside 528 pieces, on a text with line breaks); a size of 0 is not a piece
+    const pieceSizes = (page) => srv.log.filter((e) => e.page === page && e.kind === "input").map((e) => Number(e.x));
+    const realFile = J(path.join(dir, "work-browser-engines.json"));
+    // ASK_TEST_FROM=18 (an environment variable of this test only): the cases before case 18 and case 10 do not run
+    if (!ONLY18) {
     // ---- case 1, 2, 8: the good page and a second good page, asked one after the other
     const A = await world();
     const r1 = await ask(A, { chatgpt: spec("good1"), perplexity: spec("good2") });
@@ -244,14 +299,6 @@ async function scenarios(dir) {
     check("case 15c: two assistants, one stopped and one read: exit 0 and the ASKED line", rs3.code === 0 && !!jr(cap(S3, "perplexity-2.json")) && last(rs3) === "ASKED: chatgpt blocked (robot check), perplexity read", d(rs3) + " | last: " + last(rs3));
 
     // ---- case 17: the pace (every number is the engines file's; the waits are read back from the recorder that replaces io.sleep)
-    const nch = (t) => Array.from(t).length, words = (t) => (String(t).match(/\S+/g) || []).length;
-    const readFor = (reply) => Math.min(PACE.readSecondsMax, Math.max(PACE.readSecondsMin, Math.round(words(reply) / 100 * PACE.readSecondsPer100Words)));
-    // the waits one assistant that loaded a page, was asked both texts and answered asks for; first: false adds the wait before its page
-    const waitsOf = (w, reply1, first) => [...(first ? [] : [["between assistants", PACE.betweenAssistantsSeconds]]), ["after load", PACE.afterLoadSeconds],
-      ...[1, 2].flatMap((m) => [...Array(Math.ceil(nch(m === 1 ? w.lock.text1 : w.lock.text2) / PACE.typeCharactersPerSecond)).fill(["piece", 1]), ["before send", PACE.beforeSendSeconds], ...(m === 1 ? [["reading", readFor(reply1)]] : [])])];
-    const asked = (r) => JSON.stringify(r.sleeps.map((s) => [s.why, s.ms / 1000]));
-    // the browser also reports input events that add nothing (seen 2026-11-22: 99 of them beside 528 pieces, on a text with line breaks); a size of 0 is not a piece
-    const pieceSizes = (page) => srv.log.filter((e) => e.page === page && e.kind === "input").map((e) => Number(e.x));
     const P1w = await world(), r17 = await ask(P1w, { chatgpt: spec("p17a1"), perplexity: spec("p17a2") });
     const re1 = jr(cap(P1w, "chatgpt-1.json"))?.answerText || "", re2 = jr(cap(P1w, "perplexity-1.json"))?.answerText || "";
     const want17 = JSON.stringify([...waitsOf(P1w, re1, true), ...waitsOf(P1w, re2, false)]);
@@ -271,11 +318,11 @@ async function scenarios(dir) {
     const without = (k) => { const o = { ...PACE }; delete o[k]; return o; };
     const BAD = [["no block at all", "none", "pace"], ["a key missing", without("readSecondsMin"), "readSecondsMin"], ["tabsAtOnce 2", { ...PACE, tabsAtOnce: 2 }, "tabsAtOnce"], ["typeCharactersPerSecond 0", { ...PACE, typeCharactersPerSecond: 0 }, "typeCharactersPerSecond"],
       ["typeCharactersPerSecond 16", { ...PACE, typeCharactersPerSecond: 16 }, "typeCharactersPerSecond"], ["a text for a number", { ...PACE, afterLoadSeconds: "8" }, "afterLoadSeconds"], ["a fraction", { ...PACE, beforeSendSeconds: 2.5 }, "beforeSendSeconds"],
-      ["betweenAssistantsSeconds 59", { ...PACE, betweenAssistantsSeconds: 59 }, "betweenAssistantsSeconds"], ["readSecondsMax under readSecondsMin", { ...PACE, readSecondsMax: 10 }, "readSecondsMax"], ["an unknown key", { ...PACE, extraSeconds: 1 }, "extraSeconds"]];
+      ["betweenAssistantsSeconds 59", { ...PACE, betweenAssistantsSeconds: 59 }, "betweenAssistantsSeconds"], ["readSecondsMax under readSecondsMin", { ...PACE, readSecondsMax: 10 }, "readSecondsMax"], ["checkWaitSeconds 59", { ...PACE, checkWaitSeconds: 59 }, "checkWaitSeconds"], ["checkLookSeconds 1", { ...PACE, checkLookSeconds: 1 }, "checkLookSeconds"], ["an unknown key", { ...PACE, extraSeconds: 1 }, "extraSeconds"]];
     const bad = [], Zw = await world();
     for (const [label, pace, key] of BAD) { const r = await ask(Zw, { chatgpt: spec("p17d") }, { pace }); bad.push({ label, ok: r.code === 2 && r.out.includes(key) && r.sleeps.length === 0, why: label + ": " + d(r) }); }
     check("case 17d: a bad pace block (" + BAD.map((b) => b[0]).join("; ") + "): exit 2, the key named, NO page loaded and nothing waited for", bad.every((b) => b.ok) && count("p17d", "load") === 0 && (await openTabs(br.port, srv.base))?.length === 0, bad.filter((b) => !b.ok).map((b) => b.why).join(" || ") + " loads " + count("p17d", "load"));
-    const realFile = J(path.join(dir, "work-browser-engines.json")), plib = await import(pathToFileURL(path.join(dir, "lib-ask-pace.mjs")).href);
+    const plib = await import(pathToFileURL(path.join(dir, "lib-ask-pace.mjs")).href);
     let realOk = false, realWhy = ""; try { plib.checkPace(realFile.pace); realOk = true; } catch (e) { realWhy = e.message; }
     check("case 17e: the real work-browser-engines.json: its engines are exactly chatgpt, gemini, perplexity, and its pace block passes the check and holds the settled numbers", JSON.stringify(Object.keys(realFile).filter((k) => k !== "pace").sort()) === JSON.stringify(["chatgpt", "gemini", "perplexity"]) && realOk && JSON.stringify(realFile.pace) === JSON.stringify(PACE), realWhy + " | " + JSON.stringify(Object.keys(realFile)) + " | " + JSON.stringify(realFile.pace));
     // no environment variable and no flag changes the pace
@@ -287,13 +334,78 @@ async function scenarios(dir) {
     const own = ["ask-assistants.mjs", "lib-ask-pace.mjs"].map((n) => [n, fs.readFileSync(path.join(dir, n), "utf8")]);
     check("case 17g: nothing in the script or its pace file is chance: the word \"random\" is in neither (a random wait would be there to look like a person)", own.every(([, s]) => !/random/i.test(s)), own.filter(([, s]) => /random/i.test(s)).map(([n]) => n).join(", "));
 
+    }
+    // ---- case 18: a human check rings the owner and waits (ChatGPT and Perplexity); the pages show a check by themselves and take it away by themselves
+    const RING = { humanCheck: "ring" }, LOOK = PACE.checkLookSeconds;
+    // the pages number every report in their own order (s) and give each load an id (l): a window is read from those numbers, never from the server's clock
+    const loadsOf = (page) => [...new Set(srv.log.filter((x) => x.page === page && x.l).map((x) => x.l))];
+    const windows = (page) => { const w = []; for (const l of loadsOf(page)) { let from = null; for (const e of srv.log.filter((x) => x.page === page && x.l === l).sort((a, b) => a.s - b.s)) { if (e.kind === "shown") from = e.s; else if (e.kind === "gone" && from !== null) { w.push([from, e.s, l]); from = null; } } if (from !== null) w.push([from, Infinity, l]); } return w; };
+    // what reached the page while its check showed: a touch of any kind, or an input, key, click or send
+    const during = (page) => srv.log.filter((e) => e.page === page && ["touch", "key", "input", "click", "send"].includes(e.kind) && windows(page).some(([a, b, l]) => e.l === l && e.s > a && e.s < b));
+    const human = (r) => r.sleeps.filter((s) => s.why === "human check");
+    const core = (r) => JSON.stringify(r.sleeps.filter((s) => s.why !== "human check" && s.why !== "after check").map((s) => [s.why, s.ms / 1000]));
+    const lines = (r, re) => r.out.split("\n").filter((l) => re.test(l));
+    const RINGLINE = (e) => "RING: " + e + " shows a human check: answer it in the work browser window; the run waits up to " + PACE.checkWaitSeconds + " s and sends nothing to that tab";
+    const noTabs = async () => (await openTabs(br.port, srv.base))?.length === 0;
+    const HK1 = await world(), r18a = await ask(HK1, { chatgpt: spec("c18a", RING) }), re18a = jr(cap(HK1, "chatgpt-1.json"))?.answerText || "", ck18a = jr(cap(HK1, "chatgpt-check.json")), h18a = human(r18a);
+    const want18a = JSON.stringify([["after load", PACE.afterLoadSeconds], ...h18a.map(() => ["human check", LOOK]), ["after check", PACE.afterLoadSeconds], ...waitsOf(HK1, re18a, true).slice(1)]);
+    check("case 18a: a ringing engine, a check by title at load that goes by itself: io.ring called once with the engine, one RING line, 'human check' waits of checkLookSeconds each then ONE 'after check' wait, the CHECK line names the seconds, then both texts at the pace of 17a, exit 0, no stop file, and the check file says rang, answered, load, no second showing",
+      HK1.ok && r18a.code === 0 && last(r18a) === "ASKED: chatgpt read" && JSON.stringify(r18a.rings) === JSON.stringify(["chatgpt"]) && JSON.stringify(lines(r18a, /^RING: /)) === JSON.stringify([RINGLINE("chatgpt")]) && h18a.length === 3 && h18a.every((s) => s.ms === LOOK * 1000)
+        && asked(r18a) === want18a && lines(r18a, /^CHECK: /).join("|") === "CHECK: chatgpt showed a human check and a person answered it after " + h18a.length * LOOK + " s" && !fs.existsSync(path.join(HK1.stops, "chatgpt.json")) && !!jr(cap(HK1, "chatgpt-2.json"))
+        && !!ck18a && ck18a.engine === "chatgpt" && ck18a.host === "127.0.0.1" && ck18a.stage === "load" && ck18a.rang === true && ck18a.answered === true && ck18a.secondShowing === false && ck18a.waitedSeconds === h18a.length * LOOK && typeof ck18a.shownAt === "string",
+      d(r18a) + " | rings " + JSON.stringify(r18a.rings) + " | waits " + asked(r18a).slice(0, 400) + " | check file " + JSON.stringify(ck18a));
+    const HK1b = await world(), r18a2 = await ask(HK1b, { chatgpt: spec("c18a2", RING) });
+    check("case 18a2: the same with a check that is only words in the page text at load: one ring, read, no stop file", r18a2.code === 0 && last(r18a2) === "ASKED: chatgpt read" && r18a2.rings.length === 1 && lines(r18a2, /^CHECK: chatgpt /).length === 1 && !fs.existsSync(path.join(HK1b.stops, "chatgpt.json")) && jr(cap(HK1b, "chatgpt-check.json"))?.answered === true, d(r18a2));
+    check("case 18b: the full stop of input at load: the page of 18a got zero touch events (no key, mouse move, click, focus, scroll) and no input, key, click or send between its check shown and gone; it was loaded once and sent twice",
+      windows("c18a").length === 1 && windows("c18a")[0][1] !== Infinity && during("c18a").length === 0 && count("c18a", "touch") === 0 && count("c18a", "load") === 1 && count("c18a", "send") === 2, "windows " + JSON.stringify(windows("c18a")) + " during " + JSON.stringify(during("c18a").slice(0, 5)) + " touches " + count("c18a", "touch"));
+    const HK2 = await world(), r18b2 = await ask(HK2, { chatgpt: spec("c18b1", RING) }), ck18b2 = jr(cap(HK2, "chatgpt-check.json"));
+    check("case 18b2: a check frame that shows after the first send (the page not loaded again): one ring, nothing reaches the page while it shows, then the second text is typed and sent, outcome read",
+      r18b2.code === 0 && last(r18b2) === "ASKED: chatgpt read" && r18b2.rings.length === 1 && windows("c18b1").length === 1 && windows("c18b1")[0][1] !== Infinity && during("c18b1").length === 0 && count("c18b1", "touch") === 0 && count("c18b1", "send") === 2 && count("c18b1", "load") === 1 && !!jr(cap(HK2, "chatgpt-2.json")) && ck18b2?.stage === "reply 1" && ck18b2?.answered === true,
+      d(r18b2) + " | windows " + JSON.stringify(windows("c18b1")) + " during " + JSON.stringify(during("c18b1").slice(0, 5)) + " | check file " + JSON.stringify(ck18b2));
+    const HK3 = await world(); PAGES.c18b2.check.atChars = HK3.lock.text1.length;
+    const r18b3 = await ask(HK3, { chatgpt: spec("c18b2", RING) }), ck18b3 = jr(cap(HK3, "chatgpt-check.json"));
+    check("case 18b3: a check frame that shows when the box holds all of text 1 (before the click on send): one ring, the click on send is made only after it went, both sent, outcome read",
+      r18b3.code === 0 && last(r18b3) === "ASKED: chatgpt read" && r18b3.rings.length === 1 && windows("c18b2").length === 1 && windows("c18b2")[0][1] !== Infinity && during("c18b2").length === 0 && count("c18b2", "touch") === 0 && count("c18b2", "send") === 2 && ck18b3?.stage === "send 1",
+      d(r18b3) + " | windows " + JSON.stringify(windows("c18b2")) + " during " + JSON.stringify(during("c18b2").slice(0, 5)) + " | check file " + JSON.stringify(ck18b3));
+    const HK4 = await world(), r18b4 = await ask(HK4, { chatgpt: spec("c18bp", RING) });
+    check("case 18b4: a reply that holds the words 'verify you are human' (no check at all): io.ring never called, no check file, read (the page text is not part of the later look)",
+      r18b4.code === 0 && last(r18b4) === "ASKED: chatgpt read" && r18b4.rings.length === 0 && !fs.existsSync(cap(HK4, "chatgpt-check.json")) && !!jr(cap(HK4, "chatgpt-2.json")) && /verify you are human/i.test(jr(cap(HK4, "chatgpt-1.json"))?.answerText || ""), d(r18b4) + " | rings " + JSON.stringify(r18b4.rings));
+    const HK5 = await world(), r18c = await ask(HK5, { chatgpt: spec("c18c", RING), perplexity: spec("c18c2") }), re18c = jr(cap(HK5, "perplexity-1.json"))?.answerText || "", ck18c = jr(cap(HK5, "chatgpt-check.json"));
+    check("case 18c: the second showing (the check is back at the look after 'after check'): the tab is closed, a stop file with reason 'robot check', io.ring ONCE, blocked 'robot check shown again after a person answered it', zero touch events, and the next assistant is asked after betweenAssistantsSeconds at the pace of 17a",
+      r18c.code === 0 && fs.existsSync(path.join(HK5.stops, "chatgpt.json")) && /robot check/.test(fs.readFileSync(path.join(HK5.stops, "chatgpt.json"), "utf8")) && JSON.stringify(r18c.rings) === JSON.stringify(["chatgpt"]) && blockedWhy(HK5, "chatgpt") === "robot check shown again after a person answered it"
+        && during("c18c").length === 0 && count("c18c", "touch") === 0 && await noTabs() && core(r18c) === JSON.stringify([["after load", PACE.afterLoadSeconds], ...waitsOf(HK5, re18c, false)]) && /^ASKED: chatgpt blocked \(robot check shown again after a person answered it\), perplexity read$/.test(last(r18c))
+        && ck18c?.rang === true && ck18c?.answered === true && ck18c?.secondShowing === true && lines(r18c, /^CHECK: /).length === 0,
+      d(r18c) + " | rings " + JSON.stringify(r18c.rings) + " | core " + core(r18c).slice(0, 300) + " | check file " + JSON.stringify(ck18c));
+    const HK6 = await world(), r18d = await ask(HK6, { chatgpt: spec("c18d", RING), perplexity: spec("c18d2") }), re18d = jr(cap(HK6, "perplexity-1.json"))?.answerText || "", ck18d = jr(cap(HK6, "chatgpt-check.json")), h18d = human(r18d);
+    check("case 18d: nobody answers (the check never goes): the 'human check' waits add up to exactly checkWaitSeconds (300 s) and no more, one ring, blocked 'human check not answered in 300 s', NO stop file, the tab closed, zero touch events, and the next assistant is asked",
+      r18d.code === 0 && h18d.reduce((a, s) => a + s.ms, 0) === PACE.checkWaitSeconds * 1000 && h18d.length === PACE.checkWaitSeconds / LOOK && r18d.rings.length === 1 && blockedWhy(HK6, "chatgpt") === "human check not answered in " + PACE.checkWaitSeconds + " s" && !fs.existsSync(path.join(HK6.stops, "chatgpt.json"))
+        && await noTabs() && during("c18d").length === 0 && count("c18d", "touch") === 0 && core(r18d) === JSON.stringify([["after load", PACE.afterLoadSeconds], ...waitsOf(HK6, re18d, false)]) && /^ASKED: chatgpt blocked \(human check not answered in 300 s\), perplexity read$/.test(last(r18d))
+        && ck18d?.rang === true && ck18d?.answered === false && ck18d?.waitedSeconds === PACE.checkWaitSeconds && ck18d?.secondShowing === false && lines(r18d, /^CHECK: /).length === 0,
+      d(r18d) + " | waits " + h18d.length + " sum " + h18d.reduce((a, s) => a + s.ms, 0) + " | rings " + JSON.stringify(r18d.rings) + " | check file " + JSON.stringify(ck18d));
+    const HK7 = await world(), r18e = await ask(HK7, { chatgpt: spec("c18e1", { humanCheck: "stop" }) }), HK7b = await world(), r18e0 = await ask(HK7b, { chatgpt: spec("c18e1") });
+    check("case 18e: an engine that does not ring ('stop' given, and the key absent): today's rule: exit 3, a stop file, blocked 'robot check', no wait for a person, io.ring never called",
+      [[HK7, r18e], [HK7b, r18e0]].every(([w, r]) => r.code === 3 && r.rings.length === 0 && human(r).length === 0 && fs.existsSync(path.join(w.stops, "chatgpt.json")) && blockedWhy(w, "chatgpt") === "robot check"), d(r18e) + " | " + d(r18e0) + " | rings " + JSON.stringify([r18e.rings, r18e0.rings]));
+    const HK8 = await world(), loads18 = count("c18e2", "load"), r18e2 = await ask(HK8, { chatgpt: spec("c18e2", { humanCheck: "maybe" }) });
+    check("case 18e2: humanCheck 'maybe': exit 2, the engine and the value named, no page loaded, nothing waited for", r18e2.code === 2 && /chatgpt/.test(r18e2.out) && /"maybe"/.test(r18e2.out) && count("c18e2", "load") === loads18 && r18e2.sleeps.length === 0 && r18e2.rings.length === 0, d(r18e2));
+    const HK9 = await world(), r18f = await ask(HK9, { chatgpt: spec("c18f", RING) }), loadsF = srv.log.filter((e) => e.page === "c18f" && e.kind === "load"), ck18f = jr(cap(HK9, "chatgpt-check.json"));
+    const lsF = loadsOf("c18f"), afterReload = lsF.length > 1 ? srv.log.filter((e) => e.page === "c18f" && e.l === lsF[1] && ["input", "send", "key", "click", "touch"].includes(e.kind)) : [];   // what the page of the second load received
+    check("case 18f: the check shows while text 2 is typed and the page loads itself again when it goes: nothing reaches the page while it shows, the outcome is 'read, follow-up not asked: the page was reloaded by a human check', reply 1 is on file, reply 2 is not, text 2 was sent to no page",
+      r18f.code === 0 && last(r18f) === "ASKED: chatgpt read, follow-up not asked: the page was reloaded by a human check" && !!jr(cap(HK9, "chatgpt-1.json")) && !fs.existsSync(cap(HK9, "chatgpt-2.json")) && loadsF.length === 2 && count("c18f", "send") === 1 && afterReload.length === 0
+        && during("c18f").length === 0 && count("c18f", "touch") === 0 && r18f.rings.length === 1 && ck18f?.stage === "typing 2" && ck18f?.answered === true,
+      d(r18f) + " | loads " + loadsF.length + " sends " + count("c18f", "send") + " after reload " + JSON.stringify(afterReload.slice(0, 3)) + " during " + JSON.stringify(during("c18f").slice(0, 3)) + " | check file " + JSON.stringify(ck18f));
+    check("case 18g: the real engines file: chatgpt and perplexity ring, gemini stops, and its pace block holds checkWaitSeconds 300 and checkLookSeconds 5",
+      realFile.chatgpt?.humanCheck === "ring" && realFile.perplexity?.humanCheck === "ring" && realFile.gemini?.humanCheck === "stop" && realFile.pace.checkWaitSeconds === 300 && realFile.pace.checkLookSeconds === 5, JSON.stringify(realFile));
+
+    if (!ONLY18) {
     // ---- case 10: the side list is in no file written and no line printed
     const files = walk(tmp).filter((f) => !/[\\/]net\.log$/.test(f)), hits = files.filter((f) => { try { return fs.readFileSync(f, "utf8").includes("HISTORY-MARKER"); } catch { return false; } });
     check("case 10: a side list on the page holds HISTORY-MARKER: the word is in no file written (" + files.length + " files looked at) and no line printed", files.length > 20 && hits.length === 0 && !allOut.some((o) => o.includes("HISTORY-MARKER")), "in: " + hits.join(", "));
+    }
   } catch (e) {
     check("the test ran to its end", false, e.stack || e);
   }
   srv.close(); rmTmp(tmp);
+  RAN = results.length;
   return results;
 }
 
@@ -326,8 +438,23 @@ const MUTANTS = [
   one("the title wording 'attention required' is gone", "|attention required", "", /^case 14d:/),
   one("the page text is not looked at", " || ROBOT_WORDS.test(pageText)", "", /^case 14e:/),
   one("all blocked still exits 0", "if (!outcomes.some(([, o]) => o === \"already asked\" || o.startsWith(\"read\"))) {", "if (false) {", /^case 15a:/, /^case 15b:/),
+  one("a ring is given on an engine that stops", 'rings = sp.humanCheck === "ring"', "rings = true", /^case 18e:/),
+  one("no ring is given", "io.ring(name);", "/* no ring */", /^case 18a:/),
+  one("a second ring", "io.ring(name);", "io.ring(name); io.ring(name);", /^case 18a:/),
+  one("a piece is typed while the check shows (the later look before a piece is gone)", '          let g = await guard("typing " + n); if (g && g !== true) return g;', "          let g = null;", /^case 18f:/),
+  { name: "the click on send is made while the check shows (both later looks before it are gone)", patches: [{ file: "ask-assistants.mjs", from: 'const gb = await guard("send " + n); if (gb && gb !== true) return gb;', to: "" }, { file: "ask-assistants.mjs", from: 'const gs = await guard("send " + n); if (gs && gs !== true) return gs;', to: "" }], expect: [/^case 18b3:/] },
+  one("no stop on the second showing", 'writeRec(); return hardStop("robot check shown again after a person answered it"); }', 'writeRec(); return block(name, "robot check shown again after a person answered it"); }', /^case 18c:/),
+  one("a stop is written when nobody answered", 'return block(name, "human check not answered in " + pace.checkWaitSeconds + " s");', 'return hardStop("human check not answered in " + pace.checkWaitSeconds + " s");', /^case 18d:/),
+  one("the wait for an answer is twice as long as checkWaitSeconds", "        while (waited < pace.checkWaitSeconds) {\n          const w = Math.min(pace.checkLookSeconds, pace.checkWaitSeconds - waited);", "        while (waited < pace.checkWaitSeconds * 2) {\n          const w = pace.checkLookSeconds;", /^case 18d:/),
+  one("the page text is part of the later look", 'const laterLook = async () => ROBOT_WORDS.test(String(await ev("document.title"))) || await has(CHECK_FRAME);', 'const laterLook = async () => ROBOT_WORDS.test(String(await ev("document.title"))) || ROBOT_WORDS.test(String(await ev("document.body ? document.body.innerText : \'\'"))) || await has(CHECK_FRAME);', /^case 18b4:/),
+  one("a page loaded again by the check is not noticed", "if (origin !== null && o !== origin)", "if (false)", /^case 18f:/),
+  lib("checkWaitSeconds 59 is accepted", "checkWaitSeconds: [60, 600]", "checkWaitSeconds: [59, 600]", /^case 17d:/),
+  lib("checkLookSeconds 1 is accepted", "checkLookSeconds: [2, 30]", "checkLookSeconds: [1, 30]", /^case 17d:/),
 ];
 
-const code = await main({ label: "ASK ASSISTANTS", scenarios, MUTANTS, scriptsDir: here, argv: process.argv.slice(2) });
+// with ASK_TEST_FROM=18 only the faults whose cases ran can be judged: those that expect a case 18 or case 17d and nothing else
+const FAULTS = ONLY18 ? MUTANTS.filter((m) => m.expect.every((re) => /case 18|case 17d/.test(String(re)))) : MUTANTS;
+const code = await main({ label: "ASK ASSISTANTS", scenarios, MUTANTS: FAULTS, scriptsDir: here, argv: process.argv.slice(2) });
 closeBrowser();
+if (ONLY18) console.log("ASK_TEST_FROM=18: the cases before case 18 and case 10 did not run; " + RAN + " cases ran in the last pass");
 process.exit(code);

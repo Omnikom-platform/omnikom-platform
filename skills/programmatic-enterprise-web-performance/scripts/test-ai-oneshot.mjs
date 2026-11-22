@@ -131,6 +131,16 @@ async function scenarios(dir) {
     const want = ['- chatgpt: the business is in 1 of 8 lists of recommendations (place 2 for "In Sampleville, CA, United States, which real estate agent would you recommend?")', "- perplexity: the business is in 0 of 4 lists of recommendations; not counted: 4 not reached", "- gemini: no list was counted: 8 layout not followed",
       "- Asked about the business by name: chatgpt knows it (phone right, website wrong, would recommend it: YES)", "- The business's own site is among the sources the assistants name"];
     check("case 9: the live report prints the one-prompt run in its own words: lists of recommendations per assistant, what was not counted, the follow-up by name apart; never 'answers name the business'", rr.code === 0 && want.every((x) => rl.includes(x)) && !rl.some((l) => /answers name the business|named in \d+ of/.test(l)) && rl.some((l) => l.startsWith("- Listed most often instead: ") && !l.includes("Beta Realty")), `exit ${rr.code} | ${JSON.stringify(rl)}`);
+    // ---- case 18h: the check record of ask-assistants.mjs (captures/ai-oneshot/<engine>-check.json, owner 2026-11-22 11:43) is not a reply: count, lock and blocked do not trip over it
+    const CKW = world(BIZ), ckd = path.join(CKW.pewp, "captures", "ai-oneshot"), rec18 = (engine) => ({ engine, host: engine + ".test", shownAt: new Date().toISOString(), stage: "load", rang: true, answered: true, waitedSeconds: 10, secondShowing: false });
+    await cmd(CKW, "build"); const lk1 = await cmd(CKW, "lock", "--by", "test");
+    W(path.join(ckd, "chatgpt-check.json"), rec18("chatgpt")); W(path.join(ckd, "perplexity-check.json"), rec18("perplexity")); W(path.join(A.pewp, "captures", "ai-oneshot", "chatgpt-check.json"), rec18("chatgpt"));
+    const bk = await cmd(CKW, "blocked", "gemini", "--reason", "sign-in wall");
+    W(path.join(CKW.pewp, "business.json"), { ...BIZ, name: "Sample Valley Realty Group" });   // a changed prompt: a new lock is refused only when REPLY files answer the old one
+    const lb = await cmd(CKW, "build"), lk2 = await cmd(CKW, "lock", "--by", "test");
+    const cc2 = await cmd(A, "count"), res2 = jr(path.join(A.pewp, "research", "ai-oneshot.json")) || {};
+    check("case 18h: with a <engine>-check.json in the folder: blocked is written, a changed prompt is locked again (a check file is not a reply), and count gives the same engines as without it",
+      lk1.code === 0 && bk.code === 0 && fs.existsSync(path.join(ckd, "gemini-blocked.json")) && lb.code === 0 && lk2.code === 0 && cc2.code === 0 && JSON.stringify(res2.engines) === JSON.stringify(res.engines) && (res2.engines || []).length > 0, [lk1, bk, lb, lk2, cc2].map(d).join(" || "));
     // ---- case 10: three assistants (owner, 2026-11-22: copilot is a wrapper for GPT and leaves)
     const three = await Promise.all([cmd(A, "box", "copilot", "1", "--file", boxF), cmd(A, "blocked", "copilot", "--reason", "sign-in wall"), cmd(A, "save", "nobody", "1", "--file", boxF)]);
     const listed = three.map((r) => (/the assistant is one of ([a-z, ]+)/.exec(r.out) || [])[1]);
@@ -144,6 +154,7 @@ async function scenarios(dir) {
 
 const one = (name, from, to, ...expect) => ({ name, patches: [{ file: "ai-oneshot.mjs", from, to }], expect });
 const MUTANTS = [
+  one("a check record is read as a reply", '/-[12]\\.json$/.test(x)', '/-[a-z0-9]+\\.json$/.test(x)', /^case 18h:/),
   one("copilot is back among the assistants", 'const ENGINES = ["chatgpt", "perplexity", "gemini"];', 'const ENGINES = ["chatgpt", "perplexity", "copilot", "gemini"];', /^case 10:/),
   one("a service question loses its place", 'text: `In ${p.full}, who would you recommend for "${need}"?`', 'text: `Who would you recommend for "${need}"?`', /^case 1a:/),
   one("a US place without a state passes", "if (us && !p.state) throw new Blocked(", "if (false) throw new Blocked(", /^case 2:/),
