@@ -155,7 +155,7 @@ AU.D-32	authority-anchors	source can stop for 24 h	BUILT		10
 AU.D-33	authority-classify	no test of that name found	BUILT-UNPROVEN		10	
 AU.D-34	authority-vet	no test of that name found	BUILT-UNPROVEN		10	
 AU.D-35	local-grid-import	none	BUILT		10	
-AU.D-36	capture-directories	as D-15; a dependency of client-copy	HALF		10	
+AU.D-36	capture-directories	scripts/read-directories.mjs (2026-11-23, S/scripts/test-read-directories.mjs D1-D18, 30 seeded faults): one page per directory in the work browser at the pace block, a check or 429/403 = a 24 h stop for that host only, a page with no result blocks and no no-results sign is not gathered (never "not listed"). UNPROVEN: the four page descriptions in read-pages.json are NOT SET (not measured on real pages); never run as a step of omnikom seo run	BUILT-UNPROVEN		10	
 AU.D-37	local	none	BUILT		10	
 AU.D-38	capture-reputation	as D-15	HALF		10	
 AU.D-39	reputation-import	none	BUILT		10	

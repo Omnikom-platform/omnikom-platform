@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1007,
+    "sources": 1009,
     "unowned": 0
   },
   "files": [
@@ -301,7 +301,8 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/plan-site.mjs","owner":"seo-and-audits","exports":[],"tests":["tools/golive/search-gate.test.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/plan.mjs","owner":"seo-and-audits","exports":[],"tests":["factory/test/mutate.mjs","factory/test/run.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/psi.mjs","owner":"seo-and-audits","exports":["readAnswer","run"],"tests":["tools/audit/test/metrics.mjs"],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/read-bing.mjs","owner":"seo-and-audits","exports":["PACE_KEYS","addressOf","buildCapture","checkReadPace","decide","drv","endOf","idOf","lastLine","makeRecord","run","selectItems"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/read-bing.mjs","owner":"seo-and-audits","exports":["PACE_KEYS","addressOf","buildCapture","checkReadPace","decide","drv","endOf","idOf","isCheck","lastLine","makeRecord","run","selectItems","wallOf"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/read-directories.mjs","owner":"seo-and-audits","exports":["addressOf","cityOf","drv","lastLine","listingFrom","makeRecord","mergeRows","nameOf","readerExpr","run"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/ref-images.mjs","owner":"seo-and-audits","exports":["checkImages","extractImages","imagesMarkdown","inventoryImages","normPathOf"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/ref-lib.mjs","owner":"seo-and-audits","exports":["Stop429","UA","applyRedirect","clearsSite","configHeaders","getOnce","headersFor","hostOf","htmlUrlPath","isLoopback","parseHeadersFile","parseRedirectRules","readJson","readSnapshotPages","sleep","walkFiles","writeJson"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/ref-sw.mjs","owner":"seo-and-audits","exports":["captureRegistrations","checkServiceWorkers","detectServiceWorkers","swMarkdown"],"tests":[],"feature":""},
@@ -395,6 +396,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-psi.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-read-bing-browser.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-read-bing.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-read-directories.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-ref.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-refactor.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-reports.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},

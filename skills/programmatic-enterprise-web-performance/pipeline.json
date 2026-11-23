@@ -1449,9 +1449,13 @@
    "id": "capture-directories",
    "station": "local",
    "module": "reputation",
-   "what": "the business's listings on directories (Yelp, BBB, Bing Places, Apple Maps, Manta, Yellow Pages and the market's own) for name, address and phone",
-   "script": null,
-   "args": [],
+   "what": "the business's listings on directories (Yellow Pages, BBB, MapQuest and Yelp: those with a page description in read-pages.json) for name, address and phone",
+   "script": "scripts/read-directories.mjs",
+   "args": [
+    "{key}",
+    "--cwd",
+    "{skill}"
+   ],
    "inputs": [
     "{pewp}/approved/business.json"
    ],
@@ -1461,20 +1465,20 @@
    "dependsOn": [
     "approve-business"
    ],
-   "needsBrowser": "owner",
+   "needsBrowser": "work",
    "needsAi": false,
    "needsPerson": false,
    "needsKeys": [],
    "heavy": false,
    "hits": "third-party:directories",
-   "pace": "one page at least 45 s apart per site",
-   "timeoutMinutes": 0,
+   "pace": "one tab and one page at a time, the wait after each load and the gap between loads of the pace block of read-pages.json, no retry; a robot check or a refusal is a stop for that host only, a sign-in wall is not gathered",
+   "timeoutMinutes": 45,
    "evidence": [
     "{pewp}/captures/local/citations.json"
    ],
    "kind": "time-sensitive",
    "maxAgeDays": 90,
-   "brief": "Search each directory for the business by name and city, read only. Record the name, address and phone it shows, or that it is not listed, in the citations.json format at the top of scripts/local-nap.mjs."
+   "brief": "The run reads the search page of each directory that has a page description in read-pages.json for the business by name and city, itself, in the work browser: one tab, one page at a time, at the pace of read-pages.json, nothing typed or clicked. It records the name, address and phone the listing shows, or that the business is not listed, in citations.json (the format at the top of scripts/local-nap.mjs). A robot check or a refusal stops that directory's host for a day; a sign-in wall is not gathered. A row a person made in the same format is still accepted."
   },
   {
    "id": "local",

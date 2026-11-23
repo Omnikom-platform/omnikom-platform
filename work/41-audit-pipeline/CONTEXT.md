@@ -23,9 +23,10 @@ build's, each proven by its test and seeded faults (the slice that landed them).
   SS.B-4). RULINGS LET THE RUN GO ON (BUILT 2026-11-22): the runner reads `rulings.json` at `run` and `resume`; a step ruled not
   gathered settles for the steps behind it, a step whose every source is ruled is skipped by rule, a missing input that only a ruled
   source could have written no longer holds a step back, and `seo status` ends `finished: yes, <n> not gathered by ruling`
-  (`tools/omnikom-cli/test/seo-run.mjs`, cases R1 to R13). NOT BUILT: readers for nine `capture-*` steps that still wait for a
-  person's browser (Google's pages, Maps, directories, reputation, social, ads): until then an agent rules them not gathered and
-  resumes the run.
+  (`tools/omnikom-cli/test/seo-run.mjs`, cases R1 to R13). NOT BUILT: readers for eight `capture-*` steps that still wait for a
+  person's browser (Google's pages, Maps, reputation, social, ads): until then an agent rules them not gathered and
+  resumes the run. The directories have a reader since 2026-11-23 (`scripts/read-directories.mjs`, work browser); its four
+  page descriptions in `read-pages.json` are NOT SET, so it reads nothing until they are measured on real pages.
 - WORK BROWSER. A browser on a debugging port with its own seeded profile and its own work account, so the clicks are
   scripted and the agent is an employee who only checks at stations. BUILT 2026-11-22: `scripts/work-browser.mjs open | status |
   close` runs the audit profile as a normal Edge window, the port bound to this machine only, the traffic through our US machine; a

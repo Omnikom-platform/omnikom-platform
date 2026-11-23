@@ -128,12 +128,12 @@ export function endOf(rec, blockedLine = null) {
 }
 
 // what a wall is, outside a robot check: a sign-in wall or a consent wall (the page text is tested here and thrown away)
-function wallOf(href, text) {
+export function wallOf(href, text) {
   const w = aiWallReason(href, text, 0);
   if (w === "redirected to a sign-in page" || w === "sign-in wall") return w;
   return CONSENT.test(text) ? "consent wall" : null;
 }
-function isCheck(href, title, text) {
+export function isCheck(href, title, text) {
   const w = aiWallReason(href, text, 0);
   return looksLikeRobotCheck(href, text) || w === "bot wall or CAPTCHA" || w === "robot check" || ROBOT_WORDS.test(title) || ROBOT_WORDS.test(text);
 }

@@ -12,5 +12,23 @@
    "title": "h2",
    "related": ".b_rs a"
   }
+ },
+ "directories": {
+  "yellowpages.com": {
+   "search": "https://www.yellowpages.com/search?search_terms={name}&geo_location_terms={city}",
+   "selectors": "NOT SET"
+  },
+  "bbb.org": {
+   "search": "https://www.bbb.org/search?find_country=USA&find_text={name}&find_loc={city}",
+   "selectors": "NOT SET"
+  },
+  "mapquest.com": {
+   "search": "https://www.mapquest.com/search?query={name}%20{city}",
+   "selectors": "NOT SET"
+  },
+  "yelp.com": {
+   "search": "https://www.yelp.com/search?find_desc={name}&find_loc={city}",
+   "selectors": "NOT SET"
+  }
  }
 }

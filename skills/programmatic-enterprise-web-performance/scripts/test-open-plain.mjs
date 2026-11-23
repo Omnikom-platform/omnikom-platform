@@ -59,18 +59,19 @@ async function scenarios(dir) {
   }); check("O2: openPage on the same fake still sends Browser.grantPermissions first and the Sacramento Emulation.setGeolocationOverride before Page.navigate (its old calls, in its old order)", ok, detail); }
 
   { const [ok, detail] = await T(async () => {
-    const bad = [], ra = fs.readFileSync(path.join(dir, "read-bing.mjs"), "utf8"), aa = fs.readFileSync(path.join(dir, "ask-assistants.mjs"), "utf8");
-    for (const [name, text] of [["read-bing.mjs", ra], ["ask-assistants.mjs", aa]]) {
+    const bad = [], ra = fs.readFileSync(path.join(dir, "read-bing.mjs"), "utf8"), aa = fs.readFileSync(path.join(dir, "ask-assistants.mjs"), "utf8"), rd = fs.readFileSync(path.join(dir, "read-directories.mjs"), "utf8");
+    for (const [name, text] of [["read-bing.mjs", ra], ["ask-assistants.mjs", aa], ["read-directories.mjs", rd]]) {
       if (/\bopenPage\b/.test(text)) bad.push(name + " mentions openPage");
       if (/grantPermissions|setGeolocationOverride/.test(text)) bad.push(name + " grants a permission or sets a location");
       if (!/\bopenPlain\b/.test(text)) bad.push(name + " does not use openPlain");
     }
     if (/Emulation\./.test(ra)) bad.push("read-bing.mjs has Emulation.");
+    if (/Emulation\./.test(rd)) bad.push("read-directories.mjs has Emulation.");
     // ask-assistants.mjs keeps its one declared behaviour, the focus emulation (header FOCUS): it is not a location or a permission, and it is the ONLY text there that starts with "Emulation."
     const em = aa.match(/Emulation\.\w+/g) || [];
     if (!em.length || em.some((m) => m !== "Emulation.setFocusEmulationEnabled")) bad.push("ask-assistants.mjs: the only Emulation text must be Emulation.setFocusEmulationEnabled, found " + JSON.stringify([...new Set(em)]));
     return [bad.length === 0, bad.join(" | ")];
-  }); check("O3: the text of read-bing.mjs and of ask-assistants.mjs holds no openPage, no grantPermissions, no location override, uses openPlain, and no Emulation call of any other kind in read-bing.mjs", ok, detail); }
+  }); check("O3: the text of read-bing.mjs, read-directories.mjs and ask-assistants.mjs holds no openPage, no grantPermissions, no location override, uses openPlain, and no Emulation call of any other kind in read-bing.mjs", ok, detail); }
 
   { const [ok, detail] = await T(async () => {
     const mod = await imp(dir, "read-bing.mjs"), c = fakeCdp(), bad = [];
@@ -112,9 +113,9 @@ async function scenarios(dir) {
   { const [ok, detail] = await T(async () => {
     const bad = [], rd = (f) => fs.readFileSync(path.join(dir, f), "utf8");
     if (!rd("work-browser.mjs").includes("no location override and no permission grant, ever")) bad.push("work-browser.mjs");
-    for (const f of ["read-bing.mjs", "ask-assistants.mjs"]) if (!rd(f).includes("no location override and no permission grant")) bad.push(f);
+    for (const f of ["read-bing.mjs", "read-directories.mjs", "ask-assistants.mjs"]) if (!rd(f).includes("no location override and no permission grant")) bad.push(f);
     return [bad.length === 0, "the words are missing in " + bad.join(", ")];
-  }); check("O7: work-browser.mjs says \"no location override and no permission grant, ever\" and the what-is-NOT-done sentences of read-bing.mjs and ask-assistants.mjs say it too", ok, detail); }
+  }); check("O7: work-browser.mjs says \"no location override and no permission grant, ever\" and the what-is-NOT-done sentences of read-bing.mjs, read-directories.mjs and ask-assistants.mjs say it too", ok, detail); }
   // O8: the shipped engines file holds the perplexity page description measured on the real page (2026-11-23)
   { const [ok, detail] = await T(async () => {
     const real = JSON.parse(fs.readFileSync(path.join(dir, "work-browser-engines.json"), "utf8"));
