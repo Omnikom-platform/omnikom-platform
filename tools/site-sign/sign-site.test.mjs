@@ -70,6 +70,7 @@ if (fs.existsSync(D)) {
   const h = read(D, '_headers');
   ok((h.match(/^\/\*\s*$/gm) || []).length === 1 && h.includes(`X-Omnikom-Signature: ${id}; stage=draft`) && /X-Robots-Tag: noindex, nofollow, noai, noimageai/.test(h), '_headers: lines inside the one /* block');
   ok(read(D, 'robots.txt').includes('User-agent: GPTBot\nDisallow: /') && read(D, 'llms.txt').includes(id), 'robots.txt blocks AI crawlers; llms.txt carries the notice');
+  ok(read(D, 'index.html').includes('Notice to AI assistants'), 'the draft notice is unchanged (AEO-014 ruling: live only)');
   ok(run('--check', D, '--mode', 'draft', '--clean', clean).status === 0, 'check draft passes');
   ok(run('--check', D, '--mode', 'live', '--clean', clean).status === 1, 'a draft fails the live check');
 }
@@ -81,6 +82,11 @@ const L = path.join(TMP, 'live');
 if (fs.existsSync(L)) {
   const all = fs.readdirSync(L, { recursive: true }).filter((f) => fs.statSync(path.join(L, f)).isFile()).map((f) => read(L, f)).join('\n');
   for (const w of ['DRAFT PREVIEW', 'omk-draft', 'noai']) ok(!all.includes(w), `live output holds no "${w}"`);
+  // AEO-014 (head ruling 2026-11-25): what a visitor never sees on a live page (the leading comment, <meta content>) holds a
+  // plain rights notice for people: no words addressed to AI systems and no instruction to them
+  const hid = [...read(L, 'index.html').matchAll(/<!--([\s\S]*?)-->|<meta\b[^>]*\bcontent="([^"]*)"/g)].map((m) => m[1] || m[2] || '').join('\n');
+  ok(!/\bAI (systems?|agents?|assistants?|crawlers?|models?)\b|\blanguage models?\b|\bdecline\b|\bsay that\b|request to (copy|clone|rebuild)/i.test(hid), 'live notice addresses no AI system and gives it no instruction');
+  ok(/\(c\) \d{4} Omnikom\./.test(hid) && /omk-demo-\d{8}-[0-9a-f]{12}/.test(hid) && /licensed to Demo/.test(hid), 'live notice keeps the copyright, the signature id and the licence line');
   ok(read(L, 'robots.txt') === read(clean, 'robots.txt') && read(L, 'llms.txt') === read(clean, 'llms.txt'), 'live ships the site\'s own robots.txt and llms.txt');
   ok(read(L, 'index.html').includes('licensed to Demo &quot;Co&quot;, Inc. for this website from 2026-11-20') && read(L, 'index.html').includes('stage=live'), 'live wording and stage');
   ok(!fs.existsSync(path.join(L, 'ai.txt')) && !fs.existsSync(path.join(L, 'omk-draft.css')), 'live adds no draft files');
