@@ -35,6 +35,7 @@
   { "file": "test-start.mjs", "plain": ["--no-mutants"], "mutants": [] },
   { "file": "test-sign-by-rule.mjs", "plain": ["--no-mutants"], "mutants": [] },
   { "file": "test-read-bing.mjs", "plain": ["--no-mutants"], "mutants": [] },
+  { "file": "test-intake-nosite.mjs", "plain": ["--no-mutants"], "mutants": [] },
   { "file": "test-read-directories.mjs", "plain": ["--no-mutants"], "mutants": [] },
   { "file": "test-open-plain.mjs", "plain": ["--no-mutants"], "mutants": [] }
 ]

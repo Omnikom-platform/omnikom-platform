@@ -16,11 +16,23 @@
  "directories": {
   "yellowpages.com": {
    "search": "https://www.yellowpages.com/search?search_terms={name}&geo_location_terms={city}",
-   "selectors": "NOT SET"
+   "selectors": {
+    "result": "div.search-results.organic > div.result",
+    "name": "a.business-name",
+    "address": "div.adr",
+    "phone": "div.phones",
+    "link": "a.business-name"
+   }
   },
   "bbb.org": {
    "search": "https://www.bbb.org/search?find_country=USA&find_text={name}&find_loc={city}",
-   "selectors": "NOT SET"
+   "selectors": {
+    "result": "div.search-results div.card.result-card",
+    "name": "h3",
+    "address": ".result-business-info p",
+    "phone": "a[href^=\"tel:\"]",
+    "link": "h3 a"
+   }
   },
   "mapquest.com": {
    "search": "https://www.mapquest.com/search?query={name}%20{city}",

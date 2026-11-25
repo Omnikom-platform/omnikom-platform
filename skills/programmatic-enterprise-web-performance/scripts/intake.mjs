@@ -184,12 +184,15 @@ const clean = (v) => list(v)?.map((x) => String(x).trim()).filter(Boolean) ?? nu
 const goalWord = (g) => ({ lead: "leads", leads: "leads", "lead generation": "leads", call: "calls", calls: "calls", phone: "calls", booking: "bookings", bookings: "bookings", appointments: "bookings", sale: "sales", sales: "sales", ecommerce: "sales" })[String(g).toLowerCase().trim()] || String(g).toLowerCase().trim();
 
 // Validate + normalise a candidate business; returns { business, missing: [field...], invalid: [{field, why}] }.
-export function assemble(c, { industries = null, requireVocabulary = false } = {}) {
+// nullDomain: null = a missing domain is a question; "ok" = the domain was ANSWERED null (a client with no site: "not decided yet" is an answer); "refuse" = a site's own key answered null (invalid)
+export function assemble(c, { industries = null, requireVocabulary = false, nullDomain = null } = {}) {
   const missing = [], invalid = [];
   const b = {};
   const need = (field, ok, val) => { if (ok) return val; missing.push(field); return undefined; };
   b.name = need("name", c.name && String(c.name).trim(), String(c.name || "").trim());
-  b.domain = need("domain", c.domain, domainOf(c.domain || ""));
+  if (c.domain === null && nullDomain === "ok") b.domain = null;
+  else if (c.domain === null && nullDomain === "refuse") { invalid.push({ field: "domain", why: "a client with a site has a domain: null (not decided) is only for a client with no site (profile:<slug>)" }); b.domain = null; }
+  else b.domain = need("domain", c.domain, domainOf(c.domain || ""));
   b.kind = need("kind", c.kind, slug(c.kind || ""));
   b.industry = c.industry === undefined ? (industries && b.kind && industries.includes(b.kind) ? b.kind : null) : c.industry;
   if (b.industry && industries && !industries.includes(b.industry)) { invalid.push({ field: "industry", why: `no rules/industries/${b.industry}.json (have: ${industries.join(", ") || "none"})` }); b.industry = null; }
@@ -298,7 +301,8 @@ export async function run(ctx, { answersFile = null, snapshotDir = null, refresh
   const cand = { ...answers };
   cand.market = { ...answers.market };
   if (!cand.name && get("name")) cand.name = take("name", get("name"));
-  if (!cand.domain) cand.domain = loc.kind === "url" ? take("domain", loc.host, `target ${loc.target}`) : null;
+  const nullAnswered = answers.domain === null, nullDomain = nullAnswered ? (loc.kind === "url" ? "refuse" : "ok") : null; // a PRESENT null is an answer; an absent domain is still a question
+  if (!cand.domain && !nullAnswered) cand.domain = loc.kind === "url" ? take("domain", loc.host, `target ${loc.target}`) : null;
   if (!cand.market.language && get("market.language")) cand.market.language = take("market.language", get("market.language"));
   if (!cand.market.country && get("market.country")) cand.market.country = take("market.country", get("market.country"));
   if (!cand.locations && (get("locations.name") || get("locations.serviceArea")) && get("locations.name")) cand.locations = [take("locations", { name: get("locations.name"), address: get("locations.address") ?? null, serviceArea: get("locations.serviceArea") || [] })];
@@ -336,7 +340,7 @@ export async function run(ctx, { answersFile = null, snapshotDir = null, refresh
   // kind: only an answer or the site's own markup type is used, and the markup type is offered as the recommended pick, not assumed
   let industries = null;
   try { industries = fs.readdirSync(path.join(rulesDir(), "industries")).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5)); } catch {}
-  const first = assemble(cand, { industries, requireVocabulary });
+  const first = assemble(cand, { industries, requireVocabulary, nullDomain });
   // rank tracking defaults: the first three places, mobile (the cost stop for browser capture is 1 page / 45 s)
   const rt = cand.rankTracking || {};
   if (!rt.locations?.length && first.business.locations.length) {
@@ -351,7 +355,7 @@ export async function run(ctx, { answersFile = null, snapshotDir = null, refresh
   }
   if (!rt.devices?.length) defaulted.push({ field: "rankTracking.devices", value: ["mobile"], why: "most local searches are on phones" });
   if (!rt.source) defaulted.push({ field: "rankTracking.source", value: first.business.existing.searchConsole ? "search-console" : "browser-capture", why: "Search Console when connected, else captured in the browser" });
-  const { business, missing, invalid } = assemble(cand, { industries, requireVocabulary });
+  const { business, missing, invalid } = assemble(cand, { industries, requireVocabulary, nullDomain });
   const optional = [...(cand.vocabulary === undefined ? ["vocabulary"] : []), ...(cand.notOffer === undefined ? ["notOffer"] : [])]; // asked with the rest; they do not block (vocabulary blocks with requireVocabulary)
   const questions = questionsFor(missing, invalid, facts, cand, optional);
   business.provenance = provenanceOf(business, answers, answerProv, accepted, defaulted);

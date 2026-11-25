@@ -127,7 +127,7 @@ export function validate(obj, { now = Date.now() } = {}) {
 export function validateBusiness(obj) {
   const c = Collector();
   if (!isObj(obj)) { c.add("B-001", "$", "business.json must be an object"); return { ok: false, errors: c.errors, warnings: [] }; }
-  for (const k of ["name", "domain", "kind", "offer", "audience"]) if (!nonEmpty(obj[k])) c.add("B-001", k, "missing");
+  for (const k of ["name", "domain", "kind", "offer", "audience"]) if (!nonEmpty(obj[k]) && !(k === "domain" && obj.domain === null)) c.add("B-001", k, "missing"); // domain null = a client with no site, answered "not decided yet" at intake (AB-16)
   if (!(obj.industry === null || nonEmpty(obj.industry))) c.add("B-001", "industry", "must be a rules/industries slug or null");
   checkMarket(c, "market", obj.market, "B-001");
   if (!Array.isArray(obj.locations)) c.add("B-001", "locations", "must be a list");

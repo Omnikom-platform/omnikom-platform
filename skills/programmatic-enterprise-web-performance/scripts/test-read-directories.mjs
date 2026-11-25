@@ -109,9 +109,9 @@ async function scenarios(dir) {
       }
       return [bad.length === 0, bad.join(" | ")];
     });
-    await C("D1: the shipped read-pages.json holds the four directories with these addresses and every selectors NOT SET, and the settled pace block", async () => {
+    await C("D1: the shipped read-pages.json holds the four directories with these addresses and mapquest.com and yelp.com NOT SET, and the settled pace block", async () => {
       const real = J(path.join(dir, "read-pages.json")), bad = [];
-      const want = lj(Object.fromEntries(HOSTS.map((h) => [h, { search: SEARCH[h], selectors: NOTSET }])));
+      const want = lj(Object.fromEntries(HOSTS.map((h) => [h, { search: SEARCH[h], selectors: ["yellowpages.com", "bbb.org"].includes(h) ? real.directories[h].selectors : NOTSET }])));   // the two descriptions themselves are D22's
       if (lj(real.directories) !== want) bad.push("directories " + lj(real.directories));
       if (lj(real.pace) !== lj(PACE)) bad.push("pace " + lj(real.pace));
       if (!real.bing || !real.bing.selectors || !real.bing.selectors.result) bad.push("the bing block is gone");
@@ -175,7 +175,7 @@ async function scenarios(dir) {
     await C("D5: no block matches: the row is exactly directory, url (the page address), listed:false, capturedAt, capturedIn; local-nap's checkCitations reads it as NOT LISTED, and a listed row of the same business as consistent", async () => {
       newStops();
       const f = fresh(tmp, "d5"), bad = [];
-      const x = await drive(f, { pf: pagesFile("d5", { directories: dirs(["mapquest.com", "yelp.com"]) }), pages: [page(1, { blocks: [blk("Someone Else"), blk("Read Dir Test Realty Group")] }), page(2)] });
+      const x = await drive(f, { pf: pagesFile("d5", { directories: dirs(["mapquest.com", "yelp.com"]) }), pages: [page(1, { blocks: [blk("Someone Else", { phone: "(209) 555-0199" }), blk("Another Realty", { phone: "(209) 555-0198" })] }), page(2)] });
       const rows = f.hasCit() ? f.rows() : [], miss = rows.find((r) => r.directory === "mapquest.com"), hit = rows.find((r) => r.directory === "yelp.com");
       if (x.code !== 0 || !miss || !hit) return [false, "exit " + x.code + " rows " + lj(rows)];
       if (lj(Object.keys(miss).sort()) !== lj(["capturedAt", "capturedIn", "directory", "listed", "url"]) || miss.listed !== false || miss.url !== "https://www.page1.test/search?x=1" || miss.capturedIn !== "work browser" || !Date.parse(miss.capturedAt)) bad.push("the not listed row " + lj(miss));
@@ -427,13 +427,68 @@ async function scenarios(dir) {
     await C("D18: result blocks present and none matches the business: listed:false, with the noResults selector set and not matching, and without one (as D5); blocks that do match are the listing even when noResults is true", async () => {
       newStops();
       const f = fresh(tmp, "d18"), bad = [];
-      const other = [blk("Someone Else"), blk("Read Dir Test Realty Group")];
+      const other = [blk("Someone Else", { phone: "(209) 555-0199" }), blk("Another Realty", { phone: "(209) 555-0198" })];
       const x = await drive(f, { pf: pagesFile("d18", { directories: { "mapquest.com": { search: SEARCH["mapquest.com"], selectors: NR }, "yelp.com": { search: SEARCH["yelp.com"], selectors: DESC }, "bbb.org": { search: SEARCH["bbb.org"], selectors: NR } } }), pages: [page(1, { blocks: other, noResults: false }), page(2, { blocks: other }), page(3, { noResults: true })] });
       const rows = f.hasCit() ? f.rows() : [], by = (h) => rows.find((r) => r.directory === h);
       if (x.code !== 0 || rows.length !== 3) return [false, "exit " + x.code + " rows " + lj(rows) + " " + x.lines.join(" / ")];
       for (const h of ["mapquest.com", "yelp.com"]) if (!by(h) || by(h).listed !== false || lj(Object.keys(by(h)).sort()) !== lj(["capturedAt", "capturedIn", "directory", "listed", "url"])) bad.push(h + " -> " + lj(by(h)));
       if (!by("bbb.org") || by("bbb.org").listed === false || by("bbb.org").name !== BIZNAME + ", LLC") bad.push("blocks that match with noResults true -> " + lj(by("bbb.org")));
       if (x.last !== "READ: directories 3 read, 0 left") bad.push("last line " + x.last);
+      return [bad.length === 0, bad.join(" | ")];
+    });
+
+    // ------------------------------------------------------------ D19-D22 a listing is matched by name OR phone; a near name is never "not listed" (AB-15)
+    const MID = "Midtown Modern Dental", MIDPH = "(916) 246-0889", NEAR = "a listing with a near name (Midtown Modern Dental Group) that no phone confirms";
+    const mb = (name, phone) => blk(name, { phone, address: "1 K St, Sacramento, CA 95814" });
+    const midFresh = (n, o = {}) => fresh(tmp, n, { name: MID, phone: MIDPH, locations: [{ name: "Sacramento, CA", address: "1 K St, Sacramento, CA, 95814" }], ...o });
+    const midRun = (f, n, blocks) => drive(f, { pf: pagesFile(n, { directories: dirsWith(DESC, ["yellowpages.com"]) }), pages: [page(1, { blocks })] });
+    await C("D19: the measured case: business 'Midtown Modern Dental' (916) 246-0889, blocks [Modern Family Dental (916) 928-9300, Midtown Modern Dental Group (916) 246-0889]: the row is the Group block (the phone); a phone with a country code (+1 ... / 1-...) is the same phone (last 10 digits); an exact name wins over a phone shared by another block; the phone may come from the first location", async () => {
+      const bad = [], one = async (n, f, blocks) => { newStops(); const x = await midRun(f, n, blocks); return { x, row: f.hasCit() ? f.rows()[0] : null }; };
+      let r = await one("d19", midFresh("d19"), [mb("Modern Family Dental", "(916) 928-9300"), mb(MID + " Group", MIDPH)]);
+      if (r.x.code !== 0 || !r.row || r.row.listed === false || r.row.name !== MID + " Group" || r.row.phone !== MIDPH || r.x.last !== "READ: directories 1 read, 0 left") bad.push("the measured case: exit " + r.x.code + " " + lj(r.row) + " " + r.x.last);
+      r = await one("d19b", midFresh("d19b"), [mb("Modern Family Dental", "(916) 928-9300"), mb(MID + " Group", "+1 916-246-0889")]);
+      if (!r.row || r.row.listed === false || r.row.name !== MID + " Group") bad.push("a country code: " + lj(r.row));
+      r = await one("d19c", midFresh("d19c"), [mb("Modern Family Dental", MIDPH), mb(MID, "(916) 555-0000")]);
+      if (!r.row || r.row.listed === false || r.row.name !== MID) bad.push("exact name before phone: " + lj(r.row));
+      r = await one("d19d", midFresh("d19d", { phone: undefined, locations: [{ name: "Sacramento, CA", address: "1 K St, Sacramento, CA, 95814", phone: MIDPH }] }), [mb("Modern Family Dental", "(916) 928-9300"), mb(MID + " Group", MIDPH)]);
+      if (!r.row || r.row.listed === false || r.row.name !== MID + " Group") bad.push("phone of the first location: " + lj(r.row));
+      return [bad.length === 0, bad.join(" | ")];
+    });
+    await C("D20: the same without a business phone, or with another phone on the near name: NOT gathered: no row, no citations.json, no stop, not counted as read, left with the near-name why naming the block; also when the business name is the longer one", async () => {
+      const bad = [], one = async (n, f, blocks) => { const d = newStops(), x = await midRun(f, n, blocks); return { x, d, rec: f.hasRec() ? f.rec() : null }; };
+      for (const [n, f, blocks, want] of [
+        ["d20", midFresh("d20", { phone: undefined }), [mb("Modern Family Dental", "(916) 928-9300"), mb(MID + " Group", MIDPH)], NEAR],
+        ["d20b", midFresh("d20b"), [mb(MID + " Group", "(916) 111-2222")], NEAR],
+        ["d20c", midFresh("d20c", { name: MID + " Care", phone: undefined }), [mb(MID, MIDPH)], "a listing with a near name (" + MID + ") that no phone confirms"],
+      ]) {
+        const r = await one(n, f, blocks);
+        if (r.x.code !== 3 || f.hasCit() || stopFiles(r.d).length !== 0 || !r.rec || r.rec.read.length !== 0 || lj(r.rec.left) !== lj([{ directory: "yellowpages.com", why: want }]) || r.x.last.indexOf("BLOCKED") !== 0 || !r.x.lines.includes("READ: directories 0 read, 1 left")) bad.push(n + ": exit " + r.x.code + " rec " + lj(r.rec) + " cit " + f.hasCit() + " stops " + stopFiles(r.d).length + " " + r.x.last);
+      }
+      // a near name on directory 1 of 2 does not end the run: directory 2 is read
+      const d = newStops(), g = midFresh("d20d"), two = ["yellowpages.com", "bbb.org"];
+      const y = await drive(g, { pf: pagesFile("d20d", { directories: dirsWith(DESC, two) }), pages: [page(1, { blocks: [mb(MID + " Group", "(916) 111-2222")] }), page(2, { blocks: [mb(MID, MIDPH)] })] });
+      if (y.code !== 0 || y.log.loads.length !== 2 || !g.hasRec() || lj(g.rec().read) !== '["bbb.org"]' || lj(g.rec().left) !== lj([{ directory: "yellowpages.com", why: NEAR }]) || !g.hasCit() || lj(g.rows().map((r) => r.directory)) !== '["bbb.org"]' || stopFiles(d).length !== 0 || y.last !== "READ: directories 1 read, 1 left") bad.push("two directories: exit " + y.code + " loads " + y.log.loads.length + " rec " + (g.hasRec() ? lj(g.rec()) : "none") + " " + y.last);
+      return [bad.length === 0, bad.join(" | ")];
+    });
+    await C("D21: blocks with unrelated names and phones (and a name that only starts with the same letters, 'Midtown Modern Dentals': no space after the business name): listed:false, counted as read, exactly as D5", async () => {
+      newStops();
+      const f = midFresh("d21"), bad = [];
+      const x = await midRun(f, "d21", [mb("Modern Family Dental", "(916) 928-9300"), mb("Midtown Modern Dentals", "(916) 333-4444"), mb("Capital Smiles", "(916) 777-8888")]);
+      const row = f.hasCit() ? f.rows()[0] : null;
+      if (x.code !== 0 || !row || row.listed !== false || lj(Object.keys(row).sort()) !== lj(["capturedAt", "capturedIn", "directory", "listed", "url"])) bad.push("exit " + x.code + " row " + lj(row));
+      if (x.last !== "READ: directories 1 read, 0 left") bad.push("last line " + x.last);
+      return [bad.length === 0, bad.join(" | ")];
+    });
+    await C("D22: the shipped read-pages.json: yellowpages.com and bbb.org hold exactly the two measured descriptions (no noResults), mapquest.com and yelp.com stay NOT SET; each description passes the script's own check (the run is no exit 2, two pages are loaded, the other two are left 'no page description')", async () => {
+      const real = J(path.join(dir, "read-pages.json")).directories, bad = [];
+      const yp = { result: "div.search-results.organic > div.result", name: "a.business-name", address: "div.adr", phone: "div.phones", link: "a.business-name" };
+      const bbb = { result: "div.search-results div.card.result-card", name: "h3", address: ".result-business-info p", phone: 'a[href^="tel:"]', link: "h3 a" };
+      if (lj(real["yellowpages.com"].selectors) !== lj(yp)) bad.push("yellowpages.com " + lj(real["yellowpages.com"].selectors));
+      if (lj(real["bbb.org"].selectors) !== lj(bbb)) bad.push("bbb.org " + lj(real["bbb.org"].selectors));
+      for (const h of ["mapquest.com", "yelp.com"]) if (real[h].selectors !== NOTSET) bad.push(h + " " + lj(real[h].selectors));
+      newStops();
+      const f = fresh(tmp, "d22"), x = await drive(f, { pf: path.join(dir, "read-pages.json"), pages: [] });
+      if (x.code === 2 || x.log.loads.length !== 2 || !f.hasRec() || lj(f.rec().left.filter((l) => l.why === "no page description").map((l) => l.directory)) !== '["mapquest.com","yelp.com"]') bad.push("the run: exit " + x.code + " " + x.lines.join(" / ") + " loads " + x.log.loads.length);
       return [bad.length === 0, bad.join(" | ")];
     });
   } finally { delete process.env.OMNIKOM_STOPS_DIR; rmTmp(tmp); }
@@ -455,7 +510,7 @@ const MUTANTS = [
   { name: "the wait after a load has a jitter", patches: [{ file: RD, from: 'await pause(pace.afterLoadSeconds, "after load");', to: 'await pause(pace.afterLoadSeconds + Math.random(), "after load");' }], expect: [/^D6:/, /^D12: all four/, /^D14:/] },
   { name: "the page cap is ignored", patches: [{ file: RD, from: "else if (todo.length >= pace.maxPagesPerRun)", to: "else if (false)" }], expect: [/^D12: maxPagesPerRun/] },
   { name: "the listing is any block that starts with the name", patches: [{ file: RD, from: "normName(b.name) === want", to: "normName(b.name).startsWith(want)" }], expect: [/^D4:/] },
-  { name: "the listing is the last matching block, not the first", patches: [{ file: RD, from: "(Array.isArray(blocks) ? blocks : []).find(", to: "(Array.isArray(blocks) ? blocks : []).slice().reverse().find(" }], expect: [/^D4:/] },
+  { name: "the listing is the last matching block, not the first", patches: [{ file: RD, from: "const byName = list.find(", to: "const byName = list.slice().reverse().find(" }], expect: [/^D4:/] },
   { name: "no matching block is a row without listed false", patches: [{ file: RD, from: "{ ...base, url: pageUrl, listed: false, capturedAt", to: "{ ...base, url: pageUrl, capturedAt" }], expect: [/^D5:/] },
   { name: "an empty phone is an empty string, not null", patches: [{ file: RD, from: "const orNull = (s) => clean(s) || null;", to: "const orNull = (s) => clean(s);" }], expect: [/^D4:/] },
   { name: "the url of a block with no link is empty", patches: [{ file: RD, from: "url: orNull(hit.link) || pageUrl", to: "url: orNull(hit.link)" }], expect: [/^D4:/] },
@@ -473,6 +528,15 @@ const MUTANTS = [
   { name: "the noResults answer of the in-page reader is always true", patches: [{ file: RD, from: "const noResults = d.noResults ? !!document.querySelector(d.noResults) : false;", to: "const noResults = true;" }], expect: [/^D15:/] },
   { name: "a noResults that is not a string is accepted", patches: [{ file: RD, from: '["address", "phone", "link", "noResults"]', to: '["address", "phone", "link"]' }], expect: [/^D17:/] },
   { name: "a zero-block page writes a stop", patches: [{ file: RD, from: "left.push({ directory: h, why: NO_BLOCKS }); continue; }", to: 'left.push({ directory: h, why: NO_BLOCKS }); writeStop({ engine: stopName(h), hosts: [h], reason: "x", setBy: "x" }); continue; }' }], expect: [/^D16:/] },
+  { name: "the phone rule is left out", patches: [{ file: RD, from: "hit = byName || byPhone", to: "hit = byName" }], expect: [/^D19:/] },
+  { name: "a near name is read as listed:false", patches: [{ file: RD, from: "if (near) return { near: orNull(near.name) };", to: "" }], expect: [/^D20:/] },
+  { name: "the phone is compared with all its digits, not the last 10", patches: [{ file: RD, from: 'const last10 = (s) => String(s == null ? "" : s).replace(/\\D/g, "").slice(-10);', to: 'const last10 = (s) => String(s == null ? "" : s).replace(/\\D/g, "");' }], expect: [/^D19:/] },
+  { name: "a phone is checked before the name", patches: [{ file: RD, from: "hit = byName || byPhone", to: "hit = byPhone || byName" }], expect: [/^D19:/] },
+  { name: "the phone of the first location is not used", patches: [{ file: RD, from: "(b.phone || ((b.locations || []).find((l) => l && l.phone) || {}).phone)", to: "b.phone" }], expect: [/^D19:/] },
+  { name: "a block name that starts with the business name is no near name", patches: [{ file: RD, from: "n.startsWith(want + \" \") || ", to: "" }], expect: [/^D20:/] },
+  { name: "a business name that starts with the block name is no near name", patches: [{ file: RD, from: "|| want.startsWith(n + \" \")", to: "" }], expect: [/^D20:/] },
+  { name: "a near name needs no space after the business name", patches: [{ file: RD, from: "n.startsWith(want + \" \")", to: "n.startsWith(want)" }], expect: [/^D21:/] },
+  { name: "a near name stops the run", patches: [{ file: RD, from: "left.push({ directory: h, why: NEAR + lf.near + NEAR_END }); continue;", to: "left.push({ directory: h, why: NEAR + lf.near + NEAR_END }); break;" }], expect: [/^D20:/] },
 ];
 
 if (isMain(import.meta.url)) {

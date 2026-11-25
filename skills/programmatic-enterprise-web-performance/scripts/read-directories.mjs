@@ -8,8 +8,9 @@
 // flag changes a wait. A directory that is NOT SET is not opened (left, "no page description"); a directory with a stop in force (lib-stops.mjs) is not opened (left, "stopped").
 // A robot or human check on a page, or an answer of HTTP 429 or 403: the tab is closed, a 24 h stop is written for THAT host only, the directory is left, and the run goes on with the next directory (another host). A sign-in wall or a consent
 // wall that hides the results is not gathered and writes no stop; the run goes on. A page with ZERO result blocks is "not listed" only when the description's optional "noResults" selector matches on it; without that sign the directory is left ("the page description may be out of date"), no row, no stop, not read.
-// The listing is the FIRST result block whose name, normalised by normName of local-lib.mjs, equals the business name; the row is { directory, url, name, address, phone, capturedAt, capturedIn: "work browser" } (url: the link of the block,
-// else the page address). No such block: { directory, url: <page address>, listed: false, capturedAt, capturedIn } (local-nap.mjs reads listed:false as NOT LISTED). An empty address or phone is null.
+// THE MATCH, in this order (listingFrom): a block whose normName (local-lib.mjs) equals the business name is the listing; else a block whose phone has the same last 10 digits as the business phone (business.phone, else the first location's phone) is; else, when a block's name
+// and the business name differ only by a trailing word (one starts with the other plus a space: a near name) nothing is decided: no row, the directory is left ("a listing with a near name (...) that no phone confirms"), no stop, not read; else listed:false. The row is { directory, url, name, address, phone, capturedAt, capturedIn: "work browser" } (url: the link of the block,
+// else the page address). No listing and no near name: { directory, url: <page address>, listed: false, capturedAt, capturedIn } (local-nap.mjs reads listed:false as NOT LISTED). An empty address or phone is null.
 // <pewp>/captures/local/citations.json is an array: the rows of the directories read in THIS run replace the earlier rows of the same directory, the rows of the other directories stay. One record per run:
 // <pewp>/captures/local/directories-read.json { step: "capture-directories", at, read, already: [], left: [{directory, why}], stops: [{directory, reason, until}] } (an exit 3 adds status "blocked" and blocked).
 // What is NOT done here, ever: a changed or invented browser identity, a stealth patch, a faked pointer, a fresh profile, a changed exit, no location override and no permission grant. They disguise a script and are not ours.
@@ -29,6 +30,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const USAGE = "usage: node read-directories.mjs <url or profile:slug> [--cwd DIR] [--port N] [--pages-file F]";
 const FLAGS = new Set(["cwd", "port", "pages-file"]);   // no other flag: none of them changes the pace
 const NO_PAGE = "no page description", CAP_WHY = "over this run's cap", STOPPED = "stopped";
+const NEAR = "a listing with a near name (", NEAR_END = ") that no phone confirms";
 const NO_BLOCKS = "no result blocks on the page and no no-results sign (the page description may be out of date)";
 const clean = (s) => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
 const orNull = (s) => clean(s) || null;
@@ -54,6 +56,7 @@ function cityOfAddress(a) {
   return null;
 }
 export const nameOf = (b) => orNull(b && (b.name || b.legalName));
+export const phoneOf = (b) => orNull(b && (b.phone || ((b.locations || []).find((l) => l && l.phone) || {}).phone));
 export function cityOf(b) {
   const m = orNull(b && b.market && b.market.city);
   if (m) return m;
@@ -62,8 +65,12 @@ export function cityOf(b) {
 }
 
 // blocks: [{ name, address, phone, link }] as the page gave them -> the row of this directory
-export function listingFrom({ host, blocks, businessName, pageUrl, now = new Date() }) {
-  const want = normName(businessName), hit = (Array.isArray(blocks) ? blocks : []).find((b) => b && normName(b.name) === want);
+const last10 = (s) => String(s == null ? "" : s).replace(/\D/g, "").slice(-10);
+export function listingFrom({ host, blocks, businessName, businessPhone = null, pageUrl, now = new Date() }) {
+  const list = (Array.isArray(blocks) ? blocks : []).filter(Boolean), want = normName(businessName), ph = last10(businessPhone);
+  const byName = list.find((b) => normName(b.name) === want), byPhone = ph.length === 10 ? list.find((b) => last10(b.phone) === ph) : null, hit = byName || byPhone;
+  const near = hit ? null : list.find((b) => { const n = normName(b.name); return n && want && (n.startsWith(want + " ") || want.startsWith(n + " ")); });
+  if (near) return { near: orNull(near.name) };
   const base = { directory: host };
   if (!hit) return { ...base, url: pageUrl, listed: false, capturedAt: now.toISOString(), capturedIn: "work browser" };
   return { ...base, url: orNull(hit.link) || pageUrl, name: orNull(hit.name), address: orNull(hit.address), phone: orNull(hit.phone), capturedAt: now.toISOString(), capturedIn: "work browser" };
@@ -186,7 +193,9 @@ export async function run(argv, opts = {}) {
       const blocks = Array.isArray(pg.blocks) ? pg.blocks : [], wall = blocks.length ? null : wallOf(href, text);
       if (wall) { left.push({ directory: h, why: wall + " hides the results" }); continue; }
       if (!blocks.length && pg.noResults !== true) { left.push({ directory: h, why: NO_BLOCKS }); continue; }   // nothing to read and no sign of "no results": the page description may be out of date, so this is no "not listed"
-      rows.push(listingFrom({ host: h, blocks, businessName: name, pageUrl: href || addressOf(h, block[h].search, { name, city }) }));
+      const lf = listingFrom({ host: h, blocks, businessName: name, businessPhone: phoneOf(biz), pageUrl: href || addressOf(h, block[h].search, { name, city }) });
+      if (lf.near) { left.push({ directory: h, why: NEAR + lf.near + NEAR_END }); continue; }   // a near name no phone confirms: not gathered, no row, no stop
+      rows.push(lf);
       read.push(h);
       say("read " + h + (rows[rows.length - 1].listed === false ? " (not listed)" : " (listed)"));
     }
