@@ -237,7 +237,8 @@ jobs:
   audit:
     name: audit engine (tests and mutants)
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # 60 since 2026-11-25: the audit mutants (~20 min) and the search skill mutants (~18 min) passed 40 and cancelled the run twice
+    timeout-minutes: 60
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
