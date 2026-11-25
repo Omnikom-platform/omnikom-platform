@@ -45,7 +45,10 @@ export function marks(stage, id, v) {
   v = { ...v, report: W.report_email };
   const notice = stage === 'draft' ? fill(W.draft_notice, { ...v, id }) : stage === 'live' ? fill(W.live_notice, { ...v, id }) : fill(W.handover_notice, { ...v, id });
   if (/--|\*\//.test(notice)) throw new Error('wording would break an HTML or CSS comment ("--" or "*/")');
-  const meta = `<meta name="author" content="Omnikom"><meta name="copyright" content="${notice.replace(/"/g, '&quot;')}"><meta name="omnikom-signature" content="${id}; stage=${STAGE_NAME[stage]}">`;
+  // C27/C29/C36 (head ruling 2026-11-25): a live page names the client business as its author and Omnikom as its generator;
+  // draft and handed-over pages keep author Omnikom
+  const who = stage === 'live' && v.client ? `<meta name="author" content="${String(v.client).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}"><meta name="generator" content="Omnikom">` : '<meta name="author" content="Omnikom">';
+  const meta = `${who}<meta name="copyright" content="${notice.replace(/"/g, '&quot;')}"><meta name="omnikom-signature" content="${id}; stage=${STAGE_NAME[stage]}">`;
   return {
     notice,
     htmlComment: `<!-- ${notice} -->`,

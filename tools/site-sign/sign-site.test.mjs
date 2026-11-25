@@ -89,6 +89,9 @@ if (fs.existsSync(L)) {
   ok(/\(c\) \d{4} Omnikom\./.test(hid) && /omk-demo-\d{8}-[0-9a-f]{12}/.test(hid) && /licensed to Demo/.test(hid), 'live notice keeps the copyright, the signature id and the licence line');
   ok(read(L, 'robots.txt') === read(clean, 'robots.txt') && read(L, 'llms.txt') === read(clean, 'llms.txt'), 'live ships the site\'s own robots.txt and llms.txt');
   ok(read(L, 'index.html').includes('licensed to Demo &quot;Co&quot;, Inc. for this website from 2026-11-20') && read(L, 'index.html').includes('stage=live'), 'live wording and stage');
+  // C27/C29/C36 (head ruling 2026-11-25): on a live page the author is the client business and Omnikom is the generator; drafts keep
+  // author Omnikom (seal-site.test.mjs case 5)
+  ok(read(L, 'index.html').includes('<meta name="author" content="Demo &quot;Co&quot;, Inc."><meta name="generator" content="Omnikom"><meta name="copyright"') && !read(L, 'index.html').includes('<meta name="author" content="Omnikom">'), 'live: meta author is the client, meta generator is Omnikom');
   ok(!fs.existsSync(path.join(L, 'ai.txt')) && !fs.existsSync(path.join(L, 'omk-draft.css')), 'live adds no draft files');
   ok(run('--check', L, '--mode', 'live', '--clean', clean).status === 0, 'check live passes');
   ok(run('--check', L, '--mode', 'draft', '--clean', clean).status === 1, 'a live build fails the draft check');
