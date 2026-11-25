@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1007,
+    "sources": 1009,
     "unowned": 0
   },
   "files": [
@@ -262,6 +262,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-google-auth.mjs","owner":"seo-and-audits","exports":["DEFAULT_SCOPE","DEFAULT_TOKEN_URL","GoogleAuthBlocked","UNBLOCK","clearGoogleAuthCache","getGscToken"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-growth.mjs","owner":"seo-and-audits","exports":["LocaleMissing","carriesQuery","categoryPath","clusterByOverlap","compatibleTypes","containsPhrase","directoryEntry","intentDetail","intentOf","isCompatible","isSchemaType","matchPages","modifiersFor","namesOtherPlace","normResultUrl","pageTypeOf","pageTypeOfPage","placesIn","queryModifiers","schemaInfoOf"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-industry.mjs","owner":"seo-and-audits","exports":["INDUSTRIES_DIR","LICENCE_DEFAULT","detectLicences","licenceDetectFor","resolvePack","topicSetting"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-ledger.mjs","owner":"seo-and-audits","exports":["CHECKLIST_DIR","HERE","RULE_ID","RULE_LINE","VERDICTS","combine","evidenceOk","finishLedger","ledgerLine","ledgerMd","ledgerProblems","parseVerdicts","readChecklist","writeLedger"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-lines.mjs","owner":"seo-and-audits","exports":["lineAt","lineOfNth","lineOfText"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-main.mjs","owner":"seo-and-audits","exports":["isMain"],"tests":["tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-pipeline.mjs","owner":"seo-and-audits","exports":["BROWSER","KINDS","OPTIONAL","PLACEHOLDERS","PipelineError","PlaceholderError","REQUIRED","RUN_OPTIONS","SLACK_MS","STEP_KEYS","TOP_KEYS","adoptDefault","adoptStep","covers","describe","evidenceState","filesUnder","globPaths","hasGlob","hostOf","inputNewer","isWaiting","loadManifest","makeVars","norm","notCurrent","outcomeState","placeholdersIn","profileSlug","resolveScript","runOrder","stepKind","stepOutcome","stepStop","substitute","validateManifest"],"tests":["tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs","tools/omnikom-cli/test/skill-check.mjs"],"feature":""},
@@ -278,7 +279,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-snowball.mjs","owner":"seo-and-audits","exports":["stemEnglish","stemFor"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-stations.mjs","owner":"seo-and-audits","exports":["SOURCE_RULED","STATES","StationError","buildSheet","kindOf","ruleStep","rulingCounts","sheetText","stationsOf"],"tests":["tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-stops.mjs","owner":"seo-and-audits","exports":["KNOWN_ENGINES","STOP_HOURS","activeStops","isStopped","liftStop","stopsDir","writeStop"],"tests":["tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-test-kit.mjs","owner":"seo-and-audits","exports":["J","W","checker","main","mkTmp","rmTmp","runner","serve","walk"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-test-kit.mjs","owner":"seo-and-audits","exports":["J","W","checker","main","mkTmp","rmTmp","runner","serve","walk","writeVerdicts"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-text.mjs","owner":"seo-and-audits","exports":["GENERIC_ANCHORS","LocaleMissing","STOP","THRESHOLD","containsHeadTerm","coversTerm","gazetteer","headTerm","isGenericAnchor","missing","overlap","removePlaces","requiredTerms","scanPlaces","seqContains","shingles","showsQuestion","slugify","stem","stemSet","stemmerFor","stopWordsFor","termsOf","titleCase","tokenSet","tokens","uaxWords","words"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-writing-fixture.mjs","owner":"seo-and-audits","exports":["HEADERS","LLMS","PAGES","PNG","pageHtml","patchFile","patchPages","serveSite","writeGoodSite"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/live-target.mjs","owner":"seo-and-audits","exports":["latestComplete"],"tests":["tools/audit/test/run.mjs"],"feature":""},
@@ -375,6 +376,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-iterate.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-judge.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-launch.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-ledger.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-lib-stops.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-link-gap.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-local-nap.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},

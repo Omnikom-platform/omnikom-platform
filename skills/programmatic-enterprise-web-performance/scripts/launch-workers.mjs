@@ -34,7 +34,7 @@ function killTree(child, isSupervised) {
 
 const plan = JSON.parse(fs.readFileSync(path.join(root, ".checks", "plan.json"), "utf8"));
 const template = fs.readFileSync(path.join(skill, "worker-prompt.md"), "utf8");
-for (const d of ["findings", "scripts", "logs"]) fs.mkdirSync(path.join(root, ".checks", d), { recursive: true });
+for (const d of ["findings", "scripts", "verdicts", "logs"]) fs.mkdirSync(path.join(root, ".checks", d), { recursive: true });
 const slices = plan.slices.filter((s) => !only || s.id === only);
 if (!slices.length) { console.error(only ? `no slice ${only}` : "plan has no slices"); process.exit(2); }
 
@@ -45,6 +45,14 @@ const famNote = (s) => {
   return "   **Template families in your slice:** " + fams.map((f) => `${f.reps.filter((r) => s.files.some((x) => x === r || x.startsWith(r + "/"))).join(" and ")} stand for family ${f.id} \`${f.label}\` (${f.size} pages built from one template; the other members are not sent to anyone)`).join("; ") +
     `. A defect you find on a representative is a template defect: write it once, with the template or generator as \`root cause\` and the family (e.g. \`${fams[0].id} (${fams[0].size} pages)\`) in \`file:line\`; make its check script test every member page (they are on disk under the same pattern), so it passes only when the template is fixed everywhere. Report something that only one page has (its own content) as that page's finding.`;
 };
+// A chunk stands for a byte range of a big file; a file sent once stands for its byte-identical twins (plan.json duplicates).
+const fileNote = (s, f) => {
+  const dup = (plan.duplicates || []).find((d) => d.sent === f);
+  const parts = [];
+  if (s.chunk && s.files.includes(f)) parts.push(`CHUNK: bytes ${s.chunk.from}-${s.chunk.to} (end not included) of ${s.chunk.file} (${s.chunk.size} bytes, part ${s.chunk.part} of ${s.chunk.of}); every line starts with @<byte offset in that file>; cite the file ${s.chunk.file} and the byte offset as ${s.chunk.file}:<byte offset>`);
+  if (dup) parts.push(`stands for these byte-identical files, which are not sent: ${dup.sameAs.join(", ")}`);
+  return parts.length ? `  (${parts.join("; ")})` : "";
+};
 const fill = (s) =>
   template
     .split("{{FAMILIES}}").join(famNote(s))
@@ -52,7 +60,7 @@ const fill = (s) =>
     .split("{{SLICE}}").join(s.id)
     .split("{{FOCUS}}").join(focus)
     .split("{{CHECKLIST}}").join(path.join(skill, "checklist").replace(/\\/g, "/"))
-    .split("{{FILES}}").join(s.files.map((f) => `- ${f}`).join("\n"));
+    .split("{{FILES}}").join(s.files.map((f) => `- ${f}${fileNote(s, f)}`).join("\n"));
 const cliArgs = [
   "-p", "--model", model, "--effort", effort, "--output-format", "json", "--no-session-persistence",
   "--permission-mode", "acceptEdits",
@@ -84,7 +92,7 @@ function runOne(s) {
       fs.writeFileSync(path.join(root, ".checks", "logs", `${s.id}.json`), JSON.stringify({ slice: s.id, code, secs, timedOut, stdout: out.slice(-20000), stderr: err.slice(-5000) }, null, 2));
       let summary = "";
       try { summary = String(JSON.parse(out).result || "").split("\n").pop().slice(0, 160); } catch { summary = err.split("\n")[0].slice(0, 160); }
-      const wrote = fs.existsSync(path.join(root, ".checks", "findings", `${s.id}.md`));
+      const wrote = fs.existsSync(path.join(root, ".checks", "findings", `${s.id}.md`)) && fs.existsSync(path.join(root, ".checks", "verdicts", `${s.id}.tsv`));
       const status = timedOut ? "timed out" : code === 0 && wrote ? "ok" : "failed";
       resolve({ id: s.id, status, secs, summary });
     });

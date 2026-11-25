@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { writeVerdicts } from "./lib-test-kit.mjs";
 
 const args = process.argv.slice(2);
 const dir = path.resolve(args.includes("--scripts") ? args[args.indexOf("--scripts") + 1] : path.dirname(fileURLToPath(import.meta.url)));
@@ -37,6 +38,7 @@ try {
   // 7-column format (no root cause); a different SCH-004 defect; two different bugs on one page.
   plan.slices = [{ id: "s01", files: ["gen.mjs", "about/index.html", fam?.reps[0]] }, { id: "s02", files: [fam?.reps[1], "index.html"] }, { id: "s03", files: ["blog/b/index.html"] }, { id: "s04", files: ["x.css"] }];
   fs.writeFileSync(path.join(repo, ".checks/plan.json"), JSON.stringify(plan));
+  writeVerdicts(repo); // merge fails an audit whose slices have no complete verdict file (AB-17)
   const head = "| id | severity | file:line | problem | why it matters | fix | check script | root cause |\n|---|---|---|---|---|---|---|---|\n";
   w(".checks/findings/s01.md", head +
     `| s01-01 | high | ${fam?.reps[0]}:1 | SCH-004: \`BreadcrumbList\` items have no \`item\` URL | rich results | add item | check-s01-01.mjs | gen.mjs:2 page() |\n` +

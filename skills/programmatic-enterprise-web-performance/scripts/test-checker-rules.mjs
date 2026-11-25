@@ -50,10 +50,11 @@ async function scenarios(dir) {
     fs.cpSync(dir, path.join(skill, "scripts"), { recursive: true });
     fs.cpSync(path.join(SKILL, "checklist"), path.join(skill, "checklist"), { recursive: true });
     fs.cpSync(path.join(REPO, "tools", "audit"), path.join(repo, "tools", "audit"), { recursive: true, filter: (s) => !/[\\/](fixtures|test|proof)([\\/]|$)/.test(path.relative(path.join(REPO, "tools", "audit"), s)) });
-    // a small skill of our own for the invented cases: a checklist of three kinds of line and an index that says 12 rules
+    // a small skill of our own for the invented cases: a checklist of three kinds of line and an index that says 12 rules (AB-17: a checklist whose index
+    // disagrees with its lines is BROKEN, so the 12 are real lines: the five below and seven that no invented rule uses)
     const small = path.join(root, "small");
     writeFile(path.join(small, "checklist", "INDEX.md"), "# Checklist index (shipgate spec 8.0.0, 12 rules)\n\n- one: 12 rules\n");
-    writeFile(path.join(small, "checklist", "one.md"), "# One\n\n- AAA-001 P0 [http] Alpha must hold\n- BBB-002 P1 [html, http] Bravo text\n- CCC-003 P2 [cfg] Charlie text\n- GGG-007 P1 (part `x` W) [html] Golf rule text\n- HHH-008 P0\u2020 [db] Hotel text\n");
+    writeFile(path.join(small, "checklist", "one.md"), "# One\n\n- AAA-001 P0 [http] Alpha must hold\n- BBB-002 P1 [html, http] Bravo text\n- CCC-003 P2 [cfg] Charlie text\n- GGG-007 P1 (part `x` W) [html] Golf rule text\n- HHH-008 P0\u2020 [db] Hotel text\n" + "ABC".split("").map((x, i) => "- ZZ" + x + "-00" + (i + 1) + " P2 [x] Filler " + x + "\n").join("") + "- ZZD-004 P2 [x] Filler D\n- ZZE-005 P2 [x] Filler E\n- ZZF-006 P2 [x] Filler F\n- ZZG-007 P2 [x] Filler G\n");
     const home = path.join(root, "home"); fs.mkdirSync(home, { recursive: true });
     const exec = runner(path.join(skill, "scripts"), home, path.join(root, "net.log"));
     let n = 0;
@@ -88,7 +89,7 @@ async function scenarios(dir) {
 
     // 2. plan.json, REPORT.md and the last line
     const p2 = rj(path.join(r1.out, "plan.json")), md = rd(path.join(r1.out, "REPORT.md")) || "", ml = md.split(/\r?\n/).filter((l, i, a) => l !== "" || i < a.length - 1);
-    check("2: only causes.json, plan.json and REPORT.md are written there", names(r1) === "REPORT.md,causes.json,plan.json", names(r1));
+    check("2: only causes.json, plan.json, REPORT.md and the ledger (LEDGER.md, ledger.json) are written there", names(r1) === "LEDGER.md,REPORT.md,causes.json,ledger.json,plan.json", names(r1));
     check("2: plan.json is the small plan of choice 6 (createdAt now, snapshot true, engine with rulesRun 9, rulesInChecklist 12, pages 2, empty slices, skipped and families)", p2 && Object.keys(p2).join() === "createdAt,snapshot,engine,slices,skipped,families" && Math.abs(Date.now() - Date.parse(p2.createdAt)) < 120000 && p2.snapshot === true
       && JSON.stringify(p2.engine) === '{"rulesRun":9,"rulesInChecklist":12,"pages":2}' && JSON.stringify(p2.slices) === "[]" && JSON.stringify(p2.skipped) === "{}" && JSON.stringify(p2.families) === "[]", JSON.stringify(p2));
     check("2: REPORT.md first line says it was written by program from 9 of 12 rules, then one line per cause with id, severity, rule, pages and problem", ml.length === 8 && /written by program from 9 of 12 rules/.test(ml[0]) && EXPECT.every((e, i) => [e.id, e.severity, e.rules[0], e.pages + " page", e.problem].every((s) => ml[i + 1] && ml[i + 1].includes(s))), md);

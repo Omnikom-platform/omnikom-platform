@@ -1,4 +1,4 @@
-// Usage: node merge.mjs <repo root>
+// Usage: node merge.mjs <repo root> [--checklist <dir>]
 // Verifies what the workers wrote and merges it: parses every .checks/findings/*.md table, syntax-checks
 // and runs every .checks/scripts/*.mjs once, marks a finding `unchecked` when its script is missing,
 // broken or crashes, then GROUPS the findings into root causes and writes .checks/REPORT.md,
@@ -8,6 +8,10 @@
 // file named in the `root cause` column or in the text, or the same template family (plan.families). BUG/SEC
 // findings without a rule id join only on the same file:line. When unsure, it keeps them apart (under-merging
 // is safe; merging two different defects hides one).
+// The rule ledger (AB-17, lib-ledger.mjs): every worker also writes .checks/verdicts/<slice>.tsv, one line for EVERY rule of the checklist
+// (worker-prompt.md section D). Merge combines them into .checks/LEDGER.md and ledger.json, puts the totals line in REPORT.md and prints it.
+// Exit 3 (after everything is written) when a rule has no row, the rows differ from INDEX.md's total, the checklist is broken, or a slice has
+// no verdict file or an invalid or missing line. --checklist <dir> reads another checklist (the test's small one).
 // causes.json `pages` is the number of distinct PAGES a cause touches, not files: a family counts all its members, a live-site snapshot page
 // (pages/<slug>/head.html and body.html) counts once, a codebase counts each .html file. A cause that names no page counts the slice's pages.
 import fs from "node:fs";
@@ -15,8 +19,11 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { groupFamilies, unitsFor, countPages } from "./families.mjs";
+import { readChecklist, parseVerdicts, combine, finishLedger, ledgerLine, writeLedger, ledgerProblems, RULE_ID } from "./lib-ledger.mjs";
 
-const root = path.resolve(process.argv[2] || ".");
+const argv = process.argv.slice(2);
+const ckAt = argv.indexOf("--checklist");
+const root = path.resolve(argv.find((a, i) => !a.startsWith("--") && i !== (ckAt >= 0 ? ckAt + 1 : -1)) || ".");
 const dir = path.join(root, ".checks");
 const sev = { critical: 0, high: 1, medium: 2, low: 3 };
 // A check that hangs is stopped at 60 s and one that prints a lot is not cut off at 1 MiB (ENOBUFS); either way the reason is named.
@@ -79,8 +86,8 @@ if (!families) {
 const famOf = new Map();
 for (const fam of families) for (const m of fam.members) famOf.set(m, fam);
 const famOfFile = (f) => famOf.get(f) || famOf.get(f.replace(/\/[^/]+$/, "")) || null; // snapshot units are page folders
-const sliceFiles = new Map(plan.slices.map((s) => [s.id, s.files]));
-const allFiles = new Set(plan.slices.flatMap((s) => s.files));
+const sliceFiles = new Map(plan.slices.map((s) => [s.id, s.chunk ? [s.chunk.file] : s.files]));
+const allFiles = new Set(plan.slices.flatMap((s) => (s.chunk ? [s.chunk.file] : s.files)));
 for (const fam of families) for (const m of fam.members) allFiles.add(m);
 const FILE_RE = /[A-Za-z0-9_.*\/-]+\.(?:m?js|cjs|ts|tsx|jsx|html?|css|json|md|toml|ya?ml|txt|xml|py|go|rs|php|rb|vue|svelte|astro)\b/g;
 const RULE_RE = /\b[A-Z][A-Z0-9]{1,4}-\d{3}\b/g;
@@ -169,10 +176,39 @@ const causes = [...groups.values()].map((members) => {
 causes.forEach((c, i) => { c.id = `C${String(i + 1).padStart(2, "0")}`; for (const m of c.members) m.cause = c.id; });
 
 // ---- Files a worker left where they do not belong (scratch goes to .checks/tmp/, deleted here) ----
-const KNOWN = new Set(["findings", "scripts", "logs", "prev", "tmp", "REPORT.md", "REPORT.prev.md", "causes.json", "run-all.mjs", "plan.json"]);
+const KNOWN = new Set(["findings", "scripts", "logs", "prev", "tmp", "verdicts", "chunks", "LEDGER.md", "ledger.json", "REPORT.md", "REPORT.prev.md", "causes.json", "run-all.mjs", "plan.json"]);
 const stray = fs.readdirSync(dir).filter((x) => !KNOWN.has(x));
 fs.rmSync(path.join(dir, "tmp"), { recursive: true, force: true });
 if (stray.length) console.log(`WARNING: unexpected files in .checks/ (a worker wrote outside findings/ and scripts/): ${stray.join(", ")}`);
+
+// ---- The rule ledger ----
+const ck = readChecklist(ckAt >= 0 ? path.resolve(argv[ckAt + 1] || ".") : undefined);
+const parsed = new Map(), sliceReport = {};
+for (const s of plan.slices) {
+  const f = path.join(dir, "verdicts", s.id + ".tsv");
+  if (!fs.existsSync(f)) { parsed.set(s.id, null); sliceReport[s.id] = { valid: 0, invalid: [], missing: ck.rules.map((r) => r.id), noFile: true }; continue; }
+  const p = parseVerdicts(fs.readFileSync(f, "utf8"), ck);
+  parsed.set(s.id, p);
+  sliceReport[s.id] = { valid: p.valid.size, invalid: [...new Set(p.invalid.map((x) => x.id))], missing: p.missing, noFile: false };
+}
+const findingIdsOf = new Map();
+for (const f of findings) { const first = (f.problem.match(RULE_ID) || [])[0]; if (first && ck.byId.has(first)) findingIdsOf.set(first, [...(findingIdsOf.get(first) || []), f.id]); }
+const ledgerRows = [];
+for (const r of ck.rules) {
+  const parts = plan.slices.map((s) => {
+    const p = parsed.get(s.id);
+    if (!p) return { slice: s.id, state: "missing" };
+    const v = p.valid.get(r.id);
+    if (v) return { slice: s.id, state: "valid", verdict: v.verdict, evidence: v.evidence };
+    const bad = p.invalid.find((x) => x.id === r.id);
+    return bad ? { slice: s.id, state: "invalid", reason: bad.reason } : { slice: s.id, state: "missing" };
+  });
+  const c = combine(parts, findingIdsOf.get(r.id) || [], r.grade);
+  if (c) ledgerRows.push({ rule: r.id, ...c });
+}
+const ledger = finishLedger(ck, ledgerRows, sliceReport);
+const ledgerWhy = ledgerProblems(ledger, ck);
+writeLedger(dir, ledger);
 
 // ---- Not checked ----
 const notChecked = [
@@ -186,6 +222,9 @@ const know = scripts.filter((s) => s.startsWith("know-"));
 const cell = (s) => String(s).replace(/\|/g, "\\|").replace(/\n/g, " ");
 const md = [
   `# ${plan.snapshot ? "Live-site" : "Codebase"} check — ${new Date().toISOString().slice(0, 10)}`,
+  "",
+  ledgerLine(ledger) + " (.checks/LEDGER.md)",
+  ...(ledgerWhy.length ? ["", "LEDGER FAIL: " + ledgerWhy.join(" | ")] : []),
   "",
   `**${causes.length} root causes** (${count(causes, "critical")} critical, ${count(causes, "high")} high, ${count(causes, "medium")} medium, ${count(causes, "low")} low), from ${findings.length} findings. ` +
     `${findings.filter((f) => f.status === "open" || f.status === "passes already").length} findings have a working check script; run \`node .checks/run-all.mjs\` to see which causes are still open.`,
@@ -251,3 +290,5 @@ process.exit(open ? 1 : 0);
 fs.writeFileSync(path.join(dir, "run-all.mjs"), runAll);
 const unchecked = findings.filter((f) => f.status.startsWith("unchecked")).length;
 console.log(`${causes.length} root causes (${count(causes, "critical")} critical, ${count(causes, "high")} high, ${count(causes, "medium")} medium, ${count(causes, "low")} low) from ${findings.length} findings; ${findings.length - unchecked} findings with working check scripts, ${unchecked} unchecked; ${notChecked.length} NOT CHECKED item(s); ${know.length} knowledge scripts; wrote .checks/REPORT.md, causes.json and run-all.mjs`);
+console.log(ledgerLine(ledger));
+if (ledgerWhy.length) { console.log("LEDGER FAIL: " + ledgerWhy.join(" | ")); process.exit(3); }

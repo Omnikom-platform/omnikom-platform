@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { writeVerdicts } from "./lib-test-kit.mjs";
 
 const A = process.argv.slice(2);
 const opt = (k, d = null) => (A.includes(k) ? A[A.indexOf(k) + 1] : d);
@@ -147,6 +148,7 @@ async function suite(skill) {
     const au = path.join(tmp, "audit");
     w(path.join(au, "index.html"), "<!doctype html><html><head><title>x</title></head><body><h1>x</h1></body></html>\n");
     w(path.join(au, ".checks/plan.json"), JSON.stringify({ slices: [{ id: "s01", files: ["index.html"] }], skipped: {} }));
+    writeVerdicts(au); // merge fails an audit whose slices have no complete verdict file (AB-17)
     w(path.join(au, ".checks/findings/s01.md"), "| id | severity | file:line | problem | why it matters | fix | check script | root cause |\n|---|---|---|---|---|---|---|---|\n| s01-01 | low | index.html:1 | MET-002: no meta description | snippets | add one | check-s01-01.mjs | index.html:1 |\n");
     w(path.join(au, ".checks/scripts/check-s01-01.mjs"), 'console.log("FAIL s01-01 none"); process.exit(1);\n');
     const mg = run(au, S("merge.mjs"), [au]);

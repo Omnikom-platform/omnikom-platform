@@ -18,6 +18,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { writeVerdicts } from "./lib-test-kit.mjs";
 
 const A = process.argv.slice(2);
 const opt = (k, d = null) => (A.includes(k) ? A[A.indexOf(k) + 1] : d);
@@ -219,6 +220,7 @@ function makeFixture(label, behaviors, opts = {}) {
   for (const [fid, flag, , , , , has] of FLAGS) if (has) w(path.join(site, `.checks/scripts/check-${fid}.mjs`), checkSrc(fid, flag));
   for (const x of opts.extra || []) w(path.join(site, `.checks/scripts/check-${x.fid}.mjs`), x.src);
   w(path.join(site, ".checks/plan.json"), JSON.stringify({ slices: [{ id: "s01", files: ["gen.mjs"] }], skipped: {} }));
+  writeVerdicts(site); // merge fails an audit whose slices have no complete verdict file (AB-17)
   const m = sh(site, node, path.join(realScripts, "merge.mjs"), site);
   if (m.status) throw new Error("fixture merge failed: " + m.stdout + m.stderr);
   const causes = JSON.parse(fs.readFileSync(path.join(site, ".checks/causes.json"), "utf8"));

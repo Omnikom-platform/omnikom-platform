@@ -4,6 +4,9 @@
 //   {work}/checker/.checks/causes.json   the list report-live reads (the 9 keys merge.mjs writes, one cause per rule with a FAIL or a WARN)
 //   {work}/checker/.checks/plan.json     { createdAt, snapshot: true, engine: { rulesRun, rulesInChecklist, pages }, slices: [], skipped: {}, families: [] }
 //   {work}/checker/.checks/REPORT.md     its first line says it was written by program from <rulesRun> of <rulesInChecklist> rules, then one line per cause
+// The ledger (AB-17, lib-ledger.mjs): LEDGER.md and ledger.json beside them, one row for every rule of the checklist: FAIL (WARN for a W rule) or WARN
+// from the program's findings, NOT CHECKED "SKIP: <why>" for a SKIP, PASS with the program's evidence, and NOT CHECKED "no program check" for a rule the
+// program does not have. The LEDGER line is printed before the CHECKER line. A broken checklist is exit 3.
 // It never says the whole checklist was checked: the rules the program has are a part of the checklist, and the rest is not checked in a live audit.
 // Exit 0: last line CHECKER: <c> causes from <f> findings, <rulesRun> of <rulesInChecklist> rules checked by program. Exit 3 (BLOCKED, nothing written, an older causes.json stays):
 // no snapshot, the rule program is not there or throws, no checklist index. Exit 2: usage.
@@ -13,6 +16,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { isMain } from "./lib-main.mjs";
 import { makeVars } from "./lib-pipeline.mjs";
 import { latestComplete } from "./live-target.mjs";
+import { readChecklist, finishLedger, ledgerLine, writeLedger } from "./lib-ledger.mjs";
 
 const USAGE = "usage: node checker-rules.mjs <url or profile:slug> [--cwd DIR]";
 const SKILL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -46,7 +50,24 @@ function checklist(skillDir) {
       if (l && !text.has(l[1])) text.set(l[1], l[2].trim());
     }
   }
-  return { total: Number(m[2]), text };
+  const ck = readChecklist(dirPath);
+  if (ck.broken) throw blocked("the checklist is broken: " + ck.problems.slice(0, 4).join("; "), "fix skills/programmatic-enterprise-web-performance/checklist (INDEX.md and the pack files must agree)");
+  return { total: Number(m[2]), text, ck };
+}
+
+// the ledger of a live audit: a row for every rule of the checklist, from the program's result
+const NO_PROGRAM = "no program check in tools/audit (a live audit by program judges only the measurable rules)";
+function ledgerOf(ck, list, res) {
+  const has = new Set(list.map((r) => r.id)), rows = [];
+  for (const r of ck.rules) {
+    if (!has.has(r.id)) { rows.push({ rule: r.id, verdict: "NOT CHECKED", evidence: NO_PROGRAM }); continue; }
+    const mine = res.findings.filter((x) => x.rule === r.id), of = (s) => mine.filter((x) => x.status === s);
+    if (of("FAIL").length) rows.push({ rule: r.id, verdict: r.grade === "W" ? "WARN" : "FAIL", evidence: [...new Set(of("FAIL").map(idOf))].slice(0, 3).join("; ") });
+    else if (of("WARN").length) rows.push({ rule: r.id, verdict: "WARN", evidence: [...new Set(of("WARN").map(idOf))].slice(0, 3).join("; ") });
+    else if (of("SKIP").length) rows.push({ rule: r.id, verdict: "NOT CHECKED", evidence: "SKIP: " + (of("SKIP")[0].what || "the rule could not judge") });
+    else rows.push({ rule: r.id, verdict: "PASS", evidence: "tools/audit rule " + r.id + ", " + res.pages.length + " pages, exit " + res.exit + " of the program" });
+  }
+  return finishLedger(ck, rows);
 }
 
 const idOf = (x) => x.rule + "@" + (x.page || "site") + (x.line === undefined || x.line === null ? "" : "#" + x.line);
@@ -85,6 +106,7 @@ async function produce(argv, io) {
   let causes, kept, list, res;
   try { list = program.listRules(); res = await program.audit(snap.dir, {}); ({ causes, kept } = derive(res, list, lines.text)); }
   catch (e) { throw new Stop("BLOCKED: the rule program failed (" + e.message + ") | unblocks: node tools/audit/run.mjs --help", 3); }
+  const ledger = ledgerOf(lines.ck, list, res);
   const said = list.length + " of " + lines.total + " rules";
   const plan = { createdAt: new Date().toISOString(), snapshot: true, engine: { rulesRun: list.length, rulesInChecklist: lines.total, pages: res.pages.length }, slices: [], skipped: {}, families: [] };
   const md = ["This list was written by program from " + said + " of the checklist, with no model; the rest of the checklist was not checked.",
@@ -93,17 +115,20 @@ async function produce(argv, io) {
   fs.writeFileSync(out + "/causes.json", JSON.stringify(causes, null, 1) + "\n");
   fs.writeFileSync(out + "/plan.json", JSON.stringify(plan, null, 1) + "\n");
   fs.writeFileSync(out + "/REPORT.md", md);
+  writeLedger(out, ledger);
+  io.ledgerLine = ledgerLine(ledger);
   return "CHECKER: " + causes.length + " causes from " + kept + " findings, " + said + " checked by program";
 }
 
 // io: { audit, listRules, skillDir } stand in for the rule program and the skill folder (the test hands in an invented result); returns { code, line }
 export async function checkerRules(argv, io = {}) {
-  try { return { code: 0, line: await produce(argv, io) }; }
+  try { const line = await produce(argv, io); return { code: 0, line, ledger: io.ledgerLine }; }
   catch (e) { if (!(e instanceof Stop)) throw e; return { code: e.exit, line: e.message }; }
 }
 
 if (isMain(import.meta.url)) {
   const r = await checkerRules(process.argv.slice(2));
+  if (r.ledger) console.log(r.ledger);
   (r.code === 2 ? console.error : console.log)(r.line);
   process.exit(r.code);
 }

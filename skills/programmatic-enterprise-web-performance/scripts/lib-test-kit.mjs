@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
 
 // handler(req{url,method,headers,body}) -> { status?, body (object -> JSON, string -> as is), headers?, hang? }
 export async function serve(handler) {
@@ -83,4 +83,13 @@ export async function main({ label, scenarios, MUTANTS, scriptsDir, argv }) {
   }
   if (argv.includes("--json")) console.log(JSON.stringify({ suite: label.toLowerCase().replace(/ /g, "-"), ok: !failed, assertions: { total: out.length, failed: mainFailed }, mutants: ran ? { ran, caught, failed: ran - caught } : null, wallMs: Date.now() - t0 }));
   return failed ? 1 : 0;
+}
+
+// merge.mjs fails an audit whose slices have no complete verdict file (AB-17). A test whose fake repo only wants merge's other outputs gives every slice
+// of its .checks/plan.json a complete one: every rule id of the real checklist, N/A with a reason. Call it after writing plan.json.
+export function writeVerdicts(root) {
+  const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "checklist");
+  const ids = fs.readdirSync(dir).filter((x) => x.endsWith(".md") && x !== "INDEX.md").flatMap((n) => fs.readFileSync(path.join(dir, n), "utf8").split(/\r?\n/).map((l) => /^- ([A-Z][A-Z0-9]{1,4}-\d{3}) (?:P0|P1|P2|W)/.exec(l)?.[1]).filter(Boolean));
+  const plan = J(path.join(root, ".checks", "plan.json"));
+  for (const s of plan.slices) W(path.join(root, ".checks", "verdicts", s.id + ".tsv"), ids.map((id) => id + "\tN/A\tfixture: no such code").join("\n") + "\n");
 }

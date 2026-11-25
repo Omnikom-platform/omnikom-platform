@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { W, J, mkTmp, rmTmp } from "./lib-test-kit.mjs";
+import { W, J, mkTmp, rmTmp, writeVerdicts } from "./lib-test-kit.mjs";
 
 const args = process.argv.slice(2);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -73,6 +73,7 @@ const e2e = (snap, files, rows) => {
   for (const f of files) W(path.join(root, f), "<!doctype html><html><head><title>t</title></head><body><p>x</p></body></html>");
   if (snap) W(path.join(root, "_site.json"), { finishedAt: "2026-11-01T10:00:00Z", pages: [] });
   W(path.join(root, ".checks", "plan.json"), { slices: [{ id: "s01", files }], skipped: {}, snapshot: snap });
+  writeVerdicts(root); // merge fails an audit whose slices have no complete verdict file (AB-17)
   W(path.join(root, ".checks", "findings", "s01.md"), HEAD + rows.join("\n") + "\n");
   const r = spawnSync(process.execPath, ["--max-old-space-size=256", path.join(dir, "merge.mjs"), root], { encoding: "utf8", timeout: 120000 });
   const cf = path.join(root, ".checks", "causes.json");
