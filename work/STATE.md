@@ -27,7 +27,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
 - The truth keepers: CI checks the book and `work/map/` (rule 36); `omnikom truth` (drift report); `omnikom map` (the map).
 
 ## Not landed
-- `check/platform/sec-replay` (the replay guard, migration 53, in its third round), `check/seo/ai-oneshot`.
+- `check/seo/ai-oneshot`. The replay guard (migration 53) is in the tree and NOT on staging: the migration goes first, then its seven functions together (the head runs it).
 
 ## Staging, 2026-11-21
 - Reachable; 42 of 42 migrations (52 applied 2026-11-21); 32 functions deployed (2026-11-20). Set on 2026-11-20: `GOOGLE_SERVICE_ACCOUNT_JSON`,
@@ -35,7 +35,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
 
 ## Migrations
 - An unlanded migration takes the next free number above every file in the tree and lands in number order (staging applies
-  in file-name order); no number is promised ahead. In the tree: through 52 (no 51).
+  in file-name order); no number is promised ahead. In the tree: through 53 (no 51).
 
 ## BLOCKED and UNPROVEN
 - E21 on staging: the webhook exists, a real bounce through it is UNPROVEN. E9's new path: the token is set, a real publish is UNPROVEN.
