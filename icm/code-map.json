@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1013,
+    "sources": 1015,
     "unowned": 0
   },
   "files": [
@@ -303,7 +303,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/plan-site.mjs","owner":"seo-and-audits","exports":[],"tests":["tools/golive/search-gate.test.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/plan.mjs","owner":"seo-and-audits","exports":[],"tests":["factory/test/mutate.mjs","factory/test/run.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/proof-gates.mjs","owner":"seo-and-audits","exports":["LABELS","proofGates","rootHashes"],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/psi.mjs","owner":"seo-and-audits","exports":["readAnswer","run"],"tests":["tools/audit/test/metrics.mjs"],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/psi.mjs","owner":"seo-and-audits","exports":["readAnswer","readExtras","run"],"tests":["tools/audit/test/metrics.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/read-bing.mjs","owner":"seo-and-audits","exports":["PACE_KEYS","addressOf","buildCapture","checkReadPace","decide","drv","endOf","idOf","lastLine","makeRecord","run","selectItems"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/ref-images.mjs","owner":"seo-and-audits","exports":["checkImages","extractImages","imagesMarkdown","inventoryImages","normPathOf"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/ref-lib.mjs","owner":"seo-and-audits","exports":["Stop429","UA","applyRedirect","clearsSite","configHeaders","getOnce","headersFor","hostOf","htmlUrlPath","isLoopback","parseHeadersFile","parseRedirectRules","readJson","readSnapshotPages","sleep","walkFiles","writeJson"],"tests":[],"feature":""},

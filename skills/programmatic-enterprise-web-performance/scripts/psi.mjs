@@ -63,9 +63,15 @@ export function readAnswer(j) {
     tbtMs: round(num(a, "total-blocking-time")),
     fcpMs: round(num(a, "first-contentful-paint")),
     speedIndexMs: round(num(a, "speed-index")),
-    categories: Object.fromEntries(Object.entries(lh.categories || {}).map(([k, c]) => [k, typeof c?.score === "number" ? Math.round(c.score * 100) : null])),
-    lighthouseVersion: lh.lighthouseVersion ?? null,
-    audits: Object.fromEntries(Object.entries(a).map(([k, x]) => [k, x?.score ?? null])),
+  };
+}
+// What the row keeps beside readAnswer's six lab numbers (tools/audit/metrics/pagespeed.mjs holds a copy of readAnswer, so those stay as they are).
+export function readExtras(j) {
+  const lh = j?.lighthouseResult;
+  return {
+    categories: Object.fromEntries(Object.entries(lh?.categories || {}).map(([k, c]) => [k, typeof c?.score === "number" ? Math.round(c.score * 100) : null])),
+    lighthouseVersion: lh?.lighthouseVersion ?? null,
+    audits: Object.fromEntries(Object.entries(lh?.audits || {}).map(([k, x]) => [k, x?.score ?? null])),
   };
 }
 
@@ -134,7 +140,7 @@ export async function run(a) {
           const stored = fs.readFileSync(res.cacheFile, "utf8");
           if ([key, encodeURIComponent(key)].some((k) => stored.includes(k))) { fs.rmSync(res.cacheFile, { force: true }); throw new KeyLeak(`the cache file would have held the key, so it was deleted (${path.basename(res.cacheFile)}); nothing else was kept`); }
         }
-        const row = readAnswer(body);
+        const row = { ...readAnswer(body), ...readExtras(body) };
         const one = { run, ...row, fetchedAt: res.fetchedAt, cacheFile: res.cacheFile ? path.relative(loc.pewp, res.cacheFile).split(path.sep).join("/") : null };
         got.set(pk, [...(got.get(pk) || []), one]);
         console.log(runs === 1 ? `psi ${strategy} ${url}: performance ${row.performance}, LCP ${row.lcpMs} ms` : `psi ${strategy} ${url}: run ${run} of ${runs}: performance ${row.performance}, LCP ${row.lcpMs} ms`);
