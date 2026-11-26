@@ -1,7 +1,8 @@
 # Hand-over: job 4, VTV runs in the engine (English base layer, 5.1 compiler, slot readers by type)
 
 Head's order 2026-11-26 21:53: job 3 (done, 7886313) -> matcher race -> **job 4** -> XState flows. M319: both sites on the new chat.
-Builder: ADVISOR-ENGINE (worktree advisor-engine, branch advisor/engine). Starts after the race has settled the runtime shape.
+Builder: ADVISOR-ENGINE (worktree advisor-engine, branch advisor/engine). The race settled the runtime shape: today's scorer,
+no matching library (head 23:12, ruling A; 7965002, ADR 003). Job 4 option A ruled by the head 22:16.
 
 ## Where it stands (observed 22:11)
 `createAdvisor(packs/vtv/pack.json)` -> `THROWS: Cannot read properties of undefined (reading 'text')`. VTV's pack is in R2 5.1's
@@ -42,10 +43,18 @@ About 700-900 lines new or changed: compile-51 ~250, base-en split (converter + 
 typed readers ~150, hand-off from forms ~50, tests and mutants ~250. Two sittings of one builder. The largest risk is the
 base split moving an omnikom reply; the golden and cp11 catch that.
 
-## Options for the head (recommended first)
-- **A (recommended)**: as above, base-en chosen word by word, so VTV's pack carries no cold-calling or omnikom words.
-- **B**: VTV's runtime sections copied whole from omnikom's: about 300 lines less, but VTV would carry the cold-calling trade
-  words (caller, dnc, isa) and omnikom's menus, which breaks "never mix client data".
+## Ruled (head 2026-11-26 22:16): A
+An English base layer chosen word by word; no client's words in another client's pack, ever. (B, copying omnikom's runtime
+sections whole, was not taken.)
+
+## cp11 FAIL rows this job moves: none (said before it starts, head 23:12)
+Job 4 adds VTV's paths (base-en, compile-51, typed slot readers) and keeps omnikom.io's pack and matcher path byte-for-byte;
+its gate is 0 cp11 changes, so it moves none of the 29 FAIL rows. The 29 (today's scorer, cp11, 2026-11-26), for a job of
+their own:
+- 26 intent misses, pack data (phrasings or cues): #17, #25, #26, #33, #84, #88, #89, #98, #100, #103, #154, #194, #244, #307,
+  #430, #485, #519, #557, #560, #629, #669, #741, #789, #792, #859, #885.
+- 3 inputs with no meaning that still got an answer, engine (ADR 005, the band): #873 "what's the caller's salary"
+  (info.unpublished), #887 "<script>alert(1)</script>" (svc.cold_scripts), #902 "123" (price.team_size).
 
 ## Not in this job
 XState flows (the buyer and seller flows of R2 5.1; V2's "buyer flow" is a single-turn hand-off here, the flow comes with
