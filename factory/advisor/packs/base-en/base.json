@@ -1029,34 +1029,7 @@
   "faqChoices": [],
   "menuReplies": [],
   "businessTypes": [],
-  "patterns": {
-   "human": {
-    "$rx": "(?!)",
-    "flags": "i"
-   },
-   "askAnother": {
-    "$rx": "(?!)",
-    "flags": "i"
-   },
-   "buildTeam": {
-    "$rx": "(?!)",
-    "flags": "i"
-   }
-  },
-  "defaultInterest": null,
-  "interestOfFlow": {},
-  "interestOther": null,
-  "notes": {},
-  "again": [],
-  "humanText": "",
-  "buildText": "",
-  "askAnotherText": "",
-  "flows": {},
-  "rules": [],
-  "fallback": {
-   "text": "",
-   "chips": []
-  }
+  "notes": {}
  },
  "routing": {
   "enquiryChoices": [],

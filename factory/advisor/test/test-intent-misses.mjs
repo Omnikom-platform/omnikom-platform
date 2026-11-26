@@ -3,6 +3,7 @@
 // The 18 held-out misses get no test and no per-row cue or phrasing (head 2026-11-27 00:30, ruling C); cp11 counts them.
 // Hand-over: docs/advisor/r3/HANDOVER-intent-misses.md.
 // Run: node factory/advisor/test/test-intent-misses.mjs  -> "INTENT MISSES TEST PASS: n of n" then "MUTANTS PASS: n of n caught"
+import './deps-hook.mjs';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';

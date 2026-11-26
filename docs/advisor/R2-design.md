@@ -158,8 +158,10 @@ lists       { vague[], deictic[], defaultMenu[], contentFirst[] } -- the word li
 tuning      { answer: 0.5, margin: 0.06, clarify: 0.35, boostNext: 0.04, boostYes: 0.1 }
 slots[]     { name, type: number|place|enum|name, values? (pack list), range?, ask (claim id), reask[] (claim ids),
               guards: true|false, reflect: true|false, form?: field name }
-flows[]     { id, start, pages: { id: { entry?: claim id, form?: [slot], routes: [{ on: intent | "filled", if?: guard, to }], noMatch?: [claim id x3] } } }
-routeGroup  [{ on, if?, to }]                   -- attached to every page
+flows[]     { id, start, routeGroup: [route], pages: { id: { flow?, step?, interest, routes: [route] } } }   -- built R3: engine/flows.mjs
+route       { if?: [guard, pattern, "raw"?], do?: [[action, arg]], to: page id }   -- the route group is tried before every page's own
+              routes; the first route whose guard holds is taken; a route with no if always holds. Not built yet: routes on an
+              intent or "filled", a page's entry claim, form slots and noMatch lines (the engine's own conversation, ADR 002 in full)
 forms[]     { id, kind: form|booking, path (same-site), fields { slot: field }, consent (claim id) }
 refusals    { legal, medical, financial, steering?, competitorClaims, unknown }   -- claim ids; the industry pack supplies the standard set
 tests       { golden: path, cases: path }       -- the pack's own whole-conversation and single-turn cases
@@ -242,6 +244,10 @@ No price, fee or commission figure is ever said unless the client signs one as a
   `menuPending`, `noMatchAtLeast(k)`, `flagOn(f)`.
 - **Actions:** `remember`, `say(claim)`, `answer(intent)`, `offerMenu(ids)`, `askSlot(s)`, `offerHandoff(form | booking)`, `countNoMatch`, `resetNoMatch`, `stayOnPage`, `closeSession`.
 - **Derived slots:** `seatTotal(n, price)` (only with its flag) and `plural(n, one, many)` (today's `{callers_noun}`).
+
+- **Built (R3, `engine/flows.mjs`; `pack/validate.mjs` refuses any other name with FLOW_NAME):** the guard `said(pattern)` (the
+  visitor's line, lower-cased unless the route says "raw"); the actions `remember(slot)`, `say({text, chips, link?})` and
+  `offerHandoff(interest | null)` (null: the page's interest). The rest of the lists above is engine work still to come.
 
 Adding to any of these lists is engine work, with its own test and mutant. A pack cannot add one.
 

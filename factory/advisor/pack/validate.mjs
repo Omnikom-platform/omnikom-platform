@@ -19,7 +19,7 @@ const PROBES = ['a'.repeat(500), 'a'.repeat(499) + '!', ' '.repeat(500), '1'.rep
 const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
 const srcOk = (s) => isObj(s) && ['export', 'page', 'signoff', 'industry'].includes(s.kind) && typeof s.ref === 'string' && s.ref.length > 0 && /^\d{4}-\d{2}-\d{2}/.test(String(s.date || ''));
 
-// the strings the assistant may say: intent labels and answers, claims, and the texts, script and refusals sections
+// the strings the assistant may say: intent labels and answers, claims, and the texts, script, refusals and flows sections
 function* spoken(p) {
   for (const [i, it] of (Array.isArray(p.intents) ? p.intents : []).entries()) {
     if (typeof it?.label === 'string') yield ['intents[' + i + '].label', it.label];
@@ -29,7 +29,7 @@ function* spoken(p) {
     if (typeof c?.text === 'string') yield ['claims[' + i + ']', c.text];
     for (const [j, v] of (Array.isArray(c?.variants) ? c.variants : []).entries()) if (typeof v === 'string') yield ['claims[' + i + '].variants[' + j + ']', v];
   }
-  for (const k of ['texts', 'script', 'refusals']) yield* walkStrings(p[k], k);
+  for (const k of ['texts', 'script', 'refusals', 'flows']) yield* walkStrings(p[k], k);
 }
 function* walkStrings(x, at) {
   if (typeof x === 'string') yield [at, x];
@@ -168,6 +168,20 @@ export async function validatePack(p) {
       for (let k = 2; k <= Number(st.stepNext.max); k++) if (!ids.has(pre + k)) err('STEER_ID', 'steer.stepNext', 'no intent ' + pre + k);
     }
     for (const [at, pre] of prefixes) if (typeof pre !== 'string' || !pre || ![...ids].some((id) => id.startsWith(pre))) err('STEER_PREFIX', at, 'starts no intent of this pack: ' + pre);
+  }
+
+  // flows (R2 5.1, 5.6): the XState machine's pages and routes; a guard or action off the closed list never reaches the engine. Optional.
+  const GUARDS = new Set(['said']), ACTIONS = new Set(['remember', 'say', 'offerHandoff']);
+  for (const [f, fl] of (Array.isArray(p?.flows) ? p.flows : []).entries()) {
+    const at = 'flows[' + f + ']', pages = isObj(fl?.pages) ? fl.pages : {};
+    if (!Object.hasOwn(pages, fl?.start)) err('FLOW_START', at, 'start is no page: ' + fl?.start);
+    const routes = [...(Array.isArray(fl?.routeGroup) ? fl.routeGroup : []).map((r, i) => [at + '.routeGroup[' + i + ']', r])];
+    for (const [id, pg] of Object.entries(pages)) for (const [i, r] of (Array.isArray(pg?.routes) ? pg.routes : []).entries()) routes.push([at + '.pages.' + id + '.routes[' + i + ']', r]);
+    for (const [ra, r] of routes) {
+      if (!Object.hasOwn(pages, r?.to)) err('FLOW_ROUTE', ra, 'goes to no page: ' + r?.to);
+      if (r?.if !== undefined && !GUARDS.has(r.if?.[0])) err('FLOW_NAME', ra, 'guard not on the closed list: ' + r.if?.[0]);
+      for (const d of Array.isArray(r?.do) ? r.do : [r?.do]) if (!ACTIONS.has(d?.[0])) err('FLOW_NAME', ra, 'action not on the closed list: ' + d?.[0]);
+    }
   }
 
   // cues

@@ -1,5 +1,5 @@
 // The Advisor engine, built from a pack. createAdvisor(pack) returns what a site card needs:
-//   { engine, initialState, flow: { faq, enquiry, scripted, site, enquiryScript, route } }
+//   { engine, initialState, flow: { faq, enquiry, scripted, site, enquiryScript, route, machine, save, load } }
 // engine.respond(state, text) answers a typed line; engine.observe, engine.intents and engine.stats are there for the
 // guided flows and for tests. Node built-ins only; nothing in this folder names a client: the pack carries every word.
 
@@ -9,6 +9,7 @@ import { createTypedSlots } from "./typed-slots.mjs";
 import { createMatcher } from "./matcher.mjs";
 import { createEngine } from "./engine.mjs";
 import { createScript } from "./script.mjs";
+import { createFlows } from "./flows.mjs";
 import { createRouting } from "./routing.mjs";
 
 /** Packs store a pattern as { "$rx": source, "flags": flags }; give every one back as a RegExp. */
@@ -50,7 +51,8 @@ export function createAdvisor(rawPack) {
     Matcher,
     slots,
   });
-  const script = createScript(pack.script, T);
+  const flows = pack.flows?.length ? createFlows(pack.flows[0], pack.meta.version, T.messageMax) : undefined;
+  const script = createScript(pack.script, T, flows);
   const routing = createRouting(pack.rx.routing, pack.routing, script);
   const flow = {
     faq: script.faqChoices,
@@ -59,6 +61,9 @@ export function createAdvisor(rawPack) {
     site: routing.isSiteQuestion,
     enquiryScript: routing.shouldUseEnquiryScript,
     route: routing.routeToScript,
+    machine: flows?.machine,
+    save: flows?.save,
+    load: flows?.load,
   };
   return { engine: new Engine(), initialState, flow };
 }

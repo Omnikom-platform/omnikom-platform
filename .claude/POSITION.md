@@ -37,6 +37,14 @@ JOB 5 00:25: cp11 #873 #887 #902 FAIL->PASS, worse 0 (FAIL 29->26); test-no-mean
 MISSES 00:48: rulings C (00:30: held-out 18 get engine-level only), A (00:34: #519 -> chat.name, #307 stays FAIL), seat range C (00:31: keep). packs/omnikom-io/additions.mjs merged by the converter; test-intent-misses 8/8 + 1/1; cp11 FAIL 29->19, better 10, worse 0; golden 10765/10765. Next: commit, push, then engine-level ranking for the 18 held-out rows.
 HELD-OUT 00:53: pushed 0ae1baa3. Attempt 1 (exact phrasing) REJECTED + reverted: cp11 worse=3, golden 148 moved, held-out 0 moved. Asked the head: stop (go to XState) or allow named golden moves.
 HEAD 00:55: A, stop; FAIL 19 (18 held-out + #307) is the honest number; own-phrasing 342->10 kept as a later option. Next: XState inside 15,980 B.
+HEAD 01:01 ruling A (XState) with conditions: xstate exact + >= 7 days; @xstate/graph dev only if approved (it is, M322/R2 24.6); budget test red by a mutant over 125,324 B;
+  byte-equal: every guided-script path + cp11 + golden 10765; VTV qualify flow stays out (client words).
+  Supply chain: xstate@5.33.4 published 2026-11-07 (19 days), @xstate/graph@3.0.4 2025-05-31; no install scripts, no deps; lockfile diff none (in since cea2d9db/b5aaae4a); osv clean.
+XSTATE 01:45 (UNCOMMITTED, all gates run here): engine/flows.mjs + script.mjs/index.mjs rewired; converter moves the script into pack.flows; base-en script trimmed;
+  validate.mjs FLOW_START/FLOW_ROUTE/FLOW_NAME; test/deps-hook.mjs (mutant copies find xstate). Seen red first: test-flows "machine undefined", test-budget "XState (0 B)", validator 5 of 40.
+  Now: FLOWS 9/9 (4191 replies byte-equal) mutants 4/4; BUDGET 110510 of 125324 B (engine 12915 + XState 13753, pack 68842) mutant 1/1; VALIDATOR 40/40, 18/18;
+  GOLDEN 10765/10765; cp11 FAIL 19, worse 0, 915 rows identical in every field to the 0ae1baa3 run; PACK VALID both; VTV 25/25, NO MEANING, INTENT MISSES, REWRITES, COMPILE 51, NO CLIENT TEXT green.
+  Next: commit + push, report to the head. UNPROVEN on CI: no workflow runs factory/advisor.
 - HEAD 21:53 order: job 3 -> matcher race -> job 4 (VTV in the engine: English base layer, 5.1 compiler, slot readers by type) -> XState flows.
   Job 4's written hand-over goes with job 3's report, with its size. (21:52 I told the head job 3 alone does not run VTV.)
 - JOB 3 (21:55): red test = test/no-client-text.mjs extended to intent ids + families: FAIL 72 (engine.mjs 71, matcher.mjs 1).

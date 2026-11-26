@@ -1,0 +1,237 @@
+{
+ "faqChoices": [
+  "What does cold calling cost?",
+  "What is included?",
+  "What services do you offer?"
+ ],
+ "menuReplies": [
+  "Find more sellers",
+  "Build a complete team",
+  "Talk to someone"
+ ],
+ "businessTypes": [
+  {
+   "biz": "wholesaler",
+   "rx": {
+    "$rx": "wholesal",
+    "flags": ""
+   }
+  },
+  {
+   "biz": "investor",
+   "rx": {
+    "$rx": "investor|acquisition",
+    "flags": ""
+   }
+  },
+  {
+   "biz": "brokerage",
+   "rx": {
+    "$rx": "brokerage|broker\\b",
+    "flags": ""
+   }
+  },
+  {
+   "biz": "team",
+   "rx": {
+    "$rx": "\\bteam\\b|\\bagents?\\b|realtor",
+    "flags": ""
+   }
+  }
+ ],
+ "patterns": {
+  "human": {
+   "$rx": "talk to (?:a )?(?:person|human|someone|your team)|speak (?:to|with) (?:a )?(?:person|human|someone)|\\bhuman\\b|call me|contact me",
+   "flags": "i"
+  },
+  "askAnother": {
+   "$rx": "^ask another question$",
+   "flags": "i"
+  },
+  "buildTeam": {
+   "$rx": "^(build my team|request my team plan|send my details)$",
+   "flags": "i"
+  }
+ },
+ "defaultInterest": "production-team",
+ "interestOfFlow": {
+  "cold-calling": "cold-calling",
+  "production-team": "production-team"
+ },
+ "interestOther": "not-sure",
+ "notes": {
+  "intro": "From Omnikom Advisor. ",
+  "callers": "Callers: ",
+  "teamSize": "Team size: ",
+  "support": "Support: ",
+  "sep": ". ",
+  "end": "."
+ },
+ "again": [
+  "Ask another question"
+ ],
+ "humanText": "Of course. Share a few details on the Get Started form and our team will contact you to talk it through.",
+ "buildText": "Great. Use the button below to open the Get Started form. Anything you told me here is already filled in.",
+ "askAnotherText": "Sure. What would you like to know about our pricing or services?",
+ "flows": {
+  "cold-calling": [
+   {
+    "store": "businessType",
+    "text": "Which state or markets are you targeting?",
+    "chips": []
+   },
+   {
+    "store": "markets",
+    "text": "Are you thinking about one caller, two to four, or five or more?",
+    "chips": [
+     "One caller",
+     "Two to four callers",
+     "Five or more",
+     "Not sure"
+    ]
+   },
+   {
+    "store": "callers",
+    "text": "Our dedicated caller service starts at $1,299 per month for one caller, with calling infrastructure and management included. Send your details and our team will scope the calling plan for your market. Your answers are already filled in.",
+    "chips": [
+     "Ask another question"
+    ],
+    "final": {
+     "interest": "cold-calling"
+    }
+   }
+  ],
+  "production-team": [
+   {
+    "store": "teamSize",
+    "text": "What U.S. markets do you work in?",
+    "chips": []
+   },
+   {
+    "store": "markets",
+    "text": "A Production Team is scoped around your existing people and processes; there is no flat package price. Send your details and our team will put together a plan for your business. Your answers are already filled in.",
+    "chips": [
+     "Ask another question"
+    ],
+    "final": {
+     "interest": "production-team"
+    }
+   }
+  ],
+  "support": [
+   {
+    "store": "scope",
+    "text": "Are you an agent team, brokerage, investor or acquisition company, or wholesaler?",
+    "chips": [
+     "Agent team",
+     "Brokerage",
+     "Investor or acquisition company",
+     "Wholesaler"
+    ]
+   },
+   {
+    "store": "businessType",
+    "text": "Which state or markets are you targeting?",
+    "chips": []
+   },
+   {
+    "store": "markets",
+    "text": "Your support mix is scoped to your operation rather than a fixed package. Send your details and our team will suggest a starting point. Your answers are already filled in.",
+    "chips": [
+     "Ask another question"
+    ],
+    "final": {
+     "interest": "not-sure"
+    }
+   }
+  ]
+ },
+ "rules": [
+  {
+   "rx": {
+    "$rx": "\\b(price|pricing|cost|costs|how much)\\b",
+    "flags": ""
+   },
+   "text": "Pricing starts at $1,299 per month for one dedicated caller. Larger teams and a managed Production Team are quoted around the roles and support you need. Would you like help choosing a starting point?",
+   "chips": [
+    "Find more sellers",
+    "Build a complete team",
+    "Talk to someone"
+   ]
+  },
+  {
+   "rx": {
+    "$rx": "\\b(crm|records|data|database)\\b",
+    "flags": ""
+   },
+   "text": "Omnikom works with your existing CRM and agreed handoffs. Your business keeps ownership of its records and client relationships.",
+   "chips": [
+    "Find more sellers",
+    "Build a complete team",
+    "Talk to someone"
+   ]
+  },
+  {
+   "rx": {
+    "$rx": "\\b(guarantee|guaranteed|deals|appointments)\\b",
+    "flags": ""
+   },
+   "text": "Omnikom provides managed execution and activity reporting, not guaranteed leads, appointments, or deals. Results depend on your market, prospect quality, follow-up, and other factors.",
+   "chips": [
+    "Find more sellers",
+    "Build a complete team",
+    "Talk to someone"
+   ]
+  },
+  {
+   "rx": {
+    "$rx": "\\b(sellers?|cold calls?|calling|callers?|prospects?)\\b",
+    "flags": ""
+   },
+   "text": "We provide dedicated, managed real estate callers for property-owner prospecting. Are you an agent team, brokerage, investor, or wholesaler?",
+   "chips": [
+    "Agent team",
+    "Brokerage",
+    "Investor or acquisition company",
+    "Wholesaler"
+   ],
+   "start": "cold-calling"
+  },
+  {
+   "rx": {
+    "$rx": "\\b(complete team|full team|production team|all four)\\b",
+    "flags": ""
+   },
+   "text": "We can connect prospecting, ISA follow-up, marketing execution, and transaction administration. How many agents or acquisition professionals are on your team, roughly?",
+   "chips": [
+    "Just me",
+    "2 to 4",
+    "5 or more",
+    "Not sure"
+   ],
+   "start": "production-team"
+  },
+  {
+   "rx": {
+    "$rx": "\\b(follow.?up|isa|marketing|transactions?|admin)\\b",
+    "flags": ""
+   },
+   "text": "We support lead qualification and follow-up, marketing execution, and administrative transaction coordination. Are you looking for one function or several together?",
+   "chips": [
+    "One function",
+    "Several functions",
+    "Talk to someone"
+   ],
+   "start": "support"
+  }
+ ],
+ "fallback": {
+  "text": "I can help with seller prospecting, lead follow-up, marketing, transaction support, or a complete Production Team. What would you like to focus on?",
+  "chips": [
+   "Find more sellers",
+   "Follow up with leads",
+   "Marketing & transactions",
+   "Build a complete team"
+  ]
+ }
+}

@@ -63,6 +63,21 @@ const scenarios = async (dir) => {
     p.steer = { ids: { yes: 'greet' }, prefix: { price: 'pri' }, limits: [{ last: 'i11', to: 'price' }], stepNext: { prefix: 'how.step', max: 2 },
       siblings: { team: { $rx: '^x', flags: '' }, words: [{ word: { $rx: '^y', flags: '' }, to: 'greet' }], other: 'price' } }; });
   check('a full steer table is valid', okSteer.length === 0, 'got: ' + JSON.stringify(okSteer));
+  // flows (R2 5.1, 5.6): pages, routes to known pages, only the closed list's guards and actions; their lines are spoken
+  const flowFx = () => [{ id: 'guided', start: 'idle',
+    routeGroup: [{ if: ['said', { $rx: 'talk to', flags: 'i' }], do: [['say', { text: 'Of course.', chips: [] }], ['offerHandoff', null]], to: 'idle' }],
+    pages: {
+      idle: { interest: 'x', routes: [{ if: ['said', { $rx: 'price', flags: '' }], do: [['say', { text: 'Which market?', chips: [] }]], to: 'f/1' },
+        { do: [['say', { text: 'Ask me.', chips: [] }]], to: 'idle' }] },
+      'f/1': { flow: 'f', step: 1, interest: 'x', routes: [{ do: [['remember', 'markets'], ['say', { text: 'Thanks.', chips: [] }], ['offerHandoff', 'x']], to: 'idle' }] },
+    } }];
+  const okFlow = await codes((p) => { p.flows = flowFx(); });
+  check('a flow on the closed list is valid', okFlow.length === 0, 'got: ' + JSON.stringify(okFlow));
+  await has('flow guard not on the closed list', 'FLOW_NAME', (p) => { p.flows = flowFx(); p.flows[0].pages.idle.routes[0].if[0] = 'eval'; });
+  await has('flow action not on the closed list', 'FLOW_NAME', (p) => { p.flows = flowFx(); p.flows[0].routeGroup[0].do.push(['fetch', 'https://example.com/']); });
+  await has('flow route to an unknown page', 'FLOW_ROUTE', (p) => { p.flows = flowFx(); p.flows[0].pages['f/1'].routes[0].to = 'f/2'; });
+  await has('flow start that is no page', 'FLOW_START', (p) => { p.flows = flowFx(); p.flows[0].start = 'nowhere'; });
+  await has('$ amount in a flow line not in prices', 'MONEY_UNSOURCED', (p) => { p.flows = flowFx(); p.flows[0].pages.idle.routes[1].do[0][1].text = 'From $999.'; });
   const okBooking = await codes((p) => { p.forms[1].url = 'https://calendly.com/someone'; });
   check('booking on a listed host is valid', okBooking.length === 0, 'got: ' + JSON.stringify(okBooking));
   return results;
@@ -83,6 +98,8 @@ const MUTANTS = [
   { name: 'steer steps unchecked', patches: [{ file: 'validate.mjs', from: "if (!ids.has(pre + k))", to: 'if (false)' }], expect: [/steer next step missing/] },
   { name: 'steer prefix unchecked', patches: [{ file: 'validate.mjs', from: "if (typeof pre !== 'string' || !pre || ![...ids].some((id) => id.startsWith(pre)))", to: 'if (false)' }], expect: [/STEER_PREFIX/] },
   { name: 'steer rx unchecked', patches: [{ file: 'validate.mjs', from: "if (!isObj(p?.rx?.engine) || !isObj(p.rx.engine[r?.last]))", to: 'if (false)' }], expect: [/STEER_RX/] },
+  { name: 'flow closed list unchecked', patches: [{ file: 'validate.mjs', from: "if (r?.if !== undefined && !GUARDS.has(r.if?.[0]))", to: 'if (false)' }], expect: [/flow guard not on the closed list/] },
+  { name: 'flow lines not spoken', patches: [{ file: 'validate.mjs', from: "for (const k of ['texts', 'script', 'refusals', 'flows'])", to: "for (const k of ['texts', 'script', 'refusals'])" }], expect: [/\$ amount in a flow line/] },
   { name: 'missing fact used unchecked', patches: [{ file: 'validate.mjs', from: "if (missing.has(k))", to: 'if (false)' }], expect: [/FACT_MISSING_USED/] },
 ];
 process.exit(await main({ label: 'PACK VALIDATOR', scenarios, MUTANTS, scriptsDir: path.join(here, '../pack'), argv: process.argv.slice(2) }));

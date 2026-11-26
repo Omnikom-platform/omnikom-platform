@@ -2,6 +2,7 @@
 // rule (the head's harness, read-only): a case with no expected intent is FAIL when the band is "answer" or "flow".
 // Hand-over: docs/advisor/r3/HANDOVER-cp11-fail-rows.md (#873 ruled A by the head, 2026-11-26 23:56).
 // Run: node factory/advisor/test/test-no-meaning.mjs  -> "NO MEANING TEST PASS: n of n" then "MUTANTS PASS: n of n caught"
+import './deps-hook.mjs';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';

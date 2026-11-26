@@ -209,6 +209,7 @@ rxOut.engine.MARKUP = { $rx: '<\\/?[a-z][^<>]*>', flags: 'gi' };
 const git = spawnSync('git', ['-C', SRC, 'rev-parse', 'HEAD'], { encoding: 'utf8', timeout: 20000 });
 if (git.status !== 0) throw new Error('git rev-parse failed in the lovable repo: ' + git.stderr);
 
+const SC = SCRIPT();
 const pack = {
   meta: {
     schema: 'omnikom-advisor-pack/1', pack: 'omnikom-io', client: 'omnikom', industry: 'cold-calling', version: '0.1.0',
@@ -319,7 +320,8 @@ const pack = {
     'slots.washingtonDc': 'Washington, DC', // slots.ts findMarkets
   },
   rx: rxOut,
-  script: SCRIPT(),
+  script: { faqChoices: SC.faqChoices, menuReplies: SC.menuReplies, businessTypes: SC.businessTypes, notes: SC.notes },
+  flows: FLOWS(SC),
   routing: {
     enquiryChoices: M.routing.enquiryChoices, // helper-routing.ts
     // helper-routing.ts stepAsks: what each planning step asks for, by flow
@@ -411,6 +413,40 @@ function SCRIPT() {
       chips: ['Find more sellers', 'Follow up with leads', 'Marketing & transactions', 'Build a complete team'],
     },
   };
+}
+// The guided script as R2 5.1 flows for the XState machine (engine/flows.mjs): one page per question the visitor is answering
+// ("<flow>/<step>"), the idle page holding the rules and the fallback, the person / ask-another / build-my-team lines as the
+// route group. The lines, patterns and chips are advisor-script.ts's, moved here from pack.script (one home each).
+function FLOWS(s) {
+  const line = (text, chips, link) => (link ? { text, chips, link: true } : { text, chips });
+  const pages = {
+    idle: {
+      interest: s.defaultInterest,
+      routes: [
+        ...s.rules.map((r) => ({ if: ['said', r.rx], do: [['say', line(r.text, r.chips)]], to: r.start ? r.start + '/1' : 'idle' })),
+        { do: [['say', line(s.fallback.text, s.fallback.chips)]], to: 'idle' },
+      ],
+    },
+  };
+  for (const [flow, steps] of Object.entries(s.flows)) {
+    steps.forEach((st, k) => {
+      const say = ['say', line(st.text, st.chips, !!st.final)];
+      pages[flow + '/' + (k + 1)] = {
+        flow, step: k + 1, interest: s.interestOfFlow[flow] ?? s.interestOther,
+        routes: [{ do: [['remember', st.store], say, ...(st.final ? [['offerHandoff', st.final.interest]] : [])], to: st.final ? 'idle' : flow + '/' + (k + 2) }],
+      };
+    });
+  }
+  return [{
+    id: 'guided',
+    start: 'idle',
+    routeGroup: [
+      { if: ['said', s.patterns.human], do: [['say', line(s.humanText, s.again, true)], ['offerHandoff', null]], to: 'idle' },
+      { if: ['said', s.patterns.askAnother, 'raw'], do: [['say', line(s.askAnotherText, s.faqChoices)]], to: 'idle' },
+      { if: ['said', s.patterns.buildTeam, 'raw'], do: [['say', line(s.buildText, s.again, true)], ['offerHandoff', null]], to: 'idle' },
+    ],
+    pages,
+  }];
 }
 function RX0(file, id, must) { const r = RX(file, id, must); return r; }
 

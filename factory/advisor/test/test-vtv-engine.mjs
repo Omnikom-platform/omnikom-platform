@@ -2,6 +2,7 @@
 // slot readers by type (place, enum, name). The omnikom.io path is guarded elsewhere (golden-turns.mjs, cp11). Hand-over:
 // docs/advisor/r3/HANDOVER-vtv-engine.md. Mutants in the repo's pattern (lib-test-kit main) patch a copy of engine/.
 // Run: node factory/advisor/test/test-vtv-engine.mjs  -> "VTV ENGINE TEST PASS: n of n" then "MUTANTS PASS: n of n caught"
+import './deps-hook.mjs';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';

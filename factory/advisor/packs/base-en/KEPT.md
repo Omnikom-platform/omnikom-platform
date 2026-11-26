@@ -21,7 +21,7 @@ does nothing until a client layer turns it on.
 | rx.engine | the sentence, question, clause, ordinal, Spanish, price-word and placeholder patterns; MARKUP (an HTML tag is dropped before reading, R3 job 5) | CONTENT_FIRST, i04, i06, i07, i11-i14, i17, i18, i20, i27-i29 name omnikom.io's intent ids. i15, i16, i21-i26, i30-i33, i39-i45 are its caller, team, CRM and market follow-ups. i47 is its published price. |
 | rx.cues | PAY_WORD, CLIENT_COST, APOS | PAY, PAY_PEOPLE (callers, reps) |
 | rx.slots | EMAIL_RE, PHONE_RE; new: WORDS, NAME (for the typed slot readers) | the rest is omnikom.io's slot data |
-| rx.routing, script, routing | the keys only, all off or empty | omnikom.io's guided team-planning flows; a client's flows come with the XState job |
+| rx.routing, script, routing | the keys only, all off or empty | omnikom.io's guided team-planning flows; no `flows` either: VTV's qualify flow waits on its ask lines (client words; head 2026-11-27 01:01) |
 | texts | engine.clarify, engine.repeat; new: form.label, form.sep (the hand-off's "City: Tracy. Timeline: ...") | every other line names omnikom.io, its price or its services. A client's fallback lines are its own unknown refusal (compile-51). |
 | lists | vague, numberWords, stepNum; new: notNames (words after "I'm" that are not a name); empty slotFallback, families, servicePrice, shortChat | menus and families name intents; a client's menus are in its pack (lists.defaultMenu, lists.fallbackMenu) |
 
