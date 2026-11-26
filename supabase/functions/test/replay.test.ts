@@ -1,7 +1,7 @@
 // SEC-REPLAY: a verified signature is accepted once (migration 53). Each case sends ONE header twice (callRunner takes the header as given).
 import { handle as exportPublished } from '../export-published/index.ts'; import { handle as jobCallback } from '../job-callback/index.ts';
 import { connect } from '../_shared/db.ts'; import { sign } from '../_shared/signature.ts';
-import { assert, env, eq, securityEvents, teamRows, t, withSql } from './util.ts'; import { callRunner, jobState, runnerEvents, startJob } from './runner-util.ts';
+import { assert, claimOf, env, eq, securityEvents, sha256, teamRows, t, withSql } from './util.ts'; import { callRunner, jobState, runnerEvents, startJob } from './runner-util.ts';
 const now = () => Math.floor(Date.now() / 1000), hdr = (method: 'GET' | 'POST', path: string, body: string, at: number) => sign(env('RUNNER_KEY'), method, path, body, at);
 const newJob = async () => await startJob([(await teamRows()).two], [1]);
 const exportWith = (job: string, header: string) => callRunner(exportPublished, 'export-published', { query: `?job=${job}`, header });
@@ -81,9 +81,6 @@ t('replay [SEC-REPLAY] the counter of the runner tests still sees a refusal that
   eq((await runnerEvents('export-published')) - before, 1, 'the refusal is counted although it folded into the overflow bucket');
 });
 
-// the claim row of ONE header's signature (the key is sha256 of the v1 value): a net count of rows cannot tell an insert from the purge that runs before it
-const claimOf = async (header: string) => { const v1 = /,v1=([0-9a-f]{64})$/.exec(header)![1]; const hash = await sha256(v1); return await withSql(async sql => (await sql`select count(*)::int as n from private.signature_seen where hash = ${hash}`)[0].n as number); };
-async function sha256(s: string) { return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))), b => b.toString(16).padStart(2, '0')).join(''); }
 
 t('replay [SEC-REPLAY] a signature that does not verify (wrong key, or outside the 300 s window) is answered 401 SIGNATURE and leaves no claim', async () => {
   const id = crypto.randomUUID(), path = '/export-published?job=' + id;

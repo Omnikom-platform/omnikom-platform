@@ -5,7 +5,7 @@
 // cluster has no Vault, so the test makes the one table the key lookup reads.
 import { handle } from '../capture-lead/index.ts';
 import { sign, verify } from '../_shared/signature.ts';
-import { assert, crmForms, eq, freshT, SITE_A, t, WS_A, withSql } from './util.ts';
+import { assert, claimOf, crmForms, eq, freshT, SITE_A, t, WS_A, withSql } from './util.ts';
 
 const KEY = 'test-site-signing-key-not-a-secret';
 const REF = 'site-test-demo-a-key-1';
@@ -332,14 +332,14 @@ t('capture-lead [SEC-REPLAY] (control) a post the database refused keeps no clai
   eq(c.status, 202, 'the site is back: ' + c.text); eq(await leads(), 1, 'taken once');
 });
 
-t('capture-lead [SEC-REPLAY] a post whose signature does not verify (wrong key, or outside the 300 s window) is refused 401 and leaves no claim', async () => {
+t('capture-lead [SEC-REPLAY] a post whose signature does not verify (wrong key, or outside the 300 s window) is refused 401 and leaves no claim; an accepted post leaves its row', async () => {
   await seedKey();
-  const claims = () => withSql(async sql => (await sql`select count(*)::int as n from private.signature_seen`)[0].n as number);
-  const before = await claims(), body = { form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name: 'Cap Replay Forged' };
-  const wrong = await post(body, 'not-the-site-key');
-  eq(wrong.status, 401, 'wrong key: ' + wrong.text);
-  const text = JSON.stringify(body), path = `/capture-lead?site=${SITE_A}`;
-  const late = await handle(new Request(`http://localhost${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': await sign(KEY, 'POST', path, text, Math.floor(Date.now() / 1000) - 400) }, body: text }));
-  eq(late.status, 401, 'outside the window: ' + await late.text());
-  eq(await claims(), before, 'no claim was taken by a post that did not verify');
+  const body = { form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name: 'Cap Replay Forged' }, text = JSON.stringify(body), path = `/capture-lead?site=${SITE_A}`;
+  const send = async (header: string) => { const r = await handle(new Request(`http://localhost${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-site-signature': header }, body: text })); return { status: r.status, text: await r.text() }; };
+  const wrongH = await sign('not-the-site-key', 'POST', path, text, freshT()), lateH = await sign(KEY, 'POST', path, text, Math.floor(Date.now() / 1000) - 400), okH = await sign(KEY, 'POST', path, text, freshT());
+  const wrong = await send(wrongH); eq(wrong.status, 401, 'wrong key: ' + wrong.text);
+  const late = await send(lateH); eq(late.status, 401, 'outside the window: ' + late.text);
+  eq(await claimOf(wrongH), 0, 'no claim row for the wrong-key signature'); eq(await claimOf(lateH), 0, 'no claim row for the out-of-window signature');
+  const ok = await send(okH); eq(ok.status, 202, 'control, an accepted post: ' + ok.text);
+  eq(await claimOf(okH), 1, 'control: an accepted post leaves its own row');
 });

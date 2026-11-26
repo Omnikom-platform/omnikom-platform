@@ -86,6 +86,9 @@ export async function securityEvents(where: { actor?: string; code?: string; kin
   });
 }
 
+// the claim row of ONE header's signature (the key is sha256 of the v1 value): a net count of rows cannot tell an insert from the purge that runs before it
+export const claimOf = async (header: string) => { const v1 = /,v1=([0-9a-f]{64})$/.exec(header)![1]; const hash = await sha256(v1); return await withSql(async sql => (await sql`select count(*)::int as n from private.signature_seen where hash = ${hash}`)[0].n as number); };
+export async function sha256(s: string) { return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))), b => b.toString(16).padStart(2, '0')).join(''); }
 // ---------- the fake outside services ----------
 export const fake = {
   async recorded(): Promise<{ github: { path: string; token: string; authorized: boolean; accept: string; body: { ref?: string; inputs?: Record<string, unknown>; event_type?: string; client_payload?: Record<string, unknown> } | null }[]; storage: { path: string; authorized: boolean }[]; removed: { prefixes: string[] | null; authorized: boolean }[] }> {

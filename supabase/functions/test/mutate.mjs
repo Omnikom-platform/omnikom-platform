@@ -61,14 +61,14 @@ const MUTANTS = [
   // the frame every runner function shares (_shared/runner.ts)
   ['runner: the signature is not checked', F + '_shared/runner.ts', "  const signed = await verify(req.headers.get(o.header ?? 'x-runner-signature'), key, o.method, pathForSignature(url), signedBody);", '  const signed = true;', 'runner.test.ts'],
   ['runner: a bad signature leaves no security event', F + '_shared/runner.ts', "service.record_security_event('bad-signature', 'SIGNATURE'", "service.record_security_event('no-such-kind', 'SIGNATURE'", 'runner.test.ts'],
-  ['runner: the event does not say kind runner', F + '_shared/runner.ts', "{ fn: o.fn, kind: o.keyEnv ? 'cron' : 'runner' }", '{ fn: o.fn }', 'runner.test.ts'],
+  ['runner: the event does not say kind runner', F + '_shared/runner.ts', "'SIGNATURE', null, null, null, ${ipHash}, ${{ fn: o.fn, kind: o.keyEnv ? 'cron' : 'runner' }}", "'SIGNATURE', null, null, null, ${ipHash}, ${{ fn: o.fn }}", 'runner.test.ts'],
   ['runner: a GET is verified over a body that is not empty', F + '_shared/runner.ts', "const signedBody = o.method === 'GET' ? '' : text;", "const signedBody = o.method === 'GET' ? 'x' : text;", 'runner.test.ts'],
   ['runner: a missing RUNNER_KEY is not refused', F + '_shared/runner.ts', "  if (!key) { console.error(o.fn, `${keyEnv} is not set`); return problem(500, 'CONFIG', 'Not configured.'); }\n", '', 'runner.test.ts'],
   ['runner: any method', F + '_shared/runner.ts', "  if (req.method !== o.method) return problem(405, 'METHOD', `${o.method} only.`);\n", '', 'runner.test.ts'],
   ['runner: an id that is not a uuid is not refused', F + '_shared/runner.ts', "    if (!UUID.test(v)) return problem(404, 'S-NOT-FOUND', 'Not found.');\n", '', 'runner.test.ts'],
   ['runner: no body cap (256 KiB)', F + '_shared/runner.ts', "  if (text.length > MAX_BODY) return problem(413, 'SIZE', 'This request is too large.');\n", '', 'runner.test.ts'],
   ['runner: a refusal of the database is a plain 500', F + '_shared/runner.ts', '      return problem(r.status, r.code, r.msg);', "      return problem(500, 'SERVER', 'x');", 'runner.test.ts'],
-  ['runner: the key row is not touched', F + '_shared/runner.ts', "    if (!o.keyEnv) await touchKey(sql, key);   // the registry row is the runner key's; the cron key has none\n", '', 'runner.test.ts'],
+  ['runner: the key row is not touched', F + '_shared/runner.ts', "    if (!o.keyEnv) await touchKey(sql, key);   // the registry row is the runner key's; the cron key has none; only a call that took its claim touches it (a copy or a refused body never does)\n", '', 'runner.test.ts'],
   // export-published
   ['export-published: the snapshot is not frozen first', F + 'export-published/index.ts', '    await c.sql`select service.freeze_snapshot(${c.id}::uuid)`;\n', '', 'runner.test.ts'],
   ['export-published: the ORIGINAL path is exported (GPS leak)', F + 'export-published/index.ts', '      const path = derivativePath(m.path, derivativeSlot(m.width));', '      const path = m.path;', 'runner.test.ts'],
@@ -329,8 +329,8 @@ const MUTANTS = [
 
   // work order 44 (migration 27): the metrics functions and job-callback's sitemap step (each must turn metrics.test.ts red). Run only these: --only "metrics"
   ['metrics: the cron key is read from the runner key\'s variable', F + '_shared/runner.ts', "const keyEnv = o.keyEnv ?? 'RUNNER_KEY';", "const keyEnv = 'RUNNER_KEY';", 'metrics.test.ts'],
-  ['metrics: the cron signature is read from the runner header', F + '_shared/runner.ts', "req.headers.get(o.header ?? 'x-runner-signature')", "req.headers.get('x-runner-signature')", 'metrics.test.ts'],
-  ['metrics: a bad cron signature is recorded as a runner event', F + '_shared/runner.ts', "kind: o.keyEnv ? 'cron' : 'runner'", "kind: 'runner'", 'metrics.test.ts'],
+  ['metrics: the cron signature is read from the runner header', F + '_shared/runner.ts', "await verify(req.headers.get(o.header ?? 'x-runner-signature')", "await verify(req.headers.get('x-runner-signature')", 'metrics.test.ts'],
+  ['metrics: a bad cron signature is recorded as a runner event', F + '_shared/runner.ts', "'SIGNATURE', null, null, null, ${ipHash}, ${{ fn: o.fn, kind: o.keyEnv ? 'cron' : 'runner' }}", "'SIGNATURE', null, null, null, ${ipHash}, ${{ fn: o.fn, kind: 'runner' }}", 'metrics.test.ts'],
   ['metrics: metrics-pull takes any source', F + 'metrics-pull/index.ts', "    if (only !== null && only !== 'pagespeed') return problem(400, 'BODY', 'source is pagespeed, or leave it out.');\n", '', 'metrics.test.ts'],
   ['metrics: metrics-pull pulls a workspace that is not a target', F + 'metrics-pull/index.ts', 'select * from service.metrics_targets() where workspace_id = ${c.id}::uuid`', 'select * from service.metrics_targets() limit 1`', 'metrics.test.ts'],
   ['metrics: Bing is asked about a preview site', F + 'metrics-pull/index.ts', "site: t.site_state === 'live' && t.domain ? `https://${t.domain}/` : undefined, indexnow", 'site: `https://${t.domain ?? t.host}/`, indexnow', 'metrics.test.ts'],

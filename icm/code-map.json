@@ -511,7 +511,7 @@
     {"path":"supabase/functions/test/templates.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/unpublish.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/test/upload.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"supabase/functions/test/util.ts","owner":"platform-build","exports":["Answer","AuthMail","CRM_FORMS","CRM_LISTS","Handle","Hook","MintOpts","SITE_A","SITE_B","SUB","Sql","WS_A","WS_B","Who","assert","call","crmForms","env","eq","fake","freshT","hooks","mint","mkMedia","newest","photoContract","securityEvents","t","teamRows","toFakeHook","withSql"],"tests":[],"feature":""},
+    {"path":"supabase/functions/test/util.ts","owner":"platform-build","exports":["Answer","AuthMail","CRM_FORMS","CRM_LISTS","Handle","Hook","MintOpts","SITE_A","SITE_B","SUB","Sql","WS_A","WS_B","Who","assert","call","claimOf","crmForms","env","eq","fake","freshT","hooks","mint","mkMedia","newest","photoContract","securityEvents","sha256","t","teamRows","toFakeHook","withSql"],"tests":[],"feature":""},
     {"path":"supabase/functions/test/zz-scale-probe.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"supabase/functions/unpublish/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/cors.test.ts","supabase/functions/test/mutate.mjs","supabase/functions/test/unpublish.test.ts"],"feature":""},
     {"path":"supabase/functions/upload-finish/index.ts","owner":"platform-build","exports":["handle"],"tests":["supabase/functions/test/mutate.mjs","supabase/functions/test/upload.test.ts"],"feature":""},
