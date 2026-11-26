@@ -35,6 +35,8 @@ JOB 4 DONE 23:58: 4fe75b1 pushed (backup-gh check/platform/advisor-engine 3fc76d
 VTV CHIPS 00:00: labels in packs/vtv/source.mjs; chip tests red (ids) -> green; test-vtv-engine 25/25 + 3/3, test-compile-51 10/10 + 4/4. Engine + omnikom files unchanged. Next: job 5 (docs/advisor/r3/HANDOVER-cp11-fail-rows.md, ruled A for #873), #902 + #887 first.
 JOB 5 00:25: cp11 #873 #887 #902 FAIL->PASS, worse 0 (FAIL 29->26); test-no-meaning 8/8 + 3/3; golden re-recorded, 37 moved turns named in docs/advisor/r3/HANDOVER-cp11-fail-rows.md (first-turn bare count -> fallback: for the head). Next: commit, push, then the 26 intent misses.
 MISSES 00:48: rulings C (00:30: held-out 18 get engine-level only), A (00:34: #519 -> chat.name, #307 stays FAIL), seat range C (00:31: keep). packs/omnikom-io/additions.mjs merged by the converter; test-intent-misses 8/8 + 1/1; cp11 FAIL 29->19, better 10, worse 0; golden 10765/10765. Next: commit, push, then engine-level ranking for the 18 held-out rows.
+HELD-OUT 00:53: pushed 0ae1baa3. Attempt 1 (exact phrasing) REJECTED + reverted: cp11 worse=3, golden 148 moved, held-out 0 moved. Asked the head: stop (go to XState) or allow named golden moves.
+HEAD 00:55: A, stop; FAIL 19 (18 held-out + #307) is the honest number; own-phrasing 342->10 kept as a later option. Next: XState inside 15,980 B.
 - HEAD 21:53 order: job 3 -> matcher race -> job 4 (VTV in the engine: English base layer, 5.1 compiler, slot readers by type) -> XState flows.
   Job 4's written hand-over goes with job 3's report, with its size. (21:52 I told the head job 3 alone does not run VTV.)
 - JOB 3 (21:55): red test = test/no-client-text.mjs extended to intent ids + families: FAIL 72 (engine.mjs 71, matcher.mjs 1).

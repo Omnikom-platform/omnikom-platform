@@ -49,5 +49,12 @@ The 9 text diffs are exactly the 7 rows plus job 5's #887 and #902. Remaining FA
 The pack's `meta.source.commit` moved c4697fed -> 951d93f3 (the lovable repo moved on); the converted content did not change
 apart from the additions (git diff of pack.json: the commit line, the move, 9 cues).
 
-NOT DONE: engine-level ranking for the 18 held-out rows (next). Finding for that step: 342 of the pack's 3,234 own phrasings do not
+Engine-level ranking for the 18 held-out rows, attempt 1 (00:52), REJECTED and reverted: "a sentence the pack lists under one
+intent is that intent" (exact phrasing, after picks and follow-ups). Own phrasings missing their intent 342 -> 10, but cp11
+`graded better=14 worse=3` (#311 "that is not what I meant" -> chat.frustrated, #834 "let's do it" lost its hand-off link, #865
+"what dialer do you use" -> price.dialer: the library files these sentences under other intents than cp11 does), golden 148 turns
+moved, and 0 of the 18 held-out rows moved. Why the held-out rows are hard to reach this way: golden records today's ranking for
+10,765 turns, so a scorer change that reaches new paraphrases moves golden turns, and "golden holds" then rejects it.
+Ruled (head 2026-11-27 00:55): A, stop. **FAIL 19 (the 18 held-out rows + #307) is the honest number.**
+Later option, NOT DONE now: the own-phrasing rule above (342 -> 10), only with its 3 cp11 rows and 148 golden moves ruled first. Finding for that step: 342 of the pack's 3,234 own phrasings do not
 route to their own intent on the first turn (scratch measure; e.g. "what do i pay" -> clarify, "what dialer do you use" -> crm.tools).
