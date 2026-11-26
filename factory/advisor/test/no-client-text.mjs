@@ -21,7 +21,7 @@ for (const p of readdirSync(packsDir)) {
 }
 if (!ids.size) { console.log('NO CLIENT TEXT: FAIL (no pack intents found under ' + packsDir + ')'); process.exit(1); }
 const hits = [];
-for (const name of readdirSync(dir)) {
+for (const name of readdirSync(dir, { recursive: true }).filter((n) => n.endsWith('.mjs'))) {
   const lines = readFileSync(join(dir, name), 'utf8').split('\n');
   lines.forEach((line, i) => {
     for (const word of BANNED) if (line.toLowerCase().includes(word)) hits.push(name + ':' + (i + 1) + ': contains "' + word + '"');

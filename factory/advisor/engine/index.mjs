@@ -1,5 +1,6 @@
 // The Advisor engine, built from a pack. createAdvisor(pack) returns what a site card needs:
 //   { engine, initialState, flow: { faq, enquiry, scripted, site, enquiryScript, route } }
+// createAdvisor(pack, { scorer }) swaps the matcher's phrasing step for a library scorer (engine/scorers/, the R3 race).
 // engine.respond(state, text) answers a typed line; engine.observe, engine.intents and engine.stats are there for the
 // guided flows and for tests. Node built-ins only; nothing in this folder names a client: the pack carries every word.
 
@@ -25,7 +26,7 @@ function revive(value) {
 /** The pack format this engine reads: "<name>-advisor-pack/1". */
 export const PACK_FORMAT = /^[a-z0-9]+-advisor-pack\/1$/;
 
-export function createAdvisor(rawPack) {
+export function createAdvisor(rawPack, { scorer } = {}) {
   if (!rawPack || !PACK_FORMAT.test(rawPack.meta?.schema ?? "")) {
     throw new Error("advisor: not an advisor pack, version 1");
   }
@@ -35,7 +36,7 @@ export function createAdvisor(rawPack) {
   const slots = createSlots(pack.slots, pack.rx.slots, T, pack.texts);
   // hand-written cues: [pattern, intent, delta]
   const cues = pack.cues.map((c) => [new RegExp(c.pattern, c.flags), c.intent, c.delta]);
-  const { Matcher } = createMatcher({ R: pack.rx.matcher, T, L: pack.lists, S: pack.steer, cues, text, slots });
+  const { Matcher } = createMatcher({ R: pack.rx.matcher, T, L: pack.lists, S: pack.steer, cues, text, slots, scorer });
   const { Engine, initialState } = createEngine({
     pack,
     R: pack.rx.engine,
