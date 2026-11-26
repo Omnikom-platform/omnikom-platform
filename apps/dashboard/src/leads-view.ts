@@ -2,7 +2,7 @@
 // exactly what the list shows (DP-1.3-05, -35). The Leads screen provides it; the panel beside it reads it.
 import { createContext, useCallback, useContext, useState } from 'react';
 import { exportLeads } from './api';
-import { viewQuery, type View } from './lib/crm';
+import { listQuery, type View } from './lib/crm';
 import type { Lists } from './lib/leads';
 import { CallFailed } from './lib/problems';
 import { t } from './plan';
@@ -38,7 +38,7 @@ export function useExporter() {
     setMessage('');
     setFailed(false);
     try {
-      const q = viewQuery(v.view, v.myTeamRow, v.lists);
+      const q = listQuery(v.view, v.myTeamRow, v.lists);
       const out = await exportLeads({
         workspace: v.workspaceId, ...q,
         ...(v.template ? { template: v.template, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone } : {}),

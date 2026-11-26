@@ -38,7 +38,7 @@ export const CORE_COLUMNS: Column[] = [
 export type Condition = 'is' | 'between' | 'empty' | 'not_empty';
 export type ColumnFilter = { key: string; label: string; type: string; cond: Condition; value?: string; from?: string; to?: string };
 
-/** `due` and `duplicates` are the two flags of lead-list (DP-1.3-55, -56); the export does not take them (see `listQuery`). */
+/** `due` and `duplicates` are the two flags of lead-list (DP-1.3-55, -56); the export takes them too (see `listQuery`). */
 export type View = { filter: Filter; search: string; site: string; columnFilters: ColumnFilter[]; sort: SortSpec | null; page: number; due: boolean; duplicates: boolean };
 export const FIRST_VIEW: View = { filter: 'new', search: '', site: '', columnFilters: [], sort: null, page: 1, due: false, duplicates: false };
 
@@ -87,7 +87,7 @@ export function viewFilters(view: Pick<View, 'filter' | 'site' | 'columnFilters'
   return out;
 }
 
-/** The body of lead-list and of the export without a workspace: search (after 2 characters), filters, sort. */
+/** The view's query without the two flags: search (after 2 characters), filters, sort. */
 export function viewQuery(view: View, myTeamRow: string | null, lists: Lists): { search?: string; filters: ListFilter[]; sort?: SortSpec } {
   const search = view.search.trim();
   return {
@@ -97,7 +97,7 @@ export function viewQuery(view: View, myTeamRow: string | null, lists: Lists): {
   };
 }
 
-/** The body of lead-list: the view's query and the two flags when ticked (lead-export has no such keys, so the export keeps `viewQuery`). */
+/** The body of lead-list and of lead-export without a workspace: the view's query and the two flags when ticked. */
 export function listQuery(view: View, myTeamRow: string | null, lists: Lists): ReturnType<typeof viewQuery> & { due?: true; duplicates?: true } {
   return { ...viewQuery(view, myTeamRow, lists), ...(view.due ? { due: true as const } : {}), ...(view.duplicates ? { duplicates: true as const } : {}) };
 }

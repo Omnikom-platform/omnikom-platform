@@ -87,8 +87,8 @@ export async function bulkLeads(b: BulkAction): Promise<number> {
 
 export type Exported = { csv: string; filename: string; capped: boolean };
 
-/** lead-export on the view: { workspace, search, filters, sort } and, for a client's own layout, a template id. The file comes back as text. */
-export async function exportLeads(body: { workspace: string; search?: string; filters?: ListFilter[]; sort?: SortSpec; template?: string; timezone?: string }): Promise<Exported> {
+/** lead-export on the view: { workspace, search, filters, sort }, due and duplicates when ticked and, for a client's own layout, a template id. The file comes back as text. */
+export async function exportLeads(body: { workspace: string; search?: string; filters?: ListFilter[]; sort?: SortSpec; due?: boolean; duplicates?: boolean; template?: string; timezone?: string }): Promise<Exported> {
   const { text, res } = await request('lead-export', body);
   const named = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '');
   return { csv: text, filename: named?.[1] ?? 'leads.csv', capped: res.headers.has('x-omnikom-export-capped') };

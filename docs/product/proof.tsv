@@ -44,6 +44,8 @@ A18	test	supabase/functions/test/crm3b.test.ts	duplicates the flagged ones
 A19	test	apps/dashboard/tests/flows.spec.ts	search, a filter on an industry column, sort by budget, edit a field
 A19	test	supabase/tests/tenancy.test.sql	agent one sees exactly their own mark
 A19	test	supabase/functions/test/lead-read.test.ts	lead-update read: true alone marks the lead read for the caller, once
+A20	test	apps/dashboard/src/leads-view.export.test.tsx	a ticked Due reaches lead-export
+A20	test	supabase/functions/test/export.test.ts	lead-export (work order 20): the Due and Duplicates ticks of the view narrow the file as they narrow the list
 A21	test	apps/dashboard/tests/flows.spec.ts	the searched view exported in a saved layout has the layout
 A21	test	supabase/functions/test/import.test.ts	lead-export with a template: the caller
 A22	test	apps/dashboard/tests/flows.spec.ts	a file with a bad line offers no import and writes nothing

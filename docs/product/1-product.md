@@ -59,7 +59,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | A17 Follow-up date and tasks | WORKS | staging flows 2026-11-10 (flows.spec.ts "the CRM block 3b screens" as the owner and as an agent, 2 of 2; plan-gate.spec.ts; the 390 px and laptop look, styles.spec.ts 26 of 26 on 2026-11-10): backend work order 18, screens work order 19: the record's Follow-up and Tasks (DP-1.3-67 to -72, D:pages/LeadFollowUp.tsx, D:pages/LeadTasks.tsx), the Due tick and the Follow-up column (DP-1.3-55, -57); `follow_up_at`, `lead_tasks`, F:lead-update `follow_up`, F:lead-task, F:lead-list `due` |
 | A18 Duplicate flag | WORKS | staging flows 2026-11-10 (flows.spec.ts "the CRM block 3b screens" as the owner and as an agent, 2 of 2; plan-gate.spec.ts; the 390 px and laptop look, styles.spec.ts 26 of 26 on 2026-11-10): backend work order 18, screens work order 19: the Duplicates tick and the Possible duplicate cell (DP-1.3-56, -58) and, in the record, the line with a link to the older lead or "Another lead matches this one." (DP-1.3-73, -74); `leads.duplicate_of` set on every insert, F:lead-list `duplicates` (`idempotency_key` still catches the same submission) |
 | A19 Unread bold, opening marks read | WORKS | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; the first run's 2 reds were the label bug fixed in 33d59c2; 9 of 9 green on a GitHub runner 2026-11-10, runs 42823258511 and 42825133168; flake closed by the head of operations 2026-11-10 16:05): an unopened lead is bold (data-unread), opening it marks it read; M12 |
-| A20 CSV export of the list | PARTLY | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; the first run's 2 reds were the label bug fixed in 33d59c2; 9 of 9 green on a GitHub runner 2026-11-10, runs 42823258511 and 42825133168; flake closed by the head of operations 2026-11-10 16:05): export of the view carries its filter and sort, header = the contract's columns; F:lead-export, journey J7. Missing: the screen's export call does not send the Due and Duplicates ticks of a view (`exportLeads` in `apps/dashboard/src/api.ts`; the function already takes them; work order 19 finding 4) |
+| A20 CSV export of the list | WORKS | the screen's export sends the Due and Duplicates ticks of the view with its search, filters and sort (`apps/dashboard/src/leads-view.export.test.tsx`, vitest), and the delete sheet's "Export the list first" is the same export (`apps/dashboard/src/pages/DeleteSheet.tsx`); `lead-export` filters on them and refuses a non-boolean (`supabase/functions/test/export.test.ts:253-256`); staging flows 2026-11-05 (flows.spec.ts:296, 9 of 9 green on a GitHub runner 2026-11-10, runs 42823258511 and 42825133168): export of the view carries its filter and sort, header = the contract's columns; F:lead-export, journey J7 |
 | A21 Export in the client's CRM layout | WORKS | screen built (block 3a, the Export layout pick); staging flows 2026-11-12 (`apps/dashboard/tests/flows.spec.ts` "A21 export in a saved layout as the owner", 1 passed): a saved layout picked in Export layout; the file's header is the layout's, in its order, and each row holds its lead's values under it; watched red with FLOWS_MUTANT=export-plain; backend e2e-crm-io 2026-11-04 and journey J11 |
 | A22 Import the client's file | WORKS | staging flows 2026-11-05 (flows.spec.ts:291, 5 of 5 on a re-run; the first run's 2 reds were the label bug fixed in 33d59c2; 9 of 9 green on a GitHub runner 2026-11-10, runs 42823258511 and 42825133168; flake closed by the head of operations 2026-11-10 16:05): the screen's dry run (propose, save, 3 rows, nothing written); staging flows 2026-11-12 (`apps/dashboard/tests/flows.spec.ts` "A22 the real import as the owner", 1 passed): a file with a bad line is refused at the check (line and field named, no Import offered, nothing written); the fixed file imports 2 leads with form import and one consent ledger row each, the duplicate skipped, and nothing without the consent tick; watched red with FLOWS_MUTANT=import-lost; backend e2e-crm-io 2026-11-04 (a real run with a bad line refused whole) and journey J11 |
 | A23 An agent sees only its own leads | WORKS | RLS `leads_read`; per-column visibility not specified |
@@ -158,12 +158,12 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 ### Counts
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
-| A CRM | 23 | 3 | 0 | 26 |
+| A CRM | 24 | 2 | 0 | 26 |
 | B Dashboard | 15 | 8 | 0 | 23 |
 | C Backend and database | 15 | 3 | 0 | 18 |
 | D Factory and forms | 9 | 1 | 0 | 10 |
 | E Hardening | 11 | 10 | 0 | 21 |
-| Total | 73 | 25 | 0 | 98 |
+| Total | 74 | 24 | 0 | 98 |
 
 Completion is reported from these counts only.
 
