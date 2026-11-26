@@ -34,6 +34,8 @@ STATUS 21:30 (R3 step 2; all UNCOMMITTED in this worktree):
   Guard: test/golden-turns.mjs + golden-turns.json (multi-turn hashes from the engine at cea2d9d), coverage-checked with NODE_V8_COVERAGE.
 - JOB 3 DONE 22:05 (commit below): pack.steer + validator STEER_* (34 of 34, 16 of 16); NO CLIENT TEXT PASS; GOLDEN 10765 of 10765
   (3 mutants red); cp11 0 graded / 0 text diffs, FAIL->PASS 0; pack sha c6cb7faa... NEXT: job 4 hand-over (written, sized) + report, then the race.
+- JOB 4 hand-over written 22:12: docs/advisor/r3/HANDOVER-vtv-engine.md (options A recommended / B, ~700-900 lines, two sittings).
+  Reported to the head with job 3. NEXT: the matcher race (Vite 8.3.5 per ruling A, through heavy.mjs), then job 4.
 - (was) OPEN for the head: bundler not approved -> byte sizes UNPROVEN; VTV through the engine needs a generic path (intent ids hard-coded in engine.mjs).
 NOW (R3 step 2): pack-driven port, hand-over docs/advisor/r3/HANDOVER-port.md, given to a helper agent (Sonnet) 20:45; red test = run-cp11 on factory/advisor/r3/pack-advisor.mjs (fails: no pack.json).
 Then: verify its outputs myself; validator + tests + mutants (lib-test-kit pattern); VTV pack (clients/vtv/facts.md + live site's signed text; booking slot for Calendly);

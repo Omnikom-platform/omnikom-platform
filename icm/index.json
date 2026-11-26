@@ -1,13 +1,13 @@
 {
   "version": 1,
   "counts": {
-    "docs": 391,
+    "docs": 392,
     "unownedDocs": 29,
-    "unplaced": 234,
+    "unplaced": 235,
     "over300": 11
   },
   "docs": [
-    {"path":".claude/POSITION.md","title":"Block 2026-11-26 20:30 (this is the current block)","summary":"Session ADVISOR-ENGINE_code-mode (Code Mode, Opus 5.5). Head: HEAD-OF-OPERATIONS_Fable_2026-11-11 (SendMessage, 8-line reports, paths only). R2 ACCEPTED by t...","owner":"head-of-operations","layer":4,"lines":92,"loadFor":[]},
+    {"path":".claude/POSITION.md","title":"Block 2026-11-26 20:30 (this is the current block)","summary":"Session ADVISOR-ENGINE_code-mode (Code Mode, Opus 5.5). Head: HEAD-OF-OPERATIONS_Fable_2026-11-11 (SendMessage, 8-line reports, paths only). R2 ACCEPTED by t...","owner":"head-of-operations","layer":4,"lines":94,"loadFor":[]},
     {"path":"CLAUDE.md","title":"Omnikom Platform: Layer 0 (always loaded)","summary":"**What this is.** A self-serve platform that replaces services like Luxury Presence: it researches and scores any business's digital presence, builds a progr...","owner":"head-of-operations","layer":0,"lines":46,"loadFor":[]},
     {"path":"README.md","title":"Omnikom Platform","summary":"Self-serve platform to replace services like Luxury Presence: programmatically SEO-correct client websites (design-first, then agent-built with the programma...","owner":"head-of-operations","layer":"unplaced","lines":26,"loadFor":[]},
     {"path":"apps/dashboard/README.md","title":"Dashboard (step 5): the shell, sign in, Leads, and the Site screen","summary":"The client dashboard, built as plain semantic HTML on purpose (DECISIONS 21, 39): `main`, `nav`, `form`, `label`, `button`, `table`, `section`. There is no s...","owner":"platform-build","layer":"unplaced","lines":118,"loadFor":[]},
@@ -89,6 +89,7 @@
     {"path":"docs/advisor/adr/011-pack-versions-and-integrity.md","title":"ADR 011: Immutable pack versions, sha256 pinned, one-step rollback","summary":"Status: accepted by the head 2026-11-26 20:45 (rulings in R2 section 24). Design: `docs/advisor/R2-design.md`.","owner":"platform-build","layer":"unplaced","lines":18,"loadFor":[]},
     {"path":"docs/advisor/r3/HANDOVER-port.md","title":"R3 hand-over: port today's omnikom.io advisor to factory/advisor, driven by a pack (step 2 of R3)","summary":"Written by ADVISOR-ENGINE (the builder of record) for a helper agent, 2026-11-26. Design: docs/advisor/R2-design.md (sections 2, 4, 5). Worktree: this one; b...","owner":"platform-build","layer":"unplaced","lines":42,"loadFor":[]},
     {"path":"docs/advisor/r3/HANDOVER-steer.md","title":"Hand-over: job 3, the intents the engine steers by move into the pack (pack.steer)","summary":"Head's order 2026-11-26 21:48 and 21:53: job 3 first, then the matcher race, then job 4 (VTV in the engine), then XState. Builder: ADVISOR-ENGINE (this workt...","owner":"platform-build","layer":"unplaced","lines":48,"loadFor":[]},
+    {"path":"docs/advisor/r3/HANDOVER-vtv-engine.md","title":"Hand-over: job 4, VTV runs in the engine (English base layer, 5.1 compiler, slot readers by type)","summary":"Head's order 2026-11-26 21:53: job 3 (done, 7886313) -> matcher race -> **job 4** -> XState flows. M319: both sites on the new chat. Builder: ADVISOR-ENGINE ...","owner":"platform-build","layer":"unplaced","lines":52,"loadFor":[]},
     {"path":"docs/blueprint/04-DASHBOARD.md","title":"04 User dashboard: every screen and flow","summary":"Wireframes: `wireframes/wireframes.html` (open in a browser; `?s=<id>` shows one screen), rendered PNGs next to it (`node docs/blueprint/wireframes/render.mj...","owner":"platform-build","layer":"unplaced","lines":92,"loadFor":[]},
     {"path":"docs/blueprint/05-BUILD-PLAN.md","title":"05 Build plan","summary":"Order agreed with the owner (2026-10-28): (1) thin end-to-end pipeline, (2) ELEV8's 42 pages on the approved V4 design with the launch gates, (3) dashboard v...","owner":"platform-build","layer":"unplaced","lines":171,"loadFor":[]},
     {"path":"docs/blueprint/06-PRD.md","title":"06 Product requirements (PRD)","summary":"Version 1.0 (2026-10-28). Owner: Abdo (CTO). Written to ISO/IEC/IEEE 29148:2018 5.2.5-5.2.6 (each requirement verifiable by a named test and traceable to a w...","owner":"platform-build","layer":"unplaced","lines":106,"loadFor":[]},
