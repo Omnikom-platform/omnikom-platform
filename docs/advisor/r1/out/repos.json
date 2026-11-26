@@ -1,0 +1,1790 @@
+{
+ "measuredAt": "2026-11-26T16:08:33.259Z",
+ "since": "2025-11-26T16:08:33.259Z",
+ "results": [
+  {
+   "id": "nlpjs",
+   "layer": "understanding",
+   "npm": [
+    {
+     "name": "@nlpjs/basic",
+     "latest": "5.0.0-alpha.5",
+     "published": "2025-01-23T09:16:47.187Z",
+     "publishedDays": 672,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 3,
+     "deprecated": null,
+     "deps": 6,
+     "unpackedSize": 11962,
+     "installScripts": [],
+     "fields": [],
+     "repository": "git+https://github.com/axa-group/nlp.js.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 27,
+      "raw": 1255101,
+      "gzip": 362545,
+      "br": 300138,
+      "bad": [],
+      "list": [
+       "/npm/@nlpjs/basic@5.0.0-alpha.5/+esm 1235",
+       "/npm/@nlpjs/console-connector@5.0.0-alpha.5/+esm 251",
+       "/npm/@nlpjs/core-loader@5.0.0-alpha.5/+esm 75481",
+       "/npm/@nlpjs/evaluator@5.0.0-alpha.5/+esm 3313",
+       "/npm/@nlpjs/lang-en@5.0.0-alpha.5/+esm 93765",
+       "/npm/@nlpjs/logger@5.0.0-alpha.5/+esm 596",
+       "/npm/@nlpjs/nlp@5.0.0-alpha.5/+esm 5151",
+       "/npm/@nlpjs/core@5.0.0-alpha.5/+esm 8569",
+       "/npm/@nlpjs/request@5.0.0-alpha.5/+esm 80616",
+       "/npm/escodegen@2.1.0/+esm 9663",
+       "/npm/esprima@4.0.1/+esm 31372",
+       "/npm/@nlpjs/lang-en-min@5.0.0-alpha.5/+esm 4873",
+       "/npm/pino@7.11.0/+esm 2567",
+       "/npm/@nlpjs/nlu@5.0.0-alpha.5/+esm 5767",
+       "/npm/@nlpjs/ner@5.0.0-alpha.5/+esm 6344",
+       "/npm/@nlpjs/nlg@5.0.0-alpha.5/+esm 1873",
+       "/npm/@nlpjs/sentiment@5.0.0-alpha.5/+esm 1451",
+       "/npm/@nlpjs/slot@5.0.0-alpha.5/+esm 1338",
+       "/npm/https-proxy-agent@5.0.1/+esm 248",
+       "/npm/http-proxy-agent@5.0.0/+esm 248",
+       "/npm/estraverse@5.3.0/+esm 3616",
+       "/npm/esutils@2.0.3/+esm 6351",
+       "/npm/source-map@0.6.1/+esm 8622",
+       "/npm/quick-format-unescaped@4.0.4/+esm 828",
+       "/npm/@nlpjs/similarity@5.0.0-alpha.5/+esm 1648",
+       "/npm/@nlpjs/neural@5.0.0-alpha.5/+esm 2141",
+       "/npm/@nlpjs/language-min@5.0.0-alpha.5/+esm 4618"
+      ]
+     },
+     "bundlephobia": {
+      "size": 597773,
+      "gzip": 155686,
+      "dependencyCount": 6,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    },
+    {
+     "name": "@nlpjs/nlp",
+     "latest": "5.0.0-alpha.5",
+     "published": "2025-01-23T09:16:45.281Z",
+     "publishedDays": 672,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 3,
+     "deprecated": null,
+     "deps": 6,
+     "unpackedSize": 40043,
+     "installScripts": [],
+     "fields": [],
+     "repository": "git+https://github.com/axa-group/nlp.js.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 10,
+      "raw": 116538,
+      "gzip": 38900,
+      "br": 34375,
+      "bad": [],
+      "list": [
+       "/npm/@nlpjs/nlp@5.0.0-alpha.5/+esm 5151",
+       "/npm/@nlpjs/core@5.0.0-alpha.5/+esm 8569",
+       "/npm/@nlpjs/nlu@5.0.0-alpha.5/+esm 5767",
+       "/npm/@nlpjs/ner@5.0.0-alpha.5/+esm 6344",
+       "/npm/@nlpjs/nlg@5.0.0-alpha.5/+esm 1873",
+       "/npm/@nlpjs/sentiment@5.0.0-alpha.5/+esm 1451",
+       "/npm/@nlpjs/slot@5.0.0-alpha.5/+esm 1338",
+       "/npm/@nlpjs/similarity@5.0.0-alpha.5/+esm 1648",
+       "/npm/@nlpjs/neural@5.0.0-alpha.5/+esm 2141",
+       "/npm/@nlpjs/language-min@5.0.0-alpha.5/+esm 4618"
+      ]
+     },
+     "bundlephobia": {
+      "size": 106736,
+      "gzip": 29372,
+      "dependencyCount": 6,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    },
+    {
+     "name": "@nlpjs/core",
+     "latest": "5.0.0-alpha.5",
+     "published": "2025-01-23T09:16:33.282Z",
+     "publishedDays": 672,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 3,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 88463,
+     "installScripts": [],
+     "fields": [],
+     "repository": "git+https://github.com/axa-group/nlp.js.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 27130,
+      "gzip": 8569,
+      "br": 7672,
+      "bad": [],
+      "list": [
+       "/npm/@nlpjs/core@5.0.0-alpha.5/+esm 8569"
+      ]
+     },
+     "bundlephobia": {
+      "size": 25293,
+      "gzip": 7265,
+      "dependencyCount": 0,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    },
+    {
+     "name": "@nlpjs/lang-en-min",
+     "latest": "5.0.0-alpha.5",
+     "published": "2025-01-23T09:16:38.318Z",
+     "publishedDays": 672,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 3,
+     "deprecated": null,
+     "deps": 1,
+     "unpackedSize": 54244,
+     "installScripts": [],
+     "fields": [],
+     "repository": "git+https://github.com/axa-group/nlp.js.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 2,
+      "raw": 44049,
+      "gzip": 13442,
+      "br": 11939,
+      "bad": [],
+      "list": [
+       "/npm/@nlpjs/lang-en-min@5.0.0-alpha.5/+esm 4873",
+       "/npm/@nlpjs/core@5.0.0-alpha.5/+esm 8569"
+      ]
+     },
+     "bundlephobia": {
+      "size": 40547,
+      "gzip": 11290,
+      "dependencyCount": 1,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    },
+    {
+     "name": "node-nlp",
+     "latest": "5.0.0-alpha.5",
+     "published": "2025-01-23T09:16:48.519Z",
+     "publishedDays": 672,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 3,
+     "deprecated": null,
+     "deps": 15,
+     "unpackedSize": 81470,
+     "installScripts": [],
+     "fields": [],
+     "repository": "git+https://github.com/axa-group/nlp.js.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "error": "The operation was aborted due to timeout"
+     },
+     "bundlephobia": {
+      "size": 19830200,
+      "gzip": 6701952,
+      "dependencyCount": 15,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "axa-group/nlp.js",
+    "url": "https://github.com/axa-group/nlp.js",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 6583,
+    "openIssues": 80,
+    "openPRs": 35,
+    "lastCommit": "2024-03-21T12:16:43Z",
+    "lastCommitDays": 980,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "4.14.2 2020-10-20",
+    "licenceFile": "LICENSE.md",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "rivescript",
+   "layer": "understanding+reply",
+   "npm": [
+    {
+     "name": "rivescript",
+     "latest": "2.2.1",
+     "published": "2022-11-24T06:19:18.593Z",
+     "publishedDays": 1463,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 3,
+     "unpackedSize": 1782139,
+     "installScripts": [],
+     "fields": [],
+     "repository": "git+https://github.com/aichaos/rivescript-js.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 2,
+      "raw": 314790,
+      "gzip": 86183,
+      "br": 69415,
+      "bad": [],
+      "list": [
+       "/npm/rivescript@2.2.1/+esm 14179",
+       "/npm/fs-readdir-recursive@1.1.0/+esm 72004"
+      ]
+     },
+     "bundlephobia": {
+      "size": 41841,
+      "gzip": 13050,
+      "dependencyCount": 3,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "aichaos/rivescript-js",
+    "url": "https://github.com/aichaos/rivescript-js",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 381,
+    "openIssues": 56,
+    "openPRs": 8,
+    "lastCommit": "2022-11-26T21:09:35Z",
+    "lastCommitDays": 1461,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "v2.2.1 2022-11-24",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "chatscript",
+   "layer": "understanding+dialogue+reply",
+   "npm": [],
+   "pypi": [],
+   "github": {
+    "repo": "ChatScript/ChatScript",
+    "url": "https://github.com/ChatScript/ChatScript",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 397,
+    "openIssues": 9,
+    "openPRs": 0,
+    "lastCommit": "2024-05-06T11:57:31Z",
+    "lastCommitDays": 934,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "14.1 2024-05-06",
+    "licenceFile": "license.txt",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "aimlinterpreter",
+   "layer": "understanding+reply",
+   "npm": [
+    {
+     "name": "aimlinterpreter",
+     "latest": "0.1.7",
+     "published": "2015-07-27T20:54:16.092Z",
+     "publishedDays": 4140,
+     "versions365": 0,
+     "licence_npm": "BSD",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 1,
+     "unpackedSize": null,
+     "installScripts": [],
+     "fields": [],
+     "repository": "https://github.com/B3nRa/AIML.js.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 3,
+      "raw": 350730,
+      "gzip": 97115,
+      "br": 79392,
+      "bad": [],
+      "list": [
+       "/npm/aimlinterpreter@0.1.7/+esm 73263",
+       "/npm/dom-js@0.0.9/+esm 1398",
+       "/npm/sax@0.3.5/+esm 22454"
+      ]
+     },
+     "bundlephobia": {
+      "size": 28884,
+      "gzip": 9798,
+      "dependencyCount": 1,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "B3nRa/AIML.js",
+    "url": "https://github.com/B3nRa/AIML.js",
+    "archived": false,
+    "spdx_github": null,
+    "stars": 68,
+    "openIssues": 9,
+    "openPRs": 1,
+    "lastCommit": "2016-08-01T01:35:53Z",
+    "lastCommitDays": 3770,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "none",
+    "licence_fromFileText": "no licence file found (Command failed: gh api repos/B3nRa/AIML.js/license\ngh: Not Found (HTTP 404)\n)"
+   }
+  },
+  {
+   "id": "aiml-high",
+   "layer": "understanding+reply",
+   "npm": [
+    {
+     "name": "aiml-high",
+     "latest": "0.0.8",
+     "published": "2016-02-19T07:07:18.485Z",
+     "publishedDays": 3933,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 1,
+     "unpackedSize": null,
+     "installScripts": [],
+     "fields": [],
+     "repository": "https://github.com/gleuch/aiml-high.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "error": "fetch failed"
+     },
+     "bundlephobia": {
+      "size": 31283,
+      "gzip": 10373,
+      "dependencyCount": 1,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "gleuch/aiml-high",
+    "url": "https://github.com/gleuch/aiml-high",
+    "archived": true,
+    "spdx_github": null,
+    "stars": 9,
+    "openIssues": 4,
+    "openPRs": 0,
+    "lastCommit": "2016-02-19T07:07:07Z",
+    "lastCommitDays": 3933,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "none",
+    "licence_fromFileText": "no licence file found (Command failed: gh api repos/gleuch/aiml-high/license\ngh: Not Found (HTTP 404)\n)"
+   }
+  },
+  {
+   "id": "program-y",
+   "layer": "understanding+reply",
+   "npm": [],
+   "pypi": [
+    {
+     "name": "programy",
+     "latest": "5.0.1",
+     "published": "2021-05-27T10:25:44.500489Z",
+     "publishedDays": 2009,
+     "versions365": 0,
+     "licence_pypi": "License :: OSI Approved :: MIT License",
+     "requiresPython": "",
+     "yanked": false
+    }
+   ],
+   "github": {
+    "repo": "keiffster/program-y",
+    "url": "https://github.com/keiffster/program-y",
+    "archived": false,
+    "spdx_github": "NOASSERTION",
+    "stars": 348,
+    "openIssues": 18,
+    "openPRs": 5,
+    "lastCommit": "2024-01-07T08:12:33Z",
+    "lastCommitDays": 1054,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "v1.10.1 2018-02-15",
+    "licenceFile": "COPYRIGHT.txt",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "superscript",
+   "layer": "understanding+dialogue+reply",
+   "npm": [
+    {
+     "name": "superscript",
+     "latest": "1.1.4",
+     "published": "2017-10-06T20:19:11.456Z",
+     "publishedDays": 3338,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 2,
+     "deprecated": null,
+     "deps": 21,
+     "unpackedSize": null,
+     "installScripts": [],
+     "fields": [],
+     "repository": "git+https://github.com/superscriptjs/superscript.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "error": "The operation was aborted due to timeout"
+     },
+     "bundlephobia": {
+      "size": 1340462,
+      "gzip": 378107,
+      "dependencyCount": 21,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "superscriptjs/superscript",
+    "url": "https://github.com/superscriptjs/superscript",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 1636,
+    "openIssues": 49,
+    "openPRs": 5,
+    "lastCommit": "2019-03-06T17:32:54Z",
+    "lastCommitDays": 2822,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "v1.0.0 2017-01-11",
+    "licenceFile": "LICENSE.md",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "rasa",
+   "layer": "all (server)",
+   "npm": [],
+   "pypi": [
+    {
+     "name": "rasa",
+     "latest": "3.6.21",
+     "published": "2025-01-14T10:40:10.364987Z",
+     "publishedDays": 681,
+     "versions365": 0,
+     "licence_pypi": "Apache-2.0",
+     "requiresPython": "<3.11,>=3.8",
+     "yanked": false
+    }
+   ],
+   "github": {
+    "repo": "RasaHQ/rasa",
+    "url": "https://github.com/RasaHQ/rasa",
+    "archived": false,
+    "spdx_github": "Apache-2.0",
+    "stars": 21402,
+    "openIssues": 12,
+    "openPRs": 149,
+    "lastCommit": "2025-12-18T08:04:47Z",
+    "lastCommitDays": 343,
+    "commits365": 2,
+    "humanCommitters365": 1,
+    "topCommitters365": [
+     "m-vdb:2"
+    ],
+    "latestRelease": "3.6.21 2025-01-14",
+    "licenceFile": "LICENSE.txt",
+    "licence_fromFileText": "Apache-2.0"
+   }
+  },
+  {
+   "id": "botpress-v12",
+   "layer": "all (server)",
+   "npm": [],
+   "pypi": [],
+   "github": {
+    "repo": "botpress/v12",
+    "url": "https://github.com/botpress/v12",
+    "archived": false,
+    "spdx_github": "AGPL-3.0",
+    "stars": 157,
+    "openIssues": 173,
+    "openPRs": 8,
+    "lastCommit": "2025-04-07T18:53:22Z",
+    "lastCommitDays": 598,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "v12.31.10 2025-04-10",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "AGPL"
+   }
+  },
+  {
+   "id": "botpress",
+   "layer": "all (cloud)",
+   "npm": [],
+   "pypi": [],
+   "github": {
+    "repo": "botpress/botpress",
+    "url": "https://github.com/botpress/botpress",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 15012,
+    "openIssues": 18,
+    "openPRs": 40,
+    "lastCommit": "2026-11-23T21:32:35Z",
+    "lastCommitDays": 3,
+    "commits365": 730,
+    "humanCommitters365": 23,
+    "topCommitters365": [
+     "slvnperron:17",
+     "SohaibDM:12",
+     "zeckrust:11"
+    ],
+    "latestRelease": "v12.30.9 2023-06-22",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "xstate",
+   "layer": "dialogue state",
+   "npm": [
+    {
+     "name": "xstate",
+     "latest": "5.33.4",
+     "published": "2026-11-07T19:09:28.892Z",
+     "publishedDays": 19,
+     "versions365": 95,
+     "licence_npm": "MIT",
+     "maintainers": 3,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 2321640,
+     "installScripts": [],
+     "fields": [
+      "module",
+      "exports"
+     ],
+     "repository": "git+https://github.com/statelyai/xstate.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 48079,
+      "gzip": 15410,
+      "br": 13913,
+      "bad": [],
+      "list": [
+       "/npm/xstate@5.33.4/+esm 15410"
+      ]
+     },
+     "bundlephobia": {
+      "size": 46824,
+      "gzip": 14547,
+      "dependencyCount": 0,
+      "hasJSModule": "dist/xstate.esm.js",
+      "hasSideEffects": false
+     }
+    },
+    {
+     "name": "@xstate/graph",
+     "latest": "3.0.4",
+     "published": "2025-05-31T17:37:15.296Z",
+     "publishedDays": 544,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 2,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 77809,
+     "installScripts": [],
+     "fields": [
+      "module",
+      "exports"
+     ],
+     "repository": "git+ssh://git@github.com/statelyai/xstate.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 2,
+      "raw": 55811,
+      "gzip": 18622,
+      "br": 16923,
+      "bad": [],
+      "list": [
+       "/npm/@xstate/graph@3.0.4/+esm 4269",
+       "/npm/xstate@5.19.4/+esm 14353"
+      ]
+     },
+     "bundlephobia": {
+      "size": 10199,
+      "gzip": 3782,
+      "dependencyCount": 0,
+      "hasJSModule": "dist/xstate-graph.esm.js",
+      "hasSideEffects": false
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "statelyai/xstate",
+    "url": "https://github.com/statelyai/xstate",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 30563,
+    "openIssues": 40,
+    "openPRs": 46,
+    "lastCommit": "2026-11-24T16:43:09Z",
+    "lastCommitDays": 2,
+    "commits365": 657,
+    "humanCommitters365": 13,
+    "topCommitters365": [
+     "davidkpiano:65",
+     "FranprzDev:5",
+     "merrywhether:3"
+    ],
+    "latestRelease": "xstate@5.33.4 2026-11-07",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "wink-nlp",
+   "layer": "understanding",
+   "npm": [
+    {
+     "name": "wink-nlp",
+     "latest": "2.4.0",
+     "published": "2025-06-30T14:29:43.993Z",
+     "publishedDays": 514,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 655599,
+     "installScripts": [],
+     "fields": [],
+     "repository": "git+https://github.com/winkjs/wink-nlp.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 37963,
+      "gzip": 13248,
+      "br": 11700,
+      "bad": [],
+      "list": [
+       "/npm/wink-nlp@2.4.0/+esm 13248"
+      ]
+     },
+     "bundlephobia": {
+      "size": 35068,
+      "gzip": 11500,
+      "dependencyCount": 0,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "winkjs/wink-nlp",
+    "url": "https://github.com/winkjs/wink-nlp",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 1392,
+    "openIssues": 1,
+    "openPRs": 3,
+    "lastCommit": "2025-06-30T13:27:14Z",
+    "lastCommitDays": 514,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "2.4.0 2025-06-30",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "wink-model",
+   "layer": "understanding",
+   "npm": [
+    {
+     "name": "wink-eng-lite-web-model",
+     "latest": "1.8.1",
+     "published": "2024-11-30T12:56:05.416Z",
+     "publishedDays": 726,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 3825047,
+     "installScripts": [],
+     "fields": [],
+     "repository": "git+https://github.com/winkjs/wink-eng-lite-web-model.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 3615996,
+      "gzip": 1012083,
+      "br": 780324,
+      "bad": [],
+      "list": [
+       "/npm/wink-eng-lite-web-model@1.8.1/+esm 1012083"
+      ]
+     },
+     "bundlephobia": {
+      "size": 3803303,
+      "gzip": 1010104,
+      "dependencyCount": 0,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "winkjs/wink-eng-lite-web-model",
+    "url": "https://github.com/winkjs/wink-eng-lite-web-model",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 19,
+    "openIssues": 1,
+    "openPRs": 0,
+    "lastCommit": "2024-11-30T12:50:37Z",
+    "lastCommitDays": 726,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "1.8.1 2024-11-30",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "compromise",
+   "layer": "understanding",
+   "npm": [
+    {
+     "name": "compromise",
+     "latest": "14.20.0",
+     "published": "2026-11-08T15:16:43.294Z",
+     "publishedDays": 18,
+     "versions365": 8,
+     "licence_npm": "MIT",
+     "maintainers": 3,
+     "deprecated": null,
+     "deps": 2,
+     "unpackedSize": 2876856,
+     "installScripts": [],
+     "fields": [
+      "module",
+      "exports",
+      "unpkg"
+     ],
+     "repository": "github:spencermountain/compromise",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 3,
+      "raw": 360233,
+      "gzip": 158180,
+      "br": 140101,
+      "bad": [],
+      "list": [
+       "/npm/compromise@14.20.0/+esm 150077",
+       "/npm/efrt@2.9.0/+esm 5068",
+       "/npm/suffix-thumb@6.1.0/+esm 3035"
+      ]
+     },
+     "bundlephobia": {
+      "size": 341289,
+      "gzip": 148916,
+      "dependencyCount": 2,
+      "hasJSModule": "./src/three.js",
+      "hasSideEffects": false
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "spencermountain/compromise",
+    "url": "https://github.com/spencermountain/compromise",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 12174,
+    "openIssues": 94,
+    "openPRs": 0,
+    "lastCommit": "2026-11-08T15:12:34Z",
+    "lastCommitDays": 18,
+    "commits365": 468,
+    "humanCommitters365": 5,
+    "topCommitters365": [
+     "spencermountain:87",
+     "b84330808:7",
+     "irontaek:3"
+    ],
+    "latestRelease": "14.20.0 2026-11-08",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "natural",
+   "layer": "understanding",
+   "npm": [
+    {
+     "name": "natural",
+     "latest": "8.2.6",
+     "published": "2026-10-26T07:37:01.948Z",
+     "publishedDays": 31,
+     "versions365": 9,
+     "licence_npm": "MIT",
+     "maintainers": 3,
+     "deprecated": null,
+     "deps": 14,
+     "unpackedSize": 13794157,
+     "installScripts": [],
+     "fields": [],
+     "repository": "git://github.com/NaturalNode/natural.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 20,
+      "raw": 11200492,
+      "gzip": 2823936,
+      "br": 2151075,
+      "bad": [],
+      "list": [
+       "/npm/natural@8.2.6/+esm 2164685",
+       "/npm/apparatus@0.0.10/+esm 14173",
+       "/npm/safe-stable-stringify@2.5.0/+esm 2812",
+       "/npm/underscore@1.13.8/+esm 8574",
+       "/npm/afinn-165@2.0.2/+esm 12904",
+       "/npm/afinn-165-financialmarketnews@3.0.0/+esm 13768",
+       "/npm/stopwords-iso@1.1.0/+esm 75364",
+       "/npm/pg@8.23.1/+esm 253",
+       "/npm/dotenv@17.4.2/+esm 396435",
+       "/npm/uuid@13.0.2/+esm 4099",
+       "/npm/redis@5.12.1/+esm 983",
+       "/npm/mongoose@9.11.4/+esm 262",
+       "/npm/memjs@1.3.2/+esm 248",
+       "/npm/sylvester@0.0.21/+esm 80190",
+       "/npm/@redis/client@5.12.1/+esm 250",
+       "/npm/@redis/bloom@5.12.1/+esm 11594",
+       "/npm/@redis/json@5.12.1/+esm 2386",
+       "/npm/@redis/search@5.12.1/+esm 15219",
+       "/npm/@redis/time-series@5.12.1/+esm 6315",
+       "/npm/@redis/client@5.12.1/dist/lib/commands/generic-transformers/+esm 13422"
+      ]
+     },
+     "bundlephobia": {
+      "size": 10807288,
+      "gzip": 2058496,
+      "dependencyCount": 14,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "NaturalNode/natural",
+    "url": "https://github.com/NaturalNode/natural",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 10884,
+    "openIssues": 79,
+    "openPRs": 9,
+    "lastCommit": "2026-10-26T07:25:45Z",
+    "lastCommitDays": 31,
+    "commits365": 31,
+    "humanCommitters365": 8,
+    "topCommitters365": [
+     "Hugo-ter-Doest:16",
+     "Copilot:7",
+     "OsamaAnsar:2"
+    ],
+    "latestRelease": "v8.2.6 2026-10-26",
+    "licenceFile": "LICENSE.txt",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "tracery",
+   "layer": "reply",
+   "npm": [
+    {
+     "name": "tracery-grammar",
+     "latest": "2.8.4",
+     "published": "2024-11-18T19:17:55.584Z",
+     "publishedDays": 738,
+     "versions365": 0,
+     "licence_npm": "ISC",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 29226,
+     "installScripts": [],
+     "fields": [],
+     "repository": "git://github.com/v21/tracery.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 9878,
+      "gzip": 3474,
+      "br": 3102,
+      "bad": [],
+      "list": [
+       "/npm/tracery-grammar@2.8.4/+esm 3474"
+      ]
+     },
+     "bundlephobia": {
+      "size": 9552,
+      "gzip": 3220,
+      "dependencyCount": 0,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "galaxykate/tracery",
+    "url": "https://github.com/galaxykate/tracery",
+    "archived": false,
+    "spdx_github": "Apache-2.0",
+    "stars": 2222,
+    "openIssues": 21,
+    "openPRs": 11,
+    "lastCommit": "2024-11-03T16:46:02Z",
+    "lastCommitDays": 753,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "none",
+    "licenceFile": "LICENSE.MD",
+    "licence_fromFileText": "Apache-2.0"
+   }
+  },
+  {
+   "id": "mustache",
+   "layer": "reply",
+   "npm": [
+    {
+     "name": "mustache",
+     "latest": "4.2.0",
+     "published": "2021-03-28T19:27:59.176Z",
+     "publishedDays": 2069,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 3,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 113734,
+     "installScripts": [],
+     "fields": [
+      "exports"
+     ],
+     "repository": "git+https://github.com/janl/mustache.js.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 6777,
+      "gzip": 2855,
+      "br": 2592,
+      "bad": [],
+      "list": [
+       "/npm/mustache@4.2.0/+esm 2855"
+      ]
+     },
+     "bundlephobia": {
+      "size": 6458,
+      "gzip": 2615,
+      "dependencyCount": 0,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "janl/mustache.js",
+    "url": "https://github.com/janl/mustache.js",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 16718,
+    "openIssues": 84,
+    "openPRs": 42,
+    "lastCommit": "2023-01-21T17:51:41Z",
+    "lastCommitDays": 1405,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "v4.2.0 2021-03-28",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "minisearch",
+   "layer": "retrieval",
+   "npm": [
+    {
+     "name": "minisearch",
+     "latest": "7.2.0",
+     "published": "2025-09-16T12:42:12.453Z",
+     "publishedDays": 436,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 826513,
+     "installScripts": [],
+     "fields": [
+      "module",
+      "exports",
+      "unpkg",
+      "jsdelivr"
+     ],
+     "repository": "https://github.com/lucaong/minisearch.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 18337,
+      "gzip": 6183,
+      "br": 5559,
+      "bad": [],
+      "list": [
+       "/npm/minisearch@7.2.0/+esm 6183"
+      ]
+     },
+     "bundlephobia": {
+      "size": 17687,
+      "gzip": 5720,
+      "dependencyCount": 0,
+      "hasJSModule": "dist/es/index.js",
+      "hasSideEffects": false
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "lucaong/minisearch",
+    "url": "https://github.com/lucaong/minisearch",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 6213,
+    "openIssues": 9,
+    "openPRs": 5,
+    "lastCommit": "2025-09-16T12:42:13Z",
+    "lastCommitDays": 436,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "none",
+    "licenceFile": "LICENSE.txt",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "fuse",
+   "layer": "retrieval",
+   "npm": [
+    {
+     "name": "fuse.js",
+     "latest": "7.5.0",
+     "published": "2026-07-13T17:23:36.705Z",
+     "publishedDays": 136,
+     "versions365": 21,
+     "licence_npm": "Apache-2.0",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 417199,
+     "installScripts": [],
+     "fields": [
+      "module",
+      "exports",
+      "unpkg",
+      "jsdelivr"
+     ],
+     "repository": "git+https://github.com/krisk/Fuse.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 27300,
+      "gzip": 9946,
+      "br": 8599,
+      "bad": [],
+      "list": [
+       "/npm/fuse.js@7.5.0/+esm 9946"
+      ]
+     },
+     "bundlephobia": {
+      "size": 26486,
+      "gzip": 9392,
+      "dependencyCount": 0,
+      "hasJSModule": "./dist/fuse.mjs",
+      "hasSideEffects": false
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "krisk/Fuse",
+    "url": "https://github.com/krisk/Fuse",
+    "archived": false,
+    "spdx_github": "Apache-2.0",
+    "stars": 20539,
+    "openIssues": 1,
+    "openPRs": 2,
+    "lastCommit": "2026-11-24T01:43:53Z",
+    "lastCommitDays": 3,
+    "commits365": 238,
+    "humanCommitters365": 13,
+    "topCommitters365": [
+     "krisk:80",
+     "OskarEichler:6",
+     "sergioperezcheco:4"
+    ],
+    "latestRelease": "v7.5.0 2026-07-13",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "Apache-2.0"
+   }
+  },
+  {
+   "id": "orama",
+   "layer": "retrieval",
+   "npm": [
+    {
+     "name": "@orama/orama",
+     "latest": "3.1.18",
+     "published": "2025-12-19T22:14:30.592Z",
+     "publishedDays": 342,
+     "versions365": 2,
+     "licence_npm": "Apache-2.0",
+     "maintainers": 2,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 2192356,
+     "installScripts": [],
+     "fields": [
+      "module",
+      "exports"
+     ],
+     "repository": "git+https://github.com/oramasearch/orama.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 81696,
+      "gzip": 26399,
+      "br": 22876,
+      "bad": [],
+      "list": [
+       "/npm/@orama/orama@3.1.18/+esm 26399"
+      ]
+     },
+     "bundlephobia": {
+      "size": 77047,
+      "gzip": 24416,
+      "dependencyCount": 0,
+      "hasJSModule": "./dist/esm/index.js",
+      "hasSideEffects": false
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "oramasearch/orama",
+    "url": "https://github.com/oramasearch/orama",
+    "archived": false,
+    "spdx_github": "NOASSERTION",
+    "stars": 10620,
+    "openIssues": 19,
+    "openPRs": 19,
+    "lastCommit": "2026-07-03T15:02:42Z",
+    "lastCommitDays": 146,
+    "commits365": 16,
+    "humanCommitters365": 7,
+    "topCommitters365": [
+     "thatjuan:6",
+     "Michele Riva:3",
+     "mahirhir:1"
+    ],
+    "latestRelease": "v3.1.18 2025-12-19",
+    "licenceFile": "LICENSE.md",
+    "licence_fromFileText": "Apache-2.0"
+   }
+  },
+  {
+   "id": "flexsearch",
+   "layer": "retrieval",
+   "npm": [
+    {
+     "name": "flexsearch",
+     "latest": "0.8.212",
+     "published": "2025-09-06T23:41:14.877Z",
+     "publishedDays": 446,
+     "versions365": 0,
+     "licence_npm": "Apache-2.0",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 2334755,
+     "installScripts": [],
+     "fields": [
+      "browser",
+      "module",
+      "exports"
+     ],
+     "repository": "git+https://github.com/nextapps-de/flexsearch.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 51325,
+      "gzip": 17735,
+      "br": 15866,
+      "bad": [],
+      "list": [
+       "/npm/flexsearch@0.8.212/+esm 17735"
+      ]
+     },
+     "bundlephobia": {
+      "size": 49808,
+      "gzip": 16839,
+      "dependencyCount": 0,
+      "hasJSModule": "dist/flexsearch.bundle.module.min.mjs",
+      "hasSideEffects": true
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "nextapps-de/flexsearch",
+    "url": "https://github.com/nextapps-de/flexsearch",
+    "archived": false,
+    "spdx_github": "Apache-2.0",
+    "stars": 13823,
+    "openIssues": 30,
+    "openPRs": 10,
+    "lastCommit": "2026-05-29T08:32:35Z",
+    "lastCommitDays": 181,
+    "commits365": 10,
+    "humanCommitters365": 3,
+    "topCommitters365": [
+     "ts-thomas:6",
+     "FovirDev:1",
+     "fieu:1"
+    ],
+    "latestRelease": "0.8.2 2025-05-21",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "Apache-2.0"
+   }
+  },
+  {
+   "id": "lunr",
+   "layer": "retrieval",
+   "npm": [
+    {
+     "name": "lunr",
+     "latest": "2.3.9",
+     "published": "2020-08-19T20:30:07.948Z",
+     "publishedDays": 2290,
+     "versions365": 0,
+     "licence_npm": "MIT",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 976211,
+     "installScripts": [],
+     "fields": [],
+     "repository": "git+https://github.com/olivernn/lunr.js.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 29525,
+      "gzip": 8632,
+      "br": 7809,
+      "bad": [],
+      "list": [
+       "/npm/lunr@2.3.9/+esm 8632"
+      ]
+     },
+     "bundlephobia": {
+      "size": 28915,
+      "gzip": 8350,
+      "dependencyCount": 0,
+      "hasJSModule": false,
+      "hasSideEffects": true
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "olivernn/lunr.js",
+    "url": "https://github.com/olivernn/lunr.js",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 9199,
+    "openIssues": 105,
+    "openPRs": 25,
+    "lastCommit": "2020-08-19T20:29:42Z",
+    "lastCommitDays": 2290,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "none",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "chrono",
+   "layer": "understanding (dates)",
+   "npm": [
+    {
+     "name": "chrono-node",
+     "latest": "2.10.3",
+     "published": "2026-10-12T01:22:35.391Z",
+     "publishedDays": 46,
+     "versions365": 6,
+     "licence_npm": "MIT",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 3163826,
+     "installScripts": [],
+     "fields": [
+      "module",
+      "exports"
+     ],
+     "repository": "git+https://github.com/wanasit/chrono.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 244924,
+      "gzip": 52388,
+      "br": 40605,
+      "bad": [],
+      "list": [
+       "/npm/chrono-node@2.10.3/+esm 52388"
+      ]
+     },
+     "bundlephobia": {
+      "size": 203780,
+      "gzip": 48081,
+      "dependencyCount": 0,
+      "hasJSModule": "dist/esm/index.js",
+      "hasSideEffects": false
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "wanasit/chrono",
+    "url": "https://github.com/wanasit/chrono",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 5302,
+    "openIssues": 120,
+    "openPRs": 34,
+    "lastCommit": "2026-11-03T04:09:34Z",
+    "lastCommitDays": 23,
+    "commits365": 117,
+    "humanCommitters365": 25,
+    "topCommitters365": [
+     "wanasit:24",
+     "Wanasit Tanakitrungruang:24",
+     "nhannht:14"
+    ],
+    "latestRelease": "v2.10.3 2026-10-12",
+    "licenceFile": "LICENSE.txt",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "libphonenumber",
+   "layer": "understanding (phones)",
+   "npm": [
+    {
+     "name": "libphonenumber-js",
+     "latest": "1.13.17",
+     "published": "2026-11-19T09:13:57.659Z",
+     "publishedDays": 7,
+     "versions365": 31,
+     "licence_npm": "MIT",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 0,
+     "unpackedSize": 10196841,
+     "installScripts": [],
+     "fields": [
+      "module",
+      "exports"
+     ],
+     "repository": "git+https://gitlab.com/catamphetamine/libphonenumber-js.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 189175,
+      "gzip": 44580,
+      "br": 36843,
+      "bad": [],
+      "list": [
+       "/npm/libphonenumber-js@1.13.17/+esm 44580"
+      ]
+     },
+     "bundlephobia": {
+      "size": 186112,
+      "gzip": 45367,
+      "dependencyCount": 0,
+      "hasJSModule": "index.js",
+      "hasSideEffects": false
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "catamphetamine/libphonenumber-js",
+    "url": "https://github.com/catamphetamine/libphonenumber-js",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 3006,
+    "openIssues": 36,
+    "openPRs": 2,
+    "lastCommit": "2026-11-10T08:04:53Z",
+    "lastCommitDays": 16,
+    "commits365": 16,
+    "humanCommitters365": 1,
+    "topCommitters365": [
+     "catamphetamine:16"
+    ],
+    "latestRelease": "0.2.2 2016-12-14",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "botium",
+   "layer": "test",
+   "npm": [
+    {
+     "name": "botium-core",
+     "latest": "1.15.19",
+     "published": "2026-11-09T10:39:44.552Z",
+     "publishedDays": 17,
+     "versions365": 11,
+     "licence_npm": "MIT",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 34,
+     "unpackedSize": 4198132,
+     "installScripts": [
+      "postinstall: node ./report.js"
+     ],
+     "fields": [
+      "module"
+     ],
+     "repository": "git+https://github.com/codeforequity-at/botium-core.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 589,
+      "gzip": 255,
+      "br": 212,
+      "bad": [],
+      "list": [
+       "/npm/botium-core@1.15.19/+esm 255"
+      ]
+     },
+     "bundlephobia": {
+      "error": "HTTP 422 {\"error\":{\"code\":\"BuildError\",\"message\":\"The package has failed to build multiple times recently and further tries are temporarily paused. Please try again late"
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "codeforequity-at/botium-core",
+    "url": "https://github.com/codeforequity-at/botium-core",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 251,
+    "openIssues": 22,
+    "openPRs": 0,
+    "lastCommit": "2026-11-09T09:25:54Z",
+    "lastCommitDays": 17,
+    "commits365": 66,
+    "humanCommitters365": 7,
+    "topCommitters365": [
+     "codeforequity-at:34",
+     "cursoragent:13",
+     "ujja:13"
+    ],
+    "latestRelease": "1.15.19 2026-11-09",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "stryker",
+   "layer": "test (mutants)",
+   "npm": [
+    {
+     "name": "@stryker-mutator/core",
+     "latest": "10.1.1",
+     "published": "2026-10-23T19:18:22.458Z",
+     "publishedDays": 34,
+     "versions365": 6,
+     "licence_npm": "Apache-2.0",
+     "maintainers": 3,
+     "deprecated": null,
+     "deps": 26,
+     "unpackedSize": 1230542,
+     "installScripts": [],
+     "fields": [
+      "exports"
+     ],
+     "repository": "git+https://github.com/stryker-mutator/stryker-js.git",
+     "youngerThan7Days": false,
+     "jsdelivr": {
+      "files": 1,
+      "raw": 53,
+      "gzip": 73,
+      "br": 54,
+      "bad": [
+       "500 /npm/@stryker-mutator/core@10.1.1/+esm"
+      ],
+      "list": [
+       "/npm/@stryker-mutator/core@10.1.1/+esm 73"
+      ]
+     },
+     "bundlephobia": {
+      "error": "HTTP 422 {\"error\":{\"code\":\"BuildError\",\"message\":\"The package has failed to build multiple times recently and further tries are temporarily paused. Please try again late"
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "stryker-mutator/stryker-js",
+    "url": "https://github.com/stryker-mutator/stryker-js",
+    "archived": false,
+    "spdx_github": "Apache-2.0",
+    "stars": 3435,
+    "openIssues": 91,
+    "openPRs": 66,
+    "lastCommit": "2026-10-29T01:47:45Z",
+    "lastCommitDays": 29,
+    "commits365": 504,
+    "humanCommitters365": 8,
+    "topCommitters365": [
+     "Andreas02-dev:10",
+     "nicojs:2",
+     "Copilot:1"
+    ],
+    "latestRelease": "v10.1.1 2026-10-23",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "Apache-2.0"
+   }
+  },
+  {
+   "id": "fast-check",
+   "layer": "test (properties)",
+   "npm": [
+    {
+     "name": "fast-check",
+     "latest": "4.11.0",
+     "published": "2026-11-21T22:44:30.307Z",
+     "publishedDays": 5,
+     "versions365": 14,
+     "licence_npm": "MIT",
+     "maintainers": 1,
+     "deprecated": null,
+     "deps": 1,
+     "unpackedSize": 1540727,
+     "installScripts": [],
+     "fields": [
+      "module",
+      "exports"
+     ],
+     "repository": "git+https://github.com/dubzzz/fast-check.git",
+     "youngerThan7Days": true,
+     "jsdelivr": {
+      "files": 8,
+      "raw": 201284,
+      "gzip": 69182,
+      "br": 58398,
+      "bad": [],
+      "list": [
+       "/npm/fast-check@4.11.0/+esm 61536",
+       "/npm/pure-rand@8.4.2/generator/congruential32/+esm 694",
+       "/npm/pure-rand@8.4.2/generator/mersenne/+esm 3695",
+       "/npm/pure-rand@8.4.2/generator/xorshift128plus/+esm 804",
+       "/npm/pure-rand@8.4.2/generator/xoroshiro128plus/+esm 804",
+       "/npm/pure-rand@8.4.2/utils/skipN/+esm 341",
+       "/npm/pure-rand@8.4.2/distribution/uniformBigInt/+esm 496",
+       "/npm/pure-rand@8.4.2/distribution/uniformInt/+esm 812"
+      ]
+     },
+     "bundlephobia": {
+      "size": 172002,
+      "gzip": 58472,
+      "dependencyCount": 1,
+      "hasJSModule": "lib/fast-check.js",
+      "hasSideEffects": false
+     }
+    }
+   ],
+   "pypi": [],
+   "github": {
+    "repo": "dubzzz/fast-check",
+    "url": "https://github.com/dubzzz/fast-check",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 5324,
+    "openIssues": 30,
+    "openPRs": 28,
+    "lastCommit": "2026-11-26T11:49:32Z",
+    "lastCommitDays": 0,
+    "commits365": 1068,
+    "humanCommitters365": 2,
+    "topCommitters365": [
+     "dubzzz:44",
+     "JacobLey:1"
+    ],
+    "latestRelease": "codemod/v0.0.1 2026-11-25",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "presidio",
+   "layer": "learning (PII)",
+   "npm": [],
+   "pypi": [
+    {
+     "name": "presidio-analyzer",
+     "latest": "2.2.366",
+     "published": "2026-10-27T09:06:32.888561Z",
+     "publishedDays": 30,
+     "versions365": 6,
+     "licence_pypi": "MIT",
+     "requiresPython": "<3.15,>=3.11",
+     "yanked": false
+    }
+   ],
+   "github": {
+    "repo": "microsoft/presidio",
+    "url": "https://github.com/microsoft/presidio",
+    "archived": false,
+    "spdx_github": "MIT",
+    "stars": 12074,
+    "openIssues": 126,
+    "openPRs": 207,
+    "lastCommit": "2026-11-24T16:49:52Z",
+    "lastCommitDays": 2,
+    "commits365": 285,
+    "humanCommitters365": 52,
+    "topCommitters365": [
+     "SharonHart:11",
+     "jichaowang02-lang:9",
+     "omri374:8"
+    ],
+    "latestRelease": "2.2.366 2026-10-27",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "MIT"
+   }
+  },
+  {
+   "id": "snips-nlu",
+   "layer": "understanding",
+   "npm": [],
+   "pypi": [
+    {
+     "name": "snips-nlu",
+     "latest": "0.20.2",
+     "published": "2020-01-15T10:13:17.047564Z",
+     "publishedDays": 2507,
+     "versions365": 0,
+     "licence_pypi": "Apache License, Version 2.0",
+     "requiresPython": ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, <4",
+     "yanked": false
+    }
+   ],
+   "github": {
+    "repo": "snipsco/snips-nlu",
+    "url": "https://github.com/snipsco/snips-nlu",
+    "archived": false,
+    "spdx_github": "Apache-2.0",
+    "stars": 3970,
+    "openIssues": 66,
+    "openPRs": 2,
+    "lastCommit": "2021-05-03T12:18:31Z",
+    "lastCommitDays": 2033,
+    "commits365": 0,
+    "humanCommitters365": 0,
+    "topCommitters365": [],
+    "latestRelease": "0.20.2 2020-01-15",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "Apache-2.0"
+   }
+  },
+  {
+   "id": "duckling",
+   "layer": "understanding (entities)",
+   "npm": [],
+   "pypi": [],
+   "github": {
+    "repo": "facebook/duckling",
+    "url": "https://github.com/facebook/duckling",
+    "archived": false,
+    "spdx_github": "NOASSERTION",
+    "stars": 4329,
+    "openIssues": 125,
+    "openPRs": 15,
+    "lastCommit": "2026-03-15T21:56:54Z",
+    "lastCommitDays": 256,
+    "commits365": 2,
+    "humanCommitters365": 2,
+    "topCommitters365": [
+     "dmitryvinn-fb:1",
+     "Julien Odent:1"
+    ],
+    "latestRelease": "v0.2.0.0 2021-04-16",
+    "licenceFile": "LICENSE",
+    "licence_fromFileText": "BSD-3-Clause"
+   }
+  }
+ ]
+}

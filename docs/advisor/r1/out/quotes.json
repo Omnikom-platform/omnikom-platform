@@ -1,0 +1,631 @@
+{
+ "checkedAt": "2026-11-26T16:30:13.038Z",
+ "out": [
+  {
+   "url": "https://courses.cs.umbc.edu/331/papers/eliza.html",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 15990,
+   "quotes": [
+    {
+     "q": "a script is data",
+     "found": true
+    },
+    {
+     "q": "RANK or precedence number",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://en.wikipedia.org/wiki/ELIZA",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 34538,
+   "quotes": [
+    {
+     "q": "keystack",
+     "found": true
+    },
+    {
+     "q": "with the keyword of the highest RANK at the top",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://en.wikipedia.org/wiki/ELIZA_effect",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 15877,
+   "quotes": [
+    {
+     "q": "read far more understanding than is warranted into strings of symbols",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://international-lisp-conference.org/2002/Speakers/People/Richard-Wallace.html",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 3117,
+   "quotes": [
+    {
+     "q": "a cyclical process of supervised learning called Targeting",
+     "found": true
+    },
+    {
+     "q": "logged by the bot and delivered as Targets",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/AIML-Foundation/AIML-2.0-Spec/master/aiml.md",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 77248,
+   "quotes": [
+    {
+     "q": "The basic unit of knowledge in AIML is a category",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://en.wikipedia.org/wiki/Richard_Wallace_(scientist)",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 5850,
+   "quotes": [
+    {
+     "q": "won the Loebner Prize in 2000, 2001, and 2004",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://en.wikipedia.org/wiki/SmarterChild",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 7068,
+   "quotes": [
+    {
+     "q": "Microsoft acquired Colloquis in October 2006",
+     "found": true
+    },
+    {
+     "q": "June 2001",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/bwilcox-1234/ChatScript/master/WIKI/PAPERS/Paper%20-%20WinningTheLoebners.md",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 41936,
+   "quotes": [
+    {
+     "q": "ChatScript is an NLP expert system",
+     "found": true
+    },
+    {
+     "q": "organized into bundles called topics",
+     "found": true
+    },
+    {
+     "q": "declare a list of words or phrases to be a concept",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://en.wikipedia.org/wiki/Loebner_Prize",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 21494,
+   "quotes": [
+    {
+     "q": "Rose",
+     "found": true
+    },
+    {
+     "q": "Mitsuku",
+     "found": true
+    },
+    {
+     "q": "Suzette",
+     "found": true
+    },
+    {
+     "q": "Rosette",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://www.guinnessworldrecords.com/world-records/603076-most-loebner-prize-wins",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 2214,
+   "quotes": [
+    {
+     "q": "won the Loebner Prize in 2013, 2016, 2017, 2018 and 2019",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://www.kuki.ai/research",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 13279,
+   "quotes": [
+    {
+     "q": "does not learn globally without a human supervisor",
+     "found": true
+    },
+    {
+     "q": "originally created by Steve Worswick",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://rasa.com/blog/conversation-driven-development-a-better-approach-to-building-ai-assistants/",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 8336,
+   "quotes": [
+    {
+     "q": "the process of listening to your users and using those insights",
+     "found": true
+    },
+    {
+     "q": "Use whole conversations as end-to-end tests",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/RasaHQ/rasa/main/README.md",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 5366,
+   "quotes": [
+    {
+     "q": "Rasa Open Source is currently in maintenance mode",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://rasa.com/blog/rasa-x-community-edition-changes",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 7870,
+   "quotes": [
+    {
+     "q": "the last free version of Rasa X",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://rasa.com/docs/pro/intro/",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 65433,
+   "quotes": [
+    {
+     "q": "up to 1,000 conversations per month",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://docs.cloud.google.com/dialogflow/cx/docs/concept/page",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 17151,
+   "quotes": [
+    {
+     "q": "The states of a session are represented by pages",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://docs.cloud.google.com/dialogflow/cx/docs/concept/handler",
+   "route": "chrome",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 34508,
+   "quotes": [
+    {
+     "q": "define route groups",
+     "found": true
+    },
+    {
+     "q": "Handlers are evaluated in a specific order",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://docs.cloud.google.com/dialogflow/cx/docs/concept/version",
+   "route": "chrome",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 18506,
+   "quotes": [
+    {
+     "q": "immutable snapshot",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://docs.cloud.google.com/dialogflow/cx/docs/concept/experiments",
+   "route": "chrome",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 14341,
+   "quotes": [
+    {
+     "q": "allocate a portion of live traffic",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://cloud.google.com/products/conversational-agents/pricing",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 41436,
+   "quotes": [
+    {
+     "q": "$0.007",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://blogs.microsoft.com/blog/2016/03/25/learning-tays-introduction/",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 5368,
+   "quotes": [
+    {
+     "q": "a coordinated attack by a subset of people exploited a vulnerability in Tay",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://en.wikipedia.org/wiki/Tay_(chatbot)",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 20927,
+   "quotes": [
+    {
+     "q": "16 hours",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://ar5iv.labs.arxiv.org/html/2202.03164",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 152086,
+   "quotes": [
+    {
+     "q": "GUS",
+     "found": true
+    },
+    {
+     "q": "each with an associated question",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/statelyai/xstate/main/README.md",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 13389,
+   "quotes": [
+    {
+     "q": "zero dependencies and runs anywhere that JavaScript runs",
+     "found": false
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/lucaong/minisearch/master/README.md",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 11188,
+   "quotes": [
+    {
+     "q": "run both in Node and in the browser",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://www.rivescript.com/wd/RiveScript",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 48932,
+   "quotes": [
+    {
+     "q": "will be chosen randomly",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/ChatScript/ChatScript/master/README.md",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 7154,
+   "quotes": [
+    {
+     "q": "I lost access to this repository",
+     "found": true
+    },
+    {
+     "q": "So it is no longer maintained",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://sourceforge.net/p/chatscript/wiki/Home/",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 1620,
+   "quotes": [
+    {
+     "q": "2010 Loebner Prize with Suzette",
+     "found": true
+    },
+    {
+     "q": "2011 Loebner with Rosette",
+     "found": true
+    },
+    {
+     "q": "2014 Loebner Prize with Rose",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://en.wikipedia.org/wiki/Loebner_Prize",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 21494,
+   "quotes": [
+    {
+     "q": "The 2015 Loebner Prize Competition was again won by",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://en.wikipedia.org/wiki/SmarterChild",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 7068,
+   "quotes": [
+    {
+     "q": "30 million",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://rasa.com/blog/conversation-driven-development-a-better-approach-to-building-ai-assistants/",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 8336,
+   "quotes": [
+    {
+     "q": "Take time to read through the conversations people have with your assistant",
+     "found": true
+    },
+    {
+     "q": "Give your prototype to users to test as early as possible",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://www.kuki.ai/research",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 13279,
+   "quotes": [
+    {
+     "q": "one billion messages",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://aisb.org.uk/mitsuku-wins-2019-loebner-prize-and-best-overall-chatbot-at-aisb-x/",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 3180,
+   "quotes": [
+    {
+     "q": "fourth consecutive year",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://ar5iv.labs.arxiv.org/html/2202.03164",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 152086,
+   "quotes": [
+    {
+     "q": "mixed initiative",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://registry.npmjs.org/tracery-grammar",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 13175,
+   "quotes": [
+    {
+     "q": "completely deterministic",
+     "found": true
+    },
+    {
+     "q": "Math.random",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://registry.npmjs.org/@xstate/test/latest",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 3104,
+   "quotes": [
+    {
+     "q": "Superseded by",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://en.wikipedia.org/wiki/Artificial_Linguistic_Internet_Computer_Entity",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 7947,
+   "quotes": [
+    {
+     "q": "1995",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://en.wikipedia.org/wiki/SmarterChild",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 7068,
+   "quotes": [
+    {
+     "q": "ActiveBuddy",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/janl/mustache.js/master/README.md",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 15926,
+   "quotes": [
+    {
+     "q": "there are no if statements, else clauses, or for loops",
+     "found": true
+    },
+    {
+     "q": "All variables are HTML-escaped by default",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://courses.cs.umbc.edu/331/papers/eliza.html",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 15990,
+   "quotes": [
+    {
+     "q": "1966",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/oramasearch/orama/main/README.md",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 9527,
+   "quotes": [
+    {
+     "q": "Stemming and tokenization in 30 languages",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/lucaong/minisearch/master/README.md",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 11188,
+   "quotes": [
+    {
+     "q": "No stemming is performed",
+     "found": true
+    },
+    {
+     "q": "Exact match, prefix search, fuzzy match, field boosting",
+     "found": true
+    }
+   ]
+  }
+ ]
+}

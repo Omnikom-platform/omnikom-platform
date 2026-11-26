@@ -1,0 +1,248 @@
+{
+ "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/158.0.0.0 Safari/537.36",
+ "results": {
+  "minisearch": {
+   "msFirst": 29,
+   "msSecond": 0,
+   "ok": true,
+   "out": [
+    [
+     4,
+     10.8484
+    ]
+   ],
+   "sameTwice": true
+  },
+  "fuse.js": {
+   "msFirst": 10,
+   "msSecond": 0,
+   "ok": true,
+   "out": [
+    [
+     4,
+     0.65
+    ]
+   ],
+   "sameTwice": true
+  },
+  "@orama/orama": {
+   "msFirst": 10,
+   "msSecond": 0,
+   "ok": true,
+   "out": [
+    [
+     "4",
+     0.7842
+    ]
+   ],
+   "sameTwice": true
+  },
+  "flexsearch": {
+   "msFirst": 10,
+   "msSecond": 0,
+   "ok": true,
+   "out": [
+    4
+   ],
+   "sameTwice": true
+  },
+  "lunr": {
+   "msFirst": 10,
+   "msSecond": 0,
+   "ok": true,
+   "out": [
+    [
+     "4",
+     1.394
+    ]
+   ],
+   "sameTwice": true
+  },
+  "xstate": {
+   "msFirst": 10,
+   "msSecond": 0,
+   "ok": true,
+   "out": [
+    "plan",
+    12,
+    "done"
+   ],
+   "sameTwice": true
+  },
+  "@xstate/graph": {
+   "msFirst": 20,
+   "msSecond": 0,
+   "ok": true,
+   "out": [
+    "xstate.init",
+    "xstate.init>N",
+    "xstate.init>S"
+   ],
+   "sameTwice": true
+  },
+  "rivescript": {
+   "msFirst": 20,
+   "msSecond": 0,
+   "ok": true,
+   "out": {
+    "memory": [
+     "Nice to meet you, Sam.",
+     "Your name is Sam."
+    ],
+    "distinctRepliesOf30": 3
+   },
+   "sameTwice": true
+  },
+  "nlpjs": {
+   "msFirst": 50,
+   "msSecond": 0,
+   "ok": true,
+   "out": [
+    "price",
+    "price:1.0000000000,book:0.0000000000,area:0.0000000000"
+   ],
+   "sameTwice": true
+  },
+  "wink-nlp": {
+   "msFirst": 20,
+   "msSecond": 0,
+   "ok": true,
+   "out": {
+    "entities": [
+     {
+      "value": "12",
+      "type": "CARDINAL"
+     },
+     {
+      "value": "sam@example.com",
+      "type": "EMAIL"
+     },
+     {
+      "value": "next Tuesday",
+      "type": "DATE"
+     }
+    ],
+    "stems": [
+     "i",
+     "run",
+     "12",
+     "caller",
+     "in",
+     "texa"
+    ]
+   },
+   "sameTwice": true
+  },
+  "compromise": {
+   "msFirst": 20,
+   "msSecond": 0,
+   "ok": true,
+   "out": {
+    "values": [
+     "twelve"
+    ],
+    "places": [
+     "Texas"
+    ]
+   },
+   "sameTwice": true
+  },
+  "natural": {
+   "ok": false,
+   "error": "RangeError: Maximum call stack size exceeded\n    at https://cdn.jsdelivr.net/npm/natural@8.2.6/+esm:1:1"
+  },
+  "chrono-node": {
+   "msFirst": 10,
+   "msSecond": 0,
+   "ok": true,
+   "out": "Tue Dec 01 2026 15:00:00 GMT+0200 (Eastern European Standard Time)",
+   "sameTwice": true
+  },
+  "libphonenumber-js": {
+   "msFirst": 10,
+   "msSecond": 0,
+   "ok": true,
+   "out": [
+    "+12133734253",
+    true
+   ],
+   "sameTwice": true
+  },
+  "mustache": {
+   "msFirst": 10,
+   "msSecond": 0,
+   "ok": true,
+   "out": "Thanks Sam, 12 callers in Texas.",
+   "sameTwice": true
+  },
+  "tracery-grammar": {
+   "msFirst": 10,
+   "msSecond": 0,
+   "ok": true,
+   "out": {
+    "distinctOf30": 3
+   },
+   "sameTwice": true
+  },
+  "aimlinterpreter": {
+   "ok": false,
+   "error": "ReferenceError: DomJS is not defined\n    at ew (https://cdn.jsdelivr.net/npm/aimlinterpreter@0.1.7/+esm:16:237012)\n    at https://cdn.jsdelivr.net/npm/aimlinterpreter@0.1.7/+esm:16:241327"
+  },
+  "aiml-high": {
+   "ok": false,
+   "error": "ReferenceError: fs is not defined\n    at ew (https://cdn.jsdelivr.net/npm/aiml-high@0.0.8/+esm:16:237032)\n    at https://cdn.jsdelivr.net/npm/aiml-high@0.0.8/+esm:17:2145"
+  },
+  "xstate-persist": {
+   "msFirst": 0,
+   "msSecond": 0,
+   "ok": true,
+   "out": [
+    "plan",
+    12,
+    88
+   ],
+   "sameTwice": true
+  },
+  "mustache-escape": {
+   "msFirst": 0,
+   "msSecond": 0,
+   "ok": true,
+   "out": "You said &lt;img src&#x3D;x onerror&#x3D;alert(1)&gt;",
+   "sameTwice": true
+  },
+  "superscript": {
+   "ok": false,
+   "error": "TypeError: Cannot read properties of undefined (reading 'filename')\n    at https://cdn.jsdelivr.net/npm/require-dir@0.3.2/+esm:16:237251\n    at rw (https://cdn.jsdelivr.net/npm/require-dir@0.3.2/+esm:16:238139)\n    at https://cdn.jsdelivr.net/npm/require-dir@0.3.2/+esm:16:238163"
+  }
+ },
+ "versions": {
+  "@nlpjs/basic": "5.0.0-alpha.5",
+  "@nlpjs/nlp": "5.0.0-alpha.5",
+  "@nlpjs/core": "5.0.0-alpha.5",
+  "@nlpjs/lang-en-min": "5.0.0-alpha.5",
+  "node-nlp": "5.0.0-alpha.5",
+  "rivescript": "2.2.1",
+  "aimlinterpreter": "0.1.7",
+  "aiml-high": "0.0.8",
+  "superscript": "1.1.4",
+  "xstate": "5.33.4",
+  "@xstate/graph": "3.0.4",
+  "wink-nlp": "2.4.0",
+  "wink-eng-lite-web-model": "1.8.1",
+  "compromise": "14.20.0",
+  "natural": "8.2.6",
+  "tracery-grammar": "2.8.4",
+  "mustache": "4.2.0",
+  "minisearch": "7.2.0",
+  "fuse.js": "7.5.0",
+  "@orama/orama": "3.1.18",
+  "flexsearch": "0.8.212",
+  "lunr": "2.3.9",
+  "chrono-node": "2.10.3",
+  "libphonenumber-js": "1.13.17",
+  "botium-core": "1.15.19",
+  "@stryker-mutator/core": "10.1.1",
+  "fast-check": "4.11.0"
+ },
+ "ranAt": "2026-11-26T16:13:58.888Z"
+}

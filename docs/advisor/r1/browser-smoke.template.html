@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><title>r1 smoke</title><pre id="out">PENDING</pre>
+<script type="module">
+const V = __VERSIONS__;
+const U = (p) => 'https://cdn.jsdelivr.net/npm/' + p + '@' + V[p] + '/+esm';
+const pick = (m, k) => (m && m[k]) ?? (m && m.default && m.default[k]);
+const DOCS = [{id:1,t:'how much does it cost per month'},{id:2,t:'do you work with teams in texas'},{id:3,t:'book a call with sales'},{id:4,t:'what is the price of the dialer'}];
+const AIML = '<?xml version="1.0" encoding="UTF-8"?><aiml version="1.0"><category><pattern>HELLO</pattern><template>Hi there.</template></category></aiml>';
+const tests = {
+  'minisearch': async () => { const MiniSearch = (await import(U('minisearch'))).default; const ms = new MiniSearch({fields:['t']}); ms.addAll(DOCS); return ms.search('whats the prise', {fuzzy:0.2, prefix:true}).map(r => [r.id, +r.score.toFixed(4)]); },
+  'fuse.js': async () => { const Fuse = (await import(U('fuse.js'))).default; return new Fuse(DOCS, {keys:['t'], includeScore:true}).search('prise').map(r => [r.item.id, +r.score.toFixed(4)]); },
+  '@orama/orama': async () => { const o = await import(U('@orama/orama')); const db = await o.create({schema:{t:'string'}}); for (const d of DOCS) await o.insert(db, {id:String(d.id), t:d.t}); const r = await o.search(db, {term:'price'}); return r.hits.map(h => [h.id, +h.score.toFixed(4)]); },
+  'flexsearch': async () => { const m = await import(U('flexsearch')); const Index = m.Index || (m.default && m.default.Index); const idx = new Index({tokenize:'forward'}); for (const d of DOCS) idx.add(d.id, d.t); return idx.search('pri'); },
+  'lunr': async () => { const lunr = (await import(U('lunr'))).default; const idx = lunr(function () { this.ref('id'); this.field('t'); DOCS.forEach((d) => this.add(d)); }); return idx.search('price').map(r => [r.ref, +r.score.toFixed(4)]); },
+  'xstate': async () => { const x = await import(U('xstate')); const m = x.createMachine({id:'q', initial:'ask', context:{team:null}, states:{ask:{on:{ANSWER:{target:'plan', actions: x.assign({team: ({event}) => event.team})}}}, plan:{type:'final'}}}); const a = x.createActor(m).start(); a.send({type:'ANSWER', team:12}); const s = a.getSnapshot(); return [s.value, s.context.team, s.status]; },
+  '@xstate/graph': async () => { const x = await import(U('xstate')); const g = await import(U('@xstate/graph')); const m = x.createMachine({initial:'a', states:{a:{on:{N:'b', S:'c'}}, b:{on:{N:'c'}}, c:{}}}); return g.getShortestPaths(m).map(p => (p.steps || []).map(s => s.event.type).join('>')); },
+  'rivescript': async () => { const RS = (await import(U('rivescript'))).default; const rs = new RS({utf8:true}); rs.stream('+ my name is *\n- <set name=<formal>>Nice to meet you, <get name>.\n\n+ what is my name\n- Your name is <get name>.\n\n+ hello\n- Hi there.\n- Hello!\n- Hey, welcome.'); rs.sortReplies(); const a = await rs.reply('u', 'my name is sam'); const b = await rs.reply('u', 'what is my name'); const seen = new Set(); for (let i = 0; i < 30; i++) seen.add(await rs.reply('u2', 'hello')); return {memory:[a, b], distinctRepliesOf30: seen.size}; },
+  'nlpjs': async () => { const core = await import(U('@nlpjs/core')); const nm = await import(U('@nlpjs/nlp')); const en = await import(U('@nlpjs/lang-en-min')); const c = await pick(core, 'containerBootstrap')(); c.use(pick(nm, 'Nlp')); c.use(pick(en, 'LangEn')); const nlp = c.get('nlp'); nlp.settings.autoSave = false; nlp.addLanguage('en'); [['how much does it cost','price'],['what is the price','price'],['do you work in texas','area'],['which states do you cover','area'],['book a call','book'],['can i talk to sales','book']].forEach(([t, i]) => nlp.addDocument('en', t, i)); await nlp.train(); const r = await nlp.process('en', 'what does it cost'); return [r.intent, (r.classifications || []).map(k => k.intent + ':' + k.score.toFixed(10)).join(',')]; },
+  'wink-nlp': async () => { const winkNLP = (await import(U('wink-nlp'))).default; const model = (await import(U('wink-eng-lite-web-model'))).default; const nlp = winkNLP(model); const its = nlp.its; const doc = nlp.readDoc('I run 12 callers in Texas, email me at sam@example.com or call 213-373-4253 next Tuesday.'); return {entities: doc.entities().out(its.detail), stems: doc.tokens().out(its.stem).slice(0, 6)}; },
+  'compromise': async () => { const nlp = (await import(U('compromise'))).default; const d = nlp('I run twelve callers in Texas and we want to book a demo next week'); return {values: d.match('#Value').out('array'), places: d.match('#Place').out('array')}; },
+  'natural': async () => { const m = await import(U('natural')); return pick(m, 'PorterStemmer').stem('running'); },
+  'chrono-node': async () => { const m = await import(U('chrono-node')); return String(pick(m, 'parseDate')('next Tuesday at 3pm', new Date('2026-11-26T12:00:00'))); },
+  'libphonenumber-js': async () => { const m = await import(U('libphonenumber-js')); const f = pick(m, 'parsePhoneNumberFromString') || m.default; const p = f('(213) 373-4253', 'US'); return [p && p.number, p && p.isValid()]; },
+  'mustache': async () => { const M = (await import(U('mustache'))).default; return M.render('Thanks {{name}}, {{team}} callers in {{market}}.', {name:'Sam', team:12, market:'Texas'}); },
+  'tracery-grammar': async () => { const m = await import(U('tracery-grammar')); const t = m.default || m; const g = t.createGrammar({origin:['#greet#'], greet:['Hi','Hello','Hey']}); const s = new Set(); for (let i = 0; i < 30; i++) s.add(g.flatten('#origin#')); return {distinctOf30: s.size}; },
+  'aimlinterpreter': async () => { const m = await import(U('aimlinterpreter')); const C = m.default || m; const i = new C({name:'Bot'}); return await new Promise((res, rej) => { try { i.loadAIMLFilesIntoArray(['./x.aiml']); setTimeout(() => res('loadAIMLFilesIntoArray returned; reads files by path'), 500); } catch (e) { rej(e); } }); },
+  'aiml-high': async () => { const m = await import(U('aiml-high')); const C = m.default || m; const i = new C({name:'Bot'}); if (typeof i.loadFromString === 'function') { i.loadFromString(AIML); return await new Promise((res) => i.findAnswer('hello', (a) => res(a))); } return 'no loadFromString; methods: ' + Object.getOwnPropertyNames(Object.getPrototypeOf(i)).join(','); },
+  'xstate-persist': async () => { const x = await import(U('xstate')); const m = x.createMachine({id:'q', initial:'ask', context:{team:null}, states:{ask:{on:{ANSWER:{target:'plan', actions: x.assign({team: ({event}) => event.team})}}}, plan:{}}}); const a = x.createActor(m).start(); a.send({type:'ANSWER', team:12}); const saved = JSON.stringify(a.getPersistedSnapshot()); const b = x.createActor(m, {snapshot: JSON.parse(saved)}).start(); const s = b.getSnapshot(); return [s.value, s.context.team, saved.length]; },
+  'mustache-escape': async () => { const M = (await import(U('mustache'))).default; return M.render('You said {{v}}', {v:'<img src=x onerror=alert(1)>'}); },
+  'superscript': async () => { const m = await import(U('superscript')); return 'imported; keys: ' + Object.keys(m).slice(0, 6).join(','); },
+};
+const out = { userAgent: navigator.userAgent, results: {} };
+for (const [name, fn] of Object.entries(tests)) {
+  const r = {};
+  try { let t = performance.now(); const a = await fn(); r.msFirst = Math.round(performance.now() - t); t = performance.now(); const b = await fn(); r.msSecond = Math.round(performance.now() - t); r.ok = true; r.out = a; r.sameTwice = JSON.stringify(a) === JSON.stringify(b); }
+  catch (e) { r.ok = false; r.error = String(e && (e.stack || e.message) || e).slice(0, 400); }
+  out.results[name] = r;
+}
+document.getElementById('out').textContent = JSON.stringify(out);
+document.title = 'DONE';
+</script>
