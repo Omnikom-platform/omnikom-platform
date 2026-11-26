@@ -365,7 +365,7 @@
   {
    "answer": "greet",
    "id": "greet",
-   "label": "greet",
+   "label": "Hello",
    "next": [
     "buy",
     "sell",
@@ -392,7 +392,7 @@
    "answer": "help",
    "form": "contact",
    "id": "help",
-   "label": "help",
+   "label": "What can you help with?",
    "next": [
     "buy",
     "sell",
@@ -417,7 +417,7 @@
   {
    "answer": "about",
    "id": "about",
-   "label": "about",
+   "label": "About Francine",
    "next": [
     "area",
     "contact"
@@ -442,7 +442,7 @@
   {
    "answer": "brokerage",
    "id": "brokerage",
-   "label": "brokerage",
+   "label": "Her brokerage",
    "next": [
     "about"
    ],
@@ -464,7 +464,7 @@
   {
    "answer": "area",
    "id": "area",
-   "label": "area",
+   "label": "Cities served",
    "next": [
     "buy",
     "sell"
@@ -514,7 +514,7 @@
    "answer": "area.other",
    "form": "contact",
    "id": "area.other",
-   "label": "area.other",
+   "label": "Another city",
    "next": [
     "contact"
    ],
@@ -538,7 +538,7 @@
    "answer": "buy",
    "form": "contact",
    "id": "buy",
-   "label": "buy",
+   "label": "Buying a home",
    "next": [
     "area",
     "mortgage",
@@ -568,7 +568,7 @@
    "answer": "sell",
    "form": "homeValue",
    "id": "sell",
-   "label": "sell",
+   "label": "Selling a home",
    "next": [
     "value",
     "cash",
@@ -596,7 +596,7 @@
    "answer": "value",
    "form": "homeValue",
    "id": "value",
-   "label": "value",
+   "label": "What's my home worth?",
    "next": [
     "sell",
     "contact"
@@ -624,7 +624,7 @@
    "answer": "cash",
    "form": "cashOffer",
    "id": "cash",
-   "label": "cash",
+   "label": "A cash offer",
    "next": [
     "sell",
     "contact"
@@ -648,7 +648,7 @@
    "answer": "mortgage",
    "form": "contact",
    "id": "mortgage",
-   "label": "mortgage",
+   "label": "Mortgage questions",
    "next": [
     "buy",
     "contact"
@@ -674,7 +674,7 @@
    "answer": "listings",
    "form": "contact",
    "id": "listings",
-   "label": "listings",
+   "label": "Homes for sale",
    "next": [
     "buy",
     "contact"
@@ -700,7 +700,7 @@
    "answer": "contact",
    "form": "contact",
    "id": "contact",
-   "label": "contact",
+   "label": "Contact Francine",
    "next": [
     "book"
    ],
@@ -728,7 +728,7 @@
    "answer": "book",
    "form": "contact",
    "id": "book",
-   "label": "book",
+   "label": "Set up a meeting",
    "next": [
     "contact"
    ],
@@ -752,7 +752,7 @@
    "answer": "unknown",
    "form": "contact",
    "id": "phone",
-   "label": "phone",
+   "label": "Phone number",
    "next": [
     "contact"
    ],
@@ -775,7 +775,7 @@
    "answer": "unknown",
    "form": "contact",
    "id": "address",
-   "label": "address",
+   "label": "Office address",
    "next": [
     "contact"
    ],
@@ -797,7 +797,7 @@
    "answer": "unknown",
    "form": "contact",
    "id": "licence",
-   "label": "licence",
+   "label": "License number",
    "next": [
     "contact"
    ],
@@ -820,7 +820,7 @@
    "answer": "unknown",
    "form": "contact",
    "id": "broker",
-   "label": "broker",
+   "label": "Responsible broker",
    "next": [
     "contact"
    ],
@@ -841,7 +841,7 @@
    "answer": "fees",
    "form": "contact",
    "id": "fees",
-   "label": "fees",
+   "label": "Fees and commission",
    "next": [
     "contact"
    ],
@@ -864,7 +864,7 @@
    "answer": "steering",
    "form": "contact",
    "id": "steering",
-   "label": "steering",
+   "label": "Neighborhood questions",
    "next": [
     "area",
     "contact"
@@ -890,7 +890,7 @@
    "answer": "whoami",
    "form": "contact",
    "id": "whoami",
-   "label": "whoami",
+   "label": "Who am I talking to?",
    "next": [
     "help"
    ],
@@ -914,7 +914,7 @@
    "answer": "language",
    "form": "contact",
    "id": "language",
-   "label": "language",
+   "label": "Other languages",
    "next": [
     "contact"
    ],
@@ -936,7 +936,7 @@
   {
    "answer": "privacy",
    "id": "privacy",
-   "label": "privacy",
+   "label": "Privacy",
    "next": [
     "contact"
    ],
@@ -959,7 +959,7 @@
    "answer": "thanks",
    "form": "contact",
    "id": "thanks",
-   "label": "thanks",
+   "label": "Thank you",
    "next": [],
    "phrasings": [
     "thanks",
@@ -979,7 +979,7 @@
   {
    "answer": "bye",
    "id": "bye",
-   "label": "bye",
+   "label": "Goodbye",
    "next": [],
    "phrasings": [
     "bye",
@@ -1000,7 +1000,7 @@
    "answer": "unknown",
    "form": "contact",
    "id": "unknown",
-   "label": "unknown",
+   "label": "Something else",
    "next": [
     "contact"
    ],

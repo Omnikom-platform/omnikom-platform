@@ -17,11 +17,12 @@ globalThis.fetch = () => { sent++; throw new Error('the advisor may not send any
 const scenarios = async (dir) => {
   const results = [], check = checker(results);
   const vtv = J('../packs/vtv/pack.json');
-  let engine, initialState;
+  let engine, initialState, rtp;
   try {
     const { createAdvisor } = await import(pathToFileURL(path.join(dir, 'index.mjs')).href);
     const { compile51 } = await import(pathToFileURL(path.join(here, '../pack/compile-51.mjs')).href);
-    ({ engine, initialState } = createAdvisor(compile51(J('../packs/base-en/base.json'), vtv)));
+    rtp = compile51(J('../packs/base-en/base.json'), vtv);
+    ({ engine, initialState } = createAdvisor(rtp));
   } catch (e) {
     check('the VTV pack compiles and the engine takes it', false, e.message);
     return results;
@@ -97,6 +98,12 @@ const scenarios = async (dir) => {
   }
   check('every reply that names a form offers that form', !formBad.length, formBad.join('; '));
 
+  // head 23:56: the engine does not go on VTV's site while a chip shows an intent id; no chip says "Realtor"
+  const ID_SHAPED = /^[a-z0-9_]+(?:\.[a-z0-9_]+)*$/, ids = new Set(rtp.intents.map((i) => i.id));
+  for (const c of [rtp.lists.defaultMenu, rtp.lists.fallbackMenu].flat()) ask('menu ' + c);
+  const chips = [...new Set(replies.flatMap((x) => x.choices ?? []))];
+  const idChips = chips.filter((c) => ID_SHAPED.test(c) || ids.has(c) || /realtor/i.test(c));
+  check('chips: words, never an intent id, never "Realtor" (' + chips.length + ' chips)', chips.length > 0 && !idChips.length, idChips.join(', '));
   const words = vtv.meta.forbidden;
   const bad = replies.filter((x) => words.some((w) => new RegExp('\\b' + w + '\\b', 'i').test(show(x))) || /\{\{/.test(show(x)));
   check('V10 no forbidden word and no unfilled {{...}} in any reply (' + replies.length + ' replies)', !bad.length, bad.map(show).join('; '));

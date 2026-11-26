@@ -96,11 +96,12 @@ Where this differs from the plan above:
   lets a fact into a line.
 - "Never reflected": the compiler refuses any claim that says a slot back (any slot, not only reflect:false), with a mutant. The
   name only pre-fills the form.
-- NOT DONE: VTV's chips show intent ids as labels ("area.other").
-  - Head 23:56, binding: the engine does not go on VTV's site while any chip shows an id.
-  - Chip words are written from VTV's facts in the VTV pack (no new claims, no "Realtor").
-  - A test fails on any id-shaped chip.
-  - This is the next step after this commit.
+- VTV's chips showed intent ids as labels ("area.other"). DONE 2026-11-27 00:00 (the commit after 4fe75b1), per the head's 23:56
+  binding:
+  - every VTV intent has a `label` in `packs/vtv/source.mjs`, from her facts, with no new claims and no "Realtor";
+  - `test-vtv-engine` "chips: words, never an intent id, never \"Realtor\"" (11 chips) and `test-compile-51` "every intent has a
+    chip label in words" were seen red with the ids, and are green with the labels;
+  - mutant "the chip label dropped" caught.
 - V2's buyer flow is one turn; the flow comes with XState.
 
 ## Not in this job

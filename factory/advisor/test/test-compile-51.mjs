@@ -53,6 +53,10 @@ const scenarios = async (dir) => {
   catch (e) { check('the compiler exists', false, e.message); return results; }
   let rt;
   try { rt = compile51(base, vtv); } catch (e) { check('the VTV pack compiles', false, e.message); return results; }
+  // head 23:56: no chip shows an intent id; chip words come from the client's own pack (no new claims, no "Realtor")
+  const ID_SHAPED = /^[a-z0-9_]+(?:\.[a-z0-9_]+)*$/;
+  const idLabels = rt.intents.filter((i) => ID_SHAPED.test(i.label) || /realtor/i.test(i.label)).map((i) => i.id + '=' + i.label);
+  check('VTV: every intent has a chip label in words', !idLabels.length, 'label: ' + idLabels.join(', '));
   // the schema id (omnikom-advisor-pack/1) is the platform's format name, not omnikom.io's words
   const t = show({ ...rt, meta: { ...rt.meta, schema: undefined } }).toLowerCase();
   check('VTV runtime: no omnikom.io word', !found(t, TRADE).length, found(t, TRADE).join(', '));
@@ -86,6 +90,7 @@ const scenarios = async (dir) => {
 };
 
 const MUTANTS = [
+  { name: 'compiler: the chip label dropped', patches: [{ file: 'compile-51.mjs', from: 'label: it.label ?? it.id', to: 'label: it.id' }], expect: [/label/] },
   { name: 'compiler: the claim source dropped', patches: [{ file: 'compile-51.mjs', from: 'source: claim.source', to: 'source: undefined' }], expect: [/source/] },
   { name: 'compiler: a MISSING fact answered', patches: [{ file: 'compile-51.mjs', from: 'if (variants.some((v) => MISSING.test(v.text)))', to: 'if (false)' }], expect: [/MISSING/] },
   { name: 'compiler: a slot said back', patches: [{ file: 'compile-51.mjs', from: 'if (SLOT.test(said))', to: 'if (false)' }], expect: [/slot back/] },
