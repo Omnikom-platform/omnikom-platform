@@ -1,6 +1,6 @@
 # Where things stand
 
-Rewritten in place, never appended, under 60 lines; last 2026-11-21 by the head of operations, after the sitting. Every feature's
+Rewritten in place, never appended, under 60 lines; last 2026-11-26 by the platform lead, after the landings through A20. Every feature's
 state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. Getting back in: `resume\RESUME.md`.
 
 ## Now
@@ -17,20 +17,22 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
   journey step shows it; what staging has not shown says UNPROVEN. A second lane runs the audits; product lands first.
 
 ## Landed since the build reopened (owner, 2026-11-12)
-- CRM (A15, A16, A21, A22): bulk owner and delete, the business's own statuses, export in a saved layout, import.
+- CRM (A15, A16, A20, A21, A22): bulk owner and delete, the business's own statuses, export in a saved layout with its ticks, import.
 - Dashboard: Overview (B20, B21), sign-in from a real inbox (B1), restore (B8), invites (B17), delete and take off the site
   (B12), photos (B13, C8, B14, B25), past publishes (B11), instant frame and preview site (B15, part), Search health (B24,
   part), a failed check read line by line (B10, B9).
 - Backend and hardening: mail outbox, lead limits, bounces, request ids and alerts, plan limits, pooler, headers, smoke and
-  rollback, token path, retention, rich text, staff windows, production script, backups and drill, E13 (part), C11 (part).
-- C19's staff call (migration 52); the publish sheet tells the truth once started; an audit for a client with no site.
+  rollback, token path, retention, rich text, staff windows, production script, backups and drill, E13 (part), C11 (part), deploy tool (C15).
+- C19's staff call (migration 52); the replay guard (migration 53: a machine signature is accepted once); the publish sheet tells
+  the truth once started; an audit for a client with no site; site-sign: client as author, Omnikom as generator, bundles (C54).
 - The truth keepers: CI checks the book and `work/map/` (rule 36); `omnikom truth` (drift report); `omnikom map` (the map).
 
 ## Not landed
-- `check/seo/ai-oneshot`. The replay guard (migration 53) is in the tree and NOT on staging: the migration goes first, then its seven functions together (the head runs it).
+- `check/seo/ai-oneshot`.
 
 ## Staging, 2026-11-21
-- Reachable; 42 of 42 migrations (52 applied 2026-11-21); 32 functions deployed (2026-11-20). Set on 2026-11-20: `GOOGLE_SERVICE_ACCOUNT_JSON`,
+- Reachable; 42 of 43 migrations (52 applied 2026-11-21; 53, the replay guard, NOT applied: the migration first, then its seven
+  functions together, on the head's go); 32 functions deployed (2026-11-20). Set on 2026-11-20: `GOOGLE_SERVICE_ACCOUNT_JSON`,
   `RESEND_WEBHOOK_SECRET`, `GITHUB_DISPATCH_TOKEN_V2`. The nightly backup is ON (`BACKUP_ENABLED` = true, 2026-11-21); restore run done.
 
 ## Migrations
@@ -53,7 +55,5 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
   applied before 16 (KNOWN-6): repair before the first promotion.
 
 ## Open owner items
-- Done: the sitting of 2026-11-20 (accounts, DNS, R2) and the owner list of 2026-11-21: self-serve reopened for three parts
-  (after the audit), the head signs the audit's approvals up to 150 requests, the backup key pair, the restore run with his key,
-  `bring-up` on production and `app.omnikom.ai` in DNS (his yes).
+- Done: the sitting of 2026-11-20 (accounts, DNS, R2) and his list of 2026-11-21; each item and its proof: `work/map/owner.tsv`.
 - Still his: later go's: the first promote, each client's domain switch and sign-offs. Every item: `work/map/owner.tsv`.

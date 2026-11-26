@@ -183,7 +183,7 @@ none
 |---|---|---|---|---|---|
 | .claude/POSITION.md | head-of-operations | 7 | Position | Cut down 2026-11-11 (the owner's clean-up order of that day). This file is no longer a log and nobody appends to it. |  |
 | docs/blueprint/PROGRESS.md | platform-build | 1912 | Blueprint progress (for the lead session) | Task: build-ready product engineering package (owner, 2026-10-28), raised to engineering practice, tied to published standards, then corrected by an independ... |  |
-| work/STATE.md | head-of-operations | 59 | Where things stand | Rewritten in place, never appended, under 60 lines; last 2026-11-21 by the head of operations, after the sitting. Every feature's state: `docs/product/1-prod... |  |
+| work/STATE.md | head-of-operations | 59 | Where things stand | Rewritten in place, never appended, under 60 lines; last 2026-11-26 by the platform lead, after the landings through A20. Every feature's state: `docs/produc... |  |
 
 ## Layer unplaced (219)
 
