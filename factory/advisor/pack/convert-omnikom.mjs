@@ -414,6 +414,16 @@ function SCRIPT() {
 }
 function RX0(file, id, must) { const r = RX(file, id, must); return r; }
 
+// omnikom.io lines not in the lovable source (packs/omnikom-io/additions.mjs), each naming the cp11 row it answers
+const ADD = await import(new URL('../packs/omnikom-io/additions.mjs', import.meta.url));
+for (const [re, intent, delta] of ADD.CUES) pack.cues.push({ pattern: re.source, flags: re.flags, intent, delta });
+for (const { phrase, from, to } of ADD.MOVES) {
+  const a = pack.intents.find((i) => i.id === from), b = pack.intents.find((i) => i.id === to);
+  const at = a?.phrasings.indexOf(phrase) ?? -1;
+  if (at < 0 || !b) throw new Error('additions: "' + phrase + '" is not a phrasing of ' + from + ', or ' + to + ' is missing');
+  a.phrasings.splice(at, 1); b.phrasings.push(phrase);
+}
+
 mkdirSync(dirname(OUT), { recursive: true });
 // patterns that break R2 5.2 are replaced by their proven equivalents (pack/rewrites.mjs, test/test-rewrites.mjs)
 const json = JSON.stringify(applyRewrites(ser(pack)), null, 1) + '\n';

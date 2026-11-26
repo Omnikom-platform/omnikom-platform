@@ -7,7 +7,7 @@
   "version": "0.1.0",
   "source": {
    "repo": "lovable",
-   "commit": "c4697fedc159a3dff4a068271ac1e918d963a552"
+   "commit": "951d93f35927cbcb3bee2507fe3f9ee7f71155ab"
   },
   "report": true,
   "locales": [
@@ -5254,7 +5254,6 @@
     "is this automated",
     "am i chatting with a real person",
     "are you a person or a machine",
-    "who am i talking to",
     "are you real",
     "r u a bot",
     "is this a chatbot",
@@ -5337,7 +5336,8 @@
     "what do i call you",
     "do you have a nickname",
     "what's your name again",
-    "what are you called"
+    "what are you called",
+    "who am i talking to"
    ]
   },
   {
@@ -8522,6 +8522,54 @@
    "pattern": "\\bwhat (?:if|happens if|happens when|then if)\\b[^.?!]*\\b(?:my|the|our|your|a|this|that)\\s+(?:cold\\s+)?(?:caller|rep|isa)\\b[^.?!]*\\b(?:perform(?:s|ed|ing)?\\s+(?:badly|poorly|bad|terribly|awfully|below (?:par|expectations))|(?:do|does|did|doing)\\s+(?:a\\s+)?(?:(?:really|very|pretty|so)\\s+)?(?:bad|poor|terrible|lousy|awful|weak|sloppy|crappy|shoddy|horrible)\\s+job|(?:does|did|is doing|was doing)\\s+(?:badly|poorly)|under-?perform\\w*|(?:is|was|turns out to be)\\s+(?:bad|terrible|awful|weak|lousy|useless|no good|not good(?: enough)?|not any good)|(?:isn'?t|is not|wasn'?t|was not)\\s+(?:(?:any|very|that|really)\\s+)?(?:good|great|up to (?:par|scratch|standard))|(?:doesn'?t|does not|didn'?t|did not)\\s+perform(?:\\s+well)?|(?:isn'?t|is not)\\s+performing(?:\\s+well)?|sucks|stinks)\\b",
    "flags": "",
    "intent": "svc.cold_fit",
+   "delta": 0.6
+  },
+  {
+   "pattern": "^\\s*(?:hello[ ,]*)?(?:is|does) (?:this|this chat|the chat|this thing) (?:working|work|on)[?.! ]*$",
+   "flags": "",
+   "intent": "chat.test",
+   "delta": 0.5
+  },
+  {
+   "pattern": "\\bwho are (?:you|you guys)\\b[^.?!]*\\bwhat do (?:you|you guys) do\\b",
+   "flags": "",
+   "intent": "trust.what",
+   "delta": 0.4
+  },
+  {
+   "pattern": "\\bwho are (?:you|you guys)\\b[^.?!]*\\bwhat do (?:you|you guys) do\\b",
+   "flags": "",
+   "intent": "chat.name",
+   "delta": -0.4
+  },
+  {
+   "pattern": "\\bwho am i (?:talking|speaking|chatting) (?:to|with)\\b",
+   "flags": "",
+   "intent": "chat.name",
+   "delta": 0.4
+  },
+  {
+   "pattern": "\\b(?:my|our) (?:own )?(?:agents|team|people|staff|reps)\\b[^.?!]*\\b(?:make|do|handle|place) (?:their|our) own (?:calls|calling|dialing|prospecting)\\b",
+   "flags": "",
+   "intent": "cmp.inhouse",
+   "delta": 0.4
+  },
+  {
+   "pattern": "\\b(?:can|could|would|will) you (?:do|offer|give|sell) (?:it|that|this) (?:for )?(?:less|cheaper)\\b|\\bcan you go (?:any )?lower\\b",
+   "flags": "",
+   "intent": "price.discount",
+   "delta": 0.4
+  },
+  {
+   "pattern": "\\b(?:isas?|inside sales)\\b[^.?!]*\\b(?:cost|costs|price|pricing|charge|per month|a month|monthly)\\b|\\b(?:how much|cost|price|pricing|charge)\\b[^.?!]*\\b(?:isas?|inside sales)\\b",
+   "flags": "",
+   "intent": "price.other_services",
+   "delta": 0.3
+  },
+  {
+   "pattern": "^\\s*(?:system|admin|developer)\\s*:|\\b(?:admin|developer|debug|system) mode\\b|\\bignore (?:all |your |the )?(?:previous |prior |above )?instructions\\b",
+   "flags": "",
+   "intent": "chat.offtopic",
    "delta": 0.6
   }
  ],

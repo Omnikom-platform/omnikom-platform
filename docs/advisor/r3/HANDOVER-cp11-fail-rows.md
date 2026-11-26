@@ -76,7 +76,7 @@ PACK VALID: omnikom-io 0.1.0 / PACK VALID: vtv 0.1.0
 The 2 cp11 text diffs are #887 and #902 (now the fallback, as intended). Band moves with no grade change: #910, #911, #912
 (expected `info.unpublished`, now band `abstain`, same words).
 
-For the head to rule: a first-turn bare count no longer prices a team ("5" -> the fallback with its chips, not the 5-seat price).
+Ruled (head 2026-11-27 00:31): C, keep what is pushed. There is no seat range in the pack, so no number is invented; a first-turn bare count ("5") goes to the fallback with its chips.
 Turns that moved in golden-turns (before re-recording; old HEAD engine vs this tree, replayed by a scratch script):
 - band abstain only (#873 rule) (8):
   - `["how much do you pay your callers"] old answer:info.unpublished new abstain:info.unpublished`
