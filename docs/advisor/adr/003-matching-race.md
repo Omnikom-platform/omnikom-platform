@@ -1,6 +1,6 @@
 # ADR 003: Matching: Orama and MiniSearch race in R3; concept lists; the band
 
-Status: proposed in R2 (2026-11-26), waiting on the head. Design: `docs/advisor/R2-design.md`.
+Status: accepted by the head 2026-11-26 20:45 (rulings in R2 section 24). Design: `docs/advisor/R2-design.md`.
 
 ## Context
 Matching turns the visitor's words into scored intents. Today it is a word-weight similarity over 3,234 phrasings, plus the CUES regexes and a context boost (facts file).

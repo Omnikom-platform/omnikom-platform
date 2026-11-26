@@ -1,6 +1,6 @@
 # ADR 001: One engine for all sites; everything client-specific is pack data
 
-Status: proposed in R2 (2026-11-26), waiting on the head. Design: `docs/advisor/R2-design.md`.
+Status: accepted by the head 2026-11-26 20:45. Code home: `factory/advisor/` in code/main; omnikom.io takes the built file, sha256 pinned, never a second source. Design: `docs/advisor/R2-design.md`.
 
 ## Context
 The brief (constraint 3) asks for one engine and a knowledge pack per client, with no per-client code. Today's omnikom.io advisor keeps its

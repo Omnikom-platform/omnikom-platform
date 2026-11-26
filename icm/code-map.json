@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1016,
+    "sources": 1021,
     "unowned": 0
   },
   "files": [
@@ -151,6 +151,11 @@
     {"path":"docs/blueprint/specs/check-specs.test.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"docs/blueprint/specs/run-all-gates.mjs","owner":"platform-build","exports":[],"tests":["factory/briefs/gate-lib.test.mjs","tools/icm/test/book.mjs","tools/omnikom-cli/test/impact-stamp-hooks.mjs"],"feature":""},
     {"path":"docs/blueprint/wireframes/render.mjs","owner":"platform-build","exports":[],"tests":["factory/test/mutate.mjs","factory/test/run.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/toolkit.mjs"],"feature":""},
+    {"path":"factory/advisor/r3/mutant-advisor.mjs","owner":"platform-build","exports":["loadAdvisor"],"tests":[],"feature":""},
+    {"path":"factory/advisor/r3/probe-reference.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"factory/advisor/r3/reference-advisor.mjs","owner":"platform-build","exports":["loadAdvisor"],"tests":[],"feature":""},
+    {"path":"factory/advisor/r3/run-cp11.mjs","owner":"platform-build","exports":["loadAdvisor"],"tests":[],"feature":""},
+    {"path":"factory/advisor/r3/ts-hook.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/briefs/gate-lib.test.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/build.mjs","owner":"platform-build","exports":[],"tests":["factory/test/mutate.mjs","factory/test/run.mjs"],"feature":""},
     {"path":"factory/lib/design.mjs","owner":"platform-build","exports":["DesignError","loadDesign"],"tests":["factory/test/mutate.mjs","tools/audit/test/mutate.mjs","tools/audit/test/run.mjs"],"feature":""},

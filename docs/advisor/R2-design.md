@@ -6,6 +6,7 @@ Dialogflow CX patterns; both sites; an end-to-end test plan for each). Each real
 Every number below comes from a command named next to it. A number that is a target, not a measurement, says "target".
 Every outside sentence in quotes was checked word for word by `node docs/advisor/r1/verify-quotes.mjs docs/advisor/r2/quotes-r2.mjs r2-quotes.json` (output in `docs/advisor/r1/out/r2-quotes.json`). All were found except one, the B&P 17941 line, which is marked NOT CHECKED where it is used.
 A second, independent pass checked this design before it was sent (section 23).
+**Accepted by the head 2026-11-26 20:45 (commit 080f4ff1), with rulings and the owner's answers of 20:50 written in place below (section 24 lists them).**
 
 ## In short
 
@@ -21,12 +22,12 @@ A second, independent pass checked this design before it was sent (section 23).
 - **The flow that earns:** qualify, then a fitted plan and price, then the site's own form or booking pop-up, pre-filled. The visitor presses send. The lead
   then reaches the CRM by the platform's lead path. The chat never takes an email or phone number itself, and never sends a form. Seat totals stay hidden until the owner approves claim C-26.
 - **Zero cost per chat:** static files plus the visitor's own browser. The only server touch is one optional session report: counts, the redacted misses, and during shadow the
-  turns that differ. None is sent under Global Privacy Control. It is DESIGN ONLY until the owner decides on storing visitor text.
+  turns that differ. None is sent under Global Privacy Control. It is ON for omnikom.io only and OFF on client sites (section 24).
 - **Budget (target):** nothing of the chat loads until the visitor presses the button (the button itself is at most 2 KB inside the page). On open, at most 125 KB gzip for omnikom.io,
   no more than today's 125,324 B. On the measured stand-in only MiniSearch's path fits; Orama's fits only if the real pack comes out about 10 KB smaller (section 10).
 - **Tests:** the bar is zero graded drops against `cp11-results.jsonl` (915 rows), zero made-up claims, golden whole-conversation
   transcripts, property tests, mutants and the head's held-back run. A rule ships with its test, and that test is first seen failing.
-- **Rollout:** omnikom.io in shadow, then a small share, then live. VTV comes only after its platform pack exists, its missing facts are signed, the
+- **Rollout (head's ruling 4):** the first version goes live on the bar in section 18, with no calendar gates; shadow and a small share are for later pack versions only. VTV gets its pack by hand-conversion now; it goes live after its preview, the
   lawyer's wording is in, and the owner and Francine both say go. Rollback is one step: the site points back to the previous pack version.
 
 ## 1. The shape
@@ -170,7 +171,7 @@ tests       { golden: path, cases: path }       -- the pack's own whole-conversa
    - the site export `omnikom-export/1` (`docs/product/7-sites.md`): business details, services, team, reviews, questions and answers, legal text, forms with their consent notice, and the `sourced` fields (value, source, date);
    - the industry pack: the standard flows, slots, refusals, concepts, cues and question texts for that industry, written once and read by a lawyer once;
    - the brief's business file (for VTV: `E:/Francine & Eli/site-checks/valleytovalleyrealty.com/.pewp/business.json`, which holds kind, offer, audience, locations, credentials).
-2. **Builder** (proposed home `factory/advisor/`, which platform-build already owns). It turns each sourced fact into a claim carrying its source, each Q&A into an intent with the question as its first phrasing,
+2. **Builder** (home `factory/advisor/` in code/main, the head's ruling 1). It turns each sourced fact into a claim carrying its source, each Q&A into an intent with the question as its first phrasing,
    and each service and price into intents and price rows. It writes the pack and a sha256.
 3. **The validator fails the build when:**
    - a claim has no source;
@@ -208,7 +209,7 @@ ALL	216409	61278	52341
 
 ### 5.4 VTV's pack
 
-It is built from VTV's export once its platform workspace exists (work order M4; `sites/vtv/design/` is not made yet), plus `business.json` and the industry pack
+Head's ruling 2: it is NOT parked behind M4. It is made now by hand-conversion, like omnikom.io's, from VTV's own facts (`clients/vtv/facts.md`) and the live site's signed text, plus `business.json` and the industry pack
 `real-estate-agent`. From `clients/vtv/facts.md` these are still unanswered: phone, office address, broker of record, licence lookup, Spanish (B7) and MLS. Each one is MISSING in the pack, so the assistant says it
 does not have that and offers the form. It never guesses one.
 
@@ -316,7 +317,7 @@ The stand-in is source code with comments, so the real pack should be smaller. R
 Loading starts when the visitor presses the button (brief constraint 4), never on hover. The search index is built in the browser from the pack's phrasings, not shipped.
 **One stated exception:** during shadow (section 18), the sampled sessions load both engines, after the old one has answered. That ends when shadow ends (ADR 008).
 
-## 11. The learning loop (DESIGN ONLY: storing visitor text needs the owner's decision and a privacy line)
+## 11. The learning loop (the session report is ON for omnikom.io only, the owner 2026-11-26 20:50; OFF on client sites until each one's privacy page covers it)
 
 The method is Wallace's Targeting (R1: "a cyclical process of supervised learning called Targeting") with Rasa's conversation-driven development. It never learns live.
 
@@ -344,7 +345,7 @@ The method is Wallace's Targeting (R1: "a cyclical process of supervised learnin
 - **In the browser only:** the slots (section 6), kept in sessionStorage for one tab and 30 minutes. Nothing goes in localStorage or cookies, and nothing carries over between visits.
 - **Leaves the browser, and nothing else does:**
   1. What the visitor sends with the site's own form or booking pop-up. They see it filled in before they press send.
-  2. The session report of section 11: counts, redacted misses, and during shadow the redacted turns that differ. It is DESIGN ONLY, never sent under GPC, and kept 30 days.
+  2. The session report of section 11: counts, redacted misses, and during shadow the redacted turns that differ. It is ON for omnikom.io only (OFF on client sites), never sent under GPC, and kept 30 days.
 - **What the chat adds to a lead:** the notes field gets the slot values. After a fallback it also gets "Question: <the unanswered line, up to 120 characters>", as today (facts file line 41).
   The visitor sees and can edit both before pressing send. The lead also gets `source=advisor` and the pack version (a change request, section 14). The transcript is never sent.
 - **Phone numbers:** the chat takes none, so the chat itself creates no TCPA consent duty. The form that takes the phone shows the consent notice that the site contract requires. On VTV, that wording waits on the lawyer.
@@ -429,7 +430,7 @@ cat:unanswerable	PASS=21 PARTIAL=3 FAIL=2
    - any input of 500 characters or fewer answers within the target;
    - any random run of events leaves the machine in a declared state;
    - a snapshot saved and loaded gives the same next reply.
-6. **Mutants** (StrykerJS, dev only) on the engine code. The bar is set from the first measured score in R3 and may only rise.
+6. **Mutants** in the repo's own pattern (a patch per mutant on a copy, each must turn named assertions red; "MUTANTS PASS n of n", as `skills/programmatic-enterprise-web-performance/scripts/lib-test-kit.mjs`). StrykerJS: no (the head's ruling 6).
 7. **Held-back probes:** the head runs them on each build. We never see them.
 8. **Browser end to end:** sections 16 and 17.
 9. **Cross-browser:** scores are rounded to 3 decimals with a fixed tie-break. Runs use Chromium and WebKit, both already on this machine (`%LOCALAPPDATA%\ms-playwright`: chromium-1243, webkit-2272; there is no Firefox). A clean CI runner must download browsers (`playwright install`), which needs the owner's yes.
@@ -479,18 +480,18 @@ Every run still fails on any POST to any host. **Never a real VTV form or endpoi
 | V11 | Keyboard and screen reader, as O11 | the same |
 | V12 | A VTV single-turn set (paraphrase, typos, unanswerable, compliance, injection, Spanish, the categories of cp11), written by the head from the pack's intents, with a held-back part the head keeps | zero made-up claims; the pass bar is set by the head |
 
-## 18. Rollout and rollback
+## 18. Rollout and rollback (the head's ruling 4)
 
-1. **R3 (offline, after the head's GO):** the omnikom.io pack and the engine pass through the head's harness: zero graded drops against cp11, then the held-back run. Orama and MiniSearch race here. No deploy.
-2. **Build jobs** by the platform method: one hand-over per job, test first. Proposed slices: engine, UI, pack builder and validator, omnikom.io pack conversion, endpoint.
-3. **omnikom.io shadow:** the old advisor answers. For a sample of sessions (25%), the new engine loads after the old one has answered and runs beside it in the browser. Different answers are reported (redacted; needs the owner's decision). Exit after at least 14 days and 300 opened chats,
-   with zero made-up claims and every difference reviewed by the head. Then the owner's go.
-4. **omnikom.io small share** (10% of sessions by hash, at least 7 days), then **live**.
-5. **VTV**, only when all of these hold: its platform workspace and export exist (M4); the missing facts are signed; the lawyer has read the consent and
-   steering wording; the owner says go **and** Francine says OK. It goes first on the noindex preview, and to the live domain last, as the platform already does.
-6. **Rollback, at every step:** the site's pointer goes back to the previous engine and pack version. On omnikom.io during shadow that means switching the new engine off.
+1. **R3 (offline):** the omnikom.io pack and the engine pass through the head's harness (`factory/advisor/r3/run-cp11.mjs`): zero graded drops against cp11, then the held-back run. Orama and MiniSearch race here; only the winner ships. No deploy.
+2. **Build jobs** by the platform method: one hand-over per job, test first. Slices: engine, UI, pack builder and validator, omnikom.io pack, VTV pack, session report endpoint.
+   omnikom.io (the lovable repo) takes the BUILT engine and UI as one versioned file with its sha256 pinned, plus a check that the copy equals the release; never a second source (ruling 1).
+3. **First version, bar to live:** zero graded drops on cp11, the head's held-back run, O1 to O15 green on a preview, and the owner's look. No calendar gates. The old engine stays as the one-step rollback.
+   Then the whole live test (live, then test the whole).
+4. **Later pack versions** (the learning loop): shadow and a small share apply, and only while the session report is on (section 11).
+5. **VTV:** its pack now, by hand-conversion (5.4). Live = the noindex preview first, then the owner's go and Francine's OK. The email asking her waits for the owner's send.
+   The lawyer's wording rides on her question 11 and does not hold the build. The session report stays OFF on VTV until her privacy page covers it.
+6. **Rollback, at every step:** the site's pointer goes back to the previous engine and pack version.
    Cloudflare Pages also keeps the previous deployment: "Rollbacks allow you to instantly revert your project to a previous production deployment." Any publish needs the owner's click (repo rule 12).
-
 ## 19. Cost model
 
 - **Per chat: zero.** The files are static ("Requests to static assets are free and unlimited", Cloudflare Pages pricing), and the work runs in the visitor's browser. No model call, and no paid service per message.
@@ -527,7 +528,7 @@ Every run still fails on any POST to any host. **Never a real VTV form or endpoi
 | [010](adr/010-privacy-and-disclosure.md) | Disclosure first; data stays in the browser; redaction; GPC |
 | [011](adr/011-pack-versions-and-integrity.md) | Immutable pack versions, sha256 pinned, one-step rollback |
 
-## 22. UNPROVEN, BLOCKED, open (for the head)
+## 22. UNPROVEN, BLOCKED, open
 
 - **UNPROVEN:**
   - every target in section 10;
@@ -539,21 +540,8 @@ Every run still fails on any POST to any host. **Never a real VTV form or endpoi
   - every metric in section 14;
   - the endpoint's cost;
   - the B&P 17941 quote, word for word (NOT CHECKED: HTTP 403 bot wall on both law sites, not bypassed).
-- **BLOCKED:** none for R2. For VTV going live: the M4 workspace, the missing facts, the lawyer's wording, and the owner's and Francine's go (section 18).
-- **Open, for the head:**
-  1. The owner's decision on the session report: storing redacted visitor text, for the misses and the shadow comparison.
-  2. Where the code lives. The proposal is `factory/advisor/` (platform-build).
-  3. Changes in OMNIKOM-IO-SITE's lane, through the head:
-     - the advisor mark on leads and bookings (`lead.js`, the form, the booking pop-up);
-     - the host adapter for the `omnikom-advisor:handoff` event;
-     - the omnikom.io build jobs.
-  4. Claim C-26 (seat totals) stays hidden until the owner approves it. The design shows the base line only.
-  5. The rollout numbers (14 days, 300 chats, a 25% shadow sample, a 10% share, 7 days) are proposals.
-  6. VTV's single-turn set, authored by the head (V12).
-  7. Dependencies, each needing the owner's yes:
-     - runtime: XState 5.33.x, and Orama or MiniSearch;
-     - dev: @xstate/graph, fast-check 4.10.x and StrykerJS;
-     - browser downloads for a clean CI runner.
+- **BLOCKED:** none. VTV going live waits on the owner's go and Francine's OK (section 18).
+- **Open:** none left from R2; every open item was ruled on 2026-11-26 (section 24).
 
 ## 23. Second independent pass (M298)
 
@@ -581,6 +569,19 @@ Fixed in this version:
 - redaction is best effort, with an IP hash (11);
 - the tamper guard's limit (13);
 - the Rasa two-stage quote is checked.
+
+## 24. Rulings of 2026-11-26 (the head 20:45; the owner 20:50, through the head)
+
+1. Code home: `factory/advisor/` in code/main. omnikom.io takes the built engine and UI as one versioned file, sha256 pinned, with a check that the copy equals the release.
+2. VTV is not parked behind M4: its pack is hand-converted from its own facts and signed site text now. MISSING facts answer "unknown, and the form".
+3. VTV hand-off: the form now; `handoff(booking)` to her Calendly when her answer to question 6 arrives. The pack schema keeps a `forms[]` entry of kind `booking` with an external `url` whose host must be listed in `meta.allowedHosts`.
+4. Rollout: section 18.
+5. Session report: ON for omnikom.io only (redacted in the browser; 30 days; GPC honoured; one line on omnikom.io's privacy page, words sent to the head 20:35). OFF on client sites, VTV included,
+   until each client's privacy page covers it. The engine works fully with it off, and off is the default (`meta.report: false`).
+6. Dependencies, the owner's yes: XState 5.33.x, MiniSearch and Orama (race only; the loser is removed), @xstate/graph and fast-check 4.10.x (dev only); each at least 7 days old, lockfile committed,
+   install scripts off. StrykerJS: no. Playwright: reuse what `.github/workflows/flows.yml` does; no new browser download.
+7. The R3 report lists which of cp11's 29 FAIL rows turn to PASS.
+8. Changes in OMNIKOM-IO-SITE's lane (the advisor mark in `lead.js`, the hand-off adapter) are handed over by the head when the build jobs start.
 
 ## How to re-run
 

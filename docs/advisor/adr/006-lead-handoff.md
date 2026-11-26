@@ -1,6 +1,6 @@
 # ADR 006: Hand-off: the site's own form or booking pop-up, pre-filled; the chat takes no contact details
 
-Status: proposed in R2 (2026-11-26), waiting on the head. Design: `docs/advisor/R2-design.md`.
+Status: accepted by the head 2026-11-26 20:45 (rulings in R2 section 24). Design: `docs/advisor/R2-design.md`.
 
 ## Context
 The flow that earns ends in a lead or a booked call. omnikom.io already has a Get Started form (interest, business type, markets, notes, sent to `/api/lead`; facts file) and a booking

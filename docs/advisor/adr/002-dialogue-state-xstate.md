@@ -1,6 +1,6 @@
 # ADR 002: XState 5 runs the pack's flows
 
-Status: proposed in R2 (2026-11-26), waiting on the head. Design: `docs/advisor/R2-design.md`.
+Status: accepted by the head 2026-11-26 20:45 (rulings in R2 section 24). Design: `docs/advisor/R2-design.md`.
 
 ## Context
 Today two parts own the conversation: the guided script and the engine (`assistant-card.tsx:171-182`). Their state lives in a React ref and is lost on reload (`engine.ts:44-59`).

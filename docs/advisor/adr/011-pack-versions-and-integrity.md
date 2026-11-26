@@ -1,6 +1,6 @@
 # ADR 011: Immutable pack versions, sha256 pinned, one-step rollback
 
-Status: proposed in R2 (2026-11-26), waiting on the head. Design: `docs/advisor/R2-design.md`.
+Status: accepted by the head 2026-11-26 20:45 (rulings in R2 section 24). Design: `docs/advisor/R2-design.md`.
 
 ## Context
 CX: a version is an "immutable snapshot", and experiments "allocate a portion of live traffic" (R1). The threat model names pack tampering and stale facts.

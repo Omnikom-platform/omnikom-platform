@@ -1,6 +1,6 @@
 # ADR 008: Loading on intent, never before; the byte and speed budget
 
-Status: proposed in R2 (2026-11-26), waiting on the head. Design: `docs/advisor/R2-design.md`.
+Status: accepted by the head 2026-11-26 20:45 (rulings in R2 section 24). Design: `docs/advisor/R2-design.md`.
 
 ## Context
 Brief constraint 4: load after the visitor opens the chat, never before the main image (LCP bar 2.5 s). Measured today: the engine is 67,459 B gzip and the card 57,865 B, and the card is preloaded on

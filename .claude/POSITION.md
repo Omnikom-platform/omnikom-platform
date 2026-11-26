@@ -1,4 +1,24 @@
-## Block 2026-11-26 20:00 (this is the current block)
+## Block 2026-11-26 20:30 (this is the current block)
+
+Session ADVISOR-ENGINE_code-mode (Code Mode, Opus 5.5). Head: HEAD-OF-OPERATIONS_Fable_2026-11-11 (SendMessage, 8-line reports, paths only).
+R2 ACCEPTED by the head 20:45 (commit 080f4ff1). Rulings (write into R2/ADRs in place):
+1 Code home factory/advisor/ in code/main. omnikom.io (lovable repo) takes the BUILT engine+UI as ONE versioned file, sha256 pinned, plus a check that the copy equals the release; never a second source.
+2 VTV is NOT parked behind M4: hand-convert VTV's pack from clients/vtv/facts.md + the live site's signed text. MISSING = "unknown + the form". Live on VTV = preview, then owner's go + Francine's OK.
+  Lawyer wording rides on her question 11, does not hold the build. The email to Francine (via Dave) is NOT sent yet; it waits for the owner's send.
+3 VTV hand-off: form now; handoff(booking) to her Calendly when her answer to question 6 arrives; leave a slot for it in the pack schema now.
+4 First version: no calendar gates. Bar to live = R3 zero graded drops on cp11 + head's held-back run + O1-O15 green on a preview + owner's look; old engine = one-step rollback; then the whole live test.
+  Shadow and small share only for later pack versions, and only if the session report is on.
+5 OWNER 20:50: session report ON for omnikom.io only (redacted in browser: emails, phones, runs of 5+ digits, the name slot; 30 days; GPC honoured) + one line on omnikom.io's privacy page
+  (I write its exact words to the head; OMNIKOM-IO-SITE applies it). Client sites incl. VTV: report OFF until that client's privacy page covers it. Engine works fully with it OFF (default OFF).
+6 OWNER 20:50 deps YES: XState 5.33.x, MiniSearch, Orama (race only; loser removed), @xstate/graph + fast-check 4.10.x (dev only). Read ~/.claude/reference/supply-chain-2026-10.md first:
+  each version >= 7 days old, none on never-install list, lockfile committed, install scripts off. StrykerJS NO: use the repo's mutant pattern ("MUTANTS PASS n of n", skills/.../lib-test-kit.mjs main()).
+  Playwright: reuse what .github/workflows/flows.yml does; no new browser download.
+7 R3 report adds: which of cp11's 29 FAIL rows turn to PASS (a list).
+8 OMNIKOM-IO-SITE lane changes (lead.js advisor mark, handoff adapter): the head hands them over when build jobs start; never edit the lovable repo.
+GO for R3 (20:50). Harness: E:/Omnikom Platform/head-of-operations/domains/omnikom-io-advisor/test-2026-11-25/harness-current/harness.mjs; baseline checkpoints/cp11-results.jsonl.
+Next: apply rulings to R2 in place; send the privacy line words to the head; R3 spike in factory/advisor/ (pack schema + validator + omnikom.io pack conversion + VTV pack + cp11 runner), test first.
+
+## Block 2026-11-26 20:00 (superseded)
 
 Session ADVISOR-ENGINE_code-mode (Code Mode, Opus 5.5). Head: HEAD-OF-OPERATIONS_Fable_2026-11-11 (SendMessage, 8-line reports, paths only).
 R1 ACCEPTED by the head 18:46; rulings written into docs/advisor/R1-research.md in place (cp11 baseline, own slot fill, Orama vs MiniSearch race in R3,

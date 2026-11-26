@@ -1,6 +1,6 @@
 # ADR 004: Replies: approved text only, one render(), our own slot fill, variants by hash
 
-Status: proposed in R2 (2026-11-26), waiting on the head. Design: `docs/advisor/R2-design.md`.
+Status: accepted by the head 2026-11-26 20:45 (rulings in R2 section 24). Design: `docs/advisor/R2-design.md`.
 
 ## Context
 Today, script lines and the engine's own lines skip `render()` and so skip the claims scrub (facts file), and the same state always gives the same words.
