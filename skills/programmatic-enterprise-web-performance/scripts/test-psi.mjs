@@ -31,13 +31,14 @@ const answer = (url, strategy) => ({
   loadingExperience: { id: url, metrics: {}, overall_category: "FAST" },
   lighthouseResult: {
     requestedUrl: url, finalUrl: url, lighthouseVersion: "12.0.0", fetchTime: "2026-10-26T10:00:00.000Z", configSettings: { formFactor: strategy, locale: "en" },
-    categories: { performance: { id: "performance", title: "Performance", score: strategy === "mobile" ? 0.94 : 0.99 } },
+    categories: { performance: { id: "performance", title: "Performance", score: strategy === "mobile" ? 0.94 : 0.99 }, accessibility: { id: "accessibility", score: 0.88 }, seo: { id: "seo", score: 0.92 }, "best-practices": { id: "best-practices", score: 0.96 } },
     audits: {
       "largest-contentful-paint": audit("largest-contentful-paint", strategy === "mobile" ? 2750.4 : 900.2, "2.8 s"),
       "cumulative-layout-shift": audit("cumulative-layout-shift", 0.01234, "0.012"),
       "total-blocking-time": audit("total-blocking-time", 120.6, "120 ms"),
       "first-contentful-paint": audit("first-contentful-paint", 1800.2, "1.8 s"),
       "speed-index": audit("speed-index", 2400.9, "2.4 s"),
+      "color-contrast": { id: "color-contrast", title: "contrast", score: 0, scoreDisplayMode: "binary" },
     },
   },
   analysisUTCTimestamp: "2026-10-26T10:00:00.000Z",
@@ -59,7 +60,7 @@ async function scenarios(dir) {
   const sockets = new Set();
   const server = http.createServer((req, res) => {
     const u = new URL(req.url, "http://x"), q = Object.fromEntries(u.searchParams);
-    hits.push({ t: Date.now(), path: u.pathname, q });
+    hits.push({ t: Date.now(), path: u.pathname, q, cats: u.searchParams.getAll("category") });
     const target = q.url || "";
     res.setHeader("content-type", "application/json");
     if (/\/hang/.test(target)) return; // never answers
@@ -111,9 +112,10 @@ async function scenarios(dir) {
     const file2 = path.join(pewpOf(c2), "psi", "2026-10-26.json");
     const doc = fs.existsSync(file2) ? J(file2) : { pages: [] };
     check("main run: exit 0 and <pewp>/psi/<--today>.json is written (pewp = the first url's host)", r2.code === 0 && fs.existsSync(file2), `exit ${r2.code} ${r2.so}${r2.se}`);
-    check("main run: 4 requests (2 pages x mobile,desktop), the documented path, url, strategy, category=performance and the key sent", mine.length === 4 && mine.every((h) => h.path === "/pagespeedonline/v5/runPagespeed" && h.q.category === "performance" && h.q.key === KEY && /^https:\/\/example-psi-test\.test\//.test(h.q.url)) && mine.map((h) => h.q.strategy).join() === "mobile,desktop,mobile,desktop", JSON.stringify(mine.map((h) => ({ ...h, q: { ...h.q, key: h.q.key ? "set" : undefined } }))));
+    check("main run: 4 requests (2 pages x mobile,desktop), the documented path, url, strategy, category performance, accessibility, seo and best-practices, and the key sent", mine.length === 4 && mine.every((h) => h.path === "/pagespeedonline/v5/runPagespeed" && h.cats.join() === "performance,accessibility,seo,best-practices" && h.q.key === KEY && /^https:\/\/example-psi-test\.test\//.test(h.q.url)) && mine.map((h) => h.q.strategy).join() === "mobile,desktop,mobile,desktop", JSON.stringify(mine.map((h) => ({ ...h, q: { ...h.q, key: h.q.key ? "set" : undefined } }))));
     const m0 = doc.pages[0] || {}, d0 = doc.pages[1] || {};
     check("file shape: { generatedAt, pages:[{ url, strategy, performance, lcpMs, cls, tbtMs, fcpMs, speedIndexMs, fetchedAt, cacheFile }] }", !Number.isNaN(Date.parse(doc.generatedAt)) && doc.pages.length === 4 && doc.pages.every((p) => ["url", "strategy", "performance", "lcpMs", "cls", "tbtMs", "fcpMs", "speedIndexMs", "fetchedAt", "cacheFile"].every((k) => k in p)) && Array.isArray(doc.failures), JSON.stringify(doc).slice(0, 400));
+    check("each row records the four category scores (x100), lighthouseVersion and the named audits (id: score)", m0.categories?.accessibility === 88 && m0.categories?.seo === 92 && m0.categories?.["best-practices"] === 96 && m0.categories?.performance === 94 && m0.lighthouseVersion === "12.0.0" && m0.audits?.["color-contrast"] === 0 && m0.audits?.["largest-contentful-paint"] === 0.9, JSON.stringify(m0).slice(0, 500));
     check("score is written 0..100 (0.94 -> 94, 0.99 -> 99), not 0..1", m0.performance === 94 && d0.performance === 99 && m0.strategy === "mobile" && d0.strategy === "desktop", `${m0.performance} ${d0.performance}`);
     check("vitals read from the audits' numericValue: LCP 2750 ms, CLS 0.012, TBT 121 ms, FCP 1800 ms, speed index 2401 ms", m0.lcpMs === 2750 && m0.cls === 0.012 && m0.tbtMs === 121 && m0.fcpMs === 1800 && m0.speedIndexMs === 2401 && d0.lcpMs === 900, JSON.stringify(m0));
     check("each row names its cache file, and the file exists", doc.pages.every((p) => typeof p.cacheFile === "string" && fs.existsSync(path.join(pewpOf(c2), p.cacheFile))), JSON.stringify(doc.pages.map((p) => p.cacheFile)));
@@ -234,6 +236,8 @@ const MUTANTS = [
   { name: "the runs of a page are not listed (only the median is kept)", patches: [{ file: "psi.mjs", from: "runs: list.map(({ run, ...x }) => ({ run, ...x })),", to: "runs: []," }], expect: [/^runs: every run is listed/, /^runs: the row's own cacheFile/] },
   { name: "no gap between two runs of the same page", patches: [{ file: "psi.mjs", from: "const sameWait = (lastAt.get(pk) || 0) + runGapMs - Date.now();", to: "const sameWait = 0;" }], expect: [/^runs: two runs of the same page/] },
   { name: "a failed run is not recorded with its run number", patches: [{ file: "psi.mjs", from: "failures.push({ url, strategy, run, error: scrub(why) });", to: "failures.push({ url, strategy, error: scrub(why) });" }], expect: [/^runs: a run that fails is listed/] },
+  { name: "only the performance category is asked", patches: [{ file: "psi.mjs", from: 'for (const c of ["performance", "accessibility", "seo", "best-practices"]) q.append("category", c);', to: 'q.append("category", "performance");' }], expect: [/^main run: 4 requests/] },
+  { name: "the categories, lighthouseVersion and audits are not kept on the row", patches: [{ file: "psi.mjs", from: "categories: middle.categories, lighthouseVersion: middle.lighthouseVersion, audits: middle.audits, ", to: "" }], expect: [/^each row records the four category scores/] },
   { name: "--runs is not validated", patches: [{ file: "psi.mjs", from: "if (runs > 5) throw new Usage(", to: "if (false) throw new Usage(" }], expect: [/^runs: --runs must be a whole number/] },
   { name: "no key does not block", patches: [{ file: "psi.mjs", from: "if (!key) throw new Blocked(UNBLOCK);", to: "" }], expect: [/^no key: BLOCKED/, /^no key: no request/] },
   { name: "the polite minimum gap is not enforced", patches: [{ file: "psi.mjs", from: "politeMs(\"--gap-ms\", numArg(", to: "((n, v) => v)(\"--gap-ms\", numArg(" }], expect: [/^to the real Google address/] },

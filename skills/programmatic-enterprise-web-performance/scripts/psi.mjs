@@ -14,11 +14,12 @@
 //               runs would be one: UNPROVEN live; the gap is the precaution; for a local test address the default is --gap-ms).
 // Key: $PSI_API_KEY, sent as ?key= and never stored or printed (removed from the cache file's stored address, scrubbed from every message).
 // Without a key: BLOCKED (exit 3) with the way in: a free key from Google Cloud with the "PageSpeed Insights API" enabled.
-// Request: GET https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=&strategy=&category=performance&key=  (base: $PSI_API_BASE, tests only).
+// Request: GET https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=&strategy=&category=performance&category=accessibility&category=seo&category=best-practices&key=  (base: $PSI_API_BASE, tests only).
 // One request at a time, --gap-ms apart; each request is cut off after 60 s ($PSI_TIMEOUT_MS shortens that, tests only); a successful answer
 // is cached 1 day under <pewp>/cache/psi/ (a cached answer costs no request and no wait).
 // Reads lighthouseResult.categories.performance.score (0..1, written as 0..100) and the numericValue of the audits largest-contentful-paint,
-// cumulative-layout-shift, total-blocking-time, first-contentful-paint, speed-index.
+// cumulative-layout-shift, total-blocking-time, first-contentful-paint, speed-index; and records the four category scores (0..100), lighthouseVersion and
+// every named audit's score (audits: { id: score }), so the Lighthouse accessibility audits (axe-core) back the A11 rules (VTV-PROOF).
 // Writes <pewp>/psi/<date>.json = { generatedAt, pages: [{ url, strategy, performance, lcpMs, cls, tbtMs, fcpMs, speedIndexMs, fetchedAt, cacheFile, medianOf, runsAsked, runs: [{ run, performance, ..., fetchedAt, cacheFile }] }], failures: [{ url, strategy, run, error }] }
 // and prints one line per page: "psi <strategy> <url>: performance N, LCP N ms" (with --runs: one line per run, then "psi <strategy> <url>: median of N: performance N, LCP N ms").
 // Exit: 0 written (a page that failed is listed under `failures`), 1 every page failed or Google answered 429 (the run stops at the first 429;
@@ -62,6 +63,9 @@ export function readAnswer(j) {
     tbtMs: round(num(a, "total-blocking-time")),
     fcpMs: round(num(a, "first-contentful-paint")),
     speedIndexMs: round(num(a, "speed-index")),
+    categories: Object.fromEntries(Object.entries(lh.categories || {}).map(([k, c]) => [k, typeof c?.score === "number" ? Math.round(c.score * 100) : null])),
+    lighthouseVersion: lh.lighthouseVersion ?? null,
+    audits: Object.fromEntries(Object.entries(a).map(([k, x]) => [k, x?.score ?? null])),
   };
 }
 
@@ -113,7 +117,8 @@ export async function run(a) {
   outer: for (let run = 1; run <= runs; run++) {
     for (const { url, strategy } of pairs) {
       const pk = `${strategy} ${url}`;
-      const q = new URLSearchParams({ url, strategy, category: "performance" });
+      const q = new URLSearchParams({ url, strategy });
+      for (const c of ["performance", "accessibility", "seo", "best-practices"]) q.append("category", c);
       q.set("key", key); // last, so the stored address can drop it by name
       const reqUrl = `${BASE()}?${q}`;
       try {
@@ -151,7 +156,7 @@ export async function run(a) {
     const middle = byScore[(byScore.length - 1) >> 1];
     const cls = metric("cls");
     const row = { performance: rnd(metric("performance")), lcpMs: rnd(metric("lcpMs")), cls: cls == null ? null : Number(cls.toFixed(3)), tbtMs: rnd(metric("tbtMs")), fcpMs: rnd(metric("fcpMs")), speedIndexMs: rnd(metric("speedIndexMs")) };
-    pages.push({ url, strategy, ...row, fetchedAt: middle.fetchedAt, cacheFile: middle.cacheFile, medianOf: list.length, runsAsked: runs,
+    pages.push({ url, strategy, ...row, categories: middle.categories, lighthouseVersion: middle.lighthouseVersion, audits: middle.audits, fetchedAt: middle.fetchedAt, cacheFile: middle.cacheFile, medianOf: list.length, runsAsked: runs,
       runs: list.map(({ run, ...x }) => ({ run, ...x })),
     });
     if (runs > 1) console.log(`psi ${strategy} ${url}: median of ${list.length}: performance ${row.performance}, LCP ${row.lcpMs} ms`);

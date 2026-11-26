@@ -6,6 +6,7 @@
   { "file": "test-analysis-copy.mjs", "plain": ["--no-mutants"], "mutants": [] },
   { "file": "test-checker-rules.mjs", "plain": ["--no-mutants"], "mutants": [] },
   { "file": "test-ledger.mjs", "plain": ["--no-mutants"], "mutants": [] },
+  { "file": "test-proof-gates.mjs", "plain": ["--no-mutants"], "mutants": [] },
   { "file": "test-client-copy.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-grid-text.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-profile-notread.mjs", "plain": [], "mutants": ["--mutants"] },
