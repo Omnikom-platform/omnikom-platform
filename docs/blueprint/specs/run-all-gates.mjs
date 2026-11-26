@@ -24,6 +24,7 @@ const GATES = [
   ['bring-up tests + mutants', 'supabase/ops/test/bring-up.test.mjs', '--mutants'],   // slice S5 (E2): the production bring-up against local fakes; a second run changes nothing; no network
   ['test alert tests + mutants', 'supabase/ops/test/alerts-test-alert.test.mjs', '--mutants'],   // P-MAIL: the one marked test mail of the alerts run against a fake Resend on 127.0.0.1, and the test step of the workflow file; no database, no network
   ['alert sender tools', 'tools/test/test-alert-sender.mjs'],   // P-MAIL: the deploy tools and the secrets tool take the alert sender from supabase/auth-emails/emails.json, never from the environment; fakes only
+  ['function deploy tool', 'tools/test/test-deploy-functions.mjs'],   // C15: tools/deploy-functions.mjs against a fake Supabase CLI: order, exit codes, names, scrub, temp env file; no network, about 1 minute (its mutants: --mutants, by hand)
   ['backup tests', 'supabase/ops/test/backup.test.mjs'],   // slice S5 (E1): database, Vault and media copies, encrypted, to fake buckets on 127.0.0.1; a local cluster, no network
   ['restore drill tests', 'supabase/ops/test/6b-drill.test.mjs'],   // slice S5 (E1): the drill's rules and two red drills of a tiny local database
   ['e2e cleanup + mutants', 'supabase/tests/e2e-cleanup.test.mjs'],   // slice 5.2b: the staging e2e scripts remove the content rows they create (a thrown assertion included); no staging, about 2 s
