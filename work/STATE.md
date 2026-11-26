@@ -28,7 +28,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
 - The truth keepers: CI checks the book and `work/map/` (rule 36); `omnikom truth` (drift report); `omnikom map` (the map).
 
 ## Not landed
-- `check/seo/ai-oneshot`.
+- `check/seo/ai-oneshot`; `check/seo/vtv-proof-tools` (CI green, waits for this land); `check/platform/advisor-engine` (VTV in the engine, in work).
 
 ## Staging, 2026-11-21
 - Reachable; 42 of 43 migrations (52 applied 2026-11-21; 53, the replay guard, NOT applied: the migration first, then its seven
@@ -51,8 +51,8 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
 ## Machine
 - One lock for every heavy local run (`~/.claude/scripts/heavy.mjs`); a run that waited it out is UNPROVEN. A test
   that depends on this machine is proven on the runner.
-- Google from here: the IP is in Giza; captures only by desktop control in the owner's Edge. Staging has migration 20
-  applied before 16 (KNOWN-6): repair before the first promotion.
+- Google from here: the IP is in Giza; captures only by desktop control in the owner's Edge. KNOWN-6: staging applied 15,
+  18, 19, 17, 20, 16 (four rows inverted); repair = the order proof test + a narrow promote-check exception (ruling 2026-11-26).
 
 ## Open owner items
 - Done: the sitting of 2026-11-20 (accounts, DNS, R2) and his list of 2026-11-21; each item and its proof: `work/map/owner.tsv`.
