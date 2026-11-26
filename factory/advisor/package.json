@@ -1,0 +1,19 @@
+{
+  "name": "omnikom-advisor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The site assistant engine (docs/advisor/R2-design.md). Dependencies approved by the owner 2026-11-26 20:50; MiniSearch and Orama are raced in R3 and the loser is removed. Install with: npm ci --prefix factory/advisor --ignore-scripts",
+  "engines": {
+    "node": ">=24.22.1"
+  },
+  "dependencies": {
+    "xstate": "5.33.4",
+    "minisearch": "7.2.0",
+    "@orama/orama": "3.1.18"
+  },
+  "devDependencies": {
+    "@xstate/graph": "3.0.4",
+    "fast-check": "4.10.3"
+  }
+}

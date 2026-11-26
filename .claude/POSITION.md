@@ -16,7 +16,21 @@ R2 ACCEPTED by the head 20:45 (commit 080f4ff1). Rulings (write into R2/ADRs in 
 7 R3 report adds: which of cp11's 29 FAIL rows turn to PASS (a list).
 8 OMNIKOM-IO-SITE lane changes (lead.js advisor mark, handoff adapter): the head hands them over when build jobs start; never edit the lovable repo.
 GO for R3 (20:50). Harness: E:/Omnikom Platform/head-of-operations/domains/omnikom-io-advisor/test-2026-11-25/harness-current/harness.mjs; baseline checkpoints/cp11-results.jsonl.
-Next: apply rulings to R2 in place; send the privacy line words to the head; R3 spike in factory/advisor/ (pack schema + validator + omnikom.io pack conversion + VTV pack + cp11 runner), test first.
+DONE since: rulings in R2 (section 24) + ADRs; privacy-page words sent to the head 20:35; R3 step 1 committed e6db786: factory/advisor/r3/run-cp11.mjs reproduces cp11 exactly on today's engine
+(915 rows, 0 graded changes, 0 text diffs); watched-fail mutant-advisor.mjs -> 15 rows PASS->FAIL, exit 1.
+STATUS 21:30 (R3 step 2; all UNCOMMITTED in this worktree):
+- deps installed through heavy.mjs (--ignore-scripts, exact): xstate 5.33.4, minisearch 7.2.0, @orama/orama 3.1.18; dev @xstate/graph 3.0.4, fast-check 4.10.3 (+pure-rand 8.4.2). osv-scanner: 6 packages, no issues; no worm files.
+- port verified by my own re-run: converter twice same sha; NO CLIENT TEXT PASS; run-cp11 on r3/pack-advisor.mjs: CP11 RUN PASS, 0 graded changes, 0 text diffs; planted $999 -> 13 worse, exit 1.
+- validator pack/validate.mjs + test/test-validate.mjs: 28 of 28, MUTANTS 12 of 12 (RX_*: every $rx in a pack gets the cue rules of R2 5.2).
+- VTV pack packs/vtv/{source.mjs,pack.json}: PACK VALID, sha 2b5134a6...; 3 planted faults each exit 1.
+- omnikom-io pack: seat totals scrubbed at conversion (C-26), MONEY 0; was PACK INVALID 34 = 26 cue rows (5 patterns) + 8 engine rx (look-behind, nested repeat, back-reference).
+  FIXED 21:40: pack/rewrites.mjs (13 rule-clean equivalents) proven by test/test-rewrites.mjs: 43 of 43, MUTANTS 6 of 6; engine/split.mjs splitKeep, text.mjs doubledEnd.
+  omnikom-io pack now PACK VALID (sha 4951b5dd..., same over 2 runs); run-cp11: CP11 RUN PASS, 0 graded changes, 0 text diffs.
+- OPEN for the head: bundler (esbuild) not approved -> byte sizes UNPROVEN; VTV through the engine needs a generic path (intent ids hard-coded in engine.mjs).
+NOW (R3 step 2): pack-driven port, hand-over docs/advisor/r3/HANDOVER-port.md, given to a helper agent (Sonnet) 20:45; red test = run-cp11 on factory/advisor/r3/pack-advisor.mjs (fails: no pack.json).
+Then: verify its outputs myself; validator + tests + mutants (lib-test-kit pattern); VTV pack (clients/vtv/facts.md + live site's signed text; booking slot for Calendly);
+then deps install (supply-chain rules read: >=7 days, never-install list, lockfile, --ignore-scripts, osv-scanner) and the MiniSearch vs Orama race + XState; R3 report lists cp11 FAIL->PASS rows.
+Open question for the head later: a bundler for the "one built file" (esbuild is not on the approved list).
 
 ## Block 2026-11-26 20:00 (superseded)
 
