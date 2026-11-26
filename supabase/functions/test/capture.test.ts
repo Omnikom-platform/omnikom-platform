@@ -295,18 +295,6 @@ t('capture-lead [SEC-REPLAY] a replayed post is recorded: one lead, the second a
   eq(e.kind, 'bad-signature', 'the runner\'s kind'); eq(e.fn, 'capture-lead', 'the function named in the detail');
 });
 
-t('capture-lead [SEC-REPLAY] copies of one post do not spend the visitor\'s hourly limit: replayed past the limit, a NEW honest post of the same visitor is accepted', async () => {
-  await seedKey();
-  const V = Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('');
-  const name = 'Cap Replay Visitor ' + crypto.randomUUID().slice(0, 8);
-  const send = await signedPost({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name }, { visitor: V });
-  const limit = await withSql(async sql => (await sql`select private.limit_for(${WS_A}::uuid, 'leads_per_hour_visitor') as v`)[0].v as number);
-  eq(limit, 5, 'the default per-visitor limit');
-  for (let i = 0; i <= limit + 2; i++) { const r = await send(); eq(r.status, 202, 'copy ' + i + ': ' + r.text); }
-  const honest = await post({ form: 'contact', page: '/contact', consentText: 'I agree to be contacted', name: name + ' honest' }, KEY, V);
-  eq(honest.status, 202, 'a new post of the same visitor: ' + honest.text);
-});
-
 t('capture-lead [SEC-REPLAY] a post sent three times with one signature stores one lead, one consent row and one alert set, and every answer is 202', async () => {
   await seedKey();
   const old = await withSql(async sql => (await sql`select lead_alert_to::text as v from public.sites where id = ${SITE_A}::uuid`)[0].v as string);

@@ -134,10 +134,11 @@ export async function handle(req: Request): Promise<Response> {
     const ua = (req.headers.get('user-agent') ?? '').slice(0, 400) || null;
     let row: { id: string } | undefined;
     try {
-      // the claim first, then the visitor's count, then the lead, all in one transaction: a copy is stopped at the claim and spends none of the visitor's hour, and a refusal rolls all three back
-      [row] = await sql.begin(async (tx: Sql) => !await claimSignature(tx, header) ? [] : (visitor && await tx`select service.count_visitor(${site}::uuid, ${visitor})`, await tx`select service.capture_lead(${site}::uuid, ${L.form}, ${L.page}, ${L.name}, ${L.email}, ${L.phone},
+      // the visitor's count first, on its own (migration 30: every post that reaches the call counts, stored or refused, a copy too); then the claim and the lead in one transaction, so a refusal rolls back the claim and the lead, never the count
+      if (visitor) await sql`select service.count_visitor(${site}::uuid, ${visitor})`;
+      [row] = await sql.begin(async (tx: Sql) => !await claimSignature(tx, header) ? [] : await tx`select service.capture_lead(${site}::uuid, ${L.form}, ${L.page}, ${L.name}, ${L.email}, ${L.phone},
         ${L.answers}::jsonb, ${L.consentText}, ${L.flow}, ${L.cta}, ${L.marketing}::jsonb,
-        ${L.idempotencyKey}::uuid, ${L.assignee}, ${visitor}, ${ua}) as id`));
+        ${L.idempotencyKey}::uuid, ${L.assignee}, ${visitor}, ${ua}) as id`);
     } catch (e) {
       const r = refusal(String(e));
       if (!r) throw e;

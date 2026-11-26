@@ -28,7 +28,7 @@ Base URL: `https://<projectRef>.supabase.co/functions/v1` (staging and productio
 Machine-called functions run with `verify_jwt = false` and check their own credential in code first.
 
 **The signature (all `X-*-Signature` headers).** Header value: `t=<unix seconds>,v1=<hex>`. `v1` is HMAC-SHA256 of
-`t`, newline, METHOD, newline, path with query, newline, body. It is accepted for 300 seconds either side of now, and only once (a second copy is answered 202 for a lead and stores nothing; migration 53). The method,
+`t`, newline, METHOD, newline, path with query, newline, body. It is accepted for 300 seconds either side of now, and only once (migration 53): a copy of a lead post is answered like the first and stores nothing; a copy of a runner or cron call is answered `401 REPLAY`; the `mail-outbox` cron signature is checked but not claimed. The method,
 path and query are signed, so a signature for one call is useless for another. Code and tests:
 `supabase/functions/_shared/signature.ts`, `signature.test.mjs`. A site's key is its own: one key per site, held as a Worker
 secret and in Vault. It never reaches the browser, a log, a file in a client folder, or this repo.

@@ -1,7 +1,7 @@
 // SEC-REPLAY: a verified signature is accepted once (migration 53). Each case sends ONE header twice (callRunner takes the header as given).
 import { handle as exportPublished } from '../export-published/index.ts'; import { handle as jobCallback } from '../job-callback/index.ts';
 import { connect } from '../_shared/db.ts'; import { sign } from '../_shared/signature.ts';
-import { env, eq, securityEvents, teamRows, t, withSql } from './util.ts'; import { callRunner, jobState, runnerEvents, startJob } from './runner-util.ts';
+import { assert, env, eq, securityEvents, teamRows, t, withSql } from './util.ts'; import { callRunner, jobState, runnerEvents, startJob } from './runner-util.ts';
 const now = () => Math.floor(Date.now() / 1000), hdr = (method: 'GET' | 'POST', path: string, body: string, at: number) => sign(env('RUNNER_KEY'), method, path, body, at);
 const newJob = async () => await startJob([(await teamRows()).two], [1]);
 const exportWith = (job: string, header: string) => callRunner(exportPublished, 'export-published', { query: `?job=${job}`, header });
@@ -81,15 +81,18 @@ t('replay [SEC-REPLAY] the counter of the runner tests still sees a refusal that
   eq((await runnerEvents('export-published')) - before, 1, 'the refusal is counted although it folded into the overflow bucket');
 });
 
-const claimRows = () => withSql(async sql => (await sql`select count(*)::int as n from private.signature_seen`)[0].n as number);
+// the claim row of ONE header's signature (the key is sha256 of the v1 value): a net count of rows cannot tell an insert from the purge that runs before it
+const claimOf = async (header: string) => { const v1 = /,v1=([0-9a-f]{64})$/.exec(header)![1]; const hash = await sha256(v1); return await withSql(async sql => (await sql`select count(*)::int as n from private.signature_seen where hash = ${hash}`)[0].n as number); };
+async function sha256(s: string) { return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))), b => b.toString(16).padStart(2, '0')).join(''); }
 
 t('replay [SEC-REPLAY] a signature that does not verify (wrong key, or outside the 300 s window) is answered 401 SIGNATURE and leaves no claim', async () => {
-  const id = crypto.randomUUID(), path = '/export-published?job=' + id, before = await claimRows();
-  const wrong = await exportWith(id, await sign('not-the-runner-key', 'GET', path, '', now() + 5));
+  const id = crypto.randomUUID(), path = '/export-published?job=' + id;
+  const wrongH = await sign('not-the-runner-key', 'GET', path, '', now() + 5), oldH = await hdr('GET', path, '', now() - 400);
+  const wrong = await exportWith(id, wrongH);
   eq(wrong.status, 401, 'wrong key: ' + wrong.text); eq(wrong.json?.code, 'SIGNATURE', 'wrong key: the code');
-  const old = await exportWith(id, await hdr('GET', path, '', now() - 400));
+  const old = await exportWith(id, oldH);
   eq(old.status, 401, 'outside the window: ' + old.text); eq(old.json?.code, 'SIGNATURE', 'outside the window: the code');
-  eq(await claimRows(), before, 'no claim was taken by a call that did not verify');
+  eq(await claimOf(wrongH), 0, 'no claim row for the wrong-key signature'); eq(await claimOf(oldH), 0, 'no claim row for the out-of-window signature');
 });
 
 // ---- round 2 (five gaps a fresh reviewer found) ----
@@ -111,13 +114,35 @@ t('replay [SEC-REPLAY] the runner frame: the replay event carries the caller\'s 
 
 t('replay [SEC-REPLAY] the runner frame: a signed call whose body the frame refuses (400) spends no signature: the same call again is 400 again, never REPLAY, and no claim row is left', async () => {
   // the signature covers the body, so "the same header with a correct body" cannot be built: the test is that a 400 leaves no claim row
-  const job = await newJob(), body = [1, 2], text = JSON.stringify(body), h = await hdr('POST', '/job-callback', text, now() + 7), before = await claimRows();
+  const job = await newJob(), body = [1, 2], text = JSON.stringify(body), h = await hdr('POST', '/job-callback', text, now() + 7);
   try {
     const a = await callRunner(jobCallback, 'job-callback', { method: 'POST', raw: text, header: h });
     const b = await callRunner(jobCallback, 'job-callback', { method: 'POST', raw: text, header: h });
     eq(a.status, 400, 'first: ' + a.text); eq(b.status, 400, 'again: ' + b.text); eq(b.json?.code, 'BODY', 'the same refusal, not REPLAY');
-    eq(await claimRows(), before, 'a refused body took no claim');
+    eq(await claimOf(h), 0, 'a refused body took no claim: no row of this signature');
+    // control: the same lookup does see the row of an accepted call, so a 0 above is not a lookup that finds nothing
+    const okBody = { job, state: 'building' }, okH = await hdr('POST', '/job-callback', JSON.stringify(okBody), now() + 8);
+    eq((await callRunner(jobCallback, 'job-callback', { method: 'POST', body: okBody, header: okH })).status, 204, 'an accepted call'); eq(await claimOf(okH), 1, 'an accepted call leaves its row');
   } finally { await finish(job); }
+});
+
+t('replay [SEC-REPLAY] the runner key: a copy of an accepted call, and a call whose body is refused, never touch last_used_at (the first call does)', async () => {
+  const hash = await sha256(env('RUNNER_KEY'));
+  await withSql(sql => sql`insert into public.api_keys (kind, label, key_hash) select 'runner', 'test runner key (replay)', ${hash} where not exists (select 1 from public.api_keys where key_hash = ${hash})`);
+  const used = () => withSql(async sql => (await sql`select last_used_at from public.api_keys where key_hash = ${hash}`)[0].last_used_at as Date | null);
+  const reset = () => withSql(sql => sql`update public.api_keys set last_used_at = null where key_hash = ${hash}`);   // touch_key writes only when null or a minute old
+  const job = await newJob(), h = await hdr('GET', '/export-published?job=' + job, '', now() + 9), text = JSON.stringify([3]), bad = await hdr('POST', '/job-callback', text, now() + 10);
+  try {
+    await reset();
+    eq((await exportWith(job, h)).status, 200, 'the first call'); assert((await used()) !== null, 'the first call set last_used_at');
+    await reset();
+    eq((await exportWith(job, h)).json?.code, 'REPLAY', 'the copy'); eq(await used(), null, 'a copy did not touch the key');
+    eq((await callRunner(jobCallback, 'job-callback', { method: 'POST', raw: text, header: bad })).status, 400, 'a refused body'); eq(await used(), null, 'a refused body did not touch the key');
+  } finally {
+    await finish(job);
+    // the row this test made is taken away again: left behind, every later signed call touches it, and runner.test.ts (which makes its own row for the same key) then reads a used key where it expects a new one
+    await withSql(sql => sql`delete from public.api_keys where key_hash = ${hash} and label = 'test runner key (replay)'`);
+  }
 });
 
 t('replay [SEC-REPLAY] the claim outlives the signature window by at least the window plus a minute: both numbers read from their source files', async () => {
