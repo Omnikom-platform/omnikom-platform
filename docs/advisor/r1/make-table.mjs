@@ -20,10 +20,10 @@ const VERDICT = {
   'program-y': 'DEAD for us: Python server, no release since 2021', superscript: 'DEAD: fails in the browser', rasa: 'DROP as runtime: server; maintenance mode; ideas kept',
   'botpress-v12': 'DROP: AGPL-3.0, server', botpress: 'DROP: cloud platform, not a browser engine', xstate: 'PICK: dialogue state (and @xstate/graph for tests)',
   'wink-nlp': 'DROP for phones: model is 1 MB gzip', 'wink-model': 'DROP (see wink-nlp)', compromise: 'DROP for phones: about 150 KB gzip for 2 features', natural: 'DROP: Node library, fails in the browser, 2 MB',
-  tracery: 'DROP: random; composes unapproved sentences', mustache: 'PICK, needs a ruling: reply slots; not maintained', minisearch: 'CHALLENGER in R3: smallest; not maintained', fuse: 'RESERVE: fuzzy match of short labels',
-  orama: 'PICK: matching questions and answers', flexsearch: 'DROP: returns no scores (measured)', lunr: 'DEAD: last release 2020', chrono: 'NOT NEEDED: the chat books no times',
+  tracery: 'DROP: random; composes unapproved sentences', mustache: 'NOT TAKEN (head\'s ruling): not maintained; our own slot fill', minisearch: 'RACE in R3 against Orama: smallest; not maintained', fuse: 'RESERVE: fuzzy match of short labels',
+  orama: 'RACE in R3 against MiniSearch: matching questions and answers', flexsearch: 'DROP: returns no scores (measured)', lunr: 'DEAD: last release 2020', chrono: 'NOT NEEDED: the chat books no times',
   libphonenumber: 'NOT NEEDED NOW: the chat takes no phone numbers', botium: 'DROP: install script; harness exists', stryker: 'PICK: mutants (dev only)',
-  'fast-check': 'PICK: property tests (dev only); 4.11.0 is under 7 days old', presidio: 'DESIGN ONLY: offline PII step candidate', 'snips-nlu': 'DEAD: last release 2020', duckling: 'DROP: Haskell server',
+  'fast-check': 'PICK: property tests (dev only), pinned 4.10.x; 4.11.0 is under 7 days old', presidio: 'DESIGN ONLY: offline PII step candidate', 'snips-nlu': 'DEAD: last release 2020', duckling: 'DROP: Haskell server',
 };
 const LANG = {
   nlpjs: 'JS; "40 languages natively supported"', rivescript: 'JS', chatscript: 'C++', aimlinterpreter: 'JS', 'aiml-high': 'JS', 'program-y': 'Python', superscript: 'JS',

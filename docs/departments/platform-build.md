@@ -24,6 +24,7 @@ proven on staging through the CLI the testing department provides.
 - `tools/deploy-functions.mjs`
 - `tools/github-secrets.mjs`
 - `apps/dashboard/`
+- `docs/advisor/`
 
 ## Does not touch
 Every path not listed above. In particular `tools/omnikom-cli/` (the testing department's): a step session that needs a new CLI

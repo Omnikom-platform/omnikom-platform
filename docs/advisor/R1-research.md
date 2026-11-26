@@ -1,6 +1,7 @@
 # R1 research: the site assistant engine
 
 Round R1 of `head-of-operations/briefs/ADVISOR-ENGINE.md`: research only, no product code. Branch `advisor/engine`.
+Accepted by the head on 2026-11-26 18:46 with four rulings, written into the text below in place (listed under "Ruled by the head").
 Measured 2026-11-26 from this machine. Every number below comes from a script in `docs/advisor/r1/`, and its output is in `docs/advisor/r1/out/`.
 Nothing was installed. Every library ran from jsDelivr in a throwaway headless Chrome profile.
 
@@ -8,20 +9,20 @@ Nothing was installed. Every library ran from jsDelivr in a throwaway headless C
 
 - **Picks.**
   - Dialogue state: **XState 5** (MIT, 14.5 KB gzip).
-  - Matching a question to an intent or an approved answer: **Orama 3** (Apache-2.0, 24.4 KB gzip). MiniSearch (5.7 KB) is the challenger.
-  - Reply: **approved claim texts with Mustache-syntax slots**, going through one `render()` and the claims gate. mustache.js is 2.6 KB and needs a ruling, because it is not maintained.
+  - Matching a question to an intent or an approved answer: **Orama 3** (Apache-2.0, 24.4 KB gzip) and **MiniSearch 7** (MIT, 5.7 KB) race in R3 on the cp11 baseline. The winner has fewer graded drops; on a tie, fewer bytes (head's ruling).
+  - Reply: **approved claim texts with Mustache-syntax slots**, going through one `render()` and the claims gate. The slot fill is our own small code, tested with the Mustache spec cases it uses. No mustache.js: it is not maintained (head's ruling).
   - Entities: our own small parsers plus the pack's word lists.
-  - Tests: the existing harness, whole-conversation stories, `@xstate/graph` paths, fast-check and StrykerJS. All are dev only.
+  - Tests: the existing harness on the cp11 baseline, whole-conversation stories, `@xstate/graph` paths, fast-check (pinned 4.10.x) and StrykerJS. All are dev only.
   - Learning loop: Wallace's "Targeting" and Rasa's conversation-driven development as the method. DESIGN ONLY.
 - **Bytes.**
-  - The picked libraries total 41.5 KB gzip (bundlephobia) or 44.7 KB (jsDelivr).
+  - The picked libraries total 38.9 KB gzip with Orama (bundlephobia; 41.8 KB jsDelivr) or 20.2 KB with MiniSearch (21.6 KB jsDelivr). Our own slot fill adds a little: UNPROVEN until R3.
   - The live engine chunk today is 67,459 B gzip. The card chunk is another 57,865 B gzip.
   - Our own code and the pack: UNPROVEN until R3.
 - **Not maintained, measured two ways:** MiniSearch, mustache.js, RiveScript, NLP.js, wink-nlp, Lunr, all AIML JS engines, SuperScript, Snips.
 - **Outside R1, for the head:**
-  - The live omnikom.io home page preloads the assistant card (57,865 B gzip) before the chat is opened.
+  - The live omnikom.io home page preloads the assistant card (57,865 B gzip) before the chat is opened. The head passes this to OMNIKOM-IO-SITE.
   - Botium runs an install script.
-  - fast-check 4.11.0 is under 7 days old.
+  - fast-check 4.11.0 is under 7 days old: pinned to 4.10.x (head's ruling).
   - Rasa Open Source is in maintenance mode.
 
 ## (a) The history and its lessons
@@ -81,17 +82,17 @@ How to read the columns:
 | compromise (understanding) | [spencermountain/compromise](https://github.com/spencermountain/compromise) | JS; English (Spanish, French, Italian as separate libraries) | MIT / MIT | compromise 14.20.0 (2026-11-08) | 8 | 2026-11-08 | 468 / 5 | 94 / 0 | 3 | RUNS / yes | 158.2 / 148.9 | DROP for phones: about 150 KB gzip for 2 features |
 | natural (understanding) | [NaturalNode/natural](https://github.com/NaturalNode/natural) | JS (Node) | MIT / MIT | natural 8.2.6 (2026-10-26) | 9 | 2026-10-26 | 31 / 8 | 79 / 9 | 3 | FAILS / Node only | 2823.9 / 2058.5 | DROP: Node library, fails in the browser, 2 MB |
 | tracery (reply) | [galaxykate/tracery](https://github.com/galaxykate/tracery) | JS; no language rules | ISC / Apache-2.0 | tracery-grammar 2.8.4 (2024-11-18) | 0 | 2024-11-03 | 0 / 0 | 21 / 11 | 1 | RUNS / yes (script tag) | 3.5 / 3.2 | DROP: random; composes unapproved sentences |
-| mustache (reply) | [janl/mustache.js](https://github.com/janl/mustache.js) | JS; no language rules | MIT / MIT | mustache 4.2.0 (2021-03-28) | 0 | 2023-01-21 | 0 / 0 | 84 / 42 | 3 | RUNS / yes | 2.9 / 2.6 | PICK, needs a ruling: reply slots; not maintained |
-| minisearch (retrieval) | [lucaong/minisearch](https://github.com/lucaong/minisearch) | JS; any; "No stemming is performed" | MIT / MIT | minisearch 7.2.0 (2025-09-16) | 0 | 2025-09-16 | 0 / 0 | 9 / 5 | 1 | RUNS / yes (quote checked) | 6.2 / 5.7 | CHALLENGER in R3: smallest; not maintained |
+| mustache (reply) | [janl/mustache.js](https://github.com/janl/mustache.js) | JS; no language rules | MIT / MIT | mustache 4.2.0 (2021-03-28) | 0 | 2023-01-21 | 0 / 0 | 84 / 42 | 3 | RUNS / yes | 2.9 / 2.6 | NOT TAKEN (head's ruling): not maintained; our own slot fill |
+| minisearch (retrieval) | [lucaong/minisearch](https://github.com/lucaong/minisearch) | JS; any; "No stemming is performed" | MIT / MIT | minisearch 7.2.0 (2025-09-16) | 0 | 2025-09-16 | 0 / 0 | 9 / 5 | 1 | RUNS / yes (quote checked) | 6.2 / 5.7 | RACE in R3 against Orama: smallest; not maintained |
 | fuse (retrieval) | [krisk/Fuse](https://github.com/krisk/Fuse) | TypeScript; matches characters | Apache-2.0 / Apache-2.0 | fuse.js 7.5.0 (2026-07-13) | 21 | 2026-11-24 | 238 / 13 | 1 / 2 | 1 | RUNS / yes | 9.9 / 9.4 | RESERVE: fuzzy match of short labels |
-| orama (retrieval) | [oramasearch/orama](https://github.com/oramasearch/orama) | TypeScript; "Stemming and tokenization in 30 languages" | Apache-2.0 / Apache-2.0 | @orama/orama 3.1.18 (2025-12-19) | 2 | 2026-07-03 | 16 / 7 | 19 / 19 | 2 | RUNS / yes | 26.4 / 24.4 | PICK: matching questions and answers |
+| orama (retrieval) | [oramasearch/orama](https://github.com/oramasearch/orama) | TypeScript; "Stemming and tokenization in 30 languages" | Apache-2.0 / Apache-2.0 | @orama/orama 3.1.18 (2025-12-19) | 2 | 2026-07-03 | 16 / 7 | 19 / 19 | 2 | RUNS / yes | 26.4 / 24.4 | RACE in R3 against MiniSearch: matching questions and answers |
 | flexsearch (retrieval) | [nextapps-de/flexsearch](https://github.com/nextapps-de/flexsearch) | JS; language encoder presets | Apache-2.0 / Apache-2.0 | flexsearch 0.8.212 (2025-09-06) | 0 | 2026-05-29 | 10 / 3 | 30 / 10 | 1 | RUNS / yes | 17.7 / 16.8 | DROP: returns no scores (measured) |
 | lunr (retrieval) | [olivernn/lunr.js](https://github.com/olivernn/lunr.js) | JS; "14 languages" | MIT / MIT | lunr 2.3.9 (2020-08-19) | 0 | 2020-08-19 | 0 / 0 | 105 / 25 | 1 | RUNS / yes | 8.6 / 8.3 | DEAD: last release 2020 |
 | chrono (understanding (dates)) | [wanasit/chrono](https://github.com/wanasit/chrono) | TypeScript; English, fi, fr, id, it, ja, nl, ru, uk, vi | MIT / MIT | chrono-node 2.10.3 (2026-10-12) | 6 | 2026-11-03 | 117 / 25 | 120 / 34 | 1 | RUNS / not stated | 52.4 / 48.1 | NOT NEEDED: the chat books no times |
 | libphonenumber (understanding (phones)) | [catamphetamine/libphonenumber-js](https://github.com/catamphetamine/libphonenumber-js) | JS | MIT / MIT | libphonenumber-js 1.13.17 (2026-11-19) | 31 | 2026-11-10 | 16 / 1 | 36 / 2 | 1 | RUNS / yes (script tag) | 44.6 / 45.4 | NOT NEEDED NOW: the chat takes no phone numbers |
 | botium (test) | [codeforequity-at/botium-core](https://github.com/codeforequity-at/botium-core) | JS | MIT / MIT | botium-core 1.15.19 (2026-11-09) | 11 | 2026-11-09 | 66 / 7 | 22 / 0 | 1 | not run / no (Node tool) | dev tool, not shipped | DROP: install script; harness exists |
 | stryker (test (mutants)) | [stryker-mutator/stryker-js](https://github.com/stryker-mutator/stryker-js) | TypeScript | Apache-2.0 / Apache-2.0 | @stryker-mutator/core 10.1.1 (2026-10-23) | 6 | 2026-10-29 | 504 / 8 | 91 / 66 | 3 | not run / no (Node tool) | dev tool, not shipped | PICK: mutants (dev only) |
-| fast-check (test (properties)) | [dubzzz/fast-check](https://github.com/dubzzz/fast-check) | TypeScript | MIT / MIT | fast-check 4.11.0 (2026-11-21) | 14 | 2026-11-26 | 1068 / 2 | 30 / 28 | 1 | not run / no (Node tool) | dev tool, not shipped | PICK: property tests (dev only); 4.11.0 is under 7 days old |
+| fast-check (test (properties)) | [dubzzz/fast-check](https://github.com/dubzzz/fast-check) | TypeScript | MIT / MIT | fast-check 4.11.0 (2026-11-21) | 14 | 2026-11-26 | 1068 / 2 | 30 / 28 | 1 | not run / no (Node tool) | dev tool, not shipped | PICK: property tests (dev only), pinned 4.10.x; 4.11.0 is under 7 days old |
 | presidio (learning (PII)) | [microsoft/presidio](https://github.com/microsoft/presidio) | Python | MIT / MIT | presidio-analyzer 2.2.366 (2026-10-27) | 6 | 2026-11-24 | 285 / 52 | 126 / 207 | - | not run / no (Python service) | - | DESIGN ONLY: offline PII step candidate |
 | snips-nlu (understanding) | [snipsco/snips-nlu](https://github.com/snipsco/snips-nlu) | Python | Apache-2.0 / Apache-2.0 | snips-nlu 0.20.2 (2020-01-15) | 0 | 2021-05-03 | 0 / 0 | 66 / 2 | - | not run / no (Python) | - | DEAD: last release 2020 |
 | duckling (understanding (entities)) | [facebook/duckling](https://github.com/facebook/duckling) | Haskell | - / BSD-3-Clause | GitHub v0.2.0.0 2021-04-16 | - | 2026-03-15 | 2 / 2 | 125 / 15 | - | not run / no (Haskell server) | - | DROP: Haskell server |
@@ -147,16 +148,16 @@ What the run shows:
 
 | Layer | Pick | Why | gzip bytes (bundlephobia / jsDelivr) | Risk, and what guards it | What we still write |
 |---|---|---|---|---|---|
-| Understanding and retrieval: a visitor's words to an intent or an approved answer | **Orama 3.1.18** (Apache-2.0, both routes) | BM25 ranking with scores, typo tolerance, "Stemming and tokenization in 30 languages" (README; VTV may need Spanish). Maintained on both routes: 16 commits by 7 people and 2 releases in 12 months. Ran in Chrome, same output twice. | 24.4 KB / 26.4 KB | Scores use floating point, so the last digit may differ across browsers: round the score and break ties by a fixed rule (UNPROVEN; test on Chromium and WebKit in R3). Non-English stemmer bytes are UNPROVEN. | The concept lists (pack data) and query expansion from them; the answer/clarify/fallback band ported from today's `TUNING` (0.5, margin 0.06, 0.35); score rounding and tie-break; the pack loader |
-| Challenger for the same layer | **MiniSearch 7.2.0** (MIT, both routes) | 5.7 KB, no dependencies; fuzzy, prefix and field boosts with scores (README); same output twice | 5.7 KB / 6.2 KB | **Not maintained on both routes**: 0 commits and 0 releases since 2025-09-16, and one maintainer. "No stemming is performed" (README). | The same as above, plus a stemmer through its `processTerm` hook |
+| Understanding and retrieval: a visitor's words to an intent or an approved answer | **Orama 3.1.18** (Apache-2.0, both routes), raced against MiniSearch in R3 | BM25 ranking with scores, typo tolerance, "Stemming and tokenization in 30 languages" (README; VTV may need Spanish). Maintained on both routes: 16 commits by 7 people and 2 releases in 12 months. Ran in Chrome, same output twice. | 24.4 KB / 26.4 KB | Scores use floating point, so the last digit may differ across browsers: round the score and break ties by a fixed rule (UNPROVEN; test on Chromium and WebKit in R3). Non-English stemmer bytes are UNPROVEN. | The concept lists (pack data) and query expansion from them; the answer/clarify/fallback band ported from today's `TUNING` (0.5, margin 0.06, 0.35); score rounding and tie-break; the pack loader |
+| Raced against Orama in R3 on the cp11 baseline (graded drops first, then bytes) | **MiniSearch 7.2.0** (MIT, both routes) | 5.7 KB, no dependencies; fuzzy, prefix and field boosts with scores (README); same output twice | 5.7 KB / 6.2 KB | **Not maintained on both routes**: 0 commits and 0 releases since 2025-09-16, and one maintainer. "No stemming is performed" (README). | The same as above, plus a stemmer through its `processTerm` hook |
 | Dialogue state: one owner for the whole conversation | **XState 5.33.4** (MIT, both routes) | Maintained: 657 commits by 13 people and 95 releases in 12 months. Statecharts map to CX flows and pages. A persisted snapshot restores (measured). `@xstate/graph` gives every shortest path for tests. It retires today's two dialogue owners (script and engine). | 14.5 KB / 15.4 KB | XState 6 is in beta: pin 5 and plan the move as its own job. `@xstate/graph` 3.0.4 had no release in 12 months, but it is dev only. Tree-shaken size is UNPROVEN. | One standard machine for every client (no per-client code); guards that read pack data; saving the snapshot in sessionStorage |
-| Reply writing | **Approved claim texts with Mustache-syntax slots**, through one `render()` and the claims gate; **mustache.js 4.2.0** (MIT, both routes) as the slot filler | Every visible line is an approved text. The slots are filled from the pack or from the visitor's own words, escaped (measured). Mustache is a logic-less spec ("there are no if statements, else clauses, or for loops", README), so a pack stays plain data. | 2.6 KB / 2.9 KB | **Not maintained on both routes** (newest release 2021-03-28, last commit 2023-01-21). **Ruling needed:** (1) take it pinned, guarded by the Mustache spec's own interpolation tests; or (2) write the slot fill ourselves (about 20 lines) against the same tests. I recommend (1). | One `render()` for every line: script lines and engine lines too, which fixes today's scrub skip. The claims gate. Variety without randomness: approved variants picked by a hash of the session and turn, so the same conversation always gets the same words. |
+| Reply writing | **Approved claim texts with Mustache-syntax slots**, through one `render()` and the claims gate; **our own slot fill** (head's ruling; mustache.js 4.2.0 was measured and is not taken) | Every visible line is an approved text. The slots are filled from the pack or from the visitor's own words, escaped (measured). Mustache is a logic-less spec ("there are no if statements, else clauses, or for loops", README), so a pack stays plain data. | ours: UNPROVEN until R3 (mustache.js was 2.6 KB / 2.9 KB) | mustache.js is **not maintained on both routes** (newest release 2021-03-28, last commit 2023-01-21), so the head ruled: write the slot fill ourselves, tested with the cases taken from the Mustache spec's interpolation file that it uses (escaping included). | One `render()` for every line: script lines and engine lines too, which fixes today's scrub skip. The claims gate. Variety without randomness: approved variants picked by a hash of the session and turn, so the same conversation always gets the same words. |
 | Entities: numbers, places, contact details | **None picked** | compromise is 149 KB and the wink model 1 MB, too heavy for a phone. chrono (48 KB) and libphonenumber (45 KB) run and are maintained, but are taken only when a flow books a time or takes a phone number (TCPA consent first). | 0 | wink-nlp missed a phone number (measured) | A number-word parser ("twelve" to 12); markets and states from pack lists; an email shape check |
-| Test tooling (dev only, never shipped) | The existing harness as the bar; whole-conversation stories; **`@xstate/graph`** paths; **fast-check** (MIT, maintained) for properties; **StrykerJS 10.1.1** (Apache-2.0, maintained) for mutants | The test bar is zero graded drops against the live baseline. Mutants are how a rule proves it is a test (repo rule 11). | not shipped | fast-check 4.11.0 was published 2026-11-21, under the 7-day rule: use 4.10.x, or 4.11.0 from 2026-11-28. Every dev dependency needs the owner's yes. | Story files from real misses; the comparison against the baseline |
+| Test tooling (dev only, never shipped) | The existing harness as the bar; whole-conversation stories; **`@xstate/graph`** paths; **fast-check** (MIT, maintained) for properties; **StrykerJS 10.1.1** (Apache-2.0, maintained) for mutants | The test bar is zero graded drops against the live baseline, `cp11-results.jsonl` (915 rows; head's ruling). Mutants are how a rule proves it is a test (repo rule 11). | not shipped | fast-check 4.11.0 was published 2026-11-21, under the 7-day rule: pinned to 4.10.x (head's ruling). Every dev dependency needs the owner's yes. | Story files from real misses; the comparison against the baseline |
 | Learning loop | Method: Targeting (ALICE) and CDD (Rasa). DESIGN ONLY in this phase | | 0 in the browser | Personal data in logs: Presidio (MIT, maintained, Python) is a candidate only for an offline step, never on the site | The miss log with personal data removed; offline tests, then shadow, then a small share, then an approver, a log entry and a one-step rollback (R2) |
 
 **Bytes.**
-- The libraries total 24.4 + 14.5 + 2.6 = **41.5 KB gzip** (bundlephobia) or 44.7 KB (jsDelivr). With MiniSearch instead of Orama: 22.8 KB.
+- The libraries total 24.4 + 14.5 = **38.9 KB gzip** with Orama (bundlephobia) or 41.8 KB (jsDelivr). With MiniSearch instead: 5.7 + 14.5 = 20.2 KB (21.6 KB jsDelivr). Our own slot fill replaces mustache.js (2.6 KB); its size is UNPROVEN until R3.
 - Today, measured from the live site on 2026-11-26 (`node docs/advisor/r1/measure-current-advisor.mjs <bundle-dir>`, columns: raw, gzip, brotli, markers):
 
 ```
@@ -231,16 +232,16 @@ Printed by `node docs/advisor/r1/make-table.mjs routes`:
   - The second route instead is the npm `exports` field, which ships browser module builds (`"module": "./dist/xstate.esm.js"`), together with the measured run.
 - **A helper's claim corrected by a second look.** A research helper wrote "ChatScript is no longer maintained". Reading the README directly shows that sentence is about the old repository, `bwilcox-1234/ChatScript` (last push 2020-05-30). The current `ChatScript/ChatScript` is still dormant: 0 commits in 12 months, last 2024-05-06.
 - **Supply-chain checks** (`~/.claude/reference/supply-chain-2026-10.md`):
-  - Botium has an install script. fast-check 4.11.0 is under 7 days old.
+  - Botium has an install script. fast-check 4.11.0 is under 7 days old, so it is pinned to 4.10.x.
   - XState, @xstate/graph, Orama, MiniSearch, mustache and Fuse have no install script and no dependencies in the registry data (`installScripts` and `deps` in `out/repos.json`). StrykerJS has 26 dependencies (dev only).
-  - `osv-scanner` was NOT run. It runs before any dependency is added, at R3, with the owner's yes.
+  - `osv-scanner` was NOT run. It runs at R3, before any dependency is added; the head asks the owner then.
 
 ## What this round does NOT do
 
 - It writes no product code, installs nothing and adds no dependency.
 - It does not touch the live omnikom.io files and sends nothing to any form.
 - It did not open the held-back probes.
-- It does not decide the design. That is R2.
+- It does not decide the design. That is R2 (`docs/advisor/R2-design.md`).
 
 ## UNPROVEN, BLOCKED, open
 
@@ -252,15 +253,15 @@ Printed by `node docs/advisor/r1/make-table.mjs routes`:
   - XState's docs quote, word for word.
   - GUS's primary text; the Mitsuku log-reading quote; ALICE's category count.
 - **BLOCKED:** nothing.
-- **Open, for the head:**
-  1. Which harness result is the live baseline: `cp7-results.jsonl`, which the brief names, or the newer files up to `cp11-results.jsonl` (2026-11-26 00:06)?
-  2. The mustache ruling (part c).
-  3. Accepting Orama over the smaller but unmaintained MiniSearch, or an R3 race between them.
-  4. The card preload (below).
+- **Ruled by the head (2026-11-26 18:46):**
+  1. The baseline is the newest live result, `cp11-results.jsonl` (915 rows). The brief's cp7 is superseded.
+  2. No mustache.js. We write the small slot fill ourselves, with tests taken from the Mustache spec cases we use.
+  3. Orama and MiniSearch race in R3 on the same baseline. The pick goes by graded drops first, then bytes.
+  4. fast-check is pinned to 4.10.x. osv-scanner runs at R3, when the head asks the owner. The card preload goes to OMNIKOM-IO-SITE from the head.
 
 ## Found outside R1 (for the head; the omnikom.io site is not this builder's)
 
-The live omnikom.io home page carries `<link rel="modulepreload" href="/assets/assistant-card-DKAAxqFC.js"/>` and `.../claims-adb7afm0.js`. The browser therefore fetches the assistant card (172,937 B raw, 57,865 B gzip) when the page loads, before the chat is opened. That conflicts with brief constraint 4. Its effect on LCP is UNPROVEN. The site belongs to OMNIKOM-IO-SITE; this is reported to the head only.
+The live omnikom.io home page carries `<link rel="modulepreload" href="/assets/assistant-card-DKAAxqFC.js"/>` and `.../claims-adb7afm0.js`. The browser therefore fetches the assistant card (172,937 B raw, 57,865 B gzip) when the page loads, before the chat is opened. That conflicts with brief constraint 4. Its effect on LCP is UNPROVEN. The site belongs to OMNIKOM-IO-SITE; this was reported to the head only, and the head passes it on.
 
 ## How to re-run
 

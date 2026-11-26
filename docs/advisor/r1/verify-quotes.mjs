@@ -5,8 +5,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 const run = promisify(execFile);
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CHROME = process.env.CHROME_BIN || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -66,8 +66,11 @@ async function viaChrome(url) {
   const { stdout } = await run(CHROME, ['--headless=new', '--disable-gpu', '--no-first-run', '--user-data-dir=' + profile, '--virtual-time-budget=15000', '--dump-dom', url], { timeout: 90000, maxBuffer: 64 * 1024 * 1024, windowsHide: true });
   return { status: 'chrome', text: stdout };
 }
+// Optional: node verify-quotes.mjs <list-module.mjs exporting QUOTES> <out-name.json>
+const LIST = process.argv[2] ? (await import(pathToFileURL(resolve(process.argv[2])).href)).QUOTES : QUOTES;
+const OUT_NAME = process.argv[3] || 'quotes.json';
 const out = [];
-for (const [url, quotes] of QUOTES) {
+for (const [url, quotes] of LIST) {
   let page, route = 'fetch', err = null;
   try { page = await viaFetch(url); } catch (e) { err = String(e.message || e).slice(0, 120); }
   let body = page && page.status === 200 ? norm(page.text) : '';
@@ -79,4 +82,4 @@ for (const [url, quotes] of QUOTES) {
   out.push(row);
   for (const r of row.quotes) console.log([r.found ? 'FOUND' : 'NOT FOUND', route, row.httpStatus ?? row.error, url, JSON.stringify(r.q)].join('\t'));
 }
-writeFileSync(join(HERE, 'out', 'quotes.json'), JSON.stringify({ checkedAt: new Date().toISOString(), out }, null, 1));
+writeFileSync(join(HERE, 'out', OUT_NAME), JSON.stringify({ checkedAt: new Date().toISOString(), out }, null, 1));

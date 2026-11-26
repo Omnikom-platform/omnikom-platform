@@ -1,8 +1,8 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1012,
-    "unowned": 5
+    "sources": 1016,
+    "unowned": 0
   },
   "files": [
     {"path":".github/scripts/flows-result.mjs","owner":"platform-build","exports":[],"tests":["factory/runner/test/mutate.mjs","factory/runner/test/run.mjs"],"feature":""},
@@ -135,11 +135,15 @@
     {"path":"contracts/test/mutate.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"contracts/test/run.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"contracts/validate.mjs","owner":"platform-build","exports":["CORE","CORE_LEAD_FIELDS","CRM_FLAGS","FIELD_TYPES","FORM_FIELD_TYPES","applyWaivers","isMain","leadColumns","mergeCore","routeRegex","validateContract","validateItem"],"tests":["contracts/test/mutate.mjs","contracts/test/run.mjs","factory/test/make-export.mjs","factory/test/run.mjs","supabase/functions/test/util.ts","supabase/tests/e2e-crm.mjs","supabase/tests/e2e-screens.mjs","supabase/tests/publish-parity.mjs","supabase/tests/run-local.mjs","supabase/tests/tenancy.test.sql","tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/journey.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
-    {"path":"docs/advisor/r1/make-table.mjs","owner":null,"exports":[],"tests":[],"feature":""},
-    {"path":"docs/advisor/r1/measure-current-advisor.mjs","owner":null,"exports":[],"tests":[],"feature":""},
-    {"path":"docs/advisor/r1/measure-repos.mjs","owner":null,"exports":["CANDIDATES"],"tests":[],"feature":""},
-    {"path":"docs/advisor/r1/run-browser-smoke.mjs","owner":null,"exports":[],"tests":[],"feature":""},
-    {"path":"docs/advisor/r1/verify-quotes.mjs","owner":null,"exports":["QUOTES"],"tests":[],"feature":""},
+    {"path":"docs/advisor/r1/make-table.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"docs/advisor/r1/measure-current-advisor.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"docs/advisor/r1/measure-repos.mjs","owner":"platform-build","exports":["CANDIDATES"],"tests":[],"feature":""},
+    {"path":"docs/advisor/r1/run-browser-smoke.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"docs/advisor/r1/verify-quotes.mjs","owner":"platform-build","exports":["QUOTES"],"tests":[],"feature":""},
+    {"path":"docs/advisor/r2/measure-pack-proxy.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"docs/advisor/r2/quotes-r2.mjs","owner":"platform-build","exports":["QUOTES"],"tests":[],"feature":""},
+    {"path":"docs/advisor/r2/snippets.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"docs/advisor/r2/tally-baseline.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"docs/blueprint/diagrams/render.mjs","owner":"platform-build","exports":[],"tests":["factory/test/mutate.mjs","factory/test/run.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/toolkit.mjs"],"feature":""},
     {"path":"docs/blueprint/specs/check-no-model.mjs","owner":"platform-build","exports":["ALLOW","EXTENSIONS","SCOPE","TELLS","scan"],"tests":["docs/blueprint/specs/check-no-model.test.mjs"],"feature":""},
     {"path":"docs/blueprint/specs/check-no-model.test.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},

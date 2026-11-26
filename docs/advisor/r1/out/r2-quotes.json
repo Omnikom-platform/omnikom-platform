@@ -1,0 +1,352 @@
+{
+ "checkedAt": "2026-11-26T17:51:21.541Z",
+ "out": [
+  {
+   "url": "https://raw.githubusercontent.com/RasaHQ/rasa/main/docs/docs/forms.mdx",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 16866,
+   "quotes": [
+    {
+     "q": "This is also called **slot filling**.",
+     "found": true
+    },
+    {
+     "q": "You will need to specify a list of slot names to the mandatory `required_slots` key.",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/RasaHQ/rasa/main/docs/docs/domain.mdx",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 27208,
+   "quotes": [
+    {
+     "q": "Slots are your bot's memory.",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/RasaHQ/rasa/main/docs/docs/rules.mdx",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 5647,
+   "quotes": [
+    {
+     "q": "Rules describe short pieces of conversations that should always follow the same path.",
+     "found": true
+    },
+    {
+     "q": "rules don't have the power to generalize to unseen conversation paths",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/RasaHQ/rasa/main/docs/docs/stories.mdx",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 9175,
+   "quotes": [
+    {
+     "q": "A story is a representation of a conversation between a user and an AI assistant",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/RasaHQ/rasa/main/docs/docs/fallback-handoff.mdx",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 14263,
+   "quotes": [
+    {
+     "q": "attempt to disambiguate the user's message by asking clarifying questions",
+     "found": true
+    },
+    {
+     "q": "The Two-Stage Fallback is made to handle low NLU confidence in multiple stages",
+     "found": true
+    },
+    {
+     "q": "reset the state of the conversation as if the turns that happened during the Two-Stage Fallback did not occur",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/RasaHQ/rasa/main/docs/docs/responses.mdx",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 13751,
+   "quotes": [
+    {
+     "q": "Rasa will randomly pick one of the two response variations to use",
+     "found": true
+    },
+    {
+     "q": "If there are multiple eligible conditional response variations, Rasa will pick one at random.",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/RasaHQ/rasa/main/docs/docs/testing-your-assistant.mdx",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 25874,
+   "quotes": [
+    {
+     "q": "test stories allow you to provide entire conversations and test that, given certain user input, your model will behave in the expected manner",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://docs.cloud.google.com/dialogflow/cx/docs/concept/flow?hl=en",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 19668,
+   "quotes": [
+    {
+     "q": "Flows are used to define these topics and the associated conversational paths.",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://docs.cloud.google.com/dialogflow/cx/docs/concept/handler?hl=en",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 33746,
+   "quotes": [
+    {
+     "q": "Routes are called when an end-user input matches an intent and/or some condition on the session status is met.",
+     "found": true
+    },
+    {
+     "q": "Every flow has event handlers for the no-match and no-input built-in events",
+     "found": true
+    },
+    {
+     "q": "To make routes reusable, you can define route groups",
+     "found": true
+    },
+    {
+     "q": "invoked instead of sys.no-input-default and in order",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://docs.cloud.google.com/dialogflow/cx/docs/concept/parameter?hl=en",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 35975,
+   "quotes": [
+    {
+     "q": "Parameters are used to capture and reference values that have been supplied by the end-user during a session.",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://docs.cloud.google.com/dialogflow/cx/docs/concept/page?hl=en",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 17151,
+   "quotes": [
+    {
+     "q": "Any set session parameter with the same name as a form parameter is copied to the form parameter.",
+     "found": true
+    },
+    {
+     "q": "form parameter prompting",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://docs.cloud.google.com/dialogflow/cx/docs/concept/test-case?hl=en",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 18930,
+   "quotes": [
+    {
+     "q": "To test your agent, you create test cases using the simulator to define golden test cases",
+     "found": true
+    },
+    {
+     "q": "For each conversational turn, the agent dialogue is compared from golden to latest run.",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://docs.cloud.google.com/dialogflow/cx/docs/concept/version?hl=en",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 17743,
+   "quotes": [
+    {
+     "q": "immutable snapshot",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://docs.cloud.google.com/dialogflow/cx/docs/concept/experiments?hl=en",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 13969,
+   "quotes": [
+    {
+     "q": "allocate a portion of live traffic",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://developers.cloudflare.com/pages/functions/pricing/",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 4417,
+   "quotes": [
+    {
+     "q": "Requests to static assets are free and unlimited",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/mustache/spec/master/specs/interpolation.yml",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 9643,
+   "quotes": [
+    {
+     "q": "Interpolation tags are used to integrate dynamic content into the template.",
+     "found": true
+    },
+    {
+     "q": "Basic Interpolation",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://www.w3.org/TR/WCAG22/",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 155361,
+   "quotes": [
+    {
+     "q": "The size of the target for pointer inputs is at least 24 by 24 CSS pixels",
+     "found": true
+    },
+    {
+     "q": "status messages can be programmatically determined through role or properties such that they can be presented to the user by assistive technologies without receiving focus",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?sectionNum=17941.&lawCode=BPC",
+   "route": "chrome",
+   "httpStatus": 403,
+   "error": null,
+   "bodyChars": 408,
+   "quotes": [
+    {
+     "q": "with the intent to mislead the other person about its artificial identity",
+     "found": false
+    }
+   ]
+  },
+  {
+   "url": "https://law.justia.com/codes/california/code-bpc/division-7/part-3/chapter-6/section-17941/",
+   "route": "chrome",
+   "httpStatus": 403,
+   "error": null,
+   "bodyChars": 384,
+   "quotes": [
+    {
+     "q": "with the intent to mislead the other person about its artificial identity",
+     "found": false
+    }
+   ]
+  },
+  {
+   "url": "https://www.law.cornell.edu/uscode/text/42/3604",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 10105,
+   "quotes": [
+    {
+     "q": "with respect to the sale or rental of a dwelling that indicates any preference",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://web.dev/articles/inp",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 24563,
+   "quotes": [
+    {
+     "q": "An INP below or at 200 milliseconds means a page has good responsiveness",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://developers.cloudflare.com/pages/configuration/rollbacks/",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 4239,
+   "quotes": [
+    {
+     "q": "Rollbacks allow you to instantly revert your project to a previous production deployment",
+     "found": true
+    }
+   ]
+  },
+  {
+   "url": "https://raw.githubusercontent.com/mustache/spec/master/specs/interpolation.yml",
+   "route": "fetch",
+   "httpStatus": 200,
+   "error": null,
+   "bodyChars": 9643,
+   "quotes": [
+    {
+     "q": "HTML escaping",
+     "found": true
+    }
+   ]
+  }
+ ]
+}
