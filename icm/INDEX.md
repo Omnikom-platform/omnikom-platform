@@ -181,7 +181,7 @@ none
 
 | Path | Owner | Lines | Title | Summary | Load for |
 |---|---|---|---|---|---|
-| .claude/POSITION.md | head-of-operations | 94 | Block 2026-11-26 20:30 (this is the current block) | Session ADVISOR-ENGINE_code-mode (Code Mode, Opus 5.5). Head: HEAD-OF-OPERATIONS_Fable_2026-11-11 (SendMessage, 8-line reports, paths only). R2 ACCEPTED by t... |  |
+| .claude/POSITION.md | head-of-operations | 96 | Block 2026-11-26 20:30 (this is the current block) | Session ADVISOR-ENGINE_code-mode (Code Mode, Opus 5.5). Head: HEAD-OF-OPERATIONS_Fable_2026-11-11 (SendMessage, 8-line reports, paths only). R2 ACCEPTED by t... |  |
 | docs/blueprint/PROGRESS.md | platform-build | 1912 | Blueprint progress (for the lead session) | Task: build-ready product engineering package (owner, 2026-10-28), raised to engineering practice, tied to published standards, then corrected by an independ... |  |
 | work/STATE.md | head-of-operations | 59 | Where things stand | Rewritten in place, never appended, under 60 lines; last 2026-11-26 by the platform lead, after the landings through A20. Every feature's state: `docs/produc... |  |
 

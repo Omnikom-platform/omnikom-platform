@@ -8,12 +8,13 @@
     "node": ">=24.22.1"
   },
   "dependencies": {
-    "xstate": "5.33.4",
+    "@orama/orama": "3.1.18",
     "minisearch": "7.2.0",
-    "@orama/orama": "3.1.18"
+    "xstate": "5.33.4"
   },
   "devDependencies": {
     "@xstate/graph": "3.0.4",
-    "fast-check": "4.10.3"
+    "fast-check": "4.10.3",
+    "vite": "8.3.5"
   }
 }

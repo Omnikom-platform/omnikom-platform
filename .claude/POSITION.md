@@ -36,6 +36,8 @@ STATUS 21:30 (R3 step 2; all UNCOMMITTED in this worktree):
   (3 mutants red); cp11 0 graded / 0 text diffs, FAIL->PASS 0; pack sha c6cb7faa... NEXT: job 4 hand-over (written, sized) + report, then the race.
 - JOB 4 hand-over written 22:12: docs/advisor/r3/HANDOVER-vtv-engine.md (options A recommended / B, ~700-900 lines, two sittings).
   Reported to the head with job 3. NEXT: the matcher race (Vite 8.3.5 per ruling A, through heavy.mjs), then job 4.
+- HEAD 22:16: job 4 = option A (English base layer chosen word by word; never a client's words in another's pack). Order: race, job 4, XState.
+- PUSHED 22:20: backup-gh check/platform/advisor-engine = 3fc76dd (gitleaks protect --staged clean; gitleaks detect over backup-gh/master..HEAD, 6 commits: no leaks).
 - (was) OPEN for the head: bundler not approved -> byte sizes UNPROVEN; VTV through the engine needs a generic path (intent ids hard-coded in engine.mjs).
 NOW (R3 step 2): pack-driven port, hand-over docs/advisor/r3/HANDOVER-port.md, given to a helper agent (Sonnet) 20:45; red test = run-cp11 on factory/advisor/r3/pack-advisor.mjs (fails: no pack.json).
 Then: verify its outputs myself; validator + tests + mutants (lib-test-kit pattern); VTV pack (clients/vtv/facts.md + live site's signed text; booking slot for Calendly);
