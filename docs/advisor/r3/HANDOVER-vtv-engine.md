@@ -56,6 +56,53 @@ their own:
 - 3 inputs with no meaning that still got an answer, engine (ADR 005, the band): #873 "what's the caller's salary"
   (info.unpublished), #887 "<script>alert(1)</script>" (svc.cold_scripts), #902 "123" (price.team_size).
 
+## Result (2026-11-26 23:52, builder)
+Built:
+- part 1: `packs/base-en/base.json` + `packs/base-en/KEPT.md` (entry by entry, kept and left out, and why);
+- part 2: `pack/compile-51.mjs`;
+- part 3: `engine/typed-slots.mjs`, the switch in `engine/index.mjs`, `formHandoff` in `engine/engine.mjs` (used only when a
+  pack has a `forms` array).
+- VTV `packs/vtv/source.mjs`: a `form` on each answer that offers one; `lists.defaultMenu`/`fallbackMenu`; a whoami cue ("are you
+  francine" scored as `about` without it). `pack.json` rebuilt.
+
+Tests:
+- `test/test-vtv-engine.mjs` VTV ENGINE TEST PASS 24 of 24, MUTANTS PASS 3 of 3.
+- `test/test-compile-51.mjs` COMPILE 51 TEST PASS 9 of 9, MUTANTS PASS 3 of 3.
+- Both were seen red before the code (the compiler and the base did not exist).
+- The base-en data checks were watched failing by hand:
+  - "caller" planted in engine.repeat gave 3 red;
+  - a changed shared line gave 1 red, `base.texts.engine.repeat`.
+  - Restored, 9 of 9.
+
+Gates:
+- GOLDEN TURNS PASS 10765 of 10765.
+- PACK VALID vtv and omnikom-io.
+- test-validate MUTANTS 16 of 16; test-rewrites MUTANTS 6 of 6.
+- NO CLIENT TEXT PASS.
+- icm --check fresh.
+- cp11 (`r3/run-cp11.mjs` on `r3/pack-advisor.mjs`, via heavy.mjs, 23:53):
+  `baseline {"PASS":824,"PARTIAL":62,"FAIL":29} rows 915 | new {"PASS":824,"PARTIAL":62,"FAIL":29} rows 915`,
+  `graded better=0 worse=0 | rows whose input differs=0 | rows whose reply text differs=0`, `CP11 RUN PASS: zero graded drops`.
+  All 915 rows are byte-equal JSON to the baseline.
+
+Where this differs from the plan above:
+- omnikom.io's pack is not re-split into base + layer: it is untouched (byte-for-byte). Instead the test holds every entry base-en
+  shares with it equal, so there is one English and the least code.
+- The readers are in a new `engine/typed-slots.mjs`; `slots.mjs` is unchanged.
+- NOT DONE, no `number` reader: no pack declares one. It blocks any pack slot of type number (a budget, a bedroom count); such a
+  pack has no reader yet, so the value is never read and never pre-fills a form.
+- NOT DONE, V8's "only if signed": facts carry no signed mark, so the licence is MISSING and answers unknown + the form.
+  This blocks saying her licence number at all. That needs a licence claim, plus a signed mark that the compiler checks before it
+  lets a fact into a line.
+- "Never reflected": the compiler refuses any claim that says a slot back (any slot, not only reflect:false), with a mutant. The
+  name only pre-fills the form.
+- NOT DONE: VTV's chips show intent ids as labels ("area.other").
+  - Head 23:56, binding: the engine does not go on VTV's site while any chip shows an id.
+  - Chip words are written from VTV's facts in the VTV pack (no new claims, no "Realtor").
+  - A test fails on any id-shaped chip.
+  - This is the next step after this commit.
+- V2's buyer flow is one turn; the flow comes with XState.
+
 ## Not in this job
 XState flows (the buyer and seller flows of R2 5.1; V2's "buyer flow" is a single-turn hand-off here, the flow comes with
 XState); the Calendly hand-off (waits for her answer to question 6); lawyer wording (her question 11); any deploy.

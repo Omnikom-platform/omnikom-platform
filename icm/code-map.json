@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1043,
+    "sources": 1047,
     "unowned": 0
   },
   "files": [
@@ -154,7 +154,7 @@
     {"path":"docs/blueprint/specs/check-specs.test.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"docs/blueprint/specs/run-all-gates.mjs","owner":"platform-build","exports":[],"tests":["factory/briefs/gate-lib.test.mjs","tools/icm/test/book.mjs","tools/omnikom-cli/test/impact-stamp-hooks.mjs"],"feature":""},
     {"path":"docs/blueprint/wireframes/render.mjs","owner":"platform-build","exports":[],"tests":["factory/test/mutate.mjs","factory/test/run.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/toolkit.mjs"],"feature":""},
-    {"path":"factory/advisor/engine/engine.mjs","owner":"platform-build","exports":["createEngine"],"tests":[],"feature":""},
+    {"path":"factory/advisor/engine/engine.mjs","owner":"platform-build","exports":["createEngine"],"tests":["factory/advisor/test/test-vtv-engine.mjs"],"feature":""},
     {"path":"factory/advisor/engine/index.mjs","owner":"platform-build","exports":["PACK_FORMAT","createAdvisor"],"tests":["factory/advisor/test/golden-turns.mjs"],"feature":""},
     {"path":"factory/advisor/engine/matcher.mjs","owner":"platform-build","exports":["createMatcher"],"tests":[],"feature":""},
     {"path":"factory/advisor/engine/routing.mjs","owner":"platform-build","exports":["createRouting"],"tests":[],"feature":""},
@@ -162,7 +162,9 @@
     {"path":"factory/advisor/engine/slots.mjs","owner":"platform-build","exports":["createSlots"],"tests":[],"feature":""},
     {"path":"factory/advisor/engine/split.mjs","owner":"platform-build","exports":["splitKeep"],"tests":["factory/advisor/test/test-rewrites.mjs"],"feature":""},
     {"path":"factory/advisor/engine/text.mjs","owner":"platform-build","exports":["createText","doubledEnd"],"tests":["factory/advisor/test/test-rewrites.mjs"],"feature":""},
+    {"path":"factory/advisor/engine/typed-slots.mjs","owner":"platform-build","exports":["createTypedSlots"],"tests":["factory/advisor/test/test-vtv-engine.mjs"],"feature":""},
     {"path":"factory/advisor/pack/build-pack.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"factory/advisor/pack/compile-51.mjs","owner":"platform-build","exports":["compile51"],"tests":["factory/advisor/test/test-compile-51.mjs","factory/advisor/test/test-vtv-engine.mjs"],"feature":""},
     {"path":"factory/advisor/pack/convert-omnikom.mjs","owner":"platform-build","exports":["scanRegexes"],"tests":[],"feature":""},
     {"path":"factory/advisor/pack/rewrites.mjs","owner":"platform-build","exports":["REWRITES","applyRewrites"],"tests":["factory/advisor/test/test-rewrites.mjs"],"feature":""},
     {"path":"factory/advisor/pack/sha-pack.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -176,8 +178,10 @@
     {"path":"factory/advisor/r3/ts-hook.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/test/golden-turns.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/test/no-client-text.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"factory/advisor/test/test-compile-51.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/test/test-rewrites.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/test/test-validate.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"factory/advisor/test/test-vtv-engine.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/briefs/gate-lib.test.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/build.mjs","owner":"platform-build","exports":[],"tests":["factory/test/mutate.mjs","factory/test/run.mjs"],"feature":""},
     {"path":"factory/lib/design.mjs","owner":"platform-build","exports":["DesignError","loadDesign"],"tests":["factory/test/mutate.mjs","tools/audit/test/mutate.mjs","tools/audit/test/run.mjs"],"feature":""},
@@ -316,7 +320,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-snowball.mjs","owner":"seo-and-audits","exports":["stemEnglish","stemFor"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-stations.mjs","owner":"seo-and-audits","exports":["SOURCE_RULED","STATES","StationError","buildSheet","kindOf","ruleStep","rulingCounts","sheetText","stationsOf"],"tests":["tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-stops.mjs","owner":"seo-and-audits","exports":["KNOWN_ENGINES","STOP_HOURS","activeStops","isStopped","liftStop","stopsDir","writeStop"],"tests":["tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-test-kit.mjs","owner":"seo-and-audits","exports":["J","W","checker","main","mkTmp","rmTmp","runner","serve","walk"],"tests":["factory/advisor/test/test-rewrites.mjs","factory/advisor/test/test-validate.mjs"],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-test-kit.mjs","owner":"seo-and-audits","exports":["J","W","checker","main","mkTmp","rmTmp","runner","serve","walk"],"tests":["factory/advisor/test/test-compile-51.mjs","factory/advisor/test/test-rewrites.mjs","factory/advisor/test/test-validate.mjs","factory/advisor/test/test-vtv-engine.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-text.mjs","owner":"seo-and-audits","exports":["GENERIC_ANCHORS","LocaleMissing","STOP","THRESHOLD","containsHeadTerm","coversTerm","gazetteer","headTerm","isGenericAnchor","missing","overlap","removePlaces","requiredTerms","scanPlaces","seqContains","shingles","showsQuestion","slugify","stem","stemSet","stemmerFor","stopWordsFor","termsOf","titleCase","tokenSet","tokens","uaxWords","words"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-writing-fixture.mjs","owner":"seo-and-audits","exports":["HEADERS","LLMS","PAGES","PNG","pageHtml","patchFile","patchPages","serveSite","writeGoodSite"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/live-target.mjs","owner":"seo-and-audits","exports":["latestComplete"],"tests":["tools/audit/test/run.mjs"],"feature":""},

@@ -28,6 +28,9 @@ STATUS 21:30 (R3 step 2; all UNCOMMITTED in this worktree):
   omnikom-io pack now PACK VALID (sha 4951b5dd..., same over 2 runs); run-cp11: CP11 RUN PASS, 0 graded changes, 0 text diffs.
 - HEAD 21:48 ruling A: Vite 8.3.5 exactly as apps/dashboard pins it, in factory/advisor devDependencies, --ignore-scripts, lockfile committed, osv-scanner again, through heavy.mjs.
   Order: job 3 (intent ids into a pack table, cp11 at 0 diffs) first, then the race and XState. R3 report must list which of the 29 FAIL rows turn PASS, or say plainly that R3 moves none (0 of 29 so far).
+HEAD 23:30: order job 4 (gate 0 cp11 changes, omnikom.io byte-for-byte) -> cp11 FAIL rows job (red test per row; #873 #887 #902 first) -> XState inside 15,980 B headroom (109,344 B holds UI+XState). Push each job to check/platform/advisor-engine, gitleaks first as its own step.
+JOB 4 23:52: built + tests green (test-vtv-engine 24/24 + 3/3 mutants, test-compile-51 9/9 + 3/3), golden 10765, both packs valid, NO CLIENT TEXT, icm fresh. Result: docs/advisor/r3/HANDOVER-vtv-engine.md. cp11 run waits on the heavy lock (other job, PID 54328, since 23:33): NOT YET RUN. Commit after cp11 = 0 changes.
+HEAD 23:56: #873 ruling A (band "abstain", text unchanged; test: reply text byte-equal before/after). Job 4 commit+push after cp11 0 changes. BINDING VTV: engine not on VTV's site while any chip shows an intent id; chip words from VTV facts in the VTV pack (no new claims, no "Realtor"), test fails on any id-shaped chip. Number reader + V8 go in the job 4 hand-over as NOT DONE with what they block.
 - HEAD 21:53 order: job 3 -> matcher race -> job 4 (VTV in the engine: English base layer, 5.1 compiler, slot readers by type) -> XState flows.
   Job 4's written hand-over goes with job 3's report, with its size. (21:52 I told the head job 3 alone does not run VTV.)
 - JOB 3 (21:55): red test = test/no-client-text.mjs extended to intent ids + families: FAIL 72 (engine.mjs 71, matcher.mjs 1).

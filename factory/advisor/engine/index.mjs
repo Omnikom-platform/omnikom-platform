@@ -5,6 +5,7 @@
 
 import { createText } from "./text.mjs";
 import { createSlots } from "./slots.mjs";
+import { createTypedSlots } from "./typed-slots.mjs";
 import { createMatcher } from "./matcher.mjs";
 import { createEngine } from "./engine.mjs";
 import { createScript } from "./script.mjs";
@@ -32,7 +33,10 @@ export function createAdvisor(rawPack) {
   const pack = revive(rawPack);
   const T = pack.tuning;
   const text = createText(pack.lexicon, pack.rx.text, T);
-  const slots = createSlots(pack.slots, pack.rx.slots, T, pack.texts);
+  // a pack in R2 5.1's shape declares typed slots (an array); a converted pack carries the data slots.mjs reads
+  const slots = Array.isArray(pack.slots)
+    ? createTypedSlots(pack.slots, pack.rx.slots, pack.lists, text)
+    : createSlots(pack.slots, pack.rx.slots, T, pack.texts);
   // hand-written cues: [pattern, intent, delta]
   const cues = pack.cues.map((c) => [new RegExp(c.pattern, c.flags), c.intent, c.delta]);
   const { Matcher } = createMatcher({ R: pack.rx.matcher, T, L: pack.lists, S: pack.steer, cues, text, slots });

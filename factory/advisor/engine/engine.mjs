@@ -37,6 +37,10 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
 
   const SLOT_FALLBACK = L.slotFallback;
 
+  // a pack in R2 5.1's shape hands off to its own forms, pre-filled from its typed slots; the host page fills the fields it has
+  const FORMS = Array.isArray(pack.forms) ? pack.forms.filter((f) => f.kind === "form") : undefined;
+  const DEFAULT_FORM = FORMS?.[0]?.id;
+
   class Engine {
     intents;
     byId = new Map();
@@ -646,6 +650,7 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
     }
 
     handoffFor(state, intent, asking = false) {
+      if (FORMS) return this.formHandoff(state, intent);
       const s = state.slots;
       const lines = [];
       if (s.callers) lines.push(X["engine.handoff.callers"] + s.callers);
@@ -658,6 +663,28 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
         markets: s.markets?.length ? s.markets.join(", ") : undefined,
         notes: lines.length ? X["engine.handoff.intro"] + lines.join(X["engine.handoff.sep"]) + X["engine.handoff.end"] : undefined,
       };
+    }
+
+    /** The answer's own form (else the pack's first), its fields pre-filled from the slots: a field two slots share gets each
+     * as "Name: value". Never a URL: the UI passes { form, path, prefill } to the host page (R2 section 6, hand-off). */
+    formHandoff(state, intent) {
+      const id = typeof intent?.form === "string" ? intent.form : DEFAULT_FORM;
+      const form = FORMS.find((f) => f.id === id) ?? FORMS[0];
+      const byField = {};
+      for (const s of pack.slots) {
+        const field = form.fields?.[s.name] ?? s.form;
+        if (field) (byField[field] ??= []).push(s.name);
+      }
+      const prefill = {};
+      for (const [field, names] of Object.entries(byField)) {
+        const known = names.filter((n) => state.slots[n] !== undefined);
+        if (!known.length) continue;
+        prefill[field] =
+          names.length === 1
+            ? String(state.slots[known[0]])
+            : known.map((n) => n[0].toUpperCase() + n.slice(1) + X["form.label"] + state.slots[n]).join(X["form.sep"]);
+      }
+      return { form: form.id, path: form.path, prefill };
     }
   }
 
