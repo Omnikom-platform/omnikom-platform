@@ -68,6 +68,10 @@ the same test on the clean build and then holds the signed folder to it: a liste
 file into the page blocks as it is, and the licence file ships as a file of its ship list, so a licence with no extension (`LICENSE`)
 is refused there (`a file of this kind cannot ship in a sealed draft`): name it `LICENSE.txt` in the clean build. Adding or changing
 `third-party.json` changes the clean build's file list, and so the ID.
+An entry may also carry `includes`, `[{"name", "version", "licence", "source"}, ...]`: the file is then the site's own bundle with
+those libraries linked in, so it is stamped like any code file, and the sign line adds `M bundles with K libraries named`. A sign is
+refused when `includes` is not a non-empty list, a field of an included library is missing or empty, its licence is a dot path or
+not a file of the build, or one library is named twice in the same entry.
 
 ## The deploy
 `deploy-signed.mjs` uploads only a folder that passes its check, then writes the Pages project and the deployment id into the

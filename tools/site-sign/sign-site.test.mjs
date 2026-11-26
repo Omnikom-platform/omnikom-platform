@@ -234,6 +234,33 @@ if (fs.existsSync(L) && fs.existsSync(H)) {
   refused('not-json', [], 'is not valid JSON', { 'third-party.json': '{nope' });
   refused('wrong-shape', [], 'must be {"files": [ ... ]}', { 'third-party.json': '{"files": 3}' });
 }
+
+// third-party includes (C54, head ruling 2026-11-25): a declared bundle names the libraries inside it; it is the site's own code, so it is stamped
+{
+  const shaOf = (s) => createHash('sha256').update(s).digest('hex');
+  const appSha = shaOf(fs.readFileSync(path.join(TMP, 'clean', 'app.js')));
+  const lib = (name, version, licence) => ({ name, version, licence, source: 'https://example.test/' + name });
+  const bundle = (o = {}) => ({ path: 'app.js', sha256: appSha, licence: 'CREDITS.txt', name: 'Demo site script', version: appSha.slice(0, 10), source: 'built by Omnikom', includes: [lib('Alib', '1.0', 'lic/a.txt'), lib('Blib', '2.0', 'lic/b.txt')], ...o });
+  const withInc = (name, list) => fixture(name, { 'lic/a.txt': 'Alib licence\n', 'lic/b.txt': 'Blib licence\n', 'CREDITS.txt': 'credits\n', 'third-party.json': JSON.stringify({ files: list }) });
+  const ic = withInc('inc', [bundle()]), io = path.join(TMP, 'inc-live');
+  const rs = run('--live', ic, '--out', io, '--site', 'demo', '--client', 'Demo Co', '--date', '2026-11-20');
+  ok(rs.status === 0 && rs.stdout.includes('0 third-party files unchanged, 1 bundles with 2 libraries named'), `includes: a bundle entry signs and is counted (exit ${rs.status}: ${(rs.stderr || rs.stdout).trim().slice(0, 200)})`);
+  if (rs.status === 0) {
+    ok(read(io, 'app.js').startsWith('/*! '), 'includes: the declared bundle is stamped like the site code it is');
+    ok(run('--check', io, '--mode', 'live', '--clean', ic).status === 0, 'includes: check passes');
+  }
+  const refusedI = (name, list, why) => {
+    const o = path.join(TMP, `incx-${name}`);
+    const rx = run('--live', withInc(`incc-${name}`, list), '--out', o, '--site', 'demo', '--client', 'Demo Co', '--date', '2026-11-20');
+    ok(rx.status === 1 && rx.stderr.split('\n').includes(`REFUSED: third-party.json: ${why}`) && !fs.existsSync(o), `includes refused (${name}): one line, nothing written (exit ${rx.status}: ${rx.stderr.trim().slice(0, 160)})`);
+  };
+  refusedI('empty', [bundle({ includes: [] })], 'entry 1: includes must be a non-empty list');
+  refusedI('no-version', [bundle({ includes: [{ ...lib('Alib', '1.0', 'lic/a.txt'), version: '' }] })], 'entry 1: includes 1: version must be a non-empty text');
+  refusedI('licence-missing', [bundle({ includes: [lib('Alib', '1.0', 'lic/c.txt')] })], 'entry 1: includes 1: "lic/c.txt" is not a file of the build');
+  refusedI('licence-dot', [bundle({ includes: [lib('Alib', '1.0', '.x/a.txt')] })], 'entry 1: includes 1: ".x/a.txt" is a dot path, which never ships');
+  refusedI('name-twice', [bundle({ includes: [lib('Alib', '1.0', 'lic/a.txt'), lib('Alib', '1.1', 'lic/b.txt')] })], 'entry 1: includes 2: "Alib" is named twice');
+  refusedI('declared-twice', [bundle(), bundle()], 'entry 2: "app.js" is declared twice');
+}
 const lines = fs.existsSync(REG) ? read(REG).trim().split('\n') : [];
 ok(lines.length >= 5 && lines[0].startsWith('time_utc\tsite\tstage\tid'), 'register: header and one line per signing');
 
@@ -244,6 +271,9 @@ if (failed) process.exitCode = 1;
 // mutants: each must turn this test red
 if (process.argv.includes('--mutants')) {
   const MUT = [
+    ['a declared bundle is copied unstamped (C54)', '    } else set.add(e.path);', '    } set.add(e.path);'],
+    ['an included licence outside the build is accepted (C54)', 'if (!have.has(x.licence)) return bad(', 'if (false) return bad('],
+    ['an empty includes list is accepted (C54)', 'if (!Array.isArray(e.includes) || !e.includes.length) return bad(', 'if (false) return bad('],
     ['no bar on drafts', "(stage === 'draft' ? m.bar : '')", "''"],
     ['bar in every stage', "(stage === 'draft' ? m.bar : '')", 'm.bar'],
     ['json touched', "else if (r === '_headers') fs.writeFileSync", "else if (r.endsWith('.json')) fs.appendFileSync(f, ' ');\n    else if (r === '_headers') fs.writeFileSync"],
@@ -260,7 +290,7 @@ if (process.argv.includes('--mutants')) {
     ['a dot path can be declared', "p.split('/').some((s) => s.startsWith('.'))", 'false'],
     ['a path outside the build list is accepted', 'if (!have.has(p)) return bad(', 'if (false) return bad('],
     ['a page can be declared', 'if (!isCss(e.path) && !isJs(e.path)) return bad(', 'if (false) return bad('],
-    ['a path can be declared twice', 'if (set.has(e.path)) return bad(', 'if (false) return bad('],
+    ['a path can be declared twice', 'if (seen.has(e.path)) return bad(', 'if (false) return bad('],
     ['an empty field is accepted', "if (typeof e?.[k] !== 'string' || !e[k]) return bad(", 'if (false) return bad('],
     ['a declaration that is not JSON is ignored', "catch { return bad('is not valid JSON'); }", 'catch { d = { files: [] }; }'],
     ['a declaration of the wrong shape is read on', 'if (!d || !Array.isArray(d.files)) return bad(', 'if (false) return bad('],

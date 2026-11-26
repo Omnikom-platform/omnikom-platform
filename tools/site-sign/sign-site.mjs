@@ -197,15 +197,18 @@ const functionsDirOf = (out) => `${out}-functions`;
 
 const draftRobotsTxt = (m) => `# ${m.notice}\n\n` + AI_AGENTS.map((a) => `User-agent: ${a}\nDisallow: /\n`).join('\n') + '\nUser-agent: *\nDisallow: /\n';
 
-// third-party files: a clean build may list library files it ships from its own host in third-party.json; they are copied unchanged, never stamped
+// third-party files: a clean build may list library files it ships from its own host in third-party.json; they are copied unchanged, never stamped.
+// An entry with `includes` declares the site's own bundle and names the libraries inside it (C54): it is stamped like any code file,
+// and each included library's licence must be a file of the build.
 function declared(clean) {
   const file = path.join(clean, 'third-party.json');
-  if (!fs.existsSync(file)) return { set: new Set(), problem: '' };
-  const bad = (why) => ({ set: new Set(), problem: `third-party.json: ${why}` });
+  if (!fs.existsSync(file)) return { set: new Set(), bundles: 0, libs: 0, problem: '' };
+  const bad = (why) => ({ set: new Set(), bundles: 0, libs: 0, problem: `third-party.json: ${why}` });
   let d;
   try { d = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return bad('is not valid JSON'); }
   if (!d || !Array.isArray(d.files)) return bad('must be {"files": [ ... ]}');
-  const have = new Set(walk(clean).map((f) => rel(clean, f))), set = new Set();   // the build's own list: its spelling and case are the only ones allowed
+  const have = new Set(walk(clean).map((f) => rel(clean, f))), set = new Set(), seen = new Set();
+  let bundles = 0, libs = 0;   // the build's own list: its spelling and case are the only ones allowed
   for (const [i, e] of d.files.entries()) {
     const at = `entry ${i + 1}`;
     for (const k of ['path', 'sha256', 'licence', 'name', 'version', 'source']) if (typeof e?.[k] !== 'string' || !e[k]) return bad(`${at}: ${k} must be a non-empty text`);
@@ -214,11 +217,24 @@ function declared(clean) {
       if (!have.has(p)) return bad(`${at}: "${p}" is not a file of the build`);
     }
     if (!isCss(e.path) && !isJs(e.path)) return bad(`${at}: "${e.path}" is not a css or js file`);
-    if (set.has(e.path)) return bad(`${at}: "${e.path}" is declared twice`);
+    if (seen.has(e.path)) return bad(`${at}: "${e.path}" is declared twice`);
     if (sha(fs.readFileSync(path.join(clean, e.path))) !== e.sha256) return bad(`${at}: the sha256 of "${e.path}" is not the declared one`);
-    set.add(e.path);
+    if (e.includes !== undefined) {
+      if (!Array.isArray(e.includes) || !e.includes.length) return bad(`${at}: includes must be a non-empty list`);
+      const names = new Set();
+      for (const [j, x] of e.includes.entries()) {
+        const ai = `${at}: includes ${j + 1}`;
+        for (const k of ['name', 'version', 'licence', 'source']) if (typeof x?.[k] !== 'string' || !x[k]) return bad(`${ai}: ${k} must be a non-empty text`);
+        if (x.licence.split('/').some((s) => s.startsWith('.'))) return bad(`${ai}: "${x.licence}" is a dot path, which never ships`);
+        if (!have.has(x.licence)) return bad(`${ai}: "${x.licence}" is not a file of the build`);
+        if (names.has(x.name)) return bad(`${ai}: "${x.name}" is named twice`);
+        names.add(x.name);
+      }
+      bundles++; libs += e.includes.length;
+    } else set.add(e.path);
+    seen.add(e.path);
   }
-  return { set, problem: '' };
+  return { set, bundles, libs, problem: '' };
 }
 
 function guard(clean) {
@@ -300,7 +316,7 @@ function sign(stage, clean, out, site, client, date, host, register) {
   const files = walk(out).length;
   if (!fs.existsSync(register)) fs.writeFileSync(register, 'time_utc\tsite\tstage\tid\tclean_sha256\tsigned_sha256\tfiles\tproject\tdeployment\tclient\tdate\thost\n');
   fs.appendFileSync(register, [new Date().toISOString(), site, STAGE_NAME[stage], id, cleanHash, treeHash(out), files, '-', '-', client || '-', day, host || '-'].join('\t') + '\n');
-  console.log(`signed ${STAGE_NAME[stage]}: ${id}; ${pages} pages, ${code} css/js files, ${third.set.size} third-party files unchanged, ${files} files in ${out}; ${leftOut} dot-path files left out; check PASS; register line added`);
+  console.log(`signed ${STAGE_NAME[stage]}: ${id}; ${pages} pages, ${code} css/js files, ${third.set.size} third-party files unchanged, ${third.bundles ? `${third.bundles} bundles with ${third.libs} libraries named, ` : ''}${files} files in ${out}; ${leftOut} dot-path files left out; check PASS; register line added`);
   return id;
 }
 
