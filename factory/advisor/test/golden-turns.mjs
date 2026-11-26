@@ -43,11 +43,7 @@ const stable = (v) => Array.isArray(v) ? '[' + v.map(stable).join(',') + ']'
 const hash = (x) => createHash('sha256').update(stable(x)).digest('hex').slice(0, H);
 
 const pack = JSON.parse(readFileSync(PACK, 'utf8'));
-// --scorer <name>: check with a race scorer (information only; the golden pins today's scorer and is written only without one)
-const scorerName = process.argv.includes('--scorer') ? process.argv[process.argv.indexOf('--scorer') + 1] : undefined;
-const scorer = scorerName ? (await import('../race/scorers.mjs')).loadScorer(scorerName) : undefined;
-if (scorer && process.argv.includes('--write')) { console.log('GOLDEN TURNS: --write pins today\'s scorer only'); process.exit(2); }
-const { engine, initialState } = createAdvisor(pack, { scorer });
+const { engine, initialState } = createAdvisor(pack);
 const labels = pack.intents.map((i) => i.label).filter(Boolean);
 const phrasings = pack.intents.map((i) => i.phrasings?.[0]).filter(Boolean);
 

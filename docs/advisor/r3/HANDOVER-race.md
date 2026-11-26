@@ -74,6 +74,8 @@ Budget (R2 section 10, at most 125,324 B gzip on open): the real pack is 68,188 
 
 Verdict: no library holds zero drops. Nothing is removed until the head rules.
 
+Ruling (head 2026-11-26 23:12, A): today's scorer stays; both libraries, engine/scorers/ and race/ removed; ADR 003 rewritten.
+
 ## Not in this job
 Rounding scores to 3 decimals (ADR 003): it changes ties, so it is its own step after the winner. Spanish. The phone
 build-time figure.

@@ -24,7 +24,7 @@ A second, independent pass checked this design before it was sent (section 23).
 - **Zero cost per chat:** static files plus the visitor's own browser. The only server touch is one optional session report: counts, the redacted misses, and during shadow the
   turns that differ. None is sent under Global Privacy Control. It is ON for omnikom.io only and OFF on client sites (section 24).
 - **Budget (target):** nothing of the chat loads until the visitor presses the button (the button itself is at most 2 KB inside the page). On open, at most 125 KB gzip for omnikom.io,
-  no more than today's 125,324 B. On the measured stand-in only MiniSearch's path fits; Orama's fits only if the real pack comes out about 10 KB smaller (section 10).
+  no more than today's 125,324 B. R3 measured engine 11,656 B and pack 68,188 B gzip, with no matching library (ADR 003, section 10).
 - **Tests:** the bar is zero graded drops against `cp11-results.jsonl` (915 rows), zero made-up claims, golden whole-conversation
   transcripts, property tests, mutants and the head's held-back run. A rule ships with its test, and that test is first seen failing.
 - **Rollout (head's ruling 4):** the first version goes live on the bar in section 18, with no calendar gates; shadow and a small share are for later pack versions only. VTV gets its pack by hand-conversion now; it goes live after its preview, the
@@ -75,7 +75,7 @@ dispatchEvent(new CustomEvent('omnikom-advisor:handoff', { detail: { form, prefi
 
 | Layer | What it may do | What it may never do | Code we write | Library |
 |---|---|---|---|---|
-| Understand | Score intents against the pack's phrasings, concept lists and cue patterns; add the pack's context boost; read entities | Read anything beyond `ctx`; call the network | Normaliser, concept expansion, cue runner, entity parsers (number words, places from pack lists, an email and phone shape check used only to refuse), band | Orama 3 or MiniSearch 7, raced in R3 (ADR 003) |
+| Understand | Score intents against the pack's phrasings, concept lists and cue patterns; add the pack's context boost; read entities | Read anything beyond `ctx`; call the network | Normaliser, concept expansion, cue runner, entity parsers (number words, places from pack lists, an email and phone shape check used only to refuse), band | none: today's scorer, kept by the R3 race (ADR 003) |
 | Remember | Write typed, checked slot values; compute derived slots | Store contact details or any free text; read storage other than its own key | Slot checks; derived-slot functions | XState context |
 | Decide | Run section 4's procedure; move between the pack's pages by its routes and guards | Run a guard or action that is not on the closed list (5.6) | The procedure; the closed list; the snapshot store | XState 5 (ADR 002) |
 | Reply | Pick approved texts, fill slots, pick a variant by hash, escape | Emit a sentence that is not an approved claim text; emit a number or price that does not come from a sourced pack field | Slot fill (our own; tested with Mustache spec cases), variant pick, claims gate | none |
@@ -301,19 +301,16 @@ That is 67,459 + 57,865 = 125,324 B gzip. The card is also preloaded before the 
 |---|---|---|
 | Before the visitor presses the chat button | **0 B** of UI, engine or pack. The button itself is at most 2 KB of markup and CSS inside the page. | Today the card is preloaded (R1) |
 | UI component | at most 15 KB | UNPROVEN |
-| Engine code (ours) | at most 20 KB | UNPROVEN |
-| Libraries | XState 14.5 KB + Orama 24.4 KB = 38.9 KB, or + MiniSearch 5.7 KB = 20.2 KB | measured (R1, bundlephobia) |
-| omnikom.io pack | whatever is left under the total: at most 51 KB on Orama's path, at most 70 KB on MiniSearch's | upper stand-in 61,278 B (5.3) |
+| Engine code (ours) | at most 20 KB | 11,656 B (R3, Vite library build) |
+| Libraries | XState 14.5 KB; no matching library (ADR 003) | XState: R1, bundlephobia |
+| omnikom.io pack | whatever is left under the total | 68,188 B (R3; the stand-in said 61,278 B) |
 | **Total on open, omnikom.io** | **at most 125 KB**, no more than today's 125,324 B | UNPROVEN until R3 |
 | First reply ready after the press | at most 1 s on a mid phone (4x CPU slow-down) | UNPROVEN |
 | Each reply | at most 50 ms of main-thread work; INP at most 200 ms ("An INP below or at 200 milliseconds means a page has good responsiveness", web.dev) | UNPROVEN |
 | LCP | unchanged with the chat present (bar 2.5 s) | UNPROVEN |
 
-On the stand-in:
-- Orama's path would be 15 + 20 + 38.9 + 61.3 = 135.2 KB, over the line.
-- MiniSearch's path would be 15 + 20 + 20.2 + 61.3 = 116.5 KB, under it.
-
-The stand-in is source code with comments, so the real pack should be smaller. R3 measures it, and the race's "then bytes" rule decides, together with this budget.
+Measured in R3 (ADR 003): 15,000 (UI, target) + 11,656 (engine) + 14,500 (XState, R1) + 68,188 (pack) = 109,344 B, under the line.
+If XState does not fit, the flow table is hand-written (zero dependency, the same statechart shape; head 2026-11-26 23:12).
 Loading starts when the visitor presses the button (brief constraint 4), never on hover. The search index is built in the browser from the pack's phrasings, not shipped.
 **One stated exception:** during shadow (section 18), the sampled sessions load both engines, after the old one has answered. That ends when shadow ends (ADR 008).
 
@@ -482,7 +479,7 @@ Every run still fails on any POST to any host. **Never a real VTV form or endpoi
 
 ## 18. Rollout and rollback (the head's ruling 4)
 
-1. **R3 (offline):** the omnikom.io pack and the engine pass through the head's harness (`factory/advisor/r3/run-cp11.mjs`): zero graded drops against cp11, then the held-back run. Orama and MiniSearch race here; only the winner ships. No deploy.
+1. **R3 (offline):** the omnikom.io pack and the engine pass through the head's harness (`factory/advisor/r3/run-cp11.mjs`): zero graded drops against cp11, then the held-back run. Orama and MiniSearch raced here; neither held zero drops, so neither ships (ADR 003). No deploy.
 2. **Build jobs** by the platform method: one hand-over per job, test first. Slices: engine, UI, pack builder and validator, omnikom.io pack, VTV pack, session report endpoint.
    omnikom.io (the lovable repo) takes the BUILT engine and UI as one versioned file with its sha256 pinned, plus a check that the copy equals the release; never a second source (ruling 1).
 3. **First version, bar to live:** zero graded drops on cp11, the head's held-back run, O1 to O15 green on a preview, and the owner's look. No calendar gates. The old engine stays as the one-step rollback.
@@ -518,7 +515,7 @@ Every run still fails on any POST to any host. **Never a real VTV form or endpoi
 |---|---|
 | [001](adr/001-engine-and-pack.md) | One engine for all sites; everything client-specific is pack data |
 | [002](adr/002-dialogue-state-xstate.md) | XState 5 runs the pack's flows; a closed list of guards and actions; snapshot in sessionStorage |
-| [003](adr/003-matching-race.md) | Orama against MiniSearch in R3; concept lists; the band; rounded scores |
+| [003](adr/003-matching-race.md) | Today's scorer, kept by the R3 race; concept lists; the band; rounded scores |
 | [004](adr/004-replies-approved-text.md) | One `render()`; our own slot fill; the claims gate; variants by hash; reflect only checked slots |
 | [005](adr/005-fallback-and-no-match.md) | Two-stage fallback with no-match counters; no timers |
 | [006](adr/006-lead-handoff.md) | Hand-off by the site's own form or booking pop-up, pre-filled; the chat takes no contact details |

@@ -3,13 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "The site assistant engine (docs/advisor/R2-design.md). Dependencies approved by the owner 2026-11-26 20:50; MiniSearch and Orama are raced in R3 and the loser is removed. Install with: npm ci --prefix factory/advisor --ignore-scripts",
+  "description": "The site assistant engine (docs/advisor/R2-design.md). Dependencies approved by the owner 2026-11-26 20:50; the R3 matching race kept today's scorer, so no matching library (ADR 003). Install with: npm ci --prefix factory/advisor --ignore-scripts",
   "engines": {
     "node": ">=24.22.1"
   },
   "dependencies": {
-    "@orama/orama": "3.1.18",
-    "minisearch": "7.2.0",
     "xstate": "5.33.4"
   },
   "devDependencies": {

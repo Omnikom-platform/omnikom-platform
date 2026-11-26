@@ -1,12 +1,11 @@
 // Scores a visitor message against every intent's phrasings: tf-idf cosine blended with phrasing coverage, after
 // normalising the text (contractions, masked places and numbers, stemming, synonyms, typo repair). A faithful port of
 // the R3 reference matcher. The step and number words, the small-talk intents, the hand-written cues and the weights all
-// come from the pack (pack.lists, pack.cues, pack.rx.matcher, pack.tuning). An optional scorer (engine/scorers/) replaces
-// the phrasing similarity step only; without one the matcher scores as today.
+// come from the pack (pack.lists, pack.cues, pack.rx.matcher, pack.tuning).
 
 import { splitKeep } from "./split.mjs";
 
-export function createMatcher({ R, T, L, S, cues, text, slots, scorer }) {
+export function createMatcher({ R, T, L, S, cues, text, slots }) {
   const CHAT = S?.prefix?.chat; // the small-talk family, named in pack.steer
   const { RAW_LEXICON, STOP, Vocabulary, buildLexicon, expandContractions, stem, stripFillers, LEXICON_GROUPS } = text;
   const { maskNames } = slots;
@@ -77,8 +76,6 @@ export function createMatcher({ R, T, L, S, cues, text, slots, scorer }) {
     defaultIdf;
     /** words that mark a message as being about the business, not small talk */
     domain = new Set();
-    /** the library scorer built over the phrasings, or null for today's similarity */
-    lib = null;
 
     constructor(intents) {
       this.intentIds = intents.map((i) => i.id);
@@ -149,7 +146,6 @@ export function createMatcher({ R, T, L, S, cues, text, slots, scorer }) {
           }
         }
       }
-      if (scorer) this.lib = scorer.build(this.phrasings.map((p) => ({ intent: p.intent, tokens: p.tokens })));
     }
 
     token(w) {
@@ -214,8 +210,8 @@ export function createMatcher({ R, T, L, S, cues, text, slots, scorer }) {
         qsq += wt * wt;
       }
       const qnorm = Math.sqrt(qsq);
-      const best = this.lib ? this.lib.best(tokens) : new Map();
-      if (!this.lib) for (const p of this.phrasings) {
+      const best = new Map();
+      for (const p of this.phrasings) {
         let o1 = 0;
         let o2 = 0;
         for (const t of p.tokens) {
