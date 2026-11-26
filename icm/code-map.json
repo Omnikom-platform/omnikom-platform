@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1042,
+    "sources": 1043,
     "unowned": 0
   },
   "files": [
@@ -155,7 +155,7 @@
     {"path":"docs/blueprint/specs/run-all-gates.mjs","owner":"platform-build","exports":[],"tests":["factory/briefs/gate-lib.test.mjs","tools/icm/test/book.mjs","tools/omnikom-cli/test/impact-stamp-hooks.mjs"],"feature":""},
     {"path":"docs/blueprint/wireframes/render.mjs","owner":"platform-build","exports":[],"tests":["factory/test/mutate.mjs","factory/test/run.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/toolkit.mjs"],"feature":""},
     {"path":"factory/advisor/engine/engine.mjs","owner":"platform-build","exports":["createEngine"],"tests":[],"feature":""},
-    {"path":"factory/advisor/engine/index.mjs","owner":"platform-build","exports":["PACK_FORMAT","createAdvisor"],"tests":[],"feature":""},
+    {"path":"factory/advisor/engine/index.mjs","owner":"platform-build","exports":["PACK_FORMAT","createAdvisor"],"tests":["factory/advisor/test/golden-turns.mjs"],"feature":""},
     {"path":"factory/advisor/engine/matcher.mjs","owner":"platform-build","exports":["createMatcher"],"tests":[],"feature":""},
     {"path":"factory/advisor/engine/routing.mjs","owner":"platform-build","exports":["createRouting"],"tests":[],"feature":""},
     {"path":"factory/advisor/engine/script.mjs","owner":"platform-build","exports":["createScript"],"tests":[],"feature":""},
@@ -174,6 +174,7 @@
     {"path":"factory/advisor/r3/reference-advisor.mjs","owner":"platform-build","exports":["loadAdvisor"],"tests":[],"feature":""},
     {"path":"factory/advisor/r3/run-cp11.mjs","owner":"platform-build","exports":["loadAdvisor"],"tests":[],"feature":""},
     {"path":"factory/advisor/r3/ts-hook.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"factory/advisor/test/golden-turns.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/test/no-client-text.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/test/test-rewrites.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/test/test-validate.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},

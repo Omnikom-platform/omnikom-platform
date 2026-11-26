@@ -148,6 +148,28 @@ export async function validatePack(p) {
     for (const n of [...(Array.isArray(it.next) ? it.next : []), ...(it.yes ? [it.yes] : [])]) if (!ids.has(n)) err('INTENT_BAD_REF', 'intents[' + i + ']', it.id + ' points at unknown id ' + n);
   }
 
+  // steer: the intents the engine steers by, named by role (the engine names none: test/no-client-text.mjs). Optional.
+  const st = isObj(p?.steer) ? p.steer : null;
+  if (st) {
+    const refs = Object.entries(isObj(st.ids) ? st.ids : {}).map(([k, v]) => ['steer.ids.' + k, v]);
+    for (const key of ['limits', 'serviceTotal']) for (const [i, r] of (Array.isArray(st[key]) ? st[key] : []).entries()) {
+      refs.push(['steer.' + key + '[' + i + '].to', r?.to]);
+      if (!isObj(p?.rx?.engine) || !isObj(p.rx.engine[r?.last])) err('STEER_RX', 'steer.' + key + '[' + i + ']', 'no rx.engine pattern named ' + r?.last);
+    }
+    if (isObj(st.siblings)) {
+      for (const [i, w] of (Array.isArray(st.siblings.words) ? st.siblings.words : []).entries()) refs.push(['steer.siblings.words[' + i + '].to', w?.to]);
+      refs.push(['steer.siblings.other', st.siblings.other]);
+    }
+    for (const [at, id] of refs) if (!ids.has(id)) err('STEER_ID', at, 'not an intent of this pack: ' + id);
+    const prefixes = Object.entries(isObj(st.prefix) ? st.prefix : {}).map(([k, v]) => ['steer.prefix.' + k, v]);
+    if (isObj(st.stepNext)) {
+      const pre = st.stepNext.prefix;
+      prefixes.push(['steer.stepNext.prefix', pre]);
+      for (let k = 2; k <= Number(st.stepNext.max); k++) if (!ids.has(pre + k)) err('STEER_ID', 'steer.stepNext', 'no intent ' + pre + k);
+    }
+    for (const [at, pre] of prefixes) if (typeof pre !== 'string' || !pre || ![...ids].some((id) => id.startsWith(pre))) err('STEER_PREFIX', at, 'starts no intent of this pack: ' + pre);
+  }
+
   // cues
   const cues = Array.isArray(p?.cues) ? p.cues : [];
   const compiled = [];

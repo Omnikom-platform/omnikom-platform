@@ -26,7 +26,15 @@ STATUS 21:30 (R3 step 2; all UNCOMMITTED in this worktree):
 - omnikom-io pack: seat totals scrubbed at conversion (C-26), MONEY 0; was PACK INVALID 34 = 26 cue rows (5 patterns) + 8 engine rx (look-behind, nested repeat, back-reference).
   FIXED 21:40: pack/rewrites.mjs (13 rule-clean equivalents) proven by test/test-rewrites.mjs: 43 of 43, MUTANTS 6 of 6; engine/split.mjs splitKeep, text.mjs doubledEnd.
   omnikom-io pack now PACK VALID (sha 4951b5dd..., same over 2 runs); run-cp11: CP11 RUN PASS, 0 graded changes, 0 text diffs.
-- OPEN for the head: bundler (esbuild) not approved -> byte sizes UNPROVEN; VTV through the engine needs a generic path (intent ids hard-coded in engine.mjs).
+- HEAD 21:48 ruling A: Vite 8.3.5 exactly as apps/dashboard pins it, in factory/advisor devDependencies, --ignore-scripts, lockfile committed, osv-scanner again, through heavy.mjs.
+  Order: job 3 (intent ids into a pack table, cp11 at 0 diffs) first, then the race and XState. R3 report must list which of the 29 FAIL rows turn PASS, or say plainly that R3 moves none (0 of 29 so far).
+- HEAD 21:53 order: job 3 -> matcher race -> job 4 (VTV in the engine: English base layer, 5.1 compiler, slot readers by type) -> XState flows.
+  Job 4's written hand-over goes with job 3's report, with its size. (21:52 I told the head job 3 alone does not run VTV.)
+- JOB 3 (21:55): red test = test/no-client-text.mjs extended to intent ids + families: FAIL 72 (engine.mjs 71, matcher.mjs 1).
+  Guard: test/golden-turns.mjs + golden-turns.json (multi-turn hashes from the engine at cea2d9d), coverage-checked with NODE_V8_COVERAGE.
+- JOB 3 DONE 22:05 (commit below): pack.steer + validator STEER_* (34 of 34, 16 of 16); NO CLIENT TEXT PASS; GOLDEN 10765 of 10765
+  (3 mutants red); cp11 0 graded / 0 text diffs, FAIL->PASS 0; pack sha c6cb7faa... NEXT: job 4 hand-over (written, sized) + report, then the race.
+- (was) OPEN for the head: bundler not approved -> byte sizes UNPROVEN; VTV through the engine needs a generic path (intent ids hard-coded in engine.mjs).
 NOW (R3 step 2): pack-driven port, hand-over docs/advisor/r3/HANDOVER-port.md, given to a helper agent (Sonnet) 20:45; red test = run-cp11 on factory/advisor/r3/pack-advisor.mjs (fails: no pack.json).
 Then: verify its outputs myself; validator + tests + mutants (lib-test-kit pattern); VTV pack (clients/vtv/facts.md + live site's signed text; booking slot for Calendly);
 then deps install (supply-chain rules read: >=7 days, never-install list, lockfile, --ignore-scripts, osv-scanner) and the MiniSearch vs Orama race + XState; R3 report lists cp11 FAIL->PASS rows.

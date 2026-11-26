@@ -1,8 +1,8 @@
 // The Advisor's dialogue engine: slots, follow-ups, multi-intent answers, confidence bands. Everything it says comes from
 // the pre-written intent library in the pack; nothing is generated. Pure functions over an explicit state object. A
 // faithful port of the R3 reference engine. Every reply text, word list, pattern and number comes from the pack
-// (pack.texts, pack.lists, pack.rx.engine, pack.rx.cues, pack.tuning, pack.flags, pack.prices); the intent ids it
-// steers by are the library's own.
+// (pack.texts, pack.lists, pack.rx.engine, pack.rx.cues, pack.tuning, pack.flags, pack.prices); the intents it steers by
+// are named by role in pack.steer, so the engine names none.
 
 import { splitKeep } from "./split.mjs";
 
@@ -11,6 +11,12 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
   /** Mutable copy of the switches so a test can prove that turning one off removes the claim. */
   const FLAGS = { ...pack.flags };
   const CALLER_PRICE = pack.prices.caller;
+  // the intents the engine steers by, named by role in the pack; a role a pack leaves out turns its rule off
+  const S = pack.steer ?? {};
+  const I = S.ids ?? {};
+  const P = S.prefix ?? {};
+  const SIB = S.siblings ?? {};
+  const starts = (id, prefix) => prefix !== undefined && id.startsWith(prefix);
 
   /** A question about what the people doing the work are paid, as opposed to what the client pays. */
   function payLike(text) {
@@ -39,7 +45,7 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
     constructor(intents = pack.intents) {
       this.intents = intents;
       for (const i of this.intents) this.byId.set(i.id, i);
-      this.matcher = new Matcher(this.intents.filter((i) => i.id !== "privacy.pii"));
+      this.matcher = new Matcher(this.intents.filter((i) => i.id !== I.pii));
     }
 
     get stats() {
@@ -73,7 +79,7 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
     ) {
       const message = rawMessage.replace(R.i01, " ").trim().slice(0, T.clip);
       const state = { ...prev, turns: prev.turns + 1, asked: [...prev.asked] };
-      const intent = this.must("who.international");
+      const intent = this.must(I.language);
       if (ASKS_LANGUAGE.test(message)) {
         const out = this.finish(state, [intent], "answer", message);
         return {
@@ -93,8 +99,8 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
       if (!message) return this.fallback(state, "");
 
       // personal contact details do not belong in the chat
-      if (EMAIL_RE.test(whole) || PHONE_RE.test(whole)) {
-        return this.finish(state, [this.byId.get("privacy.pii")], "answer", message);
+      if (I.pii && (EMAIL_RE.test(whole) || PHONE_RE.test(whole))) {
+        return this.finish(state, [this.byId.get(I.pii)], "answer", message);
       }
 
       this.lastMessage = message;
@@ -121,7 +127,7 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
       const follow = this.followUp(state, message, slotsNow);
       if (follow) {
         const count = bareCount(message);
-        if (count && follow !== "slot.team") {
+        if (count && follow !== I.slotTeam) {
           state = {
             ...state,
             slots: mergeSlots(state.slots, { n: count.n, nHigh: count.nHigh, callers: count.text }),
@@ -239,7 +245,7 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
       if (decided.band === "clarify") {
         const options = decided.options.map((id) => this.must(id));
         // head CP5 (a): a pay-like question that falls to a menu always offers the not-published answer
-        if (payLike(message) && !decided.options.includes("info.unpublished")) options.push(this.must("info.unpublished"));
+        if (I.unpublished && payLike(message) && !decided.options.includes(I.unpublished)) options.push(this.must(I.unpublished));
         return this.finish(state, options, "clarify", message, ranking);
       }
       return this.fallback(state, message);
@@ -276,20 +282,20 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
     }
 
     slotRemap(id, now, state) {
-      if (id === "slot.callers" && now.n === undefined) return "price.calc";
-      if (id === "slot.team" && state.slots.team === undefined) return "price.team_size";
-      if (id === "slot.market" && (!state.slots.market || askish(this.lastMessage)))
-        return "mkt.state";
-      if (id === "slot.crm" && (!state.slots.crm || askish(this.lastMessage))) return "crm.integrate";
+      if (id === I.slotCount && now.n === undefined) return I.countPrice;
+      if (id === I.slotTeam && state.slots.team === undefined) return I.teamPrice;
+      if (id === I.slotPlace && (!state.slots.market || askish(this.lastMessage)))
+        return I.placeAnswer;
+      if (id === I.slotTool && (!state.slots.crm || askish(this.lastMessage))) return I.toolAnswer;
       return id;
     }
 
     slotStatement(now, asked) {
-      if (now.n !== undefined) return "slot.callers";
-      if (now.crm) return "slot.crm";
-      if (now.markets?.length) return "slot.market";
-      if (now.team) return "slot.team";
-      if (now.biz) return "slot.biz";
+      if (now.n !== undefined) return I.slotCount;
+      if (now.crm) return I.slotTool;
+      if (now.markets?.length) return I.slotPlace;
+      if (now.team) return I.slotTeam;
+      if (now.biz) return I.slotBiz;
       if (
         asked === "callers" ||
         asked === "team" ||
@@ -305,16 +311,16 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
       const count = bareCount(message);
       const last = state.lastIntent ?? "";
       if (count) {
-        if (state.lastAsk === "team") return "slot.team";
+        if (state.lastAsk === "team") return I.slotTeam;
         // a number right after the caller-count price fills the caller count instead of repeating the price (head CP4 H9)
-        if (last === "price.calc") return "slot.callers";
+        if (last === I.countPrice) return I.slotCount;
         if (
           state.lastAsk === "callers" ||
-          last.startsWith("price.") ||
-          last === "slot.callers" ||
-          last === "svc.cold"
+          starts(last, P.price) ||
+          last === I.slotCount ||
+          last === I.countService
         ) {
-          return "price.calc";
+          return I.countPrice;
         }
         return undefined;
       }
@@ -327,9 +333,7 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
         const limits =
           R.i10;
         if (limits.test(msg)) {
-          if (R.i11.test(last)) return "svc.isa_limits";
-          if (R.i12.test(last)) return "svc.transaction_limits";
-          if (R.i13.test(last)) return "svc.marketing_notincl";
+          for (const rule of S.limits ?? []) if (R[rule.last].test(last)) return rule.to;
         }
         if (
           R.i14.test(last) &&
@@ -337,19 +341,17 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
             msg,
           )
         )
-          return "svc.team_dedicated";
+          return I.dedicated;
         const sib =
           R.i16.exec(
             msg,
           );
         if (sib?.[1] && R.i17.test(last)) {
           const w = sib[1];
-          const isTeam = w.startsWith("production");
-          if (last.startsWith("price.")) return isTeam ? "price.team" : "price.other_services";
-          if (w === "isa") return "svc.isa";
-          if (w.startsWith("t")) return "svc.transaction";
-          if (w === "marketing") return "svc.marketing";
-          return "svc.production_team";
+          const isTeam = SIB.team?.test(w) ?? false;
+          if (starts(last, P.price)) return isTeam ? I.teamService : I.otherServices;
+          for (const s of SIB.words ?? []) if (s.word.test(w)) return s.to;
+          return SIB.other;
         }
         const step = R.i18.exec(last);
         if (
@@ -359,7 +361,7 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
           )
         ) {
           const n = Number(step[1]);
-          if (n < 5) return "how.step" + String(n + 1);
+          if (S.stepNext && n < S.stepNext.max) return S.stepNext.prefix + String(n + 1);
         }
         if (
           state.slots.crm &&
@@ -367,39 +369,37 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
           R.i21.test(msg) &&
           R.i22.test(msg)
         )
-          return "crm.handoff";
+          return I.toolHandoff;
         if (
-          (last.startsWith("mkt.") || last.startsWith("comp.")) &&
+          (starts(last, P.place) || starts(last, P.rules)) &&
           state.lastAsk !== "market" &&
           (now.markets?.length ?? 0) >= 2
         )
-          return "mkt.multi";
+          return I.placeMulti;
       }
       // consent rules for recording, asked right after the recording answer (head CP4 H9)
       if (
-        last === "comp.recording" &&
+        last === I.consent &&
         msg.split(" ").length <= 16 &&
         R.i23.test(msg)
       )
-        return "comp.recording";
+        return I.consent;
       if (
         state.slots.market &&
         R.i24.test(
           message,
         ) &&
         R.i25.test(message) &&
-        (last.startsWith("mkt.") || last.startsWith("comp.") || last === "slot.market")
+        (starts(last, P.place) || starts(last, P.rules) || last === I.slotPlace)
       )
-        return "mkt.state";
+        return I.placeAnswer;
       if (
-        last.startsWith("svc.") &&
+        starts(last, P.service) &&
         R.i26.test(
           message,
         )
       ) {
-        if (R.i27.test(last)) return "price.other_services";
-        if (R.i28.test(last)) return "price.team";
-        if (R.i29.test(last)) return "price.base";
+        for (const rule of S.serviceTotal ?? []) if (R[rule.last].test(last)) return rule.to;
       }
       if (
         state.slots.n !== undefined &&
@@ -407,21 +407,21 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
           message,
         ) &&
         R.i31.test(message) &&
-        (last.startsWith("price.") || last === "slot.callers" || last.startsWith("svc.cold"))
+        (starts(last, P.price) || last === I.slotCount || starts(last, I.countService))
       )
-        return "price.calc";
+        return I.countPrice;
       if (
         state.slots.crm &&
-        last === "slot.crm" &&
+        last === I.slotTool &&
         R.i32.test(
           message,
         )
       )
-        return "crm.integrate";
+        return I.toolAnswer;
       const placeContext =
-        last.startsWith("mkt.") ||
-        last.startsWith("comp.") ||
-        last === "slot.market" ||
+        starts(last, P.place) ||
+        starts(last, P.rules) ||
+        last === I.slotPlace ||
         state.lastAsk === "market";
       if (placeContext && findMarkets(message).length && now.markets?.length) {
         const stripped = message
@@ -434,9 +434,9 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
         const left = this.matcher.tokens(stripped).tokens.filter((t) => !t.startsWith("#"));
         const rest = left.filter((t) => t.length > 2);
         if (rest.length <= 1 && stripped.trim().split(R.i35).length <= 4) {
-          if (state.lastAsk === "market") return "slot.market";
-          if (last.startsWith("comp.")) return last;
-          return "mkt.state";
+          if (state.lastAsk === "market") return I.slotPlace;
+          if (starts(last, P.rules)) return last;
+          return I.placeAnswer;
         }
       }
       return undefined;
@@ -526,15 +526,15 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
       let primary = list[0];
 
       // yes / no / repeat / ok resolve against the conversation
-      if (primary.id === "chat.yes" && next.yes && this.byId.has(next.yes))
+      if (primary.id === I.yes && next.yes && this.byId.has(next.yes))
         primary = this.must(next.yes);
       let repeated = false;
-      if (primary.id === "chat.repeat" && next.lastText) {
+      if (primary.id === I.repeat && next.lastText) {
         const text = next.lastText;
         const choices = next.lastChoices ?? [];
         return {
           state: { ...next, lastText: text },
-          reply: { text, choices, showContactLink: false, band: "answer", intents: ["chat.repeat"] },
+          reply: { text, choices, showContactLink: false, band: "answer", intents: [I.repeat] },
         };
       }
       const shown = primary.id === list[0]?.id ? list : [primary, ...list.slice(1)];
@@ -546,7 +546,7 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
         form = form || intent.form;
       }
       let text = parts.join("\n\n");
-      if (text === next.lastText && !primary.id.startsWith("chat.") && sameAsk(message, state.lastInput))
+      if (text === next.lastText && !starts(primary.id, P.chat) && sameAsk(message, state.lastInput))
         repeated = true;
       if (repeated) text = X["engine.repeat"] + text;
       const last = shown[shown.length - 1];
@@ -607,7 +607,7 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
         const plain = base?.variants.find((v) => v.when.length === 0 && !R.i38.test(v.text));
         text =
           plain?.text ??
-          this.byId.get("price.base")?.variants[0]?.text ??
+          this.byId.get(I.basePrice)?.variants[0]?.text ??
           BASE_PRICE_LINE;
       }
       if (!FLAGS.seatTotals) text = scrubTotals(text);
@@ -713,7 +713,7 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
     const boost = {};
     const last = state.lastIntent ? byId.get(state.lastIntent) : undefined;
     for (const id of last?.next ?? []) boost[id] = T.boostNext;
-    if (state.yes) boost["chat.yes"] = T.boostYes;
+    if (state.yes && I.yes) boost[I.yes] = T.boostYes;
     return boost;
   }
 
@@ -818,7 +818,7 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
   }
 
   function isSlot(id) {
-    return id.startsWith("slot.");
+    return starts(id, P.slot);
   }
 
   const SPLIT =

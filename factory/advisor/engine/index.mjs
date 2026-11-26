@@ -35,7 +35,7 @@ export function createAdvisor(rawPack) {
   const slots = createSlots(pack.slots, pack.rx.slots, T, pack.texts);
   // hand-written cues: [pattern, intent, delta]
   const cues = pack.cues.map((c) => [new RegExp(c.pattern, c.flags), c.intent, c.delta]);
-  const { Matcher } = createMatcher({ R: pack.rx.matcher, T, L: pack.lists, cues, text, slots });
+  const { Matcher } = createMatcher({ R: pack.rx.matcher, T, L: pack.lists, S: pack.steer, cues, text, slots });
   const { Engine, initialState } = createEngine({
     pack,
     R: pack.rx.engine,

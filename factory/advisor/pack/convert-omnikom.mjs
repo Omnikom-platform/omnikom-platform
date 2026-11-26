@@ -324,7 +324,32 @@ const pack = {
     steps: { 'cold-calling': ['business', 'markets', 'count'], 'production-team': ['count', 'markets'], support: ['chips', 'business', 'markets'] },
     marketsMaxLen: 80, // helper-routing.ts flowAccepts
   },
+  // the intents engine.ts steered by inline, named here by role: the engine in factory/advisor/engine/ names no intent
+  // (test/no-client-text.mjs). limits/serviceTotal name engine.ts patterns; pinRx stops the build if a name moved.
+  steer: {
+    ids: {
+      pii: 'privacy.pii', language: 'who.international', unpublished: 'info.unpublished', yes: 'chat.yes', repeat: 'chat.repeat', basePrice: 'price.base',
+      slotCount: 'slot.callers', slotTeam: 'slot.team', slotPlace: 'slot.market', slotTool: 'slot.crm', slotBiz: 'slot.biz',
+      countPrice: 'price.calc', teamPrice: 'price.team_size', placeAnswer: 'mkt.state', toolAnswer: 'crm.integrate', countService: 'svc.cold',
+      toolHandoff: 'crm.handoff', placeMulti: 'mkt.multi', consent: 'comp.recording', dedicated: 'svc.team_dedicated',
+      teamService: 'price.team', otherServices: 'price.other_services',
+    },
+    prefix: { chat: 'chat.', slot: 'slot.', price: 'price.', service: 'svc.', place: 'mkt.', rules: 'comp.' },
+    limits: [{ last: pinRx('i11', '^svc\\.isa'), to: 'svc.isa_limits' }, { last: pinRx('i12', '^svc\\.transaction'), to: 'svc.transaction_limits' },
+      { last: pinRx('i13', '^svc\\.marketing'), to: 'svc.marketing_notincl' }],
+    serviceTotal: [{ last: pinRx('i27', '^svc\\.(?:isa|marketing|transaction)'), to: 'price.other_services' },
+      { last: pinRx('i28', '^svc\\.(?:production|team)'), to: 'price.team' }, { last: pinRx('i29', '^svc\\.cold'), to: 'price.base' }],
+    // engine.ts followUp: the sibling-service word caught by i16
+    siblings: { team: /^production/, words: [{ word: /^isa$/, to: 'svc.isa' }, { word: /^t/, to: 'svc.transaction' }, { word: /^marketing$/, to: 'svc.marketing' }],
+      other: 'svc.production_team' },
+    stepNext: { prefix: 'how.step', max: 5 },
+  },
 };
+
+function pinRx(name, source) {
+  if (rxTable.engine[name]?.source !== source) throw new Error('steer: engine.ts pattern ' + name + ' is no longer /' + source + '/; re-pin it by hand');
+  return name;
+}
 
 function E_CUES() {
   return M.cues.CUES.map(([re, intent, delta]) => ({ pattern: re.source, flags: re.flags, intent, delta }));

@@ -5,7 +5,8 @@
 
 import { splitKeep } from "./split.mjs";
 
-export function createMatcher({ R, T, L, cues, text, slots }) {
+export function createMatcher({ R, T, L, S, cues, text, slots }) {
+  const CHAT = S?.prefix?.chat; // the small-talk family, named in pack.steer
   const { RAW_LEXICON, STOP, Vocabulary, buildLexicon, expandContractions, stem, stripFillers, LEXICON_GROUPS } = text;
   const { maskNames } = slots;
   const CUES = cues;
@@ -109,7 +110,7 @@ export function createMatcher({ R, T, L, cues, text, slots }) {
       this.defaultIdf = UNKNOWN_WEIGHT;
       const chatOnly = new Map();
       for (const intent of intents) {
-        const isChat = intent.id.startsWith("chat.");
+        const isChat = CHAT !== undefined && intent.id.startsWith(CHAT);
         for (const text of intent.phrasings) {
           for (const w of words(text)) {
             if (STOP.has(w) || w.startsWith("#")) continue;

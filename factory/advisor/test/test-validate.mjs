@@ -53,6 +53,16 @@ const scenarios = async (dir) => {
   await has('rx slow on a 500-character probe', 'RX_SLOW', (p) => { p.script = { rules: [{ rx: { $rx: '(a|aa)*c', flags: '' } }] }; });
   const okRx = await codes((p) => { p.rx = { engine: { ws: { $rx: '\\s+', flags: 'g' } } }; });
   check('a plain rx is valid', okRx.length === 0, 'got: ' + JSON.stringify(okRx));
+  const ans = (id) => ({ id, label: id, next: [], phrasings: [id], variants: [{ when: [], text: 'Fine.' }] });
+  await has('steer id not an intent', 'STEER_ID', (p) => { p.steer = { ids: { yes: 'nope' } }; });
+  await has('steer sibling target not an intent', 'STEER_ID', (p) => { p.steer = { siblings: { team: { $rx: '^x', flags: '' }, words: [], other: 'nope' } }; });
+  await has('steer next step missing', 'STEER_ID', (p) => { p.intents.push(ans('how.step1')); p.steer = { stepNext: { prefix: 'how.step', max: 2 } }; });
+  await has('steer prefix starts no intent', 'STEER_PREFIX', (p) => { p.steer = { prefix: { chat: 'chat.' } }; });
+  await has('steer names an unknown rx', 'STEER_RX', (p) => { p.steer = { limits: [{ last: 'i99', to: 'greet' }] }; });
+  const okSteer = await codes((p) => { p.intents.push(ans('how.step1'), ans('how.step2')); p.rx = { engine: { i11: { $rx: '^pri', flags: '' } } };
+    p.steer = { ids: { yes: 'greet' }, prefix: { price: 'pri' }, limits: [{ last: 'i11', to: 'price' }], stepNext: { prefix: 'how.step', max: 2 },
+      siblings: { team: { $rx: '^x', flags: '' }, words: [{ word: { $rx: '^y', flags: '' }, to: 'greet' }], other: 'price' } }; });
+  check('a full steer table is valid', okSteer.length === 0, 'got: ' + JSON.stringify(okSteer));
   const okBooking = await codes((p) => { p.forms[1].url = 'https://calendly.com/someone'; });
   check('booking on a listed host is valid', okBooking.length === 0, 'got: ' + JSON.stringify(okBooking));
   return results;
@@ -69,6 +79,10 @@ const MUTANTS = [
   { name: 'forbidden word unchecked', patches: [{ file: 'validate.mjs', from: "if (re.test(s))", to: 'if (false)' }], expect: [/FORBIDDEN_WORD/] },
   { name: 'rx not walked', patches: [{ file: 'validate.mjs', from: "if (typeof x.$rx === 'string') out.push", to: 'if (false) out.push' }], expect: [/RX_UNSAFE/, /RX_BAD_PATTERN/, /RX_SLOW/] },
   { name: 'claim source unchecked', patches: [{ file: 'validate.mjs', from: "if (!srcOk(c.source))", to: 'if (false)' }], expect: [/CLAIM_NO_SOURCE/] },
+  { name: 'steer ids unchecked', patches: [{ file: 'validate.mjs', from: "if (!ids.has(id)) err('STEER_ID'", to: "if (false) err('STEER_ID'" }], expect: [/steer id not an intent/, /steer sibling target/] },
+  { name: 'steer steps unchecked', patches: [{ file: 'validate.mjs', from: "if (!ids.has(pre + k))", to: 'if (false)' }], expect: [/steer next step missing/] },
+  { name: 'steer prefix unchecked', patches: [{ file: 'validate.mjs', from: "if (typeof pre !== 'string' || !pre || ![...ids].some((id) => id.startsWith(pre)))", to: 'if (false)' }], expect: [/STEER_PREFIX/] },
+  { name: 'steer rx unchecked', patches: [{ file: 'validate.mjs', from: "if (!isObj(p?.rx?.engine) || !isObj(p.rx.engine[r?.last]))", to: 'if (false)' }], expect: [/STEER_RX/] },
   { name: 'missing fact used unchecked', patches: [{ file: 'validate.mjs', from: "if (missing.has(k))", to: 'if (false)' }], expect: [/FACT_MISSING_USED/] },
 ];
 process.exit(await main({ label: 'PACK VALIDATOR', scenarios, MUTANTS, scriptsDir: path.join(here, '../pack'), argv: process.argv.slice(2) }));

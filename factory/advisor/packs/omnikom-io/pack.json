@@ -11004,5 +11004,101 @@
    ]
   },
   "marketsMaxLen": 80
+ },
+ "steer": {
+  "ids": {
+   "pii": "privacy.pii",
+   "language": "who.international",
+   "unpublished": "info.unpublished",
+   "yes": "chat.yes",
+   "repeat": "chat.repeat",
+   "basePrice": "price.base",
+   "slotCount": "slot.callers",
+   "slotTeam": "slot.team",
+   "slotPlace": "slot.market",
+   "slotTool": "slot.crm",
+   "slotBiz": "slot.biz",
+   "countPrice": "price.calc",
+   "teamPrice": "price.team_size",
+   "placeAnswer": "mkt.state",
+   "toolAnswer": "crm.integrate",
+   "countService": "svc.cold",
+   "toolHandoff": "crm.handoff",
+   "placeMulti": "mkt.multi",
+   "consent": "comp.recording",
+   "dedicated": "svc.team_dedicated",
+   "teamService": "price.team",
+   "otherServices": "price.other_services"
+  },
+  "prefix": {
+   "chat": "chat.",
+   "slot": "slot.",
+   "price": "price.",
+   "service": "svc.",
+   "place": "mkt.",
+   "rules": "comp."
+  },
+  "limits": [
+   {
+    "last": "i11",
+    "to": "svc.isa_limits"
+   },
+   {
+    "last": "i12",
+    "to": "svc.transaction_limits"
+   },
+   {
+    "last": "i13",
+    "to": "svc.marketing_notincl"
+   }
+  ],
+  "serviceTotal": [
+   {
+    "last": "i27",
+    "to": "price.other_services"
+   },
+   {
+    "last": "i28",
+    "to": "price.team"
+   },
+   {
+    "last": "i29",
+    "to": "price.base"
+   }
+  ],
+  "siblings": {
+   "team": {
+    "$rx": "^production",
+    "flags": ""
+   },
+   "words": [
+    {
+     "word": {
+      "$rx": "^isa$",
+      "flags": ""
+     },
+     "to": "svc.isa"
+    },
+    {
+     "word": {
+      "$rx": "^t",
+      "flags": ""
+     },
+     "to": "svc.transaction"
+    },
+    {
+     "word": {
+      "$rx": "^marketing$",
+      "flags": ""
+     },
+     "to": "svc.marketing"
+    }
+   ],
+   "other": "svc.production_team"
+  },
+  "stepNext": {
+   "prefix": "how.step",
+   "max": 5
+  }
  }
 }
