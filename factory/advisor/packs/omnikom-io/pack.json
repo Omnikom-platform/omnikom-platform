@@ -7,7 +7,7 @@
   "version": "0.1.0",
   "source": {
    "repo": "lovable",
-   "commit": "0f2b1cc72564a4c67d3e942cf28254874022c46b"
+   "commit": "c4697fedc159a3dff4a068271ac1e918d963a552"
   },
   "report": true,
   "locales": [
@@ -10239,6 +10239,10 @@
     "$rx": "[.!?]+$",
     "flags": "g",
     "line": 943
+   },
+   "MARKUP": {
+    "$rx": "<\\/?[a-z][^<>]*>",
+    "flags": "gi"
    }
   },
   "matcher": {

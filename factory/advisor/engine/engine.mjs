@@ -72,8 +72,15 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
 
     respond(prev, rawMessage) {
       const out = this.respondTo(prev, rawMessage);
-      if (out.reply.band === "answer" || !SPANISH.test(rawMessage)) return out;
+      if (out.reply.band === "answer" || !SPANISH.test(rawMessage)) return this.abstaining(out);
       return this.inSpanish(prev, rawMessage);
+    }
+
+    /** A reply that only says "not published" abstains: band "abstain", its words unchanged (head 2026-11-26 23:56, cp11 #873). */
+    abstaining(out) {
+      const ids = out.reply.intents;
+      if (!I.unpublished || out.reply.band !== "answer" || ids.length !== 1 || ids[0] !== I.unpublished) return out;
+      return { ...out, reply: { ...out.reply, band: "abstain" } };
     }
 
     /** A message in Spanish we could not answer: the site works with US markets in English (head CP4 H13). */
@@ -96,7 +103,8 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
     }
 
     respondTo(prev, rawMessage) {
-      const whole = rawMessage.replace(R.i02, " ").trim();
+      // markup is not words: a tag typed or pasted into the chat is dropped before reading (cp11 #887)
+      const whole = rawMessage.replace(R.MARKUP, " ").replace(R.i02, " ").trim();
       const message = focusOn(whole);
       let state = { ...prev, turns: prev.turns + 1, asked: [...prev.asked] };
 
@@ -215,6 +223,9 @@ export function createEngine({ pack, R, RC, X, L, T, Matcher, slots }) {
       if (!ranking.cued && odd >= T.oddMin && odd / Math.max(1, ranking.tokens.length) >= T.oddShare) {
         return this.fallback(state, message);
       }
+      // only a number, as the first thing said: no meaning (cp11 #902). Later in a chat a number refines the team or the callers
+      // (golden: "3 people" then "12"); a number right after a question or a price was read above.
+      if (state.turns === 1 && bareCount(message) && ranking.tokens.every((t) => t === "#n")) return this.fallback(state, message);
       const decided = band(ranking);
       if (decided.band === "answer" && decided.id) {
         const preferred = this.preferSlot(ranking, decided.id, decided.top?.score ?? 0, slotsNow);

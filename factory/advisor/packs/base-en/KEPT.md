@@ -18,7 +18,7 @@ does nothing until a client layer turns it on.
 | lexicon.raw | 21 of 39: texting shorthand (wat, wut, hw, u, ur, r, y, thx, tnx, plz, pls, yall, ya, gonna, wanna, gotta, info), perform/performs/performed, texting | recording*, call/calls/called, dnc, tcpa, crm, isa, cold, fub, marketing*, advertis*: trade words |
 | rx.text | all | (tokenising) |
 | rx.matcher | all but two | i03, i04: "call recording" (trade) |
-| rx.engine | the sentence, question, clause, ordinal, Spanish, price-word and placeholder patterns | CONTENT_FIRST, i04, i06, i07, i11-i14, i17, i18, i20, i27-i29 name omnikom.io's intent ids. i15, i16, i21-i26, i30-i33, i39-i45 are its caller, team, CRM and market follow-ups. i47 is its published price. |
+| rx.engine | the sentence, question, clause, ordinal, Spanish, price-word and placeholder patterns; MARKUP (an HTML tag is dropped before reading, R3 job 5) | CONTENT_FIRST, i04, i06, i07, i11-i14, i17, i18, i20, i27-i29 name omnikom.io's intent ids. i15, i16, i21-i26, i30-i33, i39-i45 are its caller, team, CRM and market follow-ups. i47 is its published price. |
 | rx.cues | PAY_WORD, CLIENT_COST, APOS | PAY, PAY_PEOPLE (callers, reps) |
 | rx.slots | EMAIL_RE, PHONE_RE; new: WORDS, NAME (for the typed slot readers) | the rest is omnikom.io's slot data |
 | rx.routing, script, routing | the keys only, all off or empty | omnikom.io's guided team-planning flows; a client's flows come with the XState job |

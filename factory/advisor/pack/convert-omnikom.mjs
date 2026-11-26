@@ -203,6 +203,8 @@ for (const [file, table] of Object.entries(rxTable)) {
 const aposEntry = scanRegexes(srcText.cues).filter((t) => t.source.includes('u2018')).map((t) => ({ source: t.source, flags: t.flags, line: lineOf(srcText.cues, t.start) }));
 if (aposEntry.length !== 1) throw new Error('cues.ts: expected exactly one apostrophe pattern, found ' + aposEntry.length);
 rxOut.cues = { ...ser(cueRx), APOS: { $rx: aposEntry[0].source, flags: aposEntry[0].flags, line: aposEntry[0].line } };
+// not in the lovable source (R3 job 5, cp11 #887): markup is not words; a tag typed or pasted into the chat is dropped before reading
+rxOut.engine.MARKUP = { $rx: '<\\/?[a-z][^<>]*>', flags: 'gi' };
 
 const git = spawnSync('git', ['-C', SRC, 'rev-parse', 'HEAD'], { encoding: 'utf8', timeout: 20000 });
 if (git.status !== 0) throw new Error('git rev-parse failed in the lovable repo: ' + git.stderr);
