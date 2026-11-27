@@ -77,7 +77,12 @@ HEAD 01:58 intake of 66bfbaf0 GREEN (his worktree). HEAD 01:50 GO R3 report; 01:
   one folder per mutant and validate.mjs may import only node built-ins; test-report checks the two lists are equal). Engine unchanged.
 - Green: "SESSION REPORT TEST PASS: 56 of 56", "MUTANTS PASS: 18 of 18 caught" (16 + try removed + body parsed only as JSON); "PACK VALIDATOR TEST PASS: 42 of 42";
   both packs PACK VALID; NO CLIENT TEXT PASS; GOLDEN 10765 of 10765. ci.yml step "Advisor session report tests and mutants" + ADVISOR_STEPS (ci.mjs).
-- Running: the 8 mutant steps through heavy.mjs; then the CLI real-ci.yml test, icm on a clean tree, gitleaks, one push, CI, return to the head (30 lines).
+- Local: omnikom ci --job advisor (heavy.mjs, --wait-min 120 after one 30-min give-up on the lock): 16 steps PASS, every advisor step's PASS line seen (validator 19 of 19 mutants).
+  icm --check on a clean tree "OK: icm index is fresh (399 docs, 1070 source files)"; gitleaks 923130cd..HEAD "3 commits scanned ... no leaks found".
+- 10:05 PUSHED bb37239a (923130cd..bb37239a). Run 45963060052: 21 of 21 jobs success. Returned to the head; STOP until his intake.
+- HEAD 16:10: intake ACCEPTED (both deviations: the list twice + equality test; onRequest for our 405). Landing = one chain, one CI at the top; master a5f74a96 (b4).
+  Next: when PLATFORM-BUILD sends B23's new sha, rebase these commits onto it (shared object store, no fetch), regen icm on a clean tree, omnikom ci --job advisor
+  (16 steps), commit, do NOT push; send the new top sha to AUDIT-BUILD_code-mode_2026-11-22 and the head. Live part (KV, REPORT_SALT, wiring, privacy first) held until it lands.
 - NOT this job (the head rules after intake): the KV binding, REPORT_SALT, the omnikom.io wiring, the privacy paragraph live first. UNPROVEN: KV deletes at 30 days live;
   omnikom.io traffic against 166-500 sessions/day.
 
