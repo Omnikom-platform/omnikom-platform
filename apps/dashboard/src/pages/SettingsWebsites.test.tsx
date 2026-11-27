@@ -33,4 +33,15 @@ describe('Settings: the Websites card asks Omnikom (B18)', () => {
   it('control: with no address there is no link in either state', () => {
     for (const html of [view('', [one]), view('', [])]) expect(html).not.toMatch(/<a [^>]*>Ask Omnikom/);
   });
+
+  // The cases above put the address into a stand-in for ../config. This one reads the real config.ts: a build variable under another name is red here.
+  it('the real config.ts takes the address from the build variable VITE_ASK_EMAIL', async () => {
+    vi.stubEnv('VITE_ASK_EMAIL', 'ask@example.test');
+    try {
+      const real = await vi.importActual<typeof import('../config')>('../config');
+      expect(real.config.askEmail).toBe('ask@example.test');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });

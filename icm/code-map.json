@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1092,
+    "sources": 1094,
     "unowned": 0
   },
   "files": [
@@ -13,14 +13,15 @@
     {"path":"apps/dashboard/scripts/ci.mjs","owner":"platform-build","exports":[],"tests":["tools/omnikom-cli/test/mutate-run.mjs","tools/omnikom-cli/test/mutate.mjs"],"feature":""},
     {"path":"apps/dashboard/scripts/preview-port.mjs","owner":"platform-build","exports":["BIND_FAILURE","BLOCK","LISTEN","MAX_TRIES","PORT_ENV","baseUrl","choosePort","inBlock","isBindFailure","nextPort","pickPort","portForPlaywright","portFromEnv","probe","startOnBlock"],"tests":["apps/dashboard/tests/preview-port.mutants.mjs","apps/dashboard/tests/preview-port.test.mjs","apps/dashboard/tests/support/staging.ts","tools/omnikom-cli/test/journey.mjs"],"feature":""},
     {"path":"apps/dashboard/scripts/preview-staging.mjs","owner":"platform-build","exports":[],"tests":["apps/dashboard/tests/preview-port.mutants.mjs","apps/dashboard/tests/preview-port.test.mjs","tools/omnikom-cli/test/journey.mjs"],"feature":""},
-    {"path":"apps/dashboard/scripts/staging-env.mjs","owner":"platform-build","exports":["ROOT","runWithStaging","stagingBuildEnv"],"tests":["apps/dashboard/tests/flows.spec.ts"],"feature":""},
+    {"path":"apps/dashboard/scripts/staging-env.mjs","owner":"platform-build","exports":["ASK_EMAIL","ROOT","runWithStaging","stagingBuildEnv"],"tests":["apps/dashboard/scripts/staging-env.test.mjs","apps/dashboard/tests/flows.spec.ts"],"feature":""},
+    {"path":"apps/dashboard/scripts/staging-env.test.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/App.tsx","owner":"platform-build","exports":["App"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/ErrorScreen.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/ErrorScreen.tsx","owner":"platform-build","exports":["ErrorScreen"],"tests":["apps/dashboard/src/router.test.ts","tools/omnikom-cli/test/impact-stamp-hooks.mjs"],"feature":""},
     {"path":"apps/dashboard/src/Skeleton.tsx","owner":"platform-build","exports":["Skeleton"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/api.ts","owner":"platform-build","exports":["BulkAction","Draft","Exported","ImportCall","ItemSave","LeadChange","NewLead","Published","ViewSave","addLead","addTask","bulkLeads","deleteItem","deleteView","exportLeads","fetchDrafts","fetchSiteAudit","fetchTeamList","importLeads","inviteMember","listLeads","manageMedia","markTask","proposeMap","publishRows","putFile","removeMember","saveAlerts","saveItem","saveTemplate","saveView","setOnSite","startPreview","updateLead","uploadFinish","uploadStart"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/auth.tsx","owner":"platform-build","exports":["SessionProvider","safeNext","useSession"],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/config.ts","owner":"platform-build","exports":["config"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/config.ts","owner":"platform-build","exports":["config"],"tests":["apps/dashboard/src/pages/SettingsWebsites.test.tsx"],"feature":""},
     {"path":"apps/dashboard/src/data.ts","owner":"platform-build","exports":["ContentRow","LiveState","Me","MediaFile","MediaRow","Membership","PreviewJob","Role","RowVersion","Site","SiteAlerts","Team","Template","VersionSign","Workspace","everListed","fetchFrameMedia","fetchSnapshot","fetchVersions","fetchVersionsAt","useContract","useContractForms","useDrafts","useEvents","useEventsLive","useFilterCounts","useJobs","useLead","useLeadColumns","useLeadList","useLeads","useLeadsLive","useMe","useMedia","useMediaFiles","useMemberships","usePreviewJob","useReadIds","useRows","useSignedUrl","useSiteAlerts","useSites","useStaffAal","useTasks","useTeam","useTeamList","useTemplates","useVersions","useViews","useWorkspace"],"tests":["apps/dashboard/tests/plan-gate.test.mjs","supabase/tests/crm-scale.sql"],"feature":""},
     {"path":"apps/dashboard/src/hooks.ts","owner":"platform-build","exports":["useWide"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/leads-view.export.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -79,9 +80,10 @@
     {"path":"apps/dashboard/src/pages/PublishSheet.tsx","owner":"platform-build","exports":["PublishSheet"],"tests":["apps/dashboard/src/pages/Sheet.test.ts","apps/dashboard/src/pages/SheetFocus.test.tsx","apps/dashboard/tests/plan-gate.test.mjs","apps/dashboard/tests/site.spec.ts"],"feature":""},
     {"path":"apps/dashboard/src/pages/SearchHealth.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/SearchHealth.tsx","owner":"platform-build","exports":["Read","SearchHealth","SearchHealthView"],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/pages/Settings.tsx","owner":"platform-build","exports":["Settings"],"tests":["apps/dashboard/src/pages/Sheet.test.ts"],"feature":""},
+    {"path":"apps/dashboard/src/pages/Settings.tsx","owner":"platform-build","exports":["Settings","Websites"],"tests":["apps/dashboard/src/pages/Sheet.test.ts"],"feature":""},
     {"path":"apps/dashboard/src/pages/SettingsAlerts.tsx","owner":"platform-build","exports":["SettingsAlerts"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/SettingsPeople.tsx","owner":"platform-build","exports":["SettingsPeople"],"tests":["apps/dashboard/src/pages/Sheet.test.ts","apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
+    {"path":"apps/dashboard/src/pages/SettingsWebsites.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Sheet.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Sheet.tsx","owner":"platform-build","exports":["Sheet"],"tests":["apps/dashboard/src/pages/Sheet.test.ts"],"feature":""},
     {"path":"apps/dashboard/src/pages/SheetFocus.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
