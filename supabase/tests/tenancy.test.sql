@@ -4278,15 +4278,18 @@ select test.act_as(null);
 create table test.t54_site as select lead_alert_to, alert_assignee from public.sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000d8a01', 'D8-Agent@Example.Test'), ('00000000-0000-0000-0000-0000000d8a02', 'no-at-sign'), ('00000000-0000-0000-0000-0000000d8a04', 'D8-Other@Example.Test');
 insert into auth.users (id) values ('00000000-0000-0000-0000-0000000d8a03');
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000d8a05', repeat('a', 242) || '@example.test');   -- 255 characters: a valid shape, one over the rule
 insert into test.ids select 'd8_agent', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"D8 Agent","slug":"d8-agent"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
 insert into test.ids select 'd8_nologin', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"D8 No Login","slug":"d8-nologin"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
 insert into test.ids select 'd8_bad', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"D8 Bad","slug":"d8-bad"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
 insert into test.ids select 'd8_null', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"D8 Null","slug":"d8-null"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
+insert into test.ids select 'd8_long', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"D8 Long","slug":"d8-long"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
 insert into test.ids select 'd8_teamb', service.seed_version('bbbbbbbb-0000-0000-0000-000000000000', 'team', '{"name":"D8 B Agent","slug":"d8-b-agent"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
 insert into members (workspace_id, user_id, role, team_row_id) values
  ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8a01', 'member', test.id('d8_agent')),
  ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8a02', 'member', test.id('d8_bad')),
  ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8a03', 'member', test.id('d8_null')),
+ ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8a05', 'member', test.id('d8_long')),
  ('bbbbbbbb-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8a04', 'member', test.id('d8_teamb'));
 create function test.d8_lead(p_name text, p_owner uuid) returns uuid language sql as $$
   insert into public.leads (workspace_id, site_id, form, page_path, name, email, consent_text, owner_team_row) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', p_name, lower(replace(p_name, ' ', '-')) || '@test', 'I agree', p_owner) returning id $$;
@@ -4316,12 +4319,14 @@ do $$ begin assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517
 -- (d) an owner team row with no login
 insert into test.ids select 'd8_ld', test.d8_lead('D8 Lead D', test.id('d8_nologin'));
 do $$ begin assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_ld')) = 1, 'T54d an agent with no login is skipped without an error'; end $$;
--- (e) a bad address, a null address
+-- (e) a bad address, a null address, an address over 254 characters
 insert into test.ids select 'd8_le1', test.d8_lead('D8 Lead E1', test.id('d8_bad'));
 insert into test.ids select 'd8_le2', test.d8_lead('D8 Lead E2', test.id('d8_null'));
+insert into test.ids select 'd8_le3', test.d8_lead('D8 Lead E3', test.id('d8_long'));
 do $$ begin
   assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_le1')) = 1, 'T54e a login with a bad address is skipped without an error';
   assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_le2')) = 1, 'T54e a login with no address is skipped without an error';
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_le3')) = 1, 'T54e a login whose address is over 254 characters is skipped without an error';
 end $$;
 -- (f) the agent's address is already listed (in capitals): one row
 update public.sites set lead_alert_to = array['D8-AGENT@example.test'] where id = 'aaaaaaaa-0000-0000-0000-00000000517e';

@@ -1073,6 +1073,7 @@ const MUTANTS = [
   ['alert54: a bad address is queued', "    if a ~ '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$' and length(a) <= 254", '    if a is not null'],   // T54e
   ['alert54: the address is not lower-cased', 'select lower(btrim(u.email)) into a', 'select btrim(u.email) into a'],   // T54a
   ['alert54: a retry before the send raises on the agent row', "values (p_lead, 'new-lead', a) on conflict do nothing;", "values (p_lead, 'new-lead', a);"],   // T54a
+  ['alert54: an address over 254 characters is queued', "    if a ~ '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$' and length(a) <= 254", "    if a ~ '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$'"],   // T54e
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]
