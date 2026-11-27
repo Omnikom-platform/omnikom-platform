@@ -11,14 +11,15 @@ const load = async (dir, f) => { try { return await import(pathToFileURL(path.jo
 const TOKEN = 'x'.repeat(24), ACCT = '9f2e4c1a7b3d5e6f8a0b1c2d3e4f5a6b', OTHER_ACCT = '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d';
 const API = 'https://api.cloudflare.com/client/v4';
 
-// state: { projects: [{ name, domains, kv, vars }], namespaces: [{ id, title }] }; opts: replace (PATCH drops names), fail (HTTP 403 echoing the token), noDomains (list without domains)
+// state: { projects: [{ name, domains, kv, vars, more (production's other keys), preview }], namespaces: [{ id, title }] }; opts: replace (PATCH drops names),
+// dropRest (PATCH drops production's other binding kinds and the preview environment), fail (HTTP 403 echoing the token), noDomains (list without domains)
 function fakeCF(state, opts = {}) {
   const calls = [];
   const ok = (result, info) => new Response(JSON.stringify({ success: true, errors: [], result, ...(info ? { result_info: info } : {}) }), { status: 200 });
   const page = (list, u, per) => { const p = Number(u.searchParams.get('page') || 1), n = Number(u.searchParams.get('per_page') || per);
     return ok(list.slice((p - 1) * n, p * n), { page: p, per_page: n, count: Math.min(n, Math.max(0, list.length - (p - 1) * n)), total_count: list.length }); };
   const show = (p) => ({ name: p.name, ...(opts.noDomains ? {} : { domains: p.domains }), subdomain: p.name + '.pages.dev',
-    deployment_configs: { production: { ...(p.hash ? { wrangler_config_hash: p.hash } : {}), kv_namespaces: structuredClone(p.kv), env_vars: Object.fromEntries(Object.entries(p.vars).map(([k, v]) => [k, { type: v.type, value: v.type === 'secret_text' ? '' : v.value }])) } } });
+    deployment_configs: { preview: structuredClone(p.preview || {}), production: { ...(p.hash ? { wrangler_config_hash: p.hash } : {}), ...structuredClone(p.more || {}), kv_namespaces: structuredClone(p.kv), env_vars: Object.fromEntries(Object.entries(p.vars).map(([k, v]) => [k, { type: v.type, value: v.type === 'secret_text' ? '' : v.value }])) } } });
   const fetch = async (url, init = {}) => {
     const u = new URL(url), method = init.method || 'GET', body = init.body ? JSON.parse(init.body) : null;
     calls.push({ method, path: u.pathname.replace('/client/v4', ''), body, auth: init.headers?.authorization, signal: init.signal });
@@ -35,6 +36,7 @@ function fakeCF(state, opts = {}) {
       if (method === 'PATCH') {
         const prod = body?.deployment_configs?.production || {};
         if (opts.replace) { if (prod.kv_namespaces) p.kv = {}; if (prod.env_vars) p.vars = {}; }
+        if (opts.dropRest) { p.more = {}; p.preview = {}; }
         Object.assign(p.kv, prod.kv_namespaces || {});
         for (const [k, v] of Object.entries(prod.env_vars || {})) { if (v === null) delete p.vars[k]; else p.vars[k] = v; }
       }
@@ -148,6 +150,15 @@ const scenarios = async (dir) => {
   r = await go(['--apply'], cf);
   check('apply: a PATCH that dropped other names = exit 1, FAIL names them', r.code === 1 && /FAIL/.test(r.out) && /TURNSTILE_SECRET/.test(r.out) && /LEAD_LIMITS/.test(r.out), r.code + '\n' + r.out);
 
+  // the check after the PATCH reads every binding kind and the preview environment, not only production's KV and variables
+  cf = fakeCF({ projects: [site({ more: { d1_databases: { LEADS_DB: { id: 'd1-1' } }, compatibility_date: '2026-11-25' }, preview: { env_vars: { PREVIEW_FLAG: { type: 'plain_text', value: '1' } } } })], namespaces: [] }, { dropRest: true });
+  r = await go(['--apply'], cf);
+  check('apply: a PATCH that dropped a binding of another kind (D1) = exit 1, FAIL names it', r.code === 1 && /FAIL/.test(r.out) && /LEADS_DB/.test(r.out), r.code + '\n' + r.out);
+  check('apply: a PATCH that dropped a preview name = exit 1, FAIL names it', r.code === 1 && /FAIL/.test(r.out) && /PREVIEW_FLAG/.test(r.out), r.code + '\n' + r.out);
+  cf = fakeCF({ projects: [site({ more: { d1_databases: { LEADS_DB: { id: 'd1-1' } }, compatibility_date: '2026-11-25' }, preview: { env_vars: { PREVIEW_FLAG: { type: 'plain_text', value: '1' } } } })], namespaces: [] });
+  r = await go(['--apply'], cf);
+  check('apply: other binding kinds and the preview environment kept = exit 0', r.code === 0 && !/FAIL/.test(r.out), r.code + '\n' + r.out);
+
   // an API error that echoes the token and the account id
   cf = fakeCF({ projects: [site()], namespaces: [] }, { fail: true });
   r = await go(['--dry-run'], cf);
@@ -161,6 +172,8 @@ const MUTANTS = [
   { name: 'the scrub removed', patches: [P('provision.mjs', 'const scrub = (s) => hide.reduce(', 'const scrub = (s) => [].reduce(')], expect: [/scrubbed from the message/] },
   { name: 'the salt rotated when set', patches: [P('provision.mjs', 'needSalt = !(SECRET in varsB);', 'needSalt = true;')], expect: [/not rotated/] },
   { name: 'the check after the PATCH removed', patches: [P('provision.mjs', 'if (lost.length) {', 'if (false) {')], expect: [/dropped other names/] },
+  { name: 'the check after the PATCH reads production only', patches: [P('provision.mjs', 'const names = (dc) => Object.entries(dc).flatMap(', 'const names = (dc) => Object.entries({ production: dc.production || {} }).flatMap(')], expect: [/dropped a preview name/] },
+  { name: 'the check after the PATCH reads KV and variables only', patches: [P('provision.mjs', 'Object.entries(c || {}).flatMap(', "Object.entries(c || {}).filter(([kind]) => ['kv_namespaces', 'env_vars'].includes(kind)).flatMap(")], expect: [/binding of another kind/] },
   { name: 'the domain matched by suffix', patches: [P('provision.mjs', "(d) => d === domain || d === 'www.' + domain", '(d) => d.endsWith(domain)')], expect: [/look-alikes only/] },
   { name: 'only the first page read', patches: [P('provision.mjs', 'if (list.length < per) break;', 'break;')], expect: [/page 2 of the list/] },
   { name: 'the other-namespace refusal removed', patches: [P('provision.mjs', 'if (bound && (!ns || bound !== ns.id)) {', 'if (false) {')], expect: [/bound to another namespace/, /of another title/] },

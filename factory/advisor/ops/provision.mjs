@@ -68,8 +68,10 @@ export async function run({ argv = [], env = {}, fetch = globalThis.fetch, log =
     }
     say(`YES: the Pages project ${project} serves ${domain} (account 1 of ${accounts.length} read; ids not printed).`);
     const projPath = `/accounts/${acct}/pages/projects/${project}`;
-    const prodOf = async () => (await cf('GET', projPath))?.deployment_configs?.production || {};
-    const before = await prodOf(), kvB = before.kv_namespaces || {}, varsB = before.env_vars || {};
+    const configs = async () => (await cf('GET', projPath))?.deployment_configs || {};
+    // every name in every map of both environments (KV, variables and secrets, D1, R2, services, ...): the PATCH may lose none of them
+    const names = (dc) => Object.entries(dc).flatMap(([envName, c]) => Object.entries(c || {}).flatMap(([kind, m]) => (m && typeof m === 'object' && !Array.isArray(m) ? Object.keys(m).map((k) => `${envName} ${kind} ${k}`) : [])));
+    const dcB = await configs(), before = dcB.production || {}, kvB = before.kv_namespaces || {}, varsB = before.env_vars || {};
     let ns = (await all(`/accounts/${acct}/storage/kv/namespaces`, 100)).find((n) => n.title === NS_TITLE);
     const bound = kvB[BINDING]?.namespace_id;
     if (bound && (!ns || bound !== ns.id)) { say(`FAIL: ${BINDING} is bound on ${project} to another namespace than ${NS_TITLE}; nothing changed.`); return 1; }
@@ -89,9 +91,9 @@ export async function run({ argv = [], env = {}, fetch = globalThis.fetch, log =
     if (needBind) production.kv_namespaces = { [BINDING]: { namespace_id: ns.id } };
     if (needSalt) { const value = salt(); hide.push(value); production.env_vars = { [SECRET]: { type: 'secret_text', value } }; }
     if (needBind || needSalt) await cf('PATCH', projPath, { deployment_configs: { production } });
-    const after = await prodOf(), kvA = after.kv_namespaces || {}, varsA = after.env_vars || {};
-    const lost = [...Object.keys(kvB).filter((k) => !(k in kvA)), ...Object.keys(varsB).filter((k) => !(k in varsA))];
-    if (lost.length) { say(`FAIL: after the PATCH these names are gone from ${project} (production): ${lost.join(', ')}. Set them again by hand.`); return 1; }
+    const dcA = await configs(), after = dcA.production || {}, kvA = after.kv_namespaces || {}, varsA = after.env_vars || {};
+    const left = names(dcA), lost = names(dcB).filter((n) => !left.includes(n));
+    if (lost.length) { say(`FAIL: after the PATCH these names are gone from ${project}: ${lost.join(', ')}. Set them again by hand.`); return 1; }
     if (kvA[BINDING]?.namespace_id !== ns.id || !(SECRET in varsA)) { say(`FAIL: after the PATCH ${BINDING} or ${SECRET} is not on ${project} (production).`); return 1; }
     for (const l of plan) say(l.startsWith('already') ? l : 'done: ' + l);
     say(`OK: it takes effect at ${project}'s next production deployment ("Redeploy your project for the binding to take effect.").`);
