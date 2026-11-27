@@ -9,6 +9,7 @@ on:
         required: true
         type: choice
         options:
+          - business-switch.spec.ts
           - flows.spec.ts
           - media.spec.ts
           - plan-gate.spec.ts

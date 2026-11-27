@@ -77,7 +77,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B5 Site screen: pages and collections from the contract | WORKS | `/w/$ws/site` |
 | B6 Item editor: every field type, limits, locked fields, own-only | WORKS | autosave after 10 s idle and a retry when offline (2, 4, 8, 16, then every 30 s; the draft kept) in D:pages/Editor.tsx, shown by `apps/dashboard/src/pages/EditorAutosave.test.tsx` (vitest, the real editor on fake timers); over-limit, stale edit and own-only are in `apps/dashboard/tests/site.spec.ts` |
 | B7 Save as a version, stale-edit refused | WORKS | `save_version` with base (M12) |
-| B8 Version history and restore | WORKS | history, Compare, and Restore (a new version, nothing deleted) with Undo in the toast (the pre-restore data back as a new version): staging flows 2026-11-12 (`apps/dashboard/tests/site.spec.ts`, the first test, 'its Undo', 1 passed), each version read back as the service role; watched red with FLOWS_MUTANT=undo-lost; `apps/dashboard/src/pages/Editor.tsx`, `apps/dashboard/src/toast.tsx` |
+| B8 Version history and restore | PARTLY | history, Compare, and Restore (a new version, nothing deleted) with Undo in the toast (the pre-restore data back as a new version): staging flows 2026-11-12 (`apps/dashboard/tests/site.spec.ts`, the first test, 'its Undo', 1 passed), each version read back as the service role; watched red with FLOWS_MUTANT=undo-lost; `apps/dashboard/src/pages/Editor.tsx`, `apps/dashboard/src/toast.tsx`. Missing: consecutive autosaves by one person within 10 minutes are not shown as one |
 | B9 Search-result preview card | WORKS | D:pages/Widgets.tsx; under the minimum (title 20, description 50) the card says what is needed to publish (DP-1.4-09, D:lib/site.ts seoShort, vitest); staging 2026-11-13: in the flow "PUB-1 a too-short title is refused at publish and a failed check is read in the sheet" (apps/dashboard/tests/site.spec.ts) 1 passed: Fix opened the title, the card said "Title needs at least 20 characters to publish", a good title took the line away and Save stayed on |
 | B10 Publish sheet: waiting changes, progress, failed-check message | WORKS | journey J3; a failed check is listed in the sheet and in Past publishes, one line each: the page, what is wrong, the rule's id (D:lib/site.ts failureLines, vitest, the report's real shape from tools/audit/summary.mjs); an SEO title under 20 characters or a description under 50 is refused at publish with 422 naming the field (contracts/seo-limits.json, contracts/validate.mjs, contracts tests and mutants; the audit's SE-202 keeps its own copy, tied by factory/test/run.mjs); a draft that short still builds into a preview and the build stops; staging 2026-11-13: before the change a publish that failed at the audit showed only "audit failed" in the sheet and in Past publishes while its job held 3 failed checks; after it the flow "PUB-1 a too-short title is refused at publish and a failed check is read in the sheet" (apps/dashboard/tests/site.spec.ts) 1 passed: a title of 19 characters saved and was refused at publish with its field and no job started, then a real job failed at the audit and the sheet listed the failed check as its page, its words and (DSN-006); watched red with FLOWS_MUTANT=publish-accepted (the sheet's refusal) and FLOWS_MUTANT=fails-hidden (the failed check's line) |
 | B11 Publish history and restore the site | WORKS | Past publishes on the Site screen (owners and staff: each finished publish, live or not, with its checks; DP-1.4c-07) and putting the site back to one (DP-1.4c-08): its content saved as new versions and published, nothing deleted (D:pages/PublishHistory.tsx, D:lib/site.ts, vitest); staging 2026-11-13: the flow "B11 put the site back" (apps/dashboard/tests/site.spec.ts) 1 passed with its two real publishes, watched red with FLOWS_MUTANT=restore-lost ("the earlier heading came back as a new version"). Items added since stay on the site; deleted items stay deleted; items taken off the site stay off (B12) |
@@ -159,11 +159,11 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
 | A CRM | 24 | 2 | 0 | 26 |
-| B Dashboard | 16 | 7 | 0 | 23 |
+| B Dashboard | 15 | 8 | 0 | 23 |
 | C Backend and database | 15 | 3 | 0 | 18 |
 | D Factory and forms | 9 | 1 | 0 | 10 |
 | E Hardening | 11 | 10 | 0 | 21 |
-| Total | 75 | 23 | 0 | 98 |
+| Total | 74 | 24 | 0 | 98 |
 
 Completion is reported from these counts only.
 

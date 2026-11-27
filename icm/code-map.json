@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1065,
+    "sources": 1067,
     "unowned": 0
   },
   "files": [
@@ -102,6 +102,8 @@
     {"path":"apps/dashboard/src/toast.tsx","owner":"platform-build","exports":["ToastAction","ToastProvider","UNDO","useToast"],"tests":["apps/dashboard/tests/site.spec.ts"],"feature":""},
     {"path":"apps/dashboard/src/vite-env.d.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/workspace-context.ts","owner":"platform-build","exports":["WorkspaceContext","WorkspaceValue","useWorkspaceValue"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/tests/business-switch-mutants.ts","owner":"platform-build","exports":["BusinessSwitchMutant","active","installBusinessSwitchMutant"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/tests/business-switch.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/flows.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/global-setup.ts","owner":"platform-build","exports":["default"],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/media-mutants.ts","owner":"platform-build","exports":["MediaMutant","installMediaMutant"],"tests":[],"feature":""},
@@ -704,7 +706,7 @@
     {"path":"tools/audit/dashboard-csp/csp-guard.ts","owner":"seo-and-audits","exports":["installCspGuard","seenContexts"],"tests":[],"feature":""},
     {"path":"tools/audit/dashboard-csp/csp-site.spec.ts","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"tools/audit/dashboard-csp/csp-styles.spec.ts","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
-    {"path":"tools/audit/dashboard-csp/global-setup.ts","owner":"seo-and-audits","exports":["default"],"tests":["apps/dashboard/tests/flows.spec.ts"],"feature":""},
+    {"path":"tools/audit/dashboard-csp/global-setup.ts","owner":"seo-and-audits","exports":["default"],"tests":["apps/dashboard/tests/business-switch.spec.ts","apps/dashboard/tests/flows.spec.ts"],"feature":""},
     {"path":"tools/audit/dashboard-csp/playwright.config.ts","owner":"seo-and-audits","exports":["default"],"tests":["apps/dashboard/tests/preview-port.mutants.mjs","apps/dashboard/tests/preview-port.test.mjs","apps/dashboard/tests/support/staging.ts","tools/audit/dashboard-csp/csp-flows.spec.ts","tools/audit/dashboard-csp/csp-site.spec.ts","tools/audit/dashboard-csp/csp-styles.spec.ts"],"feature":""},
     {"path":"tools/audit/dashboard-csp/run.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"tools/audit/fixtures/build-fixtures.mjs","owner":"seo-and-audits","exports":["FIXTURES","SEC_HEADERS","SNAPSHOT_FIXTURES","buildAll","diffAgainstDisk","headersText","snapshotGood"],"tests":["tools/audit/test/run.mjs","tools/audit/test/sec.mjs","tools/golive/search-gate.test.mjs"],"feature":""},
