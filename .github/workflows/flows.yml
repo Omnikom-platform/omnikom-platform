@@ -14,6 +14,7 @@ on:
           - media.spec.ts
           - plan-gate.spec.ts
           - realtime.spec.ts
+          - sign-out.spec.ts
           - site.spec.ts
           - styles.spec.ts
       grep:

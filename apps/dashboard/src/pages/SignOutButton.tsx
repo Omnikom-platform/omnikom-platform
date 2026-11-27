@@ -9,7 +9,7 @@ export function SignOutButton() {
   const qc = useQueryClient();
   async function signOut() {
     markSignOutByPerson();
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
     qc.clear();
     void nav({ to: '/login', replace: true });
   }
