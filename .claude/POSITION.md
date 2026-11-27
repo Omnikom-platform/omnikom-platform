@@ -83,6 +83,9 @@ HEAD 01:58 intake of 66bfbaf0 GREEN (his worktree). HEAD 01:50 GO R3 report; 01:
 - HEAD 16:10: intake ACCEPTED (both deviations: the list twice + equality test; onRequest for our 405). Landing = one chain, one CI at the top; master a5f74a96 (b4).
   Next: when PLATFORM-BUILD sends B23's new sha, rebase these commits onto it (shared object store, no fetch), regen icm on a clean tree, omnikom ci --job advisor
   (16 steps), commit, do NOT push; send the new top sha to AUDIT-BUILD_code-mode_2026-11-22 and the head. Live part (KV, REPORT_SALT, wiring, privacy first) held until it lands.
+- 16:35 REBASED onto B23 2bf562b7 (PLATFORM-BUILD 16:32; icm conflicts only, taken from B23 then regenerated); my files equal bb37239a's.
+  omnikom ci --job advisor --json on the rebased tree: exit 0, 16 of 16 steps PASS (SESSION REPORT 56/56 + 18/18, VALIDATOR 42/42 + 19/19, GOLDEN 10765).
+  NOT pushed (head 16:10). New top sha sent to AUDIT-BUILD_code-mode_2026-11-22 and the head.
 - NOT this job (the head rules after intake): the KV binding, REPORT_SALT, the omnikom.io wiring, the privacy paragraph live first. UNPROVEN: KV deletes at 30 days live;
   omnikom.io traffic against 166-500 sessions/day.
 
