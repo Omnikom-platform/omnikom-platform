@@ -901,6 +901,19 @@ await t("no value but a function is taken as the lookup: null and false do not s
   for (const lookup of [null, false, 0, "", {}, []]) typeError(() => mk(() => ({ status: 200 }), { lookup }), "lookup " + JSON.stringify(lookup));
 });
 
+await t("with no lookup of the caller the gate asks the machine for each address of a name, and a name with public addresses is read", async () => {
+  const guard = dns.promises.lookup, asked = [];
+  const both = [{ address: "93.184.216.34", family: 4 }, { address: "2606:2800:220:1::1", family: 6 }];
+  // the machine of this test answers as node:dns does: a list with all: true, and one address with no list else
+  dns.promises.lookup = async (host, options) => { asked.push([host, options]); return options?.all === true ? both : both[0]; };
+  try {
+    const a = mk(() => ({ status: 200 }), { lookup: undefined });
+    eq((await ask(a.gate, "R1", "https://Site.Test./p")).sent, true);
+    eq(asked, [["site.test", { all: true }]], "what the machine was asked");
+    eq(a.f.calls.length, 2, "requests");
+  } finally { dns.promises.lookup = guard; }
+});
+
 // ---- the mutants: one broken copy of the library for each rule (node scripts/test-gate.mjs --mutants) ----
 // A mutant is one change of the text of lib-gate.mjs: "from" is found one time in the file, and "to" takes its place. The scripts
 // folder and sources.json are copied to a temp folder one time; each mutant is written there and this test runs on it. The test
@@ -967,6 +980,7 @@ const RULES = [
   ["G59", "the stop of a robot check on a host with a dot at its end holds the host with no dot"],
   ["G60", "after three 403 answers a host is skipped with a dot at its end too"],
   ["G61", "no value but a function is taken as the lookup: null and false do not switch the address check off"],
+  ["G62", "with no lookup of the caller the gate asks the machine for each address of a name, and a name with public addresses is read"],
 ];
 // MUTANTS-BEGIN (the builder fills this list: one entry for each rule id, { from, to }. Nothing outside the two marks changes.)
 const MUTANTS = {
@@ -1031,6 +1045,7 @@ const MUTANTS = {
   G59: { from: "hosts: [host], kind: \"check\"", to: "hosts: [u.hostname], kind: \"check\"" },
   G60: { from: "(refusals.get(host) || 0) >= REFUSALS", to: "(refusals.get(given) || 0) >= REFUSALS" },
   G61: { from: "  if (typeof lookup !== \"function\") throw new TypeError(\"gate: lookup is a function\");\n", to: "" },
+  G62: { from: "dns.promises.lookup(host, { all: true })", to: "dns.promises.lookup(host, {})" },
 };
 // MUTANTS-END
 async function mutants() {
