@@ -87,6 +87,16 @@ async function scenarios(sdir) {
       ["a work-browser step with hits none", (m) => { Object.assign(step(m, "psi"), { needsBrowser: "work", heavy: false, hits: "none" }); }, /drives the work browser reaches an outside site: hits must not be none/],
       ["a work-browser step with script null", (m) => { Object.assign(step(m, "psi"), { needsBrowser: "work", heavy: false, hits: "third-party:x.test", script: null }); }, /a step the runner runs needs a script/],
       ["a work-browser step with a timeout of 0", (m) => { Object.assign(step(m, "psi"), { needsBrowser: "work", heavy: false, hits: "third-party:x.test", timeoutMinutes: 0 }); }, /a step a script runs needs a timeout above 0 minutes/],
+    ["a needs that is not an object", (m) => { step(m, "psi").needs = "site"; }, /step psi: needs must be an object of state key/],
+    ["a needs that is a list", (m) => { step(m, "psi").needs = ["site"]; }, /step psi: needs must be an object of state key/],
+    ["a needs with no key", (m) => { step(m, "psi").needs = {}; }, /step psi: needs must be an object of state key -> value or list of values, with at least one key/],
+    ["a needs with a key that is no state key", (m) => { step(m, "psi").needs = { weather: "fine" }; }, /step psi: needs names 'weather', which is not a state key \(site, fetch, searchConsole, bingWebmaster, profile, profileGrant\)/],
+    ["a needs with a key that each object has", (m) => { step(m, "psi").needs = { constructor: "live" }; }, /step psi: needs names 'constructor', which is not a state key/],
+    ["a needs with a value outside the values of its key", (m) => { step(m, "psi").needs = { site: "maybe" }; }, /step psi: needs\.site must be one or more of none, live, ours, other-domain \(got "maybe"\)/],
+    ["a needs with a value of another key", (m) => { step(m, "psi").needs = { searchConsole: "live" }; }, /step psi: needs\.searchConsole must be one or more of yes, no \(got "live"\)/],
+    ["a needs with a value that is not text", (m) => { step(m, "psi").needs = { site: true }; }, /step psi: needs\.site must be one or more of none, live, ours, other-domain \(got true\)/],
+    ["a needs with an empty list", (m) => { step(m, "psi").needs = { site: [] }; }, /step psi: needs\.site must be one or more of none, live, ours, other-domain \(got \[\]\)/],
+    ["a needs with one bad value in a list", (m) => { step(m, "psi").needs = { site: ["live", "maybe"] }; }, /step psi: needs\.site must be one or more of none, live, ours, other-domain \(got \["live","maybe"\]\)/],
     ];
     for (const [name, mutate, re] of RULES) {
       const m = clone(); mutate(m);
@@ -95,6 +105,7 @@ async function scenarios(sdir) {
     }
 
     { const m = clone(); step(m, "psi").partialSettles = true; const ok = val(m); check("V: partialSettles true is accepted", ok.length === 0, ok.join(" | ") || "accepted"); }
+    { const m = clone(); step(m, "psi").needs = { site: ["live", "ours"], fetch: "ok" }; step(m, "doctor").needs = { profile: "stated-yes" }; const ok = val(m); check("V: needs is accepted with one value, with a list of values, and beside skipWhen", ok.length === 0, ok.join(" | ") || "accepted"); }
     { const m = clone(); Object.assign(step(m, "psi"), { needsBrowser: "work", heavy: false, hits: "third-party:x.test" }); const ok = val(m); check("V: needsBrowser work is accepted on a step with a script, a timeout, heavy false and hits that is not none, and such a step is not waiting", ok.length === 0 && !lib.isWaiting(step(m, "psi")), ok.join(" | ") || "accepted but waiting"); }
 
     // ---------------- V (AB-1 stations): the three station rules, each refused on one broken copy of the real manifest, for its own rule id ----------------
@@ -231,8 +242,35 @@ async function scenarios(sdir) {
       check("AP: control: the same world with the step's input before this change (research/competitors.json) refuses the adoption, naming research/competitors.json (the fault A1 removes)", c.ok === false && c.rule === "input-newer" && c.input === CJ, JSON.stringify(c));
     }
 
+    // ---------------- N: needsMet, whether a run may start a step ----------------
+    const nm = (s, st) => { try { return JSON.stringify(lib.needsMet(s, st)); } catch (e) { return "threw: " + e.message; } };
+    const MET = '{"met":true}', no = (reason) => JSON.stringify({ met: false, reason });
+    {
+      const S1 = { needs: { site: ["live", "ours"], searchConsole: "yes" } }, OLD = "the client has no site (site: none)";
+      const KEYS = { site: ["none", "live", "ours", "other-domain"], fetch: ["ok", "shell", "blocked", "not-tried"], searchConsole: ["yes", "no"], bingWebmaster: ["yes", "no"], profile: ["stated-yes", "stated-no", "unknown"], profileGrant: ["yes", "no"] };
+      check("N: the state keys and their values are the six of the design", JSON.stringify(lib.STATE_KEYS) === JSON.stringify(KEYS), JSON.stringify(lib.STATE_KEYS));
+      const a = [{}, { site: "none" }, { site: "live" }, null, undefined, "x", []].map((st) => nm(step(manifest, "doctor"), st));
+      check("N: a step with no needs and no skipWhen may start in each state", a.every((r) => r === MET), a.join(" "));
+      const b = [nm(S1, { site: "live", searchConsole: "yes" }), nm(S1, { site: "ours", searchConsole: "yes", fetch: "blocked" })];
+      check("N: a need is met by its one value and by a value of its list", b.every((r) => r === MET), b.join(" "));
+      const c = [nm(S1, { site: "none", searchConsole: "yes" }), nm(S1, { site: "live", searchConsole: "no" }), nm(S1, { site: "none", searchConsole: "no" })];
+      check("N: a need that the state does not meet gives the reason: the key, the wanted values and the value of the state", c[0] === no('needs site: live or ours; the state says "none"') && c[1] === no('needs searchConsole: yes; the state says "no"') && c[2] === no('needs site: live or ours; the state says "none"'), c.join(" "));
+      const d = [{}, { site: "live" }, null, undefined, "x", []].map((st) => nm({ needs: { searchConsole: "yes" } }, st)), dp = nm({ needs: { constructor: "x" } }, {});
+      check("N: a key that the state does not hold is not met", d.every((r) => r === no("needs searchConsole: yes; the state does not say")) && dp === no("needs constructor: x; the state does not say"), [...d, dp].join(" "));
+      const skipped = manifest.steps.filter((x) => x.skipWhen !== undefined);
+      const e = skipped.flatMap((s) => [nm(s, { site: "none" }) === no(OLD), ...[{ site: "live" }, { site: "other-domain" }, {}, null].map((st) => nm(s, st) === MET)]);
+      check("N: skipWhen site-none keeps its old meaning: not met for site none, met for each other state and for no state", skipped.length > 0 && e.every(Boolean), skipped.map((s) => s.id + " " + nm(s, { site: "none" })).join(" "));
+      const B = { skipWhen: "site-none", needs: { searchConsole: "yes" } };
+      const f = [nm(B, { site: "none", searchConsole: "yes" }), nm(B, { site: "none" }), nm(B, { site: "live", searchConsole: "yes" }), nm(B, { site: "live" })];
+      check("N: a step with both keys: skipWhen is asked first, then the needs", f[0] === no(OLD) && f[1] === no(OLD) && f[2] === MET && f[3] === no("needs searchConsole: yes; the state does not say"), f.join(" "));
+      const g = ["site", null, []].map((needs) => nm({ needs }, { site: "none" }));
+      const deep = (o) => { if (o && typeof o === "object") { Object.values(o).forEach(deep); Object.freeze(o); } return o; };
+      g.push(nm(deep(structuredClone(S1)), Object.freeze({ site: "live", searchConsole: "yes" })));
+      check("N: needsMet does not check the step again, and it changes nothing", g.every((r) => r === MET), g.join(" "));
+    }
+
     // ---------------- A: the API the CLI imports ----------------
-    check("A: the lib exports the API names (loadManifest, validateManifest, runOrder, substitute, evidenceState, stepOutcome, stepKind, describe and the rest the CLI takes) and prints nothing, never exits", ["loadManifest", "validateManifest", "runOrder", "makeVars", "hostOf", "resolveScript", "substitute", "covers", "globPaths", "filesUnder", "evidenceState", "inputNewer", "adoptStep", "notCurrent", "stepOutcome", "outcomeState", "stepStop", "stepKind", "isWaiting", "describe", "PipelineError", "PlaceholderError"].every((k) => typeof lib[k] === "function") && Array.isArray(lib.STEP_KEYS) && Array.isArray(lib.TOP_KEYS) && Array.isArray(lib.PLACEHOLDERS) && Array.isArray(lib.RUN_OPTIONS) && typeof lib.SLACK_MS === "number" && !/console\.|process\.exit/.test(fs.readFileSync(path.join(sdir, "lib-pipeline.mjs"), "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n")), "missing export, or console / process.exit in the code");
+    check("A: the lib exports the API names (loadManifest, validateManifest, runOrder, substitute, evidenceState, stepOutcome, stepKind, describe and the rest the CLI takes) and prints nothing, never exits", ["loadManifest", "validateManifest", "runOrder", "makeVars", "hostOf", "resolveScript", "substitute", "covers", "globPaths", "filesUnder", "evidenceState", "inputNewer", "adoptStep", "notCurrent", "stepOutcome", "outcomeState", "stepStop", "stepKind", "isWaiting", "describe", "PipelineError", "PlaceholderError", "needsMet"].every((k) => typeof lib[k] === "function") && Array.isArray(lib.STEP_KEYS) && Array.isArray(lib.TOP_KEYS) && Array.isArray(lib.PLACEHOLDERS) && Array.isArray(lib.RUN_OPTIONS) && typeof lib.SLACK_MS === "number" && lib.STATE_KEYS !== null && typeof lib.STATE_KEYS === "object" && !/console\.|process\.exit/.test(fs.readFileSync(path.join(sdir, "lib-pipeline.mjs"), "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n")), "missing export, or console / process.exit in the code");
     const sf = (...a) => { try { return lib.loadManifest(...a); } catch (e) { return { ok: null, problems: [{ rule: "threw", detail: e.message }], manifest: { steps: [] } }; } }; // a throw is a red assertion, not a crash
     const lm = sf(PIPE), lmBad = sf(path.join(tmp, "no-such.json")), lmJson = sf("x", { io: { readFileSync: () => "{ nope" } }), lmFake = sf("x", { io: { readFileSync: () => '\uFEFF{"version":1}' } });
     check("A: loadManifest returns { ok, manifest, problems } (the real file ok; a missing file and bad JSON are problems with rule 'load', not exceptions; an injected io and a BOM work)", lm.ok && lm.manifest.steps.length === manifest.steps.length && !lmBad.ok && lmBad.problems[0].rule === "load" && !lmJson.ok && /not valid JSON/.test(lmJson.problems[0].detail) && lmFake.ok && lmFake.manifest.version === 1, JSON.stringify([lmBad, lmJson]));
@@ -499,7 +537,7 @@ const MUTANTS = [
   { name: "unknown placeholder in a brief allowed", patches: [{ file: LP, from: "if (typeof s.brief === \"string\") for (const name of placeholdersIn(s.brief)) if (!PLACEHOLDERS.includes(name)) bad(", to: "if (typeof s.brief === \"string\") for (const name of placeholdersIn(s.brief)) if (false) bad(" }], expect: [/^V: an unknown placeholder in a brief/] },
   { name: "a missing script is not noticed", patches: [{ file: LP, from: "const gone = scriptExists ? !scriptExists(s.script) : file !== null && !ex(file);", to: "const gone = false;" }], expect: [/^V: a script that does not exist is refused/] },
   { name: "an unknown step key is allowed", patches: [{ file: LP, from: "if (!STEP_KEYS.includes(k)) bad(\"step-key\"", to: "if (false) bad(\"step-key\"" }], expect: [/^V: an unknown step key is refused/] },
-  { name: 'partialSettles is not a known step key', patches: [{ file: LP, from: 'export const OPTIONAL = ["brief", "exit", "engines", "partialSettles"];', to: 'export const OPTIONAL = ["brief", "exit", "engines"];' }], expect: [/^V: partialSettles true is accepted/] },
+  { name: 'partialSettles is not a known step key', patches: [{ file: LP, from: 'export const OPTIONAL = ["brief", "exit", "engines", "needs", "partialSettles", "skipWhen", "unlessSkipped", "station"];', to: 'export const OPTIONAL = ["brief", "exit", "engines", "needs", "skipWhen", "unlessSkipped", "station"];' }], expect: [/^V: partialSettles true is accepted/] },
   { name: 'partialSettles is not checked as true or false', patches: [{ file: LP, from: '"heavy", "partialSettles"]) if (k in s && typeof s[k] !== "boolean")', to: '"heavy"]) if (k in s && typeof s[k] !== "boolean")' }], expect: [/^V: a partialSettles that is not true or false is refused/] },
   { name: "an unknown top-level key is allowed", patches: [{ file: LP, from: "if (!TOP_KEYS.includes(k)) bad(\"top-level\"", to: "if (false) bad(\"top-level\"" }], expect: [/^V: an unknown top-level key is refused/] },
   { name: "a WAITING step needs no brief", patches: [{ file: LP, from: "if (typeof s.brief !== \"string\" || !s.brief.trim()) bad(\"waiting\"", to: "if (false) bad(\"waiting\"" }], expect: [/^V: a WAITING step without a brief/] },
@@ -574,6 +612,19 @@ const MUTANTS = [
   { name: "[station] a step may name no station", patches: [{ file: LP, from: 'if (!("station" in s)) bad("station", at,', to: 'if (false) bad("station", at,' }], expect: [/^V: a step with no station is refused/] },
   { name: "[station-order] a step may depend on a later station", patches: [{ file: LP, from: "if (rank.get(dep.station) > rank.get(s.station)) bad(", to: "if (false) bad(" }], expect: [/^V: a step that depends on a step of a later station is refused/] },
   { name: "[nosite-skip] the two keys are unknown to the validator", patches: [{ file: LP, from: "\"partialSettles\", \"skipWhen\", \"unlessSkipped\", \"station\"];", to: "\"partialSettles\", \"station\"];" }], expect: [/^V: the real pipeline\.json is valid/, /^S: start\.mjs audit-live in plan mode exits 0/] },
+  { name: "[needs] the key is unknown to the validator", patches: [{ file: LP, from: "\"engines\", \"needs\", \"partialSettles\", \"skipWhen\"", to: "\"engines\", \"partialSettles\", \"skipWhen\"" }], expect: [/^V: needs is accepted/] },
+  { name: "[needs] a needs of any shape is read", patches: [{ file: LP, from: "if (!isObj(s.needs) || Object.keys(s.needs).length === 0)", to: "if (Object.keys(s.needs).length === 0)" }], expect: [/^V: a needs that is not an object is refused/, /^V: a needs that is a list is refused/] },
+  { name: "[needs] an empty needs is accepted", patches: [{ file: LP, from: "if (!isObj(s.needs) || Object.keys(s.needs).length === 0)", to: "if (!isObj(s.needs))" }], expect: [/^V: a needs with no key is refused/] },
+  { name: "[needs] any key is a state key", patches: [{ file: LP, from: "if (!Object.hasOwn(STATE_KEYS, key)) bad(", to: "if (!Object.hasOwn(STATE_KEYS, key)) continue; else if (false) bad(" }], expect: [/^V: a needs with a key that is no state key is refused/] },
+  { name: "[needs] a key that each object has is a state key", patches: [{ file: LP, from: "if (!Object.hasOwn(STATE_KEYS, key))", to: "if (!(key in STATE_KEYS))" }], expect: [/^V: a needs with a key that each object has is refused/] },
+  { name: "[needs] any value is accepted", patches: [{ file: LP, from: "!values.every((x) => STATE_KEYS[key].includes(x))", to: "false" }], expect: [/^V: a needs with a value outside the values of its key is refused/, /^V: a needs with a value of another key is refused/, /^V: a needs with a value that is not text is refused/] },
+  { name: "[needs] an empty list is accepted", patches: [{ file: LP, from: "!values.length || !values.every(", to: "!values.every(" }], expect: [/^V: a needs with an empty list is refused/] },
+  { name: "[needs] only the first value of a list is checked", patches: [{ file: LP, from: "!values.every((x) => STATE_KEYS[key]", to: "!values.slice(0, 1).every((x) => STATE_KEYS[key]" }], expect: [/^V: a needs with one bad value in a list is refused/] },
+  { name: "[needs] a need is always met", patches: [{ file: LP, from: "if (says && wanted.includes(have[key])) continue;", to: "continue;" }], expect: [/^N: a need that the state does not meet/, /^N: a key that the state does not hold/] },
+  { name: "[needs] a key that the state does not hold is met", patches: [{ file: LP, from: "if (says && wanted.includes(have[key])) continue;", to: "if (!says || wanted.includes(have[key])) continue;" }], expect: [/^N: a key that the state does not hold is not met/] },
+  { name: "[needs] only the first value of a list meets a need", patches: [{ file: LP, from: "wanted.includes(have[key])", to: "wanted[0] === have[key]" }], expect: [/^N: a need is met by its one value and by a value of its list/] },
+  { name: "[needs] needsMet does not read skipWhen", patches: [{ file: LP, from: "if (step.skipWhen === \"site-none\" && have.site === \"none\") return", to: "if (false) return" }], expect: [/^N: skipWhen site-none keeps its old meaning/, /^N: a step with both keys/] },
+  { name: "[needs] the needs are asked before skipWhen", patches: [{ file: LP, from: "  if (step.skipWhen === \"site-none\" && have.site === \"none\") return { met: false, reason: \"the client has no site (site: none)\" };\n", to: "" }, { file: LP, from: "  return { met: true };\n", to: "  if (step.skipWhen === \"site-none\" && have.site === \"none\") return { met: false, reason: \"the client has no site (site: none)\" };\n  return { met: true };\n" }], expect: [/^N: a step with both keys/] },
 ];
 
 if (isMain(import.meta.url)) {

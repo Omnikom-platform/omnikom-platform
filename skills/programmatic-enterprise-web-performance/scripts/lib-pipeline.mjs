@@ -18,13 +18,14 @@
 //   stepOutcome(step, { code, lastLine, output, evidence }) -> { outcome, message, line }      outcome: done | partial | blocked | skipped | needs-input | fail; outcomeState(o) -> RUN | PARTIAL | BLOCKED | SKIPPED | WAITING | FAILED
 //   stepKind(step) -> "script" | "person" | "browser" | "agent"; isWaiting(step)
 //   stepStop(step, { now, dir, mode, isStopped })      -> null | { engine, until, reason, message }   a stop (lib-stops.mjs) in force for one of the step's `engines`
+//   needsMet(step, state)                              -> { met: true } | { met: false, reason }   may a run start the step on this state of the client
 //   describe(problem)                                  -> one line ("step psi: unknown key 'x'")
-//   STEP_KEYS, TOP_KEYS, PLACEHOLDERS, RUN_OPTIONS, SLACK_MS, PipelineError, PlaceholderError
+//   STEP_KEYS, TOP_KEYS, PLACEHOLDERS, RUN_OPTIONS, STATE_KEYS, SLACK_MS, PipelineError, PlaceholderError
 // `io` is an injectable file system ({ existsSync, statSync, readdirSync, readFileSync }; default node:fs) so a reader can test with fake files.
 //
 // Validity rules (rule ids in brackets; a manifest that breaks one is invalid and neither runner runs it):
 //   [top-level] only version (1), name, what, conventions, vars, stations, steps, coverage; a name [vars] vars keys are placeholders [steps] a non-empty list
-//   [step-key] a step has exactly the keys in REQUIRED, plus optionally brief, exit, engines, partialSettles, skipWhen and unlessSkipped [required-key] [type] every value the right type (kind and maxAgeDays are required on every step)
+//   [step-key] a step has exactly the keys in REQUIRED, plus optionally brief, exit, engines, needs, partialSettles, skipWhen and unlessSkipped [required-key] [type] every value the right type (kind and maxAgeDays are required on every step)
 //   [id] [duplicate-id] ids unique, lower-case words joined by single hyphens [module] the same pattern [kind] stable | time-sensitive | derived [pace] text or null
 //   [placeholder] only {url} {client} {host} {skill} {data} {runDir} {pewp} {work} {key}, in args, inputs, outputs, evidence and brief; none in the script path
 //   [stations] when present, stations is a non-empty list of objects with exactly id (lower-case letters and hyphens, unique) and what (non-empty text)
@@ -44,6 +45,7 @@
 //             BLOCKED with the stop's until and reason and never starts it (psi and crux are keyed APIs outside the search stop and carry none)
 //   [partialSettles] optional true or false (default false): read by omnikom seo run and by start.mjs audit-live. A dependent of a PARTIAL step whose partialSettles is true may run (the step stays PARTIAL in the table, the log and the stage's own record).
 //   [skip-when] optional skipWhen ("site-none") and unlessSkipped ({input as written: id of a step with skipWhen}): read by omnikom seo run, which never starts a skipWhen step on a run whose run-key.json says site none; start.mjs ignores both
+//   [needs] optional needs ({state key: one value, or a list of values}; the keys and their values are STATE_KEYS): the state of the client that the step needs. needsMet(step, state) answers for a run; no run asks it yet (job J4b)
 // Run order: file order, except that a step never comes before a step it depends on (the first step in file order whose dependencies are all placed goes next).
 // Outcome of a step that ran (stepOutcome): exit 0 = done (then its evidence must be done, else fail), or partial when its last line is `PARTIAL: <what is missing>` (then run again to continue);
 // 3 = blocked, and its last line must be `BLOCKED: <what> | unblocks: <what would>` (that line may end with ` | outside: key`, ` | outside: stop` or ` | outside: source`, which only omnikom seo status reads) (else fail: a broken contract), or needs-input when the output holds a NEEDS-INPUT line; 4 = skipped with a
@@ -58,10 +60,19 @@ import { KNOWN_ENGINES, isStopped as realIsStopped } from "./lib-stops.mjs";
 export const PLACEHOLDERS = ["url", "client", "host", "skill", "data", "runDir", "pewp", "work", "key"];
 export const TOP_KEYS = ["version", "name", "what", "conventions", "vars", "stations", "steps", "coverage"];
 export const REQUIRED = ["id", "module", "what", "script", "args", "inputs", "outputs", "dependsOn", "needsBrowser", "needsAi", "needsPerson", "needsKeys", "heavy", "hits", "pace", "timeoutMinutes", "evidence", "kind", "maxAgeDays"];
-export const OPTIONAL = ["brief", "exit", "engines", "partialSettles", "skipWhen", "unlessSkipped", "station"];
+export const OPTIONAL = ["brief", "exit", "engines", "needs", "partialSettles", "skipWhen", "unlessSkipped", "station"];
 export const STEP_KEYS = [...REQUIRED, ...OPTIONAL];
 export const BROWSER = ["none", "headless", "owner", "work"];
 export const KINDS = ["stable", "time-sensitive", "derived"];
+// the state of a client that a step can need ([needs]), and the values each key can have
+export const STATE_KEYS = {
+  site: ["none", "live", "ours", "other-domain"],
+  fetch: ["ok", "shell", "blocked", "not-tried"],
+  searchConsole: ["yes", "no"],
+  bingWebmaster: ["yes", "no"],
+  profile: ["stated-yes", "stated-no", "unknown"],
+  profileGrant: ["yes", "no"],
+};
 // the options of `omnikom seo run` (the CLI's allow-list IS this list)
 export const RUN_OPTIONS = ["client", "only", "from", "module", "fresh", "env-file", "json"];
 export const SLACK_MS = 2000;   // file times are compared with this much give (FAT keeps two seconds; two clocks differ by milliseconds)
@@ -96,6 +107,18 @@ export const norm = (p) => String(p).replace(/\\/g, "/");
 const exitWord = (text) => String(text).trim().toLowerCase().split(/[^a-z]/)[0];
 // a step nobody's script runs: it waits for the owner's browser, an AI agent or a person
 export const isWaiting = (s) => s.needsBrowser === "owner" || s.needsAi === true || s.needsPerson === true;
+
+// may a run start the step on this state of the client? skipWhen first, then the keys of needs in the step's order; a fact nobody gave is not a "yes"
+export function needsMet(step, state) {
+  const have = isObj(state) ? state : {};
+  if (step.skipWhen === "site-none" && have.site === "none") return { met: false, reason: "the client has no site (site: none)" };
+  for (const [key, value] of Object.entries(isObj(step.needs) ? step.needs : {})) {
+    const wanted = Array.isArray(value) ? value : [value], says = Object.hasOwn(have, key);
+    if (says && wanted.includes(have[key])) continue;
+    return { met: false, reason: `needs ${key}: ${wanted.join(" or ")}; ${says ? `the state says ${JSON.stringify(have[key])}` : "the state does not say"}` };
+  }
+  return { met: true };
+}
 
 export const placeholdersIn = (s) => [...String(s).matchAll(/\{([A-Za-z][A-Za-z0-9]*)\}/g)].map((m) => m[1]);
 export function substitute(x, vars) {
@@ -265,6 +288,14 @@ export function validateManifest(m, { skillDir = null, repoRoot = null, scriptEx
       else for (const [inp, id] of Object.entries(s.unlessSkipped)) {
         if (!(Array.isArray(s.inputs) && s.inputs.includes(inp))) bad("skip-when", at, `unlessSkipped names '${inp}', which is not one of the step's inputs`);
         else if (!m.steps.some((x) => isObj(x) && x.id === id && x.skipWhen === "site-none")) bad("skip-when", at, `unlessSkipped names step '${id}', which has no skipWhen`);
+      }
+    }
+    if ("needs" in s) {   // [needs] the state of the client the step needs: { state key: one value, or a list of values }
+      if (!isObj(s.needs) || Object.keys(s.needs).length === 0) bad("needs", at, "needs must be an object of state key -> value or list of values, with at least one key");
+      else for (const [key, value] of Object.entries(s.needs)) {
+        const values = Array.isArray(value) ? value : [value];
+        if (!Object.hasOwn(STATE_KEYS, key)) bad("needs", at, `needs names '${key}', which is not a state key (${Object.keys(STATE_KEYS).join(", ")})`);
+        else if (!values.length || !values.every((x) => STATE_KEYS[key].includes(x))) bad("needs", at, `needs.${key} must be one or more of ${STATE_KEYS[key].join(", ")} (got ${JSON.stringify(value)})`);
       }
     }
     if ("maxAgeDays" in s && s.maxAgeDays !== null && !(typeof s.maxAgeDays === "number" && Number.isFinite(s.maxAgeDays) && s.maxAgeDays >= 0)) bad("type", at, "maxAgeDays must be null or a number of 0 or more");
