@@ -4,8 +4,8 @@ Rewritten in place, never appended, under 60 lines; last 2026-11-26 by the platf
 state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. Getting back in: `resume\RESUME.md`.
 
 ## Now
-- Product: 75 of 98 rows WORK, 23 PARTLY, 0 MISSING (checked by CI). CRM 24, 2, 0 of 26; dashboard 16, 7, 0 of 23;
-  backend 15, 3, 0 of 18; factory 9, 1, 0 of 10; hardening 11, 10, 0 of 21.
+- Product: 76 of 98 rows WORK, 22 PARTLY, 0 MISSING (checked by CI). CRM 24, 2, 0 of 26; dashboard 16, 7, 0 of 23;
+  backend 15, 3, 0 of 18; factory 10, 0, 0 of 10; hardening 11, 10, 0 of 21.
 - The states were read from the code on 2026-11-20; the readers ran no test, so a staging proof is the book's record.
   Production: `bring-up` ran 2026-11-21 (`BRING-UP OK: 37 changed`); no tables, data or functions yet, the first promote waits on him.
 - The order (owner, 2026-11-20): clusters, each done in one go, in this order: 1 the book tells the truth;
@@ -37,7 +37,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
 
 ## Migrations
 - An unlanded migration takes the next free number above every file in the tree and lands in number order (staging applies
-  in file-name order); no number is promised ahead. In the tree: through 53 (no 51).
+  in file-name order); no number is promised ahead. In the tree: through 54 (no 51).
 
 ## BLOCKED and UNPROVEN
 - E21 on staging: the webhook exists, a real bounce through it is UNPROVEN. E9's new path: the token is set, a real publish is UNPROVEN.

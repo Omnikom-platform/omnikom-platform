@@ -126,7 +126,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | D5 Form field rendering | WORKS | select, choice, number and reference drawn with no script (`factory/lib/fields.mjs`), seen on the published test site; e2e-crm on staging 2026-11-03 |
 | D6 Capture: signature (a signature is taken once), consent, idempotent, quotas, paused site refused | WORKS | F:capture-lead |
 | D7 The test site proves contracts and forms | WORKS | its contact form has real-estate fields (budget, timing, beds, area, buying or selling), published; e2e-crm on staging 2026-11-03 |
-| D8 New-lead alert to the business and the assigned agent | PARTLY | the business's addresses are mailed; recipients are set from the Lead alerts card (B16, proven on staging 2026-11-09 from the settings branch) or the CLI. Missing: nothing reads `sites.alert_assignee`; the assigned agent is mailed only when their address is typed into the list. |
+| D8 New-lead alert to the business and the assigned agent | WORKS | the business's addresses are mailed; with the site's tick (`sites.alert_assignee`, default on) on, the login of the lead's owner is mailed too, once, through the same outbox (M54, `service.queue_lead_alert`; `supabase/tests/tenancy.test.sql` T54, mutants `alert54:`); an agent with no login or no valid address gets nothing, silently; recipients are set from the Lead alerts card (B16, proven on staging 2026-11-09 from the settings branch) or the CLI; a real send to an agent's address is UNPROVEN until staging |
 | D9 Site endpoint settings checked before a deploy | WORKS | `factory/runner/publish.mjs` |
 | D10 Contract lead fields flow into the CRM | WORKS | a lead posted through the published form reaches the CRM typed, in its own columns, in form order; e2e-crm on staging 2026-11-03 |
 
@@ -161,9 +161,9 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | A CRM | 24 | 2 | 0 | 26 |
 | B Dashboard | 16 | 7 | 0 | 23 |
 | C Backend and database | 15 | 3 | 0 | 18 |
-| D Factory and forms | 9 | 1 | 0 | 10 |
+| D Factory and forms | 10 | 0 | 0 | 10 |
 | E Hardening | 11 | 10 | 0 | 21 |
-| Total | 75 | 23 | 0 | 98 |
+| Total | 76 | 22 | 0 | 98 |
 
 Completion is reported from these counts only.
 

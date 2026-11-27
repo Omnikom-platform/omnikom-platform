@@ -1065,6 +1065,13 @@ const MUTANTS = [
   ['sig51: a login may read the claims', 'alter table private.signature_seen enable row level security;', 'alter table private.signature_seen enable row level security; create policy sig51 on private.signature_seen for select to authenticated using (true);'],
   ['sig51: the function role and service_role write the claims', 'revoke all on private.signature_seen from public, anon, authenticated, service_role, omnikom_fn;', 'grant insert, select, delete on private.signature_seen to omnikom_fn, service_role;'],
   ['sig51: the claim function is open to anon', 'revoke all on function service.claim_signature(text) from public, anon, authenticated;', 'grant execute on function service.claim_signature(text) to anon;'],
+  // ---- D8 (migration 54): the new-lead alert also reaches the assigned agent; tests T54. Run only these: --only "alert54" ----
+  ['alert54: the tick is ignored', '  if assignee and owner is not null then', '  if owner is not null then'],   // T54b
+  ['alert54: every member of the business is mailed', 'and m.team_row_id = owner order by', 'and true order by'],   // T54c
+  ["alert54: another business's login is mailed", 'where m.workspace_id = ws and m.team_row_id', 'where m.team_row_id'],   // T54g
+  ['alert54: an address listed twice is queued twice', '      and not exists (select 1 from unnest(tos) x where lower(btrim(x)) = a) then', '      and true then'],   // T54f
+  ['alert54: a bad address is queued', "    if a ~ '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$' and length(a) <= 254", '    if a is not null'],   // T54e
+  ['alert54: the address is not lower-cased', 'select lower(btrim(u.email)) into a', 'select btrim(u.email) into a'],   // T54a
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

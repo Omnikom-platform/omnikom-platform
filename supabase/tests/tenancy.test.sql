@@ -4269,5 +4269,85 @@ set role service_role; select test.expect_error($q$select count(*) from private.
 set role authenticated; select test.expect_error($q$select count(*) from private.signature_seen$q$, 'permission denied'); reset role; set role anon; select test.expect_error($q$select count(*) from private.signature_seen$q$, 'permission denied'); reset role;
 delete from private.signature_seen where hash in (repeat('a', 64), repeat('b', 64), repeat('c', 64), repeat('d', 64), repeat('e', 64)) or expires_at = now() - interval '100 years';
 
+-- ===== T54 D8 (migration 54): the new-lead alert also reaches the assigned agent =====
+-- service.queue_lead_alert queues one more mail_outbox row, to the login of the member linked to the lead's owner team row, when the site's tick
+-- sites.alert_assignee is on: once (an address already in lead_alert_to counts once), never raised on bad agent data, never across businesses.
+-- Superuser unless said; the end of the block puts back site A's alert list and tick. Mutants "alert54: ..." in run-local.mjs.
+reset role;
+select test.act_as(null);
+create table test.t54_site as select lead_alert_to, alert_assignee from public.sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000d8a01', 'D8-Agent@Example.Test'), ('00000000-0000-0000-0000-0000000d8a02', 'no-at-sign'), ('00000000-0000-0000-0000-0000000d8a04', 'D8-Other@Example.Test');
+insert into auth.users (id) values ('00000000-0000-0000-0000-0000000d8a03');
+insert into test.ids select 'd8_agent', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"D8 Agent","slug":"d8-agent"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
+insert into test.ids select 'd8_nologin', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"D8 No Login","slug":"d8-nologin"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
+insert into test.ids select 'd8_bad', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"D8 Bad","slug":"d8-bad"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
+insert into test.ids select 'd8_null', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"D8 Null","slug":"d8-null"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
+insert into test.ids select 'd8_teamb', service.seed_version('bbbbbbbb-0000-0000-0000-000000000000', 'team', '{"name":"D8 B Agent","slug":"d8-b-agent"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
+insert into members (workspace_id, user_id, role, team_row_id) values
+ ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8a01', 'member', test.id('d8_agent')),
+ ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8a02', 'member', test.id('d8_bad')),
+ ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8a03', 'member', test.id('d8_null')),
+ ('bbbbbbbb-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8a04', 'member', test.id('d8_teamb'));
+create function test.d8_lead(p_name text, p_owner uuid) returns uuid language sql as $$
+  insert into public.leads (workspace_id, site_id, form, page_path, name, email, consent_text, owner_team_row) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', p_name, lower(replace(p_name, ' ', '-')) || '@test', 'I agree', p_owner) returning id $$;
+update public.sites set lead_alert_to = array['d8-boss@example.test'], alert_assignee = true where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+-- (a) the agent's lead: two rows, the agent's address lower-cased; both are claimed with the workspace slug; a second call adds none
+insert into test.ids select 'd8_la', test.d8_lead('D8 Lead A', test.id('d8_agent'));
+do $$ declare n int; begin
+  n := service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_la'));
+  assert n = 2, 'T54a an agent''s lead queues two rows: ' || n;
+  assert (select array_agg(to_text order by to_text) from public.mail_outbox where lead_id = test.id('d8_la')) = array['d8-agent@example.test', 'd8-boss@example.test'], 'T54a the rows are the agent (lower-cased) and the business';
+  create temp table t54_a on commit drop as select * from service.outbox_claim(1000);
+  assert (select count(*) from t54_a where lead_id = test.id('d8_la') and workspace_slug = 'test-demo-a') = 2, 'T54a both rows are claimed with the workspace slug';
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_la')) = 0 and (select count(*) from public.mail_outbox where lead_id = test.id('d8_la')) = 2, 'T54a a second call adds nothing';
+end $$;
+-- (b) tick off: the boss only
+update public.sites set alert_assignee = false where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+insert into test.ids select 'd8_lb', test.d8_lead('D8 Lead B', test.id('d8_agent'));
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_lb')) = 1, 'T54b with the tick off only the business is queued';
+  assert (select array_agg(to_text) from public.mail_outbox where lead_id = test.id('d8_lb')) = array['d8-boss@example.test'], 'T54b the one row is the business';
+end $$;
+update public.sites set alert_assignee = true where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+-- (c) no owner: the boss only
+insert into test.ids select 'd8_lc', test.d8_lead('D8 Lead C', null);
+do $$ begin assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_lc')) = 1, 'T54c a lead with no owner mails the business only'; end $$;
+-- (d) an owner team row with no login
+insert into test.ids select 'd8_ld', test.d8_lead('D8 Lead D', test.id('d8_nologin'));
+do $$ begin assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_ld')) = 1, 'T54d an agent with no login is skipped without an error'; end $$;
+-- (e) a bad address, a null address
+insert into test.ids select 'd8_le1', test.d8_lead('D8 Lead E1', test.id('d8_bad'));
+insert into test.ids select 'd8_le2', test.d8_lead('D8 Lead E2', test.id('d8_null'));
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_le1')) = 1, 'T54e a login with a bad address is skipped without an error';
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_le2')) = 1, 'T54e a login with no address is skipped without an error';
+end $$;
+-- (f) the agent's address is already listed (in capitals): one row
+update public.sites set lead_alert_to = array['D8-AGENT@example.test'] where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+insert into test.ids select 'd8_lf', test.d8_lead('D8 Lead F', test.id('d8_agent'));
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_lf')) = 1, 'T54f an address already listed counts once';
+  assert (select count(*) from public.mail_outbox where lead_id = test.id('d8_lf')) = 1, 'T54f one row only';
+end $$;
+update public.sites set lead_alert_to = array['d8-boss@example.test'] where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+-- (g) the owner is another business's team row: no row to that login; (control) its own business mails it
+insert into test.ids select 'd8_lg', test.d8_lead('D8 Lead G', test.id('d8_teamb'));
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_lg')) = 1, 'T54g another business''s team row mails the business only';
+  assert not exists (select 1 from public.mail_outbox where lead_id = test.id('d8_lg') and to_text = 'd8-other@example.test'), 'T54g no row to another business''s login';
+end $$;
+-- (h) a suppressed agent address: the business row is claimed, the agent's is dropped with one alert-failed event
+select service.suppress('aaaaaaaa-0000-0000-0000-000000000000', 'email', 'd8-agent@example.test', 'complaint');
+delete from public.mail_outbox where lead_id in (select id from public.leads where name like 'D8 %');
+insert into test.ids select 'd8_lh', test.d8_lead('D8 Lead H', test.id('d8_agent'));
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_lh')) = 2, 'T54h the suppressed agent is still queued (the claim drops it)';
+  create temp table t54_h on commit drop as select * from service.outbox_claim(1000);
+  assert (select array_agg(to_text) from t54_h where lead_id = test.id('d8_lh')) = array['d8-boss@example.test'], 'T54h the business row is claimed, the agent''s is not';
+  assert (select count(*) from public.lead_events where lead_id = test.id('d8_lh') and kind = 'alert-failed' and detail = jsonb_build_object('to', 'd8-agent@example.test', 'reason', 'suppressed')) = 1, 'T54h one alert-failed event names the agent''s address';
+end $$;
+drop function test.d8_lead(text, uuid);
+update public.sites set lead_alert_to = (select lead_alert_to from test.t54_site), alert_assignee = (select alert_assignee from test.t54_site) where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;

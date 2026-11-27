@@ -141,6 +141,7 @@ D6	test	supabase/functions/test/capture.test.ts	the security event of a bad sign
 D6	test	supabase/functions/test/capture.test.ts	a retry of the same submission queues nothing more
 D6	test	supabase/tests/tenancy.test.sql	'I agree')$q$, 'S-SITE-PAUSED'
 D7	test	supabase/tests/e2e-crm.mjs	two leads posted through the published form endpoint
+D8	test	supabase/tests/tenancy.test.sql	T54a the rows are the agent (lower-cased) and the business
 D9	test	factory/runner/test/run.mjs	lead settings: all three on the preview environment = allowed
 D10	test	supabase/tests/e2e-crm.mjs	read back typed: budget and beds are numbers
 D10	test	supabase/functions/test/capture.test.ts	capture-lead (work order 01): answers are typed by the form
