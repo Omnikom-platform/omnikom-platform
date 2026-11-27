@@ -139,6 +139,9 @@ const scenarios = async (dir) => {
   cf = fakeCF({ projects: [site({ kv: { ADVISOR_REPORTS: { namespace_id: 'ns-somewhere-else' } } })], namespaces: [{ id: 'ns-adv', title: 'ADVISOR_REPORTS' }] });
   r = await go(['--apply'], cf);
   check('apply: ADVISOR_REPORTS bound to another namespace = exit 1, nothing written', r.code === 1 && r.writes.length === 0 && /another namespace/.test(r.out), r.code + '\n' + r.out);
+  cf = fakeCF({ projects: [site({ kv: { ADVISOR_REPORTS: { namespace_id: 'ns-somewhere-else' } } })], namespaces: [{ id: 'ns-somewhere-else', title: 'SOMETHING_ELSE' }] });
+  r = await go(['--apply'], cf);
+  check('apply: ADVISOR_REPORTS bound to a namespace of another title, none titled ADVISOR_REPORTS = exit 1, nothing written', r.code === 1 && r.writes.length === 0 && /another namespace/.test(r.out), r.code + '\n' + r.out + '\nwrites: ' + r.writes.map((c) => c.method).join(', '));
 
   // a PATCH that replaces instead of merging is caught after it
   cf = fakeCF({ projects: [site()], namespaces: [] }, { replace: true });
@@ -160,7 +163,8 @@ const MUTANTS = [
   { name: 'the check after the PATCH removed', patches: [P('provision.mjs', 'if (lost.length) {', 'if (false) {')], expect: [/dropped other names/] },
   { name: 'the domain matched by suffix', patches: [P('provision.mjs', "(d) => d === domain || d === 'www.' + domain", '(d) => d.endsWith(domain)')], expect: [/look-alikes only/] },
   { name: 'only the first page read', patches: [P('provision.mjs', 'if (list.length < per) break;', 'break;')], expect: [/page 2 of the list/] },
-  { name: 'the other-namespace refusal removed', patches: [P('provision.mjs', 'if (bound && ns && bound !== ns.id) {', 'if (false) {')], expect: [/bound to another namespace/] },
+  { name: 'the other-namespace refusal removed', patches: [P('provision.mjs', 'if (bound && (!ns || bound !== ns.id)) {', 'if (false) {')], expect: [/bound to another namespace/, /of another title/] },
+  { name: 'the refusal only when a namespace of that title exists', patches: [P('provision.mjs', 'if (bound && (!ns || bound !== ns.id)) {', 'if (bound && ns && bound !== ns.id) {')], expect: [/of another title/] },
   { name: 'the timeout signal dropped', patches: [P('provision.mjs', ' signal: AbortSignal.timeout(TIMEOUT_MS),', '')], expect: [/timeout signal/] },
   { name: '--token-env ignored', patches: [P('provision.mjs', 'const tokenName = ti >= 0 ? argv[ti + 1] : DEFAULT_TOKEN;', 'const tokenName = DEFAULT_TOKEN;')], expect: [/that token is used/, /names an unset variable/] },
   { name: 'any variable name taken as a token', patches: [P('provision.mjs', '/^CLOUDFLARE_[A-Z_]*TOKEN$/.test(tokenName)', 'true')], expect: [/not a Cloudflare token/] },

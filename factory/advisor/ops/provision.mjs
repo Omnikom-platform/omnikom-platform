@@ -72,7 +72,7 @@ export async function run({ argv = [], env = {}, fetch = globalThis.fetch, log =
     const before = await prodOf(), kvB = before.kv_namespaces || {}, varsB = before.env_vars || {};
     let ns = (await all(`/accounts/${acct}/storage/kv/namespaces`, 100)).find((n) => n.title === NS_TITLE);
     const bound = kvB[BINDING]?.namespace_id;
-    if (bound && ns && bound !== ns.id) { say(`FAIL: ${BINDING} is bound on ${project} to another namespace than ${NS_TITLE}; nothing changed.`); return 1; }
+    if (bound && (!ns || bound !== ns.id)) { say(`FAIL: ${BINDING} is bound on ${project} to another namespace than ${NS_TITLE}; nothing changed.`); return 1; }
     const needNs = !ns, needBind = !bound, needSalt = !(SECRET in varsB);
     const plan = [
       needNs ? `create the Workers KV namespace ${NS_TITLE}` : `already: the Workers KV namespace ${NS_TITLE} exists`,
