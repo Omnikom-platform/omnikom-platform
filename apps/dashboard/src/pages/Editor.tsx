@@ -167,10 +167,10 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
 
   // Autosave after 10 s idle, for an item that already exists and has nothing wrong with it; a dropped network retries with a longer wait each time.
   useEffect(() => {
-    if (!dirty || busy || !rowId || stale || over.length > 0) return;
+    if (!dirty || busy || offline || !rowId || stale || over.length > 0) return;
     const timer = window.setTimeout(() => { void save(); }, AUTOSAVE_MS);
     return () => window.clearTimeout(timer);
-  }, [data, dirty, busy, rowId, stale, over.length, save]);
+  }, [data, dirty, busy, offline, rowId, stale, over.length, save]);
   useEffect(() => {
     if (!offline || busy) return;
     const timer = window.setTimeout(() => { retries.current += 1; void save(); }, RETRY_MS[Math.min(retries.current, RETRY_MS.length - 1)]);

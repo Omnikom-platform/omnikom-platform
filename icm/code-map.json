@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1016,
+    "sources": 1017,
     "unowned": 0
   },
   "files": [
@@ -60,6 +60,7 @@
     {"path":"apps/dashboard/src/pages/ColumnsPicker.tsx","owner":"platform-build","exports":["ColumnsPicker"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/DeleteSheet.tsx","owner":"platform-build","exports":["DELETE_FAILED","DeleteSheet"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Editor.tsx","owner":"platform-build","exports":["Editor"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
+    {"path":"apps/dashboard/src/pages/EditorAutosave.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/ExportControl.tsx","owner":"platform-build","exports":["ExportControl"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Frame.tsx","owner":"platform-build","exports":["Frame"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/ImportLeads.tsx","owner":"platform-build","exports":["ImportLeads"],"tests":[],"feature":""},

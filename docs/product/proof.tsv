@@ -64,6 +64,8 @@ B3	test	apps/dashboard/tests/flows.spec.ts	member-a2, freshly signed in, ends ev
 B3	test	apps/dashboard/tests/plan-gate.spec.ts	Settings: only Your account and Sign out everywhere
 B5	test	apps/dashboard/tests/site.spec.ts	an agent sees Add only on the collections marked own
 B5	test	apps/dashboard/src/lib/site.test.ts	Add is for owners and staff everywhere and for an agent only on a collection marked own
+B6	test	apps/dashboard/src/pages/EditorAutosave.test.tsx	with the network gone it retries after 2, 4, 8, 16 and then every 30 s, no autosave in between, and the draft is kept
+B6	test	apps/dashboard/tests/site.spec.ts	a field over its limit turns the counter red and keeps Save off
 B7	test	apps/dashboard/tests/site.spec.ts	a field over its limit turns the counter red and keeps Save off
 B7	test	supabase/tests/tenancy.test.sql	one private.save_version only: the old signature was dropped
 B7	test	supabase/functions/test/save-base.test.ts	save base: a save that names the newest version is accepted

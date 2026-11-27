@@ -75,7 +75,7 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | B3 Sign out everywhere; account name and email | WORKS | D:pages/Settings.tsx (your account card, `signOut({ scope: 'global' })`, lands on `/login?ended=true`; D:pages/Login.tsx reads the session again before going on to /w, the race the first staging run caught); staging 2026-11-09 from the settings branch: the flow (member-a2, fresh sign-in) passes, and member-a1 sees only Your account and Sign out everywhere |
 | B4 Pick or switch business | PARTLY | `/w`, the rail switcher. Missing: no test uses the switcher or the picker for several businesses. |
 | B5 Site screen: pages and collections from the contract | WORKS | `/w/$ws/site` |
-| B6 Item editor: every field type, limits, locked fields, own-only | PARTLY | autosave after 10 s idle and a retry when offline are in D:pages/Editor.tsx; over-limit, stale edit and own-only are in `apps/dashboard/tests/site.spec.ts`. Missing: no test of autosave or the offline retry (no unit test of them exists). |
+| B6 Item editor: every field type, limits, locked fields, own-only | WORKS | autosave after 10 s idle and a retry when offline (2, 4, 8, 16, then every 30 s; the draft kept) in D:pages/Editor.tsx, shown by `apps/dashboard/src/pages/EditorAutosave.test.tsx` (vitest, the real editor on fake timers); over-limit, stale edit and own-only are in `apps/dashboard/tests/site.spec.ts` |
 | B7 Save as a version, stale-edit refused | WORKS | `save_version` with base (M12) |
 | B8 Version history and restore | WORKS | history, Compare, and Restore (a new version, nothing deleted) with Undo in the toast (the pre-restore data back as a new version): staging flows 2026-11-12 (`apps/dashboard/tests/site.spec.ts`, the first test, 'its Undo', 1 passed), each version read back as the service role; watched red with FLOWS_MUTANT=undo-lost; `apps/dashboard/src/pages/Editor.tsx`, `apps/dashboard/src/toast.tsx` |
 | B9 Search-result preview card | WORKS | D:pages/Widgets.tsx; under the minimum (title 20, description 50) the card says what is needed to publish (DP-1.4-09, D:lib/site.ts seoShort, vitest); staging 2026-11-13: in the flow "PUB-1 a too-short title is refused at publish and a failed check is read in the sheet" (apps/dashboard/tests/site.spec.ts) 1 passed: Fix opened the title, the card said "Title needs at least 20 characters to publish", a good title took the line away and Save stayed on |
@@ -159,11 +159,11 @@ Short forms: `D:` = `apps/dashboard/src/`, `F:x` = `supabase/functions/x/`, `M1`
 | Part | WORKS | PARTLY | MISSING | Rows |
 |---|---|---|---|---|
 | A CRM | 24 | 2 | 0 | 26 |
-| B Dashboard | 15 | 8 | 0 | 23 |
+| B Dashboard | 16 | 7 | 0 | 23 |
 | C Backend and database | 15 | 3 | 0 | 18 |
 | D Factory and forms | 9 | 1 | 0 | 10 |
 | E Hardening | 11 | 10 | 0 | 21 |
-| Total | 74 | 24 | 0 | 98 |
+| Total | 75 | 23 | 0 | 98 |
 
 Completion is reported from these counts only.
 

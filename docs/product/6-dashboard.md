@@ -55,9 +55,9 @@ runs (one jobs channel per tab, `src/lib/live.ts`). Vitest for units, Playwright
 - Locked fields (licences, legal notices) show read-only with the reason and "Ask Omnikom to change this"; sourced fields
   carry a source link and date.
 - Members edit only their own items in `own` collections; the database enforces it.
-- Every save is a new version. Autosave after 10 s idle; consecutive autosaves by one person within 10 minutes are shown as
-  one. A save carries its base version and is refused on top of a newer one, keeping both ("Agent One saved a newer version at
-  14:02. See their changes, then save again."). An offline draft stays in the browser and retries.
+- Every save is a new version. Autosave after 10 s idle. A save carries its base
+  version and is refused on top of a newer one, keeping both ("Agent One saved a newer version at 14:02. See their changes,
+  then save again."). An offline draft stays in the browser and retries.
 - History lists the versions; Restore makes a new version and deletes nothing.
 - Delete (the editor, owners and staff) takes the item off the Site list at once; Take off the site keeps it there, marked "off the site", and Put back on the site undoes it. Either is a waiting change: the next publish leaves the item out and its address then answers the site's 404 page (no redirect); its versions are kept.
 
