@@ -18,7 +18,7 @@ stack), `09-TEST-STRATEGY.md`. Everything in this file is design, not code, unle
 | Buttons | one primary per screen (filled), secondary (outlined), text link; sizes: one on laptop, taller on phone (44 px) | "one primary action per screen" is enforced by design, not by habit |
 | Feedback | the toast (bottom, 4 s, with Undo where undo exists), inline field errors (plain words, under the field), the banner (a problem that blocks the screen, with the one thing to do) | every outcome has one of these three, never a modal with OK |
 | Empty states | no leads yet, no changes to publish, no photos, no team members | each says what to do next in one sentence and has the one button |
-| Loading | skeleton rows for lists, a spinner only inside the button that was pressed | the screen never blanks |
+| Loading | skeleton rows for lists, the pressed button says what it is doing | the screen never blanks |
 | Confirm sheet | one pattern for the few irreversible actions (publish, remove a person, delete an item, replace or delete a media file): what will happen, Cancel, the action | no browser confirm() dialogs |
 
 ### 1.2 Screen 1: Sign in (and what follows it)
@@ -51,7 +51,7 @@ Slice says which build slice puts it on the screen; `later` rows are not built i
 | DP-1.2s-07 | 5.3 | The banner: "The service is not reachable. Your draft is safe here." | Supabase unreachable (16-DESIGN-PARTS 3.2) |
 | DP-1.2s-08 | 5.3 | The toast (4 s, with Undo where undo exists) | the outcome of an action |
 | DP-1.2s-09 | 5.3 | The page title of each screen: "Sign in", "Choose a business", "Leads" (with the count, DP-1.3-09), "Settings" | the browser tab |
-| DP-1.2s-10 | 5.3 | Loading: a list shows "Loading" in place of its rows; a pressed button says what it is doing ("Sending", "Saving", "Removing") and is disabled until the answer | the screen never blanks (1.1 Loading) |
+| DP-1.2s-10 | 5.3 | Loading: a list shows skeleton rows in place of its rows, with the word "Loading" hidden for screen readers; a pressed button says what it is doing ("Sending", "Saving", "Removing") and is disabled until the answer | the screen never blanks (1.1 Loading) |
 | DP-1.2s-11 | 5.3 | On "Not found": the link "Go to your businesses" | the picker (or Leads of the only business) |
 | DP-1.2s-12 | 5.3 | The error screen: when a screen fails to draw it replaces the screen and says "Something went wrong. Reload the page to try again." (no error text, no stack, no blame) | a render error in any route |
 | DP-1.2s-13 | 5.3 | On the error screen: the button "Reload" | reloads the page |

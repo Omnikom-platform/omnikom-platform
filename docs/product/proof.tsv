@@ -95,6 +95,9 @@ B17	test	apps/dashboard/tests/flows.spec.ts	owner-a invites a person, sees them 
 B17	test	supabase/tests/e2e-settings.mjs	team-list by owner-a is 200, owners first
 B20	test	apps/dashboard/src/lib/overview.test.ts	O1: this week starts on Monday 00:00 in the local zone
 B20	test	apps/dashboard/tests/plan-gate.spec.ts	the cards, the title, and the Overview tab as the place the owner is in
+B23	test	apps/dashboard/src/pages/Unreachable.test.tsx	a failed read shows the plan sentence as an alert, never Not found
+B23	test	apps/dashboard/src/pages/Unreachable.test.tsx	renders the asked number of rows and the word Loading, hidden
+B23	test	apps/dashboard/tests/styles.spec.ts	the filter shows no counts while the list is loading
 B25	test	supabase/functions/test/runner.test.ts	media-process-callback: a file deleted while its job made the sizes is 404
 B25	test	supabase/tests/tenancy.test.sql	T49a a deleted file: its original
 C1	test	supabase/tests/tenancy.test.sql	RLS off on

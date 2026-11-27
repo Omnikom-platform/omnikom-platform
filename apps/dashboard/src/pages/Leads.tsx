@@ -19,6 +19,7 @@ import { ViewsPanel } from './ViewsPanel';
 import { ExportControl } from './ExportControl';
 import css from './Leads.module.css';
 import crm from './Crm.module.css';
+import { Skeleton } from '../Skeleton';
 
 const SEARCH_PAUSE_MS = 250;
 /** One empty list for every render before the columns arrive, so what is built from it keeps its identity. */
@@ -175,7 +176,7 @@ export function LeadsLayout() {
             {live === 'paused' && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
             {selected.size > 0 && <BulkBar workspaceId={workspace.id} ids={[...selected]} canOwn={canOwn} team={owners} lists={lists} onClear={() => setSelected(new Set())} />}
             <div className={css.card} data-card="" data-busy={list.isFetching || counts.isFetching ? 'true' : undefined}>
-              {loading && !list.error && <p data-plan="DP-1.2s-10">Loading</p>}
+              {loading && !list.error && <Skeleton />}
               {!loading && !list.error && rows.length === 0 && noLeadsAtAll && (
                 <p data-plan="DP-1.3-10">No leads yet. When a visitor sends a form it appears here and you get an email.</p>
               )}

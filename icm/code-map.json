@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1067,
+    "sources": 1069,
     "unowned": 0
   },
   "files": [
@@ -17,6 +17,7 @@
     {"path":"apps/dashboard/src/App.tsx","owner":"platform-build","exports":["App"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/ErrorScreen.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/ErrorScreen.tsx","owner":"platform-build","exports":["ErrorScreen"],"tests":["apps/dashboard/src/router.test.ts","tools/omnikom-cli/test/impact-stamp-hooks.mjs"],"feature":""},
+    {"path":"apps/dashboard/src/Skeleton.tsx","owner":"platform-build","exports":["Skeleton"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/api.ts","owner":"platform-build","exports":["BulkAction","Draft","Exported","ImportCall","ItemSave","LeadChange","NewLead","Published","ViewSave","addLead","addTask","bulkLeads","deleteItem","deleteView","exportLeads","fetchDrafts","fetchSiteAudit","fetchTeamList","importLeads","inviteMember","listLeads","manageMedia","markTask","proposeMap","publishRows","putFile","removeMember","saveAlerts","saveItem","saveTemplate","saveView","setOnSite","startPreview","updateLead","uploadFinish","uploadStart"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/auth.tsx","owner":"platform-build","exports":["SessionProvider","safeNext","useSession"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/config.ts","owner":"platform-build","exports":["config"],"tests":[],"feature":""},
@@ -88,6 +89,7 @@
     {"path":"apps/dashboard/src/pages/SignOutButton.tsx","owner":"platform-build","exports":["SignOutButton"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/SiteLayout.tsx","owner":"platform-build","exports":["NoItemChosen","SiteLayout"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/StatusAsk.tsx","owner":"platform-build","exports":["StatusAsk","StatusValues"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/pages/Unreachable.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/ViewsPanel.tsx","owner":"platform-build","exports":["ViewsPanel"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/Widgets.tsx","owner":"platform-build","exports":["AskUs","FieldError","FieldWidget","WidgetCtx"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Workspaces.tsx","owner":"platform-build","exports":["Workspaces"],"tests":[],"feature":""},

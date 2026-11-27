@@ -6,6 +6,7 @@ import { SignOutButton } from './SignOutButton';
 import { UNREACHABLE } from '../lib/problems';
 import { t } from '../plan';
 import css from './Login.module.css';
+import { Skeleton } from '../Skeleton';
 
 /**
  * After sign in: one business = straight in (DP-1.2-07); two or more = one row per business with name, role, Open; none = DP-1.2-12;
@@ -27,7 +28,7 @@ export function Workspaces() {
   }, [list, needsSecondFactor, nav]);
 
   if (mem.error || aal.error) return <main className={css.page}><p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p><SignOutButton /></main>;
-  if (mem.isLoading || aal.isLoading) return <main className={css.page}><p data-plan="DP-1.2s-10">Loading</p></main>;
+  if (mem.isLoading || aal.isLoading) return <main className={css.page}><Skeleton /></main>;
 
   if (needsSecondFactor) {
     return (

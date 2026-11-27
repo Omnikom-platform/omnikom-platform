@@ -7,6 +7,7 @@ import { UNREACHABLE } from '../lib/problems';
 import { t } from '../plan';
 import { useToast } from '../toast';
 import css from './Settings.module.css';
+import { Skeleton } from '../Skeleton';
 
 type Typed = { text: string; assignee: boolean };
 
@@ -50,7 +51,7 @@ export function SettingsAlerts({ workspace, onDirty }: { workspace: string; onDi
   return (
     <section aria-labelledby="alerts-title" className={css.card}>
       <h2 id="alerts-title" data-plan="DP-1.6-04">Lead alerts</h2>
-      {sites.isLoading && <p data-plan="DP-1.2s-10">Loading</p>}
+      {sites.isLoading && <Skeleton />}
       {sites.error && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
       {sites.data && (
         <form onSubmit={e => void save(e)} className={css.form} data-plan="DP-1.6-10">

@@ -12,6 +12,7 @@ import { SettingsAlerts } from './SettingsAlerts';
 import { SettingsPeople } from './SettingsPeople';
 import css from './Settings.module.css';
 import { Sheet } from './Sheet';
+import { Skeleton } from '../Skeleton';
 
 /**
  * The Settings screen (DP-1.6-01 to -20; work order 08): one page of cards. The owner sees every card; a member sees only Your account and Sign out
@@ -26,7 +27,7 @@ export function Settings() {
   const leave = useBlocker({ shouldBlockFn: () => dirty, withResolver: true, enableBeforeUnload: false });
   useEffect(() => { document.title = t('DP-1.2s-09', 'Settings'); }, []);
 
-  if (me.isLoading) return <p data-plan="DP-1.2s-10">Loading</p>;
+  if (me.isLoading) return <Skeleton />;
   const owner = me.data ? me.data.role !== 'member' : false;
   return (
     <div className={css.page}>
@@ -70,7 +71,7 @@ function Websites({ workspace }: { workspace: string }) {
   return (
     <section aria-labelledby="sites-title" className={css.card}>
       <h2 id="sites-title" data-plan="DP-1.6-07">Websites</h2>
-      {sites.isLoading && <p data-plan="DP-1.2s-10">Loading</p>}
+      {sites.isLoading && <Skeleton />}
       {sites.error && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
       {sites.data && sites.data.length === 0 && <p data-plan="DP-1.6-19">No website yet. Ask Omnikom to set one up.{ask && <> {ask}</>}</p>}
       {sites.data && sites.data.length > 0 && (

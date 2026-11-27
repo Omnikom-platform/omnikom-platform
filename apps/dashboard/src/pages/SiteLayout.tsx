@@ -12,6 +12,7 @@ import { PublishSheet } from './PublishSheet';
 import { PreviewSite } from './PreviewSite';
 import { PublishHistory } from './PublishHistory';
 import css from './Site.module.css';
+import { Skeleton } from '../Skeleton';
 
 /**
  * The Site screen (DP-1.4-01, -02, -04 to -07, DP-1.4c-05, -09): the site switcher, the state line with Open, "Publish N changes", and the list
@@ -50,7 +51,7 @@ export function SiteLayout() {
   const draftRows = useMemo(() => new Set((drafts.data ?? []).map(d => d.row)), [drafts.data]);
 
   if (failed) return <section><p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p></section>;
-  if (loading || !contract.data || !rows.data || !me.data || !team.data) return <section><p data-plan="DP-1.2s-10">Loading</p></section>;
+  if (loading || !contract.data || !rows.data || !me.data || !team.data) return <section><Skeleton /></section>;
 
   const c = contract.data;
   const role = me.data.role;

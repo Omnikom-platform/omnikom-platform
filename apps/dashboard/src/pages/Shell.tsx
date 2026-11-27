@@ -7,6 +7,7 @@ import { NotFound } from './NotFound';
 import { JobWatcher } from './JobWatcher';
 import { SignOutButton } from './SignOutButton';
 import s from './Shell.module.css';
+import { Skeleton } from '../Skeleton';
 
 /**
  * The shell (DP-1.2s-01 to -03, -06, -07): the business name, the Overview tab first (DP-1.2s-14, slice 5.7), Leads, Site, a switcher when there is more than one business, Sign out.
@@ -22,7 +23,7 @@ export function Shell() {
   const mem = useMemberships(userId);
   const workspace = q.data;
 
-  if (q.isLoading) return <main className={s.bare}><p data-plan="DP-1.2s-10">Loading</p></main>;
+  if (q.isLoading) return <main className={s.bare}><Skeleton /></main>;
   if (q.error) return <main className={s.bare}><p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p></main>;
   if (!workspace || !userId) return <main className={s.bare}><NotFound /></main>;
 

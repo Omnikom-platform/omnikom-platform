@@ -8,6 +8,7 @@ import { t } from '../plan';
 import { useWorkspaceValue } from '../workspace-context';
 import { NotFound } from './NotFound';
 import css from './Overview.module.css';
+import { Skeleton } from '../Skeleton';
 
 /**
  * Search health (DP-1.10-02 to -07, book row B24, slice 5.8) at /w/$ws/sites/$site/search: one page per site for owners and staff (a member is
@@ -24,7 +25,7 @@ export function SearchHealth() {
   useEffect(() => { document.title = t('DP-1.10-02', 'Search health'); }, []);
   if (me.data?.role === 'member') return <Navigate to="/w/$ws" params={{ ws: workspace.slug }} replace />;
   if (sites.error || me.error) return <section>{FAILED}</section>;
-  if (sites.isLoading || me.isLoading) return <section><p data-plan="DP-1.2s-10">Loading</p></section>;
+  if (sites.isLoading || me.isLoading) return <section><Skeleton /></section>;
   const site = (sites.data ?? []).find(s => s.id === siteId);
   if (!site) return <NotFound />;
   const measuredFor = (sites.data ?? []).find(s => s.id === measuredSite(sites.data ?? [])) ?? null;
@@ -47,7 +48,7 @@ export function SearchHealthView({ site, audit, metrics, measuredFor, next, now 
   const { topics, notListed } = checkTopics(check?.summary);
   const history = checkHistory(audit.data?.history ?? []);
   const sources = sourceViews(metrics.data ?? [], now);
-  const loading = <p data-plan="DP-1.2s-10">Loading</p>;
+  const loading = <Skeleton />;
   const title = <><h1 data-plan="DP-1.10-02">Search health</h1><p data-plan="DP-1.10-02">{site.domain || site.preview_host}</p></>;
   if (audit.data && !check) return (
     <div className={css.page}>{title}<section className={css.card} data-card="" data-plan="DP-1.10-06"><p>No search check yet: one runs each time the site is published.</p><p>{next}</p></section></div>

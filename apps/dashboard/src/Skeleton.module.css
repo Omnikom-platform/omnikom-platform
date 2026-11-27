@@ -1,0 +1,23 @@
+.skeleton {
+  position: relative;
+  display: grid;
+  gap: var(--s-3);
+  width: 100%;
+  min-width: min(16rem, 100%);
+}
+
+.row {
+  height: var(--control-h);
+  border-radius: var(--radius);
+  background: var(--line);
+}
+
+/* in the markup for a screen reader, not on the screen */
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

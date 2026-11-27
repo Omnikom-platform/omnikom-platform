@@ -7,6 +7,7 @@ import { canRemove, memberName, onlyYou, validEmail, type Member } from '../lib/
 import { t } from '../plan';
 import css from './Settings.module.css';
 import { Sheet } from './Sheet';
+import { Skeleton } from '../Skeleton';
 
 const LAST_OWNER = t('DP-1.6-13', 'A business needs at least one owner. Add another owner first.');
 const GONE = t('DP-1.6-13', 'That person is no longer a member.');
@@ -73,7 +74,7 @@ export function SettingsPeople({ workspace, business, me }: { workspace: string;
   return (
     <section aria-labelledby="people-title" className={css.card}>
       <h2 id="people-title" data-plan="DP-1.6-01">People</h2>
-      {list.isLoading && <p data-plan="DP-1.2s-10">Loading</p>}
+      {list.isLoading && <Skeleton />}
       {list.error && <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p>}
       {list.data && (
         <ul className={css.people} data-plan="DP-1.6-01">

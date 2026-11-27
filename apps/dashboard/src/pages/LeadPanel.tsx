@@ -18,6 +18,7 @@ import { StatusAsk, type StatusValues } from './StatusAsk';
 import { NotFound } from './NotFound';
 import css from './Panel.module.css';
 import crm from './Crm.module.css';
+import { Skeleton } from '../Skeleton';
 
 const NOTE_MAX = 2000;
 const FIELD_FAILED = t('DP-1.3-38', 'Could not save. Try again.');
@@ -285,7 +286,7 @@ export function LeadPanel() {
     }
   }
 
-  if (lead.isLoading) return <section className={css.panel}><p data-plan="DP-1.2s-10">Loading</p></section>;
+  if (lead.isLoading) return <section className={css.panel}><Skeleton /></section>;
   if (lead.error) return <section className={css.panel}><p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p></section>;
   if (!data) {
     return (

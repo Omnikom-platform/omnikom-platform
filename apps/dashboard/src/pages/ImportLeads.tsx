@@ -12,6 +12,7 @@ import { t } from '../plan';
 import { useWorkspaceValue } from '../workspace-context';
 import { NotFound } from './NotFound';
 import css from './Crm.module.css';
+import { Skeleton } from '../Skeleton';
 
 const TOO_BIG = t('DP-1.3-43', 'This file is over 1 MB. Export fewer leads and choose it again.');
 const CANNOT_READ = t('DP-1.3-43', 'Could not read this file. Try again.');
@@ -57,7 +58,7 @@ export function ImportLeads() {
   const choices = useMemo(() => fieldChoices(cols.data?.fields ?? []), [cols.data?.fields]);
   const labelOf = (key: string) => CORE_COLUMNS.find(c => c.key === key)?.label ?? cols.data?.fields.find(f => f.key === key)?.label ?? key;
 
-  if (me.isLoading) return <p data-plan="DP-1.2s-10">Loading</p>;
+  if (me.isLoading) return <Skeleton />;
   if (!me.data || me.data.role === 'member') return <NotFound />;
 
   function startAgain() {

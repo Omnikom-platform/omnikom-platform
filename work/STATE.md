@@ -4,7 +4,7 @@ Rewritten in place, never appended, under 60 lines; last 2026-11-26 by the platf
 state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. Getting back in: `resume\RESUME.md`.
 
 ## Now
-- Product: 74 of 98 rows WORK, 24 PARTLY, 0 MISSING (checked by CI). CRM 24, 2, 0 of 26; dashboard 15, 8, 0 of 23;
+- Product: 75 of 98 rows WORK, 23 PARTLY, 0 MISSING (checked by CI). CRM 24, 2, 0 of 26; dashboard 16, 7, 0 of 23;
   backend 15, 3, 0 of 18; factory 9, 1, 0 of 10; hardening 11, 10, 0 of 21.
 - The states were read from the code on 2026-11-20; the readers ran no test, so a staging proof is the book's record.
   Production: `bring-up` ran 2026-11-21 (`BRING-UP OK: 37 changed`); no tables, data or functions yet, the first promote waits on him.

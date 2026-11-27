@@ -10,6 +10,7 @@ import { siteUrl, stateLine, type Job } from '../lib/site';
 import { t } from '../plan';
 import { useWorkspaceValue } from '../workspace-context';
 import css from './Overview.module.css';
+import { Skeleton } from '../Skeleton';
 
 /**
  * The Overview (DP-1.9-01 to -08, book rows B20 and B21, slices 5.7 and 5.7b), the first screen of a business at /w/$ws: a card per site (its
@@ -33,7 +34,7 @@ export function Overview() {
 
   const all = [sites, jobs, team, week];
   if (all.some(q => q.error)) return <section><p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p></section>;
-  if (all.some(q => q.isLoading)) return <section><p data-plan="DP-1.2s-10">Loading</p></section>;
+  if (all.some(q => q.isLoading)) return <section><Skeleton /></section>;
 
   const who = (id: string) => team.data?.byUser.get(id) ?? (id === userId ? session?.user.email ?? '' : '');
 
@@ -49,7 +50,7 @@ export function Overview() {
       {canSee && (
         <section data-plan="DP-1.9-07" className={css.find}>
           <h2>How people find you</h2>
-          {metrics.error ? <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p> : metrics.isLoading ? <p data-plan="DP-1.2s-10">Loading</p> : (
+          {metrics.error ? <p role="alert" data-plan="DP-1.2s-07">{UNREACHABLE}</p> : metrics.isLoading ? <Skeleton /> : (
             <div className={css.cards}>
               {sourceViews(metrics.data ?? []).map(({ card: c }) => (
                 <article key={c.title} data-plan="DP-1.9-08" className={css.card} data-card="">
