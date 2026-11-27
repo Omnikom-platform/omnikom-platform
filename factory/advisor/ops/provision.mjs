@@ -3,10 +3,12 @@
 // (32 random bytes made here, stored only as an encrypted Pages secret, never printed, never rotated once set).
 //   node tools/with-env.mjs "<master env file>" -- node factory/advisor/ops/provision.mjs [--domain omnikom.io] [--token-env <NAME>] [--dry-run | --apply]
 // The default is the dry run: GET calls only; it says which project serves the domain (YES / NO) and lists what --apply would do.
-// The token is read by name from --token-env (default CLOUDFLARE_ADMIN_TOKEN, the work account's; omnikom.io's project is read by
-// CLOUDFLARE_API_TOKEN, 2026-11-27); the output is scrubbed of the token, every account id and the salt.
-// Exit 0 done or nothing to do, 1 an API call failed or the check after the change failed, 2 bad usage or no token,
-// 3 no Pages project on the token's accounts serves the domain (BLOCKED: a token for the account that holds it).
+// The token is read by name from --token-env (default CLOUDFLARE_ADMIN_TOKEN, the work account's; omnikom.io's account is used with
+// --token-env CLOUDFLARE_IO_ADMIN_TOKEN, head 2026-11-27 21:58); the output is scrubbed of the token, every account id and the salt.
+// Exit 0 done or nothing to do (the dry run, or --apply with nothing missing, or --apply done and checked); 1 an API call failed, or the check
+// after the change failed (if the namespace was made before the failure, it stays and a second run reuses it), or a refusal that writes nothing
+// (more than one Pages project lists the domain; ADVISOR_REPORTS is bound to a namespace other than the one titled ADVISOR_REPORTS);
+// 2 bad usage or no token; 3 no Pages project on the token's accounts serves the domain (BLOCKED: a token for the account that holds it).
 // Sources, read 2026-11-27: https://developers.cloudflare.com/api/resources/pages/subresources/projects/methods/edit/ (PATCH; "To delete an
 // environment variable, set its key to `null`", so names left out are kept; checked again after the PATCH), .../projects/methods/list/,
 // https://developers.cloudflare.com/api/resources/kv/subresources/namespaces/methods/create/ and /list/,

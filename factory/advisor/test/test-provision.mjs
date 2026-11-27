@@ -2,6 +2,7 @@
 // A fake Cloudflare API in memory: the dry run only reads, the salt is generated and never printed nor rotated, the token and the
 // account ids never reach the output, a PATCH that drops a name is caught by the check after it, the domain is matched exactly.
 // Run: node factory/advisor/test/test-provision.mjs  -> "PROVISION TEST PASS: n of n" then "MUTANTS PASS: n of n caught"
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { main, checker } from '../../../skills/programmatic-enterprise-web-performance/scripts/lib-test-kit.mjs';
@@ -197,6 +198,16 @@ const scenarios = async (dir) => {
   cf = fakeCF({ projects: [site()], namespaces: [] }, { fail: true });
   r = await go(['--dry-run'], cf);
   check('error: HTTP 403 = exit 1, the token and the account id scrubbed from the message', r.code === 1 && /403/.test(r.out) && clean(r.out), r.code + '\n' + r.out);
+
+  // the header's exit line names every code run() can return, and what exit 1 covers
+  const src = fs.readFileSync(path.join(dir, 'provision.mjs'), 'utf8');
+  const body = src.slice(src.indexOf('export async function run'));
+  const codes = [...new Set([...body.matchAll(/return (\d);/g)].map((m) => m[1]))].sort();
+  const head = (src.match(/^\/\/ Exit [\s\S]*?(?=^\/\/ Sources)/m) || [''])[0];
+  const flat = head.replace(/^\/\/ ?/gm, ' ');
+  const missing = codes.filter((n) => !new RegExp('(^|[\\s,;])' + n + ' ').test(flat));
+  check('header: the exit line names every code run() returns (' + codes.join(',') + '), and exit 1 names the refusals and the namespace that stays',
+    codes.length >= 4 && !missing.length && /refus/i.test(head) && /namespace[^.]*stays|stays[^.]*namespace/i.test(head), 'codes ' + codes.join(',') + ' missing ' + missing.join(',') + '\n' + head);
   return results;
 };
 const P = (file, from, to) => ({ file, from, to });
@@ -225,6 +236,7 @@ const MUTANTS = [
   { name: '--token-env ignored', patches: [P('provision.mjs', 'const tokenName = ti >= 0 ? argv[ti + 1] : DEFAULT_TOKEN;', 'const tokenName = DEFAULT_TOKEN;')], expect: [/that token is used/, /names an unset variable/] },
   { name: 'any variable name taken as a token', patches: [P('provision.mjs', '/^CLOUDFLARE_[A-Z_]*TOKEN$/.test(tokenName)', 'true')], expect: [/not a Cloudflare token/] },
   { name: 'the wrangler_config_hash dropped', patches: [P('provision.mjs', 'const production = before.wrangler_config_hash ? { wrangler_config_hash: before.wrangler_config_hash } : {};', 'const production = {};')], expect: [/wrangler_config_hash/] },
+  { name: 'exit 3 dropped from the header', patches: [P('provision.mjs', '3 no Pages project on the', '(none) no Pages project on the')], expect: [/header: the exit line names every code/] },
   { name: 'the domains call dropped', patches: [P('provision.mjs', 'if (!Array.isArray(p.domains))', 'if (false)')], expect: [/asked per project/] },
 ];
 process.exit(await main({ label: 'PROVISION', scenarios, MUTANTS, scriptsDir: path.join(here, '../ops'), argv: process.argv.slice(2) }));

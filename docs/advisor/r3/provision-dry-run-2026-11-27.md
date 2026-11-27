@@ -49,3 +49,11 @@ DRY RUN: nothing was changed. --apply makes the changes above.
 - The token reads the KV list: 2 namespaces, none named ADVISOR_REPORTS.
 
 **UNPROVEN:** that CLOUDFLARE_API_TOKEN may write KV and Pages. No write was tried; that write is the outward step.
+
+## Note, 2026-11-28
+The record above is as it was on 2026-11-27. Two things changed since.
+- Test counts today, from a run of `node factory/advisor/test/test-provision.mjs` on 2026-11-28: "PROVISION TEST PASS: 48 of 48" and
+  "MUTANTS PASS: 26 of 26 caught". The "33 of 33" and "13 of 13" above were true on 2026-11-27 and are stale.
+- The key for omnikom.io's account is now CLOUDFLARE_IO_ADMIN_TOKEN (head, 2026-11-27 21:58), used as `--token-env CLOUDFLARE_IO_ADMIN_TOKEN`.
+  The CLOUDFLARE_API_TOKEN probe above is the 2026-11-27 reading. **UNPROVEN:** that CLOUDFLARE_IO_ADMIN_TOKEN may write KV and Pages.
+  No run with it has happened here; its write rights stay UNPROVEN until `--apply` runs.
