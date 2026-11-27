@@ -4,13 +4,16 @@
 // seo station <url or profile:<slug>> [--station <id>] [--json]                                                              the sheet of the stations (only the steps an agent must judge): exit 0 every station CLOSED, 1 one is OPEN, 2 usage; writes {pewp}/stations/sheet.json and sheet.md
 // seo rule <url or profile:<slug>> <step> --why <text> --by <who> [--json]                                                     records "not gathered" for one step in {pewp}/stations/rulings.json: exit 0 written, 1 REFUSED, 2 usage
 // seo vantage status [--json] [--pewp <dir>]                                                                      SEO's vantage.mjs status, its output unchanged; its exit code too, except 4 (SKIPPED) comes back as 3
+// seo ledger <repo root> [--with <root-b>] [--proof] [--checklist <dir>]                                         SEO's merge.mjs, its output and exit code unchanged (0, 2, 3)
+// seo proof-gates <cycle dir> [--verify] [--gates G1,G7] [--checklist <dir>] [--shipgate <dir>]                   SEO's proof-gates.mjs, its output and exit code unchanged (0, 1, 2)
 // The steps come ONLY from SEO's manifest (skills/programmatic-enterprise-web-performance/pipeline.json, read from this repository, never from ~/.claude):
 // lib/seo-manifest.mjs validates it (a bad manifest is exit 2 with every problem listed) and lib/seo-run.mjs runs it. This file adds no step, rewrites no
 // reason and swallows no exit code, like commands/audit.mjs. Nothing here touches a client's site except what a manifest step does, and a run never
 // calls `vantage start`. Exit: 0 when no step FAILED (a BLOCKED, WAITING or SKIPPED step is a state, not a failure), 1 when any step FAILED, 2 usage or an
 // invalid manifest; seo vantage status returns the script's own lines and exit code (0 ok, 2 usage, 3 BLOCKED) except that its 4 (SKIPPED: no allowed US egress) comes
 // back as 3, and a missing script is BLOCKED (3) naming it. seo run and seo resume run the skill check (commands/skill.mjs) first: a skill that is not the repository's copy is exit 2.
-// In text mode (no --json) omnikom.mjs prints seoText() instead of the JSON object; vantage always prints the script's own output.
+// ledger and proof-gates (not manifest steps) add no rule: paths become absolute against the caller's folder, a missing script is BLOCKED (3), a run past TOOL_MINUTES or with no exit code is exit 1 and one stderr line.
+// In text mode (no --json) omnikom.mjs prints seoText() instead of the JSON object; vantage, ledger and proof-gates always print the script's own output.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -23,9 +26,15 @@ import { loadManifest as readManifest, validateManifest, hostOf, profileSlug, no
 import { runSeo, statusSeo, STATES, NOT_RUN } from '../lib/seo-run.mjs';
 import { skillCheck } from './skill.mjs';
 
-const VERBS = ['run', 'resume', 'status', 'vantage', 'station', 'rule'];
+const VERBS = ['run', 'resume', 'status', 'vantage', 'station', 'rule', 'ledger', 'proof-gates'];
 const VANTAGE_VERBS = ['status'];
 const VANTAGE_MINUTES = 10;
+// ledger and proof-gates: one script of the skill each. what = the folder the script takes first; flags: true = a switch, 'path' = resolved to absolute, 'text' = passed as written
+export const TOOL_MINUTES = { ledger: 120, 'proof-gates': 360 };   // merge re-runs every check script (600 s each); gate G4 runs claude -p
+const TOOLS = {
+  ledger: { script: 'merge.mjs', what: 'the repo root', flags: { with: 'path', proof: true, checklist: 'path' } },
+  'proof-gates': { script: 'proof-gates.mjs', what: 'the cycle folder', flags: { verify: true, gates: 'text', checklist: 'path', shipgate: 'path' } },
+};
 export const SKILL = ['skills', 'programmatic-enterprise-web-performance'];
 
 // the skill folder of THIS repository (a test hands its own through deps.seo.skillDir)
@@ -65,6 +74,31 @@ async function vantage(ctx, skillDir) {
   return result(exit === 0, exit === 0 ? 'ok' : `VANTAGE-${exit}`, { exit, stdout: r.stdout || '', stderr, raw: true });
 }
 
+// seo ledger and seo proof-gates: the command line is checked, then the skill's script runs in the skill folder and its output and exit code come back as they are
+async function skillTool(ctx, skillDir, verb) {
+  const f = ctx.flags, tool = TOOLS[verb], folder = ctx.positionals[2];
+  if (!folder) throw new Usage(`seo ${verb} needs ${tool.what}`);
+  if (ctx.positionals.length > 3) throw new Usage(`seo ${verb}: unexpected argument '${ctx.positionals[3]}'`);
+  const flags = [];
+  for (const [k, v] of Object.entries(f)) {
+    const type = Object.hasOwn(tool.flags, k) ? tool.flags[k] : null;
+    if (!type) throw new Usage(`seo ${verb} takes no --${k}`);
+    if (type === true) { flags.push(`--${k}`); continue; }
+    if (v === true || v === '') throw new Usage(`seo ${verb}: --${k} needs a value`);
+    flags.push(`--${k}`, type === 'path' ? resolve(String(v)) : String(v));
+  }
+  const toolFile = join(skillDir, 'scripts', tool.script);
+  if (!existsSync(toolFile)) throw new Blocked(`${tool.script} is not at ${norm(toolFile)}`, `SEO's scripts/${tool.script} being in the repository`);
+  const minutes = (ctx.seo && ctx.seo.toolMinutes) || TOOL_MINUTES[verb];
+  const guard = await importRepo('tools/proc-guard/index.mjs');
+  const r = await guard.runLimited(process.execPath, [toolFile, resolve(folder), ...flags], { cwd: skillDir, env: ctx.env, timeout: minutes * 60000 });
+  // a killed process has an exit code on Windows (1) and none elsewhere, so the limit is read from timedOut
+  const lost = r.timedOut || typeof r.status !== 'number';
+  const exit = lost ? 1 : r.status;
+  const said = !lost ? '' : r.timedOut ? `seo ${verb}: stopped after ${minutes} minutes\n` : `seo ${verb}: could not run: ${String((r.error && r.error.message) || r.signal || 'no exit code')}\n`;
+  return result(exit === 0, exit === 0 ? 'ok' : `${verb.toUpperCase()}-${exit}`, { exit, stdout: r.stdout || '', stderr: (r.stderr || '') + said, raw: true });
+}
+
 // a PipelineError of the engine (a url that is not a url, a placeholder with no value) is a wrong command line: exit 2
 export const seoGroup = async ctx => {
   try { return await seoVerb(ctx); } catch (e) { throw e instanceof PipelineError ? new Usage(e.message) : e; }
@@ -75,6 +109,7 @@ const seoVerb = async ctx => {
   if (!VERBS.includes(verb)) throw new Usage(`seo takes ${VERBS.join(' | ')}`);
   const skillDir = skillDirOf(ctx);
   if (verb === 'vantage') return vantage(ctx, skillDir);
+  if (Object.hasOwn(TOOLS, verb)) return skillTool(ctx, skillDir, verb);
   if (ctx.positionals.length < 3) throw new Usage(`seo ${verb} needs the site's url (or profile:<slug> for a client with no site)`);
   if (verb === 'rule' && ctx.positionals.length < 4) throw new Usage('seo rule needs the site\'s url (or profile:<slug>) and the step id');
   if (ctx.positionals.length > (verb === 'rule' ? 4 : 3)) throw new Usage(`seo ${verb}: unexpected argument '${ctx.positionals[verb === 'rule' ? 4 : 3]}'`);

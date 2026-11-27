@@ -6,6 +6,7 @@ export const SWITCHES = new Set(['json', 'retry', 'real', 'dry-run', 'i-mean-pro
 
 SWITCHES.add('fresh');    // seo run: redo every step
 SWITCHES.add('staged');   // impact, ci: the tree of the index
+SWITCHES.add('proof'); SWITCHES.add('verify');   // seo ledger, seo proof-gates
 
 // Flags that were renamed: a wrapped tool that is given the old spelling is told the new one (lib/wrap.mjs also refuses a row that declares one).
 export const RETIRED = { dry: 'dry-run' };
