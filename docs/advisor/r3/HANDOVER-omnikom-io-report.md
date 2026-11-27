@@ -116,7 +116,7 @@ Control signal, no report is sent."
 
 ## 6. The outward step: on the head's go, run by ADVISOR-ENGINE from code/main after the chain lands
 ```
-node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node factory/advisor/ops/provision.mjs --token-env CLOUDFLARE_API_TOKEN --apply
+node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node factory/advisor/ops/provision.mjs --token-env CLOUDFLARE_IO_ADMIN_TOKEN --apply
 ```
 - **What it changes** (on the Cloudflare account that holds omnikom.io):
   - It creates the Workers KV namespace `ADVISOR_REPORTS`.
@@ -125,8 +125,7 @@ node tools/with-env.mjs "creds and accounts login/omnikom.env" -- node factory/a
 - **What it keeps:** the four existing production secrets stay. The script checks this after the PATCH and exits 1, naming any that
   are missing.
 - **The dry run of 2026-11-27:** `docs/advisor/r3/provision-dry-run-2026-11-27.md`.
-- **UNPROVEN: whether CLOUDFLARE_API_TOKEN may write.** It read the project and the KV list. If `--apply` answers 403, a token with
-  Workers KV Storage Edit and Cloudflare Pages Edit on that account unblocks it.
+- **The key (head 21:58):** CLOUDFLARE_IO_ADMIN_TOKEN, the full key on the account that holds omnikom.io. Its write rights are UNPROVEN until --apply runs; a 403 stops the run and goes to the head.
 
 ## 7. The checks before the deploy (OMNIKOM-IO-SITE's)
 - The sha256 test of the four copies.
