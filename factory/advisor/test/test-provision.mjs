@@ -109,6 +109,14 @@ const scenarios = async (dir) => {
   r = await go(['--apply'], cf);
   check('domain: no project serves it (look-alikes only) = exit 3, NO, BLOCKED, nothing written', r.code === 3 && /NO/.test(r.out) && /BLOCKED/.test(r.out) && r.writes.length === 0, r.code + '\n' + r.out);
 
+  // more than one project lists the domain: the script does not choose
+  cf = fakeCF({ projects: [site(), site({ name: 'omnikom-old' })], namespaces: [] });
+  r = await go(['--apply'], cf);
+  check('domain: two projects of one account list it = exit 1, both named, nothing written', r.code === 1 && /FAIL/.test(r.out) && /omnikom-io/.test(r.out) && /omnikom-old/.test(r.out) && r.writes.length === 0, r.code + '\n' + r.out);
+  cf = fakeCF({ other: { projects: [site({ name: 'omnikom-old' })], namespaces: [] }, projects: [site()], namespaces: [] });
+  r = await go(['--apply'], cf);
+  check('domain: one project in each of two accounts lists it = exit 1, both named, nothing written, neither id printed', r.code === 1 && /FAIL/.test(r.out) && /omnikom-io/.test(r.out) && /omnikom-old/.test(r.out) && r.writes.length === 0 && clean(r.out), r.code + '\n' + r.out);
+
   // apply on a project with nothing done
   cf = fakeCF({ projects: [site()], namespaces: [{ id: 'ns-lead', title: 'LEAD_LIMITS' }] });
   r = await go(['--apply'], cf);
@@ -182,6 +190,7 @@ const MUTANTS = [
   { name: 'the check after the PATCH reads KV and variables only', patches: [P('provision.mjs', 'Object.entries(c || {}).flatMap(', "Object.entries(c || {}).filter(([kind]) => ['kv_namespaces', 'env_vars'].includes(kind)).flatMap(")], expect: [/binding of another kind/] },
   { name: 'the namespace made on the first account the token reads', patches: [P('provision.mjs', "ns = await cf('POST', `/accounts/${acct}/storage/kv/namespaces`", "ns = await cf('POST', `/accounts/${accounts[0].id}/storage/kv/namespaces`")], expect: [/every write goes to the account of the project/] },
   { name: 'the account number fixed at 1', patches: [P('provision.mjs', '${accounts.findIndex((a) => a.id === acct) + 1} of', '1 of')], expect: [/account 2 of 2/] },
+  { name: 'the first project that lists the domain taken', patches: [P('provision.mjs', 'if (found.length > 1) {', 'if (false) {')], expect: [/two projects of one account/, /one project in each of two accounts/] },
   { name: 'the domain matched by suffix', patches: [P('provision.mjs', "(d) => d === domain || d === 'www.' + domain", '(d) => d.endsWith(domain)')], expect: [/look-alikes only/] },
   { name: 'only the first page read', patches: [P('provision.mjs', 'if (list.length < per) break;', 'break;')], expect: [/page 2 of the list/] },
   { name: 'the other-namespace refusal removed', patches: [P('provision.mjs', 'if (bound && (!ns || bound !== ns.id)) {', 'if (false) {')], expect: [/bound to another namespace/, /of another title/] },
