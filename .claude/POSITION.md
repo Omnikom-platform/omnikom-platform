@@ -56,7 +56,19 @@ HEAD 01:58 intake of 66bfbaf0 GREEN (his worktree). HEAD 01:50 GO R3 report; 01:
   every CI job green incl. the CLI unit job (the local 240 s --bail timeout counts as unrelated only if CI passes it). Done locally: test red first
   (FAIL 5, the advisor check "4 lockfile(s), 0 finding(s)"), then PASS dep-scan; real scan "dep-scan: 5 lockfile(s), 0 finding(s), 0 allowed";
   mutate-dep-scan "27 mutants, 27 caught". Book row E17 (docs/product/1-product.md:152) still says "the 3 package-lock.json": flagged to the head, not edited.
-  Next: commit on fdeb91da, push --force-with-lease=<de971b31>, every job green, send the head the sha.
+  708ddf79 = fdeb91da + dep-scan. HEAD 03:29: red accepted; the mutant run's gates job also failed "ICM index is fresh" (mutant had no regen);
+  E17 row fixed to "the 4 package-lock.json" (commit 93de2245, icm --check "OK: icm index is fresh (398 docs, 1063 source files)").
+  03:31 PUSHED 93de2245 (one sha on 708ddf79). Run 45923029982: "factory and runner" RED: "FAIL ci.yml: the nine jobs ..." (factory/runner/test/run.mjs:663 pins
+  the job list; advisor makes ten). Fixed locally (list + label "ten jobs"; RUNNER_TEST_ONLY=workflows "OK: 32 of 32"), NOT pushed: waiting for the rest of the run so
+  any other red goes in the same one push. Run 45923029982 finished: 20 success, 1 failure (factory, the pin only); CLI unit + suite + all mutant shards green.
+  05:30 PUSHED 9516a199 (head 04:17 accepted the runner-test change). Run 45934549195: gates RED "STALE icm/index.json: changed: .claude/POSITION.md (lines)":
+  I regenerated icm with POSITION.md edited but not committed, and the local --check read the same dirty tree. Rule kept: regen and --check only on a clean
+  tree (git status empty), POSITION committed with them. Fixed in the next sha. Next: every job green -> send the head 9516a199 + the run's full job list and conclusions.
+  (This block is uncommitted, worktree only.)
+HEAD 04:10 NEXT JOB (after the engine lands): the learning loop's collector, ADR 007 steps 1-2, omnikom.io only. HAND-OVER FIRST in docs/advisor/r3/: where the report
+  endpoint lives (own stack, no AI call, zero per-chat cost), its cost, redaction rules, 30-day delete. Red tests first: personal data in a miss removed before storage
+  (mutants); GPC on = no report; a client-site pack = no report; report off by default in code, on only by the omnikom.io pack. The privacy paragraph goes to
+  OMNIKOM-IO-SITE with it (through the head). NO BUILD before the head's GO on the hand-over.
   NOT DONE: factory/advisor/package-lock.json is not in tools/test/dep-scan.mjs LOCKFILES (its test pins the list of four; asked the head).
 - HEAD 21:53 order: job 3 -> matcher race -> job 4 (VTV in the engine: English base layer, 5.1 compiler, slot readers by type) -> XState flows.
   Job 4's written hand-over goes with job 3's report, with its size. (21:52 I told the head job 3 alone does not run VTV.)
