@@ -1,0 +1,611 @@
+{
+  "version": 1,
+  "what": "One row for each fact: its sources in order, and where the route ends when no source gives the fact. An entry with an id is a row of sources.json; an entry with local is our own input and sends nothing. The end of a route is a list of ids: a gap of the list gaps, an owner need of sources.json, or the id of the route itself when the end is a state of the fact.",
+  "gaps": {
+    "N1": "Other sites' Google positions, People Also Ask, related searches",
+    "N2": "The AI answer on a Google results page",
+    "N3": "What the assistants' apps answer",
+    "N4": "The real map pack at each point",
+    "N5": "Autocomplete suggestions",
+    "N6": "Interest in our seeds by state and metro",
+    "N7": "Google search volumes",
+    "N8": "Listings on Yelp, BBB, Yellow Pages and the like",
+    "N9": "Reviews on other sites, and competitors' reviews",
+    "N10": "Counts on Facebook, Instagram, LinkedIn, TikTok",
+    "N11": "Others' ads",
+    "N12": "Forum questions"
+  },
+  "routes": [
+    {
+      "id": "D1",
+      "fact": "The health of the tools and of the sources",
+      "pull": false,
+      "sources": [
+        {
+          "local": "a local check of the source table, the keys by name, the stops and the counters"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D1"
+        ],
+        "text": "The run does not start a pull whose source fails."
+      },
+      "stations": [
+        "site"
+      ]
+    },
+    {
+      "id": "D2",
+      "fact": "Where the machine seems to be",
+      "pull": false,
+      "sources": [],
+      "end": {
+        "gap": [
+          "D2"
+        ],
+        "text": "Retired: not needed."
+      },
+      "stations": []
+    },
+    {
+      "id": "D3",
+      "fact": "The site's pages",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR1"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D3"
+        ],
+        "text": "NOT READ for each page; the state fetch: blocked."
+      },
+      "stations": [
+        "site"
+      ]
+    },
+    {
+      "id": "D4",
+      "fact": "Lab speed",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR2"
+        },
+        {
+          "id": "DR3",
+          "label": "labelled as real-user data"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D4"
+        ],
+        "text": "A gap line."
+      },
+      "stations": [
+        "site"
+      ]
+    },
+    {
+      "id": "D5",
+      "fact": "Real-user speed",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR3"
+        },
+        {
+          "id": "DR2",
+          "label": "labelled as lab data"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D5"
+        ],
+        "text": "NO DATA is a result."
+      },
+      "stations": [
+        "site"
+      ]
+    },
+    {
+      "id": "D6",
+      "fact": "The business's facts",
+      "pull": true,
+      "sources": [
+        {
+          "local": "the answers file of Station 0"
+        },
+        {
+          "id": "DR1",
+          "label": "the client's own site, then the pages of otherPages"
+        },
+        {
+          "id": "DR11"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D6"
+        ],
+        "text": "The router asks."
+      },
+      "stations": [
+        "business"
+      ]
+    },
+    {
+      "id": "D7",
+      "fact": "The centre of each city",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR6"
+        },
+        {
+          "id": "DR7"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D7"
+        ],
+        "text": "The city is BLOCKED by name."
+      },
+      "stations": [
+        "business"
+      ]
+    },
+    {
+      "id": "D8",
+      "fact": "Keyword estimates",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR5"
+        },
+        {
+          "id": "DR4",
+          "label": "impressions"
+        }
+      ],
+      "end": {
+        "gap": [
+          "N7"
+        ],
+        "text": "The gap of Google volumes."
+      },
+      "stations": [
+        "demand"
+      ]
+    },
+    {
+      "id": "D9",
+      "fact": "The client's own Google queries",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR4"
+        },
+        {
+          "id": "DR5",
+          "label": "labelled as Bing"
+        }
+      ],
+      "end": {
+        "gap": [
+          "ON1"
+        ],
+        "text": "A gap line that names the owner need."
+      },
+      "stations": [
+        "demand",
+        "search"
+      ]
+    },
+    {
+      "id": "D10",
+      "fact": "Autocomplete",
+      "pull": true,
+      "sources": [],
+      "end": {
+        "gap": [
+          "N5"
+        ],
+        "text": "No source: the suggest path is never called."
+      },
+      "stations": [
+        "demand"
+      ]
+    },
+    {
+      "id": "D11",
+      "fact": "Interest by region",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR12"
+        },
+        {
+          "id": "DR4",
+          "label": "by date"
+        }
+      ],
+      "end": {
+        "gap": [
+          "N6"
+        ],
+        "text": "The gap of our own seeds by region."
+      },
+      "stations": [
+        "demand"
+      ]
+    },
+    {
+      "id": "D12",
+      "fact": "Forum questions",
+      "pull": true,
+      "sources": [],
+      "end": {
+        "gap": [
+          "N12"
+        ],
+        "text": "No allowed source."
+      },
+      "stations": [
+        "demand"
+      ]
+    },
+    {
+      "id": "D13",
+      "fact": "The Google results for each search",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR4",
+          "label": "the client's own positions"
+        },
+        {
+          "id": "DR5"
+        }
+      ],
+      "end": {
+        "gap": [
+          "N1",
+          "N2"
+        ],
+        "text": "The gaps for each other site and for the AI answer."
+      },
+      "stations": [
+        "search"
+      ]
+    },
+    {
+      "id": "D14",
+      "fact": "The Bing results for each search",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR5",
+          "label": "the client's own positions"
+        },
+        {
+          "id": "DR4",
+          "label": "labelled as Google"
+        }
+      ],
+      "end": {
+        "gap": [
+          "ON2"
+        ],
+        "text": "A gap line that names the owner need."
+      },
+      "stations": [
+        "search"
+      ]
+    },
+    {
+      "id": "D15",
+      "fact": "The index state",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR4",
+          "label": "URL inspection"
+        },
+        {
+          "id": "DR5"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D15"
+        ],
+        "text": "The pages of the sitemap, labelled: known to us, index state not read."
+      },
+      "stations": [
+        "site",
+        "search"
+      ]
+    },
+    {
+      "id": "D16",
+      "fact": "What the assistants answer",
+      "pull": true,
+      "sources": [],
+      "end": {
+        "gap": [
+          "N3"
+        ],
+        "text": "No route is built before the owner picks one; then our own signals; then the gap."
+      },
+      "stations": [
+        "assistants"
+      ]
+    },
+    {
+      "id": "D17",
+      "fact": "The map results at each point",
+      "pull": true,
+      "sources": [],
+      "end": {
+        "gap": [
+          "N4"
+        ],
+        "text": "No source: no position table is made from Places results."
+      },
+      "stations": [
+        "local"
+      ]
+    },
+    {
+      "id": "D18",
+      "fact": "The client's own Google profile",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR11"
+        },
+        {
+          "local": "the client's word at Station 0, labelled stated"
+        }
+      ],
+      "end": {
+        "gap": [
+          "ON6",
+          "ON7"
+        ],
+        "text": "A gap line that names the owner need."
+      },
+      "stations": [
+        "local"
+      ]
+    },
+    {
+      "id": "D19",
+      "fact": "The directory listings",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR1",
+          "label": "the profile links on the client's own site"
+        },
+        {
+          "local": "the client's word"
+        }
+      ],
+      "end": {
+        "gap": [
+          "N8"
+        ],
+        "text": "The report says not stated, never not listed."
+      },
+      "stations": [
+        "local"
+      ]
+    },
+    {
+      "id": "D20",
+      "fact": "The competitors' own sites",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR1"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D20"
+        ],
+        "text": "A competitor whose site refuses keeps its link-graph strength only."
+      },
+      "stations": [
+        "rivals"
+      ]
+    },
+    {
+      "id": "D21",
+      "fact": "The link graph",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR8"
+        },
+        {
+          "local": "the release that is on disk"
+        },
+        {
+          "id": "DR5",
+          "label": "for the client's own site"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D21"
+        ],
+        "text": "A gap line."
+      },
+      "stations": [
+        "rivals"
+      ]
+    },
+    {
+      "id": "D22",
+      "fact": "The linking pages and their anchor words",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR8",
+          "label": "the index"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D22"
+        ],
+        "text": "PART: the links with no anchor words."
+      },
+      "stations": [
+        "rivals"
+      ]
+    },
+    {
+      "id": "D23",
+      "fact": "The sites where a link could be won",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR1"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D23"
+        ],
+        "text": "A host that refuses is listed as not read."
+      },
+      "stations": [
+        "rivals"
+      ]
+    },
+    {
+      "id": "D24",
+      "fact": "Reviews",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR11",
+          "label": "the client's own Google reviews"
+        }
+      ],
+      "end": {
+        "gap": [
+          "N9"
+        ],
+        "text": "The gap of reviews on other sites and of competitors' reviews."
+      },
+      "stations": [
+        "standing"
+      ]
+    },
+    {
+      "id": "D25",
+      "fact": "Social profiles",
+      "pull": true,
+      "sources": [
+        {
+          "id": "DR13",
+          "label": "the channel"
+        },
+        {
+          "id": "DR1",
+          "label": "the profile links"
+        },
+        {
+          "local": "the client's grant for each network"
+        }
+      ],
+      "end": {
+        "gap": [
+          "N10"
+        ],
+        "text": "The gap of counts on the networks that bar a program."
+      },
+      "stations": [
+        "standing"
+      ]
+    },
+    {
+      "id": "D26",
+      "fact": "Others' ads",
+      "pull": true,
+      "sources": [
+        {
+          "local": "the client's own ad account, by the client's grant"
+        }
+      ],
+      "end": {
+        "gap": [
+          "N11"
+        ],
+        "text": "No allowed source is proven."
+      },
+      "stations": [
+        "standing"
+      ]
+    },
+    {
+      "id": "D27",
+      "fact": "The analysis and the check of each number",
+      "pull": false,
+      "sources": [
+        {
+          "local": "the record"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D27"
+        ],
+        "text": "Not a pull: it reads the record."
+      },
+      "stations": [
+        "report"
+      ]
+    },
+    {
+      "id": "D28",
+      "fact": "The competitors' names",
+      "pull": true,
+      "sources": [
+        {
+          "local": "the names that the client gives at Station 0"
+        },
+        {
+          "id": "DR9"
+        },
+        {
+          "id": "DR10"
+        },
+        {
+          "id": "DR8",
+          "label": "the domains that share the client's linking domains"
+        }
+      ],
+      "end": {
+        "gap": [
+          "D28"
+        ],
+        "text": "A name from OSM or from the graph is a candidate; with no name, a gap line. No results page is read."
+      },
+      "stations": [
+        "rivals"
+      ]
+    }
+  ]
+}

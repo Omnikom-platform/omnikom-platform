@@ -1,0 +1,1040 @@
+{
+  "version": 1,
+  "what": "One row for each source that the audit may call or may never call. The gate sends nothing to a source that is not here or is not allowed. Each terms line and each robots.txt line is the host's own words, with its page and the date it was read. A key is named by its variable, never by its value.",
+  "needs": {
+    "ON1": "For each client domain: verify the domain in our own Search Console account (one DNS record at the client's domain).",
+    "ON2": "For each client domain: add and verify the site in our Bing Webmaster account. One API key for our user.",
+    "ON6": "The request for Business Profile API access (Google's contact form). It needs a profile that we manage, verified and active for 60 days or more.",
+    "ON7": "For each client: the client makes our account a manager of its Business Profile.",
+    "ON8": "The YouTube Data API turned on in our Cloud project, and one key.",
+    "ON9": "BigQuery in sandbox mode on our Cloud project (no card)."
+  },
+  "sources": [
+    {
+      "id": "DR1",
+      "name": "Our own reader, on the client's site and on each competitor's site",
+      "engine": null,
+      "kind": "reader",
+      "hosts": [],
+      "urlForms": [],
+      "terms": null,
+      "robots": null,
+      "robotsAtRun": true,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": "The pace of each step of today; robots.txt obeyed",
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "not built",
+      "because": "The driver is not built yet.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "DR2",
+      "name": "PageSpeed Insights API",
+      "engine": "google",
+      "kind": "api",
+      "hosts": [
+        "www.googleapis.com"
+      ],
+      "urlForms": [
+        "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?key={PSI_API_KEY}"
+      ],
+      "terms": {
+        "url": "https://developers.google.com/speed/docs/insights/v5/get-started",
+        "line": "The API can be used with or without an API key, although a key is recommended for frequent, automated queries.",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": "PSI_API_KEY",
+      "quota": "UNPROVEN: the official quota is not read; the counter of the driver starts low",
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "not built",
+      "because": "The driver is not built yet.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "DR3",
+      "name": "Chrome UX Report API",
+      "engine": "google",
+      "kind": "api",
+      "hosts": [
+        "chromeuxreport.googleapis.com"
+      ],
+      "urlForms": [
+        "https://chromeuxreport.googleapis.com/v1/records:queryRecord?key={CRUX_API_KEY}"
+      ],
+      "terms": {
+        "url": "https://developer.chrome.com/docs/crux/api",
+        "line": "The CrUX API is limited to 150 queries per minute per Google Cloud project, which is offered without charge.",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": "CRUX_API_KEY",
+      "quota": "150 queries a minute for each Google Cloud project",
+      "limits": [
+        {
+          "what": "queries",
+          "count": 150,
+          "per": "minute"
+        }
+      ],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "not built",
+      "because": "The driver is not built yet.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "DR4",
+      "name": "Search Console API: search analytics, URL inspection, the site list",
+      "engine": "google",
+      "kind": "api",
+      "hosts": [
+        "searchconsole.googleapis.com",
+        "oauth2.googleapis.com"
+      ],
+      "urlForms": [
+        "https://searchconsole.googleapis.com/",
+        "https://oauth2.googleapis.com/token"
+      ],
+      "terms": {
+        "url": "https://developers.google.com/webmaster-tools/v1/searchanalytics/query",
+        "line": "Group data by dimensions like country, device, page, and query to identify trends.",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": "GOOGLE_SERVICE_ACCOUNT_JSON",
+      "quota": "1,200 queries a minute for each site; 2,000 URL inspections a day for each site",
+      "limits": [
+        {
+          "what": "queries for each site",
+          "count": 1200,
+          "per": "minute"
+        },
+        {
+          "what": "URL inspections for each site",
+          "count": 2000,
+          "per": "day"
+        }
+      ],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "not built",
+      "because": "The driver is not built yet.",
+      "driver": null,
+      "note": "UNPROVEN: the live token exchange"
+    },
+    {
+      "id": "DR5",
+      "name": "Bing Webmaster API",
+      "engine": "bing",
+      "kind": "api",
+      "hosts": [
+        "ssl.bing.com"
+      ],
+      "urlForms": [
+        "https://ssl.bing.com/webmaster/api.svc/json/{method}?apikey={BING_WEBMASTER_KEY}"
+      ],
+      "terms": {
+        "url": "https://learn.microsoft.com/en-us/bingwebmaster/getting-access",
+        "line": "Webmasters can access and use Bing Webmaster APIs through any of the following two methods:",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": "BING_WEBMASTER_KEY",
+      "quota": "UNPROVEN: no number is on the pages read; the driver keeps a budget of calls for each run",
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "not built",
+      "because": "The driver is not built yet.",
+      "driver": null,
+      "note": "UNPROVEN: its terms page, and its life after the notice of 2026-08-31"
+    },
+    {
+      "id": "DR6",
+      "name": "US Census Gazetteer places file",
+      "engine": "census",
+      "kind": "file",
+      "hosts": [
+        "www.census.gov"
+      ],
+      "urlForms": [
+        "https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.html"
+      ],
+      "terms": {
+        "url": "https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.html",
+        "line": "Download a single state Places Gazetteer File:",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": "one download for each year's file, kept on disk",
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "not built",
+      "because": "The driver is not built yet.",
+      "driver": null,
+      "note": "UNPROVEN: the host of the file itself and the names of its fields; J7 reads them"
+    },
+    {
+      "id": "DR7",
+      "name": "Wikipedia Action API",
+      "engine": "wikimedia",
+      "kind": "api",
+      "hosts": [
+        "en.wikipedia.org"
+      ],
+      "urlForms": [
+        "https://en.wikipedia.org/w/api.php"
+      ],
+      "terms": {
+        "url": "https://foundation.wikimedia.org/wiki/Policy:Wikimedia_Foundation_User-Agent_Policy",
+        "line": "Scripts should use an informative User-Agent string with contact information, or they may be blocked without notice.",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": "one request for each city",
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "not built",
+      "because": "The driver is not built yet.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "DR8",
+      "name": "Common Crawl: the web graph and the index",
+      "engine": "commoncrawl",
+      "kind": "file",
+      "hosts": [
+        "data.commoncrawl.org",
+        "index.commoncrawl.org"
+      ],
+      "urlForms": [
+        "https://data.commoncrawl.org/",
+        "https://index.commoncrawl.org/"
+      ],
+      "terms": {
+        "url": "https://commoncrawl.org/terms-of-use",
+        "line": "limited license to access and use the Service subject to the terms and conditions of these ToU",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": "one release on disk; the index pace of the step of today",
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "not built",
+      "because": "The driver is not built yet.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "DR9",
+      "name": "OpenStreetMap through the Overpass instance of Private.coffee",
+      "engine": "private-coffee",
+      "kind": "api",
+      "hosts": [
+        "overpass.private.coffee"
+      ],
+      "urlForms": [
+        "https://overpass.private.coffee/api/interpreter"
+      ],
+      "terms": {
+        "url": "https://overpass.private.coffee/",
+        "line": "Use our endpoints in any project requiring access to OpenStreetMap data, including commercial use.",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": "our own: at most 20 queries a run",
+      "limits": [
+        {
+          "what": "queries",
+          "count": 20,
+          "per": "run"
+        }
+      ],
+      "pace": "one request at a time, by POST",
+      "keepDays": null,
+      "attribution": "© OpenStreetMap contributors, openstreetmap.org/copyright",
+      "ownerNeeds": [],
+      "state": "not built",
+      "because": "The driver is not built yet. The duties of the OSM licence wait for a ruling.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "DR10",
+      "name": "Geofabrik's daily OSM extract of one US state",
+      "engine": "geofabrik",
+      "kind": "file",
+      "hosts": [
+        "download.geofabrik.de"
+      ],
+      "urlForms": [
+        "https://download.geofabrik.de/index-v1.json"
+      ],
+      "terms": {
+        "url": "https://download.geofabrik.de/",
+        "line": "This open data download service is offered free of charge by Geofabrik GmbH.",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": "one state file, kept on disk and read locally",
+      "keepDays": null,
+      "attribution": "© OpenStreetMap contributors, openstreetmap.org/copyright",
+      "ownerNeeds": [],
+      "state": "not built",
+      "because": "The driver is not built yet. The duties of the OSM licence wait for a ruling.",
+      "driver": null,
+      "note": "UNPROVEN: the file size and the read time with no new install"
+    },
+    {
+      "id": "DR11",
+      "name": "Business Profile API",
+      "engine": "google",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://developers.google.com/my-business/content/prereqs",
+        "line": "Request access to the Business Profile API via the GBP API contact form and await approval.",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": 30,
+      "attribution": null,
+      "ownerNeeds": [
+        "ON6",
+        "ON7"
+      ],
+      "state": "waits",
+      "because": "Google must approve our access, and the client must make our account a manager of its profile. Then the driver is built.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "DR12",
+      "name": "The public Trends dataset in BigQuery",
+      "engine": "google",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://support.google.com/trends/answer/12764470?hl=en",
+        "line": "Provides the Top 25 and Top 25 Rising queries across 210 Designated Market Areas (DMAs).",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": "the free limits of the sandbox",
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [
+        "ON9"
+      ],
+      "state": "waits",
+      "because": "BigQuery in sandbox mode must be on in our Cloud project. Then the driver is built.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "DR13",
+      "name": "YouTube Data API",
+      "engine": "google",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://developers.google.com/youtube/v3/getting-started",
+        "line": "10,000 units per day combined for all other endpoints",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": "10,000 units a day",
+      "limits": [
+        {
+          "what": "units",
+          "count": 10000,
+          "per": "day"
+        }
+      ],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [
+        "ON8"
+      ],
+      "state": "waits",
+      "because": "The API must be on in our Cloud project, with one key. Then the driver is built.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "DR14",
+      "name": "Places API (New)",
+      "engine": "google",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://developers.google.com/maps/documentation/places/web-service/text-search",
+        "line": "orders the results based on their perceived relevance",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "parked",
+      "because": "Parked by a ruling: a position table from Places results is content based on Google Maps Content. Nobody asks the owner for its billing account.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X1",
+      "name": "Custom Search JSON API",
+      "engine": "google",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://developers.google.com/custom-search/v1/overview",
+        "line": "This API is not available",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "Closed to new customers.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X2",
+      "name": "Bing Search APIs",
+      "engine": "bing",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://learn.microsoft.com/en-us/lifecycle/announcements/bing-search-api-retirement",
+        "line": "Bing Search APIs will be retired on August 11, 2025.",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "Retired.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X3",
+      "name": "Gemini with Google Search grounding",
+      "engine": "google",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://ai.google.dev/gemini-api/terms",
+        "line": "cache, frame, syndicate, resell, analyze, train on, or otherwise learn from Grounded Results or Search Suggestions",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "Its terms bar the analysis of the results.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X4",
+      "name": "Brave Search API",
+      "engine": "brave",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://api-dashboard.search.brave.com/terms-of-service",
+        "line": "store, cache, or create a database of Search Results",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "The results may not be kept; it is a monthly credit, not a free plan.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X5",
+      "name": "Mojeek Search API",
+      "engine": "mojeek",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://www.mojeek.com/about/legal/api-terms.html",
+        "line": "You may retain Data indefinitely only if you subscribe to a plan with storage rights.",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "Keeping the results needs a paid plan.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X6",
+      "name": "The Google Maps site, page after page",
+      "engine": "google",
+      "kind": "site",
+      "hosts": [
+        "www.google.com"
+      ],
+      "urlForms": [],
+      "terms": {
+        "url": "https://www.google.com/help/terms_maps/",
+        "line": "mass download or create bulk feeds of the content (or let anyone else do so);",
+        "read": "2026-11-27"
+      },
+      "robots": {
+        "url": "https://www.google.com/robots.txt",
+        "line": "Allow: /maps/search/",
+        "read": "2026-11-27"
+      },
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "robots.txt allows the search path, but the Maps terms bar the bulk.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X7",
+      "name": "A results company that reads Google for us",
+      "engine": "results-companies",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://blog.google/technology/safety-security/serpapi-lawsuit/",
+        "line": "today against the scraping company SerpApi for circumventing security measures",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "A paid SEO API, which the owner barred; Google is in court against one.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X8",
+      "name": "Google Ads keyword ideas, without Google's yes",
+      "engine": "google",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://developers.google.com/google-ads/api/docs/api-policy/access-levels",
+        "line": "Permissible use only applies to Google Cloud projects with Standard access level.",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "The stated use is campaigns; open only if Google approves our stated use.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X9",
+      "name": "The Google results page",
+      "engine": "google",
+      "kind": "site",
+      "hosts": [
+        "www.google.com"
+      ],
+      "urlForms": [],
+      "terms": {
+        "url": "https://policies.google.com/terms?hl=en-US",
+        "line": "using automated means to access content from any of our services in violation of the machine-readable instructions on our web pages",
+        "read": "2026-11-27"
+      },
+      "robots": {
+        "url": "https://www.google.com/robots.txt",
+        "line": "Disallow: /search",
+        "read": "2026-11-27"
+      },
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "The owner's ruling: no agent and no program reads a Google results page.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X10",
+      "name": "The Bing results page",
+      "engine": "bing",
+      "kind": "site",
+      "hosts": [
+        "www.bing.com"
+      ],
+      "urlForms": [],
+      "terms": null,
+      "robots": {
+        "url": "https://www.bing.com/robots.txt",
+        "line": "Disallow: /search",
+        "read": "2026-11-27"
+      },
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "robots.txt bars the search path.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X11",
+      "name": "Reddit",
+      "engine": "reddit",
+      "kind": "site",
+      "hosts": [
+        "www.reddit.com"
+      ],
+      "urlForms": [],
+      "terms": {
+        "url": "https://redditinc.com/policies/data-api-terms",
+        "line": "If you are interested in using the Data APIs for commercial purposes",
+        "read": "2026-11-27"
+      },
+      "robots": {
+        "url": "https://www.reddit.com/robots.txt",
+        "line": "Disallow: /",
+        "read": "2026-11-27"
+      },
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "robots.txt bars each program; the Data API asks for a written agreement for commercial use.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X12",
+      "name": "Yelp",
+      "engine": "yelp",
+      "kind": "site",
+      "hosts": [
+        "www.yelp.com"
+      ],
+      "urlForms": [],
+      "terms": {
+        "url": "https://docs.developer.yelp.com/docs/places-faq",
+        "line": "STRICTLY FOR EVALUATION AND NOT FOR COMMERCIAL DEPLOYMENT",
+        "read": "2026-11-27"
+      },
+      "robots": {
+        "url": "https://www.yelp.com/robots.txt",
+        "line": "Disallow: /",
+        "read": "2026-11-27"
+      },
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "robots.txt bars each program; the API trial is for evaluation only.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X13",
+      "name": "Trustpilot",
+      "engine": "trustpilot",
+      "kind": "site",
+      "hosts": [
+        "www.trustpilot.com"
+      ],
+      "urlForms": [],
+      "terms": null,
+      "robots": {
+        "url": "https://www.trustpilot.com/robots.txt",
+        "line": "Disallow: /",
+        "read": "2026-11-27"
+      },
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "robots.txt bars each program.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X14",
+      "name": "Facebook",
+      "engine": "facebook",
+      "kind": "site",
+      "hosts": [
+        "www.facebook.com"
+      ],
+      "urlForms": [],
+      "terms": null,
+      "robots": {
+        "url": "https://www.facebook.com/robots.txt",
+        "line": "Disallow: /",
+        "read": "2026-11-27"
+      },
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "robots.txt bars each program.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X15",
+      "name": "Instagram",
+      "engine": "instagram",
+      "kind": "site",
+      "hosts": [
+        "www.instagram.com"
+      ],
+      "urlForms": [],
+      "terms": null,
+      "robots": {
+        "url": "https://www.instagram.com/robots.txt",
+        "line": "Disallow: /",
+        "read": "2026-11-27"
+      },
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "robots.txt bars each program.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X16",
+      "name": "LinkedIn",
+      "engine": "linkedin",
+      "kind": "site",
+      "hosts": [
+        "www.linkedin.com"
+      ],
+      "urlForms": [],
+      "terms": null,
+      "robots": {
+        "url": "https://www.linkedin.com/robots.txt",
+        "line": "Disallow: /",
+        "read": "2026-11-27"
+      },
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "robots.txt bars each program.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X17",
+      "name": "The ChatGPT app",
+      "engine": "chatgpt",
+      "kind": "site",
+      "hosts": [
+        "chatgpt.com"
+      ],
+      "urlForms": [],
+      "terms": {
+        "url": "https://openai.com/policies/terms-of-use/",
+        "line": "Automatically or programmatically extract data or Output (defined below).",
+        "read": "2026-11-27"
+      },
+      "robots": {
+        "url": "https://chatgpt.com/robots.txt",
+        "line": "Disallow: /",
+        "read": "2026-11-27"
+      },
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "Its terms and its robots.txt bar a program.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X18",
+      "name": "The Perplexity app",
+      "engine": "perplexity",
+      "kind": "site",
+      "hosts": [
+        "www.perplexity.ai"
+      ],
+      "urlForms": [],
+      "terms": {
+        "url": "https://www.perplexity.ai/hub/legal/terms-of-service",
+        "line": "or engage in any manual process to do the same",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "Its terms bar a program, and the same by hand.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "X19",
+      "name": "The Gemini app",
+      "engine": "gemini",
+      "kind": "site",
+      "hosts": [
+        "gemini.google.com"
+      ],
+      "urlForms": [],
+      "terms": null,
+      "robots": {
+        "url": "https://gemini.google.com/robots.txt",
+        "line": "Disallow: /app/",
+        "read": "2026-11-27"
+      },
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "robots.txt bars the app path.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "OS1",
+      "name": "Nominatim, the public search",
+      "engine": "osm-nominatim",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://operations.osmfoundation.org/policies/nominatim/",
+        "line": "This includes reverse queries in a grid, searching for complete lists of postcodes, towns etc. and downloading all POIs in an area.",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "Its policy bars lists of each place in an area.",
+      "driver": null,
+      "note": null
+    },
+    {
+      "id": "OS2",
+      "name": "The main Overpass instance (overpass-api.de, FOSSGIS)",
+      "engine": "osm-fossgis",
+      "kind": "api",
+      "hosts": [],
+      "urlForms": [],
+      "terms": {
+        "url": "https://www.fossgis.de/arbeitsgruppen/osm-server/nutzungsbedingungen/",
+        "line": "Commercial use is only permitted if the use of the services does not constitute a substantial part of an online offering.",
+        "read": "2026-11-27"
+      },
+      "robots": null,
+      "robotsAtRun": false,
+      "key": null,
+      "quota": null,
+      "limits": [],
+      "pace": null,
+      "keepDays": null,
+      "attribution": null,
+      "ownerNeeds": [],
+      "state": "barred",
+      "because": "Its terms bar our commercial use and mass downloads.",
+      "driver": null,
+      "note": null
+    }
+  ]
+}
