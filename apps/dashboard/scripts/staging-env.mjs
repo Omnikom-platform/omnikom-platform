@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const ASK_EMAIL = JSON.parse(readFileSync(join(ROOT, '..', '..', 'supabase', 'ops', 'environments.json'), 'utf8')).staging.askEmail;
-if (!ASK_EMAIL) throw new Error('supabase/ops/environments.json: staging.askEmail is missing or empty');
+if (typeof ASK_EMAIL !== 'string' || !/^\S+@\S+$/.test(ASK_EMAIL)) throw new Error('supabase/ops/environments.json: staging.askEmail is missing, empty or not an address');
 
 export function stagingBuildEnv(env, { directFunctions = false } = {}) {
   const ref = env.STAGING_SUPABASE_REF, key = env.STAGING_SUPABASE_PUBLISHABLE_KEY;
