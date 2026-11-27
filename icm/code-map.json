@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1083,
+    "sources": 1089,
     "unowned": 0
   },
   "files": [
@@ -49,7 +49,7 @@
     {"path":"apps/dashboard/src/lib/settings.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/settings.ts","owner":"platform-build","exports":["AlertProblem","MAX_ALERTS","Member","ParsedAlerts","alertsChanged","alertsText","canRemove","canSaveAlerts","memberName","onlyYou","parseAlerts","validEmail"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/site.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/lib/site.ts","owner":"platform-build","exports":["Card","Change","CollectionDef","Contract","FieldDef","FieldRef","Job","JobEvent","JobState","LeftOut","Line","Over","Path","Placement","RUNNING","RestoreStep","SEO_DESCRIPTION_MAX","SEO_DESCRIPTION_MIN","SEO_TITLE_MAX","SEO_TITLE_MIN","SectionDef","SiteState","canAdd","canDelete","changesBetween","checksLine","clock","draftLink","dropDraft","editorCards","failureLines","feedLine","fieldLabel","getAt","humanize","keepDraft","leftOutLine","listCollections","loadDraft","overLimits","pathKey","progressLines","restoreSteps","rowTitle","sameData","seoShort","setAt","siteUrl","slugify","staleLine","stateLine","stepWords","visibleTo"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/lib/site.ts","owner":"platform-build","exports":["Card","Change","CollectionDef","Contract","FieldDef","FieldRef","Job","JobEvent","JobState","LeftOut","Line","Over","Path","Placement","RUNNING","RestoreStep","SEO_DESCRIPTION_MAX","SEO_DESCRIPTION_MIN","SEO_TITLE_MAX","SEO_TITLE_MIN","SectionDef","SiteState","canAdd","canDelete","changesBetween","checksLine","clock","draftLink","dropDraft","editorCards","failureLines","feedLine","fieldLabel","getAt","humanize","keepDraft","leftOutLine","listCollections","loadDraft","overLimits","pathKey","progressLines","restoreSteps","rowTitle","sameData","seoShort","setAt","siteUrl","slugify","staleLine","stateLine","stepWords","visibleTo"],"tests":["apps/dashboard/tests/site-switcher.spec.ts"],"feature":""},
     {"path":"apps/dashboard/src/lib/views.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/views.ts","owner":"platform-build","exports":["AddressFilter","ColumnInfo","DISPLAY_ONLY","DUPLICATE","FOLLOW_UP","LeadsSearch","PickerLine","SavedQuery","SavedView","Screen","allColumns","canChangeView","canShareView","commitColumns","fromAddress","fromSaved","groupViews","moveColumn","parseAddress","pickerLines","shownColumns","toAddress","toSaved","toggleColumn"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/main.tsx","owner":"platform-build","exports":[],"tests":["apps/dashboard/tests/mutants.ts"],"feature":""},
@@ -100,8 +100,8 @@
     {"path":"apps/dashboard/src/session-flag.ts","owner":"platform-build","exports":["markSignOutByPerson","takeSignOutByPerson"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/site-choice.ts","owner":"platform-build","exports":["activeSiteId","rememberSite","storedSite"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/site-context.ts","owner":"platform-build","exports":["SiteContext","SiteValue","useSiteValue"],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/supabase.ts","owner":"platform-build","exports":["supabase"],"tests":[],"feature":""},
-    {"path":"apps/dashboard/src/toast.tsx","owner":"platform-build","exports":["ToastAction","ToastProvider","UNDO","useToast"],"tests":["apps/dashboard/tests/site.spec.ts"],"feature":""},
+    {"path":"apps/dashboard/src/supabase.ts","owner":"platform-build","exports":["supabase"],"tests":["apps/dashboard/tests/sign-out.spec.ts"],"feature":""},
+    {"path":"apps/dashboard/src/toast.tsx","owner":"platform-build","exports":["ToastAction","ToastProvider","UNDO","useToast"],"tests":["apps/dashboard/tests/site.spec.ts","apps/dashboard/tests/status-undo.spec.ts"],"feature":""},
     {"path":"apps/dashboard/src/vite-env.d.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/workspace-context.ts","owner":"platform-build","exports":["WorkspaceContext","WorkspaceValue","useWorkspaceValue"],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/business-switch-mutants.ts","owner":"platform-build","exports":["BusinessSwitchMutant","active","installBusinessSwitchMutant"],"tests":[],"feature":""},
@@ -119,7 +119,13 @@
     {"path":"apps/dashboard/tests/preview-port.test.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/realtime.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/search-mutants.ts","owner":"platform-build","exports":["SearchMutant","installSearchMutant"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/tests/sign-out-mutants.ts","owner":"platform-build","exports":["SignOutMutant","active","installSignOutMutant"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/tests/sign-out.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"apps/dashboard/tests/site-switcher-mutants.ts","owner":"platform-build","exports":["SiteSwitcherMutant","active","installSiteSwitcherMutant"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/tests/site-switcher.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/site.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"apps/dashboard/tests/status-undo-mutants.ts","owner":"platform-build","exports":["StatusUndoMutant","installStatusUndoMutant"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/tests/status-undo.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/styles.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/support/clean-flow-leads.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/support/own-lead.ts","owner":"platform-build","exports":["OwnLead","makeOwnLead","removeOwnLeads"],"tests":[],"feature":""},
