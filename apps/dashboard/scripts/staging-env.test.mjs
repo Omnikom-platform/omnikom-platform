@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stagingBuildEnv } from './staging-env.mjs';
+import { ASK_EMAIL, stagingBuildEnv } from './staging-env.mjs';
 
 const input = { STAGING_SUPABASE_REF: 'abcdefghijklmnopqrst', STAGING_SUPABASE_PUBLISHABLE_KEY: 'k' };
 
@@ -12,5 +12,8 @@ describe('the staging build environment carries the Ask Omnikom address (B18)', 
   });
   it('control: a missing key is still named, and no environment is given', () => {
     expect(stagingBuildEnv({ STAGING_SUPABASE_REF: input.STAGING_SUPABASE_REF })).toEqual({ missing: ['STAGING_SUPABASE_PUBLISHABLE_KEY'] });
+  });
+  it('exports the address as ASK_EMAIL: tests/flows.spec.ts imports it, and staging-env.d.mts only declares it', () => {
+    expect(ASK_EMAIL).toBe('hello@omnikom.ai');
   });
 });
