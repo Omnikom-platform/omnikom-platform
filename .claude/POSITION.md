@@ -64,7 +64,8 @@ HEAD 01:58 intake of 66bfbaf0 GREEN (his worktree). HEAD 01:50 GO R3 report; 01:
   05:30 PUSHED 9516a199 (head 04:17 accepted the runner-test change). Run 45934549195: gates RED "STALE icm/index.json: changed: .claude/POSITION.md (lines)":
   I regenerated icm with POSITION.md edited but not committed, and the local --check read the same dirty tree. Rule kept: regen and --check only on a clean
   tree (git status empty), POSITION committed with them. Fixed in the next sha. Next: every job green -> send the head 9516a199 + the run's full job list and conclusions.
-  (This block is uncommitted, worktree only.)
+  06:34 run 45935883477 on de19ddb5: 21 of 21 jobs success. Sent the head the sha + job list. Waiting for his land; then the collector HAND-OVER
+  (head 04:10), docs/advisor/r3/, NO BUILD before GO. (This block is uncommitted, worktree only; de19ddb5 is the sha to land, not re-pushed.)
 HEAD 04:10 NEXT JOB (after the engine lands): the learning loop's collector, ADR 007 steps 1-2, omnikom.io only. HAND-OVER FIRST in docs/advisor/r3/: where the report
   endpoint lives (own stack, no AI call, zero per-chat cost), its cost, redaction rules, 30-day delete. Red tests first: personal data in a miss removed before storage
   (mutants); GPC on = no report; a client-site pack = no report; report off by default in code, on only by the omnikom.io pack. The privacy paragraph goes to
