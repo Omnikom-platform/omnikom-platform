@@ -152,6 +152,66 @@ async function suite({ integration }) {
   r = check([], { env: { PC_TARGET_DB_URL: withPw(B.url), PC_PROVEN_DB_URL: withPw(A.url) } });
   t('a working run prints variable names, never the URL or the password', r.code === 0 && !r.out.includes(PW) && !r.out.includes(String(B.port)) && r.out.includes('PC_TARGET_DB_URL'), r.out);
 
+  // KNOWN-6: staging applied 15, 18, 19, 17, 20, 16. The recorded rows are excused only at their recorded times, while the proof runs in CI.
+  const K = { 15: '20261104000015_crm_export_import.sql', 16: '20261104000016_site_audit.sql', 17: '20261105000017_team.sql', 18: '20261105000018_lead_list_site.sql',
+    19: '20261109000019_reaper_schedule.sql', 20: '20261109000020_security_event_buckets.sql', 21: '20261109000021_media_limits.sql', 22: '20261109000022_crm_views_followup.sql' };
+  const STAGING = { 15: '2026-11-04 14:15:18.887743+00', 16: '2026-11-09 15:54:47.547589+00', 17: '2026-11-09 12:17:54.514561+00', 18: '2026-11-04 21:09:21.835723+00',
+    19: '2026-11-09 04:11:50.474595+00', 20: '2026-11-09 15:51:03.593903+00', 21: '2026-11-09 21:43:27.423634+00' };
+  const kText = name => `-- ${name}\n`;
+  const kDir = (label, numbers) => { const d = join(work, label); mkdirSync(d, { recursive: true }); for (const n of numbers) writeFileSync(join(d, K[n]), kText(K[n])); return d; };
+  const seven = kDir('k7', [15, 16, 17, 18, 19, 20, 21]), eight = kDir('k8', [15, 16, 17, 18, 19, 20, 21, 22]);
+  const setTimed = (c, times) => {
+    setOps(c, []);
+    c.sql(`insert into ops.platform_migrations (name, sha256, applied_at) values ${Object.entries(times).map(([n, at]) => `('${K[n]}', '${sha(kText(K[n]))}', timestamptz '${at}')`).join(',')};`);
+  };
+  const both = times => { setTimed(A, times); setTimed(B, times); };
+  const PROOF = 'supabase/ops/test/order-proof.test.mjs';
+  // a repository of its own: the exceptions file, the proof it names and the gate file are found from where the exceptions file lies
+  const repo = (label, { proof = true, gate = true } = {}) => {
+    const root = join(work, label);
+    for (const d of ['supabase/ops/test', 'docs/blueprint/specs']) mkdirSync(join(root, d), { recursive: true });
+    if (proof) writeFileSync(join(root, PROOF), '// the proof\n');
+    writeFileSync(join(root, 'docs/blueprint/specs/run-all-gates.mjs'), `const gates = [\n  ${gate ? '' : '// '}['migration order proof', '${PROOF}', '--mutants'],\n];\n`);
+    const file = join(root, 'supabase/ops/order-exceptions.json');
+    writeFileSync(file, JSON.stringify({ why: 'test', proof: PROOF, rows: Object.fromEntries([16, 17, 18, 19].map(n => [K[n], STAGING[n]])) }));
+    return file;
+  };
+  const good = repo('repo-good');
+  const NOT_TAKEN = /R-ORDER-EXCEPTION not taken: /;
+  const ordered = out => refusals(out).length > 0 && refusals(out).every(l => l.startsWith('REFUSE R-ORDER: '));
+
+  both(STAGING);
+  r = check(['--exceptions', good], { dir: seven });
+  t('E1 a ledger shaped like staging with the exception taken: no R-ORDER, exit 0', r.code === 0 && refusals(r.out).length === 0 && !NOT_TAKEN.test(r.out), r.out);
+  B.sql("alter database postgres set timezone = 'Africa/Cairo'");
+  r = check(['--exceptions', good], { dir: seven });
+  B.sql('alter database postgres reset timezone');
+  t('E1 the times are compared as instants: a ledger read in another time zone is still excused', r.code === 0 && !NOT_TAKEN.test(r.out), r.out);
+  r = check(['--exceptions', join(work, 'no-such-exceptions.json')], { dir: seven });
+  t('E1 control: the same ledger with no exceptions file is refused R-ORDER', r.code === 1 && ordered(r.out), r.out);
+  if (script === REAL) {
+    r = check([], { dir: seven });
+    t('E1 the shipped exceptions file, proof and gate line excuse the staging ledger', r.code === 0 && refusals(r.out).length === 0 && !NOT_TAKEN.test(r.out), r.out);
+  }
+
+  both({ ...STAGING, 22: '2026-11-09 18:00:00+00' });
+  r = check(['--exceptions', good], { dir: eight });
+  t('E2 a fifth inverted row is refused R-ORDER by name', r.code === 1 && ordered(r.out) && refusals(r.out).every(l => l.includes(K[22])) && !NOT_TAKEN.test(r.out), r.out);
+
+  for (const [what, at] of [['1 ms', '2026-11-09 12:17:54.515561+00'], ['1 microsecond', '2026-11-09 12:17:54.514562+00']]) {
+    setTimed(A, STAGING); setTimed(B, { ...STAGING, 17: at });
+    r = check(['--exceptions', good], { dir: seven });
+    t(`E3 one recorded time off by ${what} on the target: not taken, R-ORDER refuses the target only`,
+      r.code === 1 && ordered(r.out) && refusals(r.out).every(l => l.includes('the target applied'))
+      && r.out.split(/\r?\n/).some(l => l.startsWith('R-ORDER-EXCEPTION not taken: target: ') && l.includes(K[17])), r.out);
+  }
+
+  both(STAGING);
+  r = check(['--exceptions', repo('repo-no-proof', { proof: false })], { dir: seven });
+  t('E4 the proof file is missing: not taken, R-ORDER refuses', r.code === 1 && ordered(r.out) && /not taken: .*proof file .* is missing/.test(r.out), r.out);
+  r = check(['--exceptions', repo('repo-no-gate', { gate: false })], { dir: seven });
+  t('E4 the gate line is missing (commented out): not taken, R-ORDER refuses', r.code === 1 && ordered(r.out) && /not taken: .*no gate line/.test(r.out), r.out);
+
   const mod = await import(`${pathToFileURL(script).href}?x=${Date.now()}${Math.random()}`);
   let refused = false;
   try { mod.psqlReadOnly(B.url, 'create table must_not_exist (id int);'); } catch (e) { refused = /read-only/.test(e.message); }
@@ -203,6 +263,9 @@ const MUTANTS = [
   ['the URL and password scrub is dropped', [["msg = msg.split(url).join('<db url>').replace(/postgres(ql)?:\\/\\/\\S+/g, '<db url>');", ''], ["if (pass.length >= 3) msg = msg.split(pass).join('<password>');", '']], /unreachable database/],
   ['a database with no history table becomes an error', [["return { source: 'none (no history table: nothing applied)', entries: [] };", "throw new DbError('no history');"]], /no history table/],
   ['--expect-pending is ignored', [['if (expect !== null && Number(expect) !== pending.length)', 'if (false)']], /R-COUNT/],
+  ['KNOWN-6: the recorded times are not checked', [['micros(by.get(n).at) !== micros(exceptions.rows[n])', 'false']], /^E3 /],
+  ['KNOWN-6: any inverted row is excused, not only the listed ones', [['!skip.has(e.name)', '!skip.size']], /^E2 /],
+  ['KNOWN-6: the proof file and gate line are not checked', [[': exceptions.blocked;', ': null;']], /^E4 /],
   ['smoke accepts a function the gateway says is not deployed', [["if (status === 404 && json && json.code === 'NOT_FOUND') return { ok: false, why: 'not deployed' };", '']], /smoke judgement|smoke over/],
 ];
 

@@ -1,0 +1,18 @@
+{
+  "why": "KNOWN-6: staging applied 15, 18, 19, 17, 20, 16 (ledger read 2026-11-26); ruled 2026-11-26: excused, not rewritten",
+  "proof": "supabase/ops/test/order-proof.test.mjs",
+  "appliedOrder": [
+    "20261104000015_crm_export_import.sql",
+    "20261105000018_lead_list_site.sql",
+    "20261109000019_reaper_schedule.sql",
+    "20261105000017_team.sql",
+    "20261109000020_security_event_buckets.sql",
+    "20261104000016_site_audit.sql"
+  ],
+  "rows": {
+    "20261104000016_site_audit.sql": "2026-11-09 15:54:47.547589+00",
+    "20261105000017_team.sql": "2026-11-09 12:17:54.514561+00",
+    "20261105000018_lead_list_site.sql": "2026-11-04 21:09:21.835723+00",
+    "20261109000019_reaper_schedule.sql": "2026-11-09 04:11:50.474595+00"
+  }
+}

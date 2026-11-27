@@ -15,7 +15,10 @@
 // It prints the target's pending list and refuses (exit 1, one line each, code first) when:
 //   R-PENDING-NOT-PROVEN    a pending file is not applied on the proven database
 //   R-ORDER                 the order differs: a pending file sorts before one the target already applied, or a database applied
-//                           its files in a different order than their names
+//                           its files in a different order than their names. Excused, never rewritten: the rows of
+//                           supabase/ops/order-exceptions.json (--exceptions <file>), per database, only while all of them stand at
+//                           their recorded times AND the proof it names exists and has a gate line (CI runs it); else one
+//                           "R-ORDER-EXCEPTION not taken: ..." line and the full order check
 //   R-TARGET-NOT-IN-REPO    the target applied a migration the repository does not have
 //   R-TARGET-NOT-PROVEN     the target applied a migration the proven database does not have
 //   R-PROVEN-NOT-IN-REPO    the proven database applied a migration the repository does not have
@@ -85,6 +88,38 @@ export function readLedger(url, exec = psqlReadOnly) {
 }
 
 // ----------------------------------------------------------------------------------------------------------- the decision
+// ------------------------------------------------------------------------------------------------- the recorded order exceptions
+// KNOWN-6 (supabase/ops/order-exceptions.json): rows applied out of file order that are excused, not rewritten. A ledger takes the
+// exception only when it holds EVERY listed row at its recorded instant, the proof file exists and a gate line runs it in CI.
+export function micros(text) {   // a timestamptz as text -> microseconds since 1970 (a Date would drop the last three digits)
+  const m = /^(\d{4}-\d\d-\d\d)[ T](\d\d:\d\d:\d\d)(?:\.(\d{1,6}))?(Z|[+-]\d\d(?::?\d\d)?)$/.exec(String(text));
+  if (!m) return null;
+  const zone = m[4] === 'Z' ? 'Z' : `${m[4].slice(0, 3)}:${m[4].slice(3).replace(':', '') || '00'}`;
+  return Date.parse(`${m[1]}T${m[2]}${zone}`) * 1000 + Number((m[3] || '').padEnd(6, '0'));
+}
+
+// null = no file. The proof and the gate file are found from where the file lies: <repository>/supabase/ops/<file>.
+export function readExceptions(file) {
+  if (!existsSync(file)) return null;
+  const x = JSON.parse(readFileSync(file, 'utf8'));
+  if (!x.rows || typeof x.proof !== 'string' || !x.proof) throw new Error('it needs "rows" and "proof"');
+  const root = join(dirname(file), '..', '..');
+  const gates = join(root, 'docs', 'blueprint', 'specs', 'run-all-gates.mjs');
+  const named = existsSync(gates) && readFileSync(gates, 'utf8').split('\n').some(l => /^\s*\[/.test(l) && l.includes(`'${x.proof}'`));
+  const blocked = !existsSync(join(root, x.proof)) ? `the proof file ${x.proof} is missing` : !named ? `no gate line in run-all-gates.mjs names ${x.proof}` : null;
+  return { rows: x.rows, blocked };
+}
+
+// the names to leave out of this ledger's order comparison, and why not when it has some of them but may not
+export function excuse(exceptions, ledger) {
+  const names = Object.keys(exceptions?.rows ?? {});
+  const by = new Map(ledger.entries.map(e => [e.name, e]));
+  if (!names.some(n => by.has(n))) return { skip: new Set(), why: null };
+  const off = names.find(n => !by.has(n) || micros(by.get(n).at) === null || micros(by.get(n).at) !== micros(exceptions.rows[n]));
+  const why = off ? `${off} ${by.has(off) ? 'is not at its recorded time' : 'is not in the ledger'}` : exceptions.blocked;
+  return { skip: new Set(why ? [] : names), why };
+}
+
 // true = the file differs from what this entry recorded, false = same, null = the history cannot say
 export function contentDiffers(entry, file) {
   if (entry.sha256) return entry.sha256 !== file.sha;
@@ -93,8 +128,8 @@ export function contentDiffers(entry, file) {
 }
 const how = (entry, file) => (entry.sha256 ? `recorded sha256 ${short(entry.sha256)}, file sha256 ${short(file.sha)}` : 'the recorded statements differ from the file');
 
-export function evaluate({ files, proven, target }) {
-  const refusals = [], notes = [];
+export function evaluate({ files, proven, target, exceptions = null }) {
+  const refusals = [], notes = [], untaken = [];
   const fileBy = new Map(files.map(f => [f.name, f]));
   const pBy = new Map(proven.entries.map(e => [e.name, e]));
   const tBy = new Map(target.entries.map(e => [e.name, e]));
@@ -105,8 +140,12 @@ export function evaluate({ files, proven, target }) {
 
   // order: each database must have applied its files in file-name order, and nothing pending may sort before what the target has
   for (const [label, led] of [['proven database', proven], ['target', target]]) {
-    const applied = led.entries.slice().sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : byName(a, b)));
-    const byFile = led.entries.slice().sort(byName);
+    const { skip, why } = excuse(exceptions, led);
+    if (why) untaken.push(`R-ORDER-EXCEPTION not taken: ${label}: ${why}`);
+    if (skip.size) notes.push(`R-ORDER-EXCEPTION taken: ${label}: ${skip.size} recorded rows left out of the order comparison`);
+    const kept = led.entries.filter(e => !skip.has(e.name));
+    const applied = kept.slice().sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : byName(a, b)));
+    const byFile = kept.slice().sort(byName);
     for (let i = 0; i < applied.length; i++) {
       if (applied[i].name !== byFile[i].name) {
         refusals.push(`R-ORDER: the ${label} applied ${applied[i].name} before ${byFile[i].name}, but the file order is the other way`);
@@ -137,7 +176,7 @@ export function evaluate({ files, proven, target }) {
     if (d === null) blind++;
   }
   if (blind) notes.push(`content not comparable for ${blind} entries (the history keeps neither a hash nor statements)`);
-  return { pending, refusals, notes };
+  return { pending, refusals, notes, untaken };
 }
 
 // ---------------------------------------------------------------------------------------------------- functions and smoke
@@ -169,7 +208,7 @@ export async function smoke(base, names, fetchImpl = globalThis.fetch) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------ main
-const usage = 'usage: promote-check.mjs --proven <VAR> --target <VAR> [--dry-run] [--expect-pending N] [--migrations <dir>] | functions | smoke --ref <VAR>';
+const usage = 'usage: promote-check.mjs --proven <VAR> --target <VAR> [--dry-run] [--expect-pending N] [--migrations <dir>] [--exceptions <file>] | functions | smoke --ref <VAR>';
 
 export async function main(argv, env = process.env, log = console.log, err = console.error) {
   const opt = n => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : null; };
@@ -198,18 +237,20 @@ export async function main(argv, env = process.env, log = console.log, err = con
   if (!targetUrl) { err(`set ${targetVar} (a database URL; read by name, never printed)`); return 2; }
   if (provenUrl === targetUrl && !dry) { err(`refusing: ${provenVar} and ${targetVar} are the same database (only --dry-run may compare a database with itself)`); return 2; }
 
-  let files, proven, target;
+  let files, proven, target, exceptions;
+  try { exceptions = readExceptions(opt('--exceptions') || join(HERE, 'order-exceptions.json')); } catch (e) { err(`cannot read the exceptions file: ${e.message}`); return 2; }
   try { files = readRepoMigrations(dir); } catch (e) { err(`cannot read the migrations folder: ${String(e.message).split(dir).join('<dir>')}`); return 2; }
   try { proven = readLedger(provenUrl); } catch (e) { err(`cannot read ${provenVar}: ${e.message}`); return 2; }
   try { target = readLedger(targetUrl); } catch (e) { err(`cannot read ${targetVar}: ${e.message}`); return 2; }
 
-  const { pending, refusals, notes } = evaluate({ files, proven, target });
+  const { pending, refusals, notes, untaken } = evaluate({ files, proven, target, exceptions });
   log(`${dry ? 'DRY RUN (reads only; this script never writes)\n' : ''}repository: ${files.length} migrations`);
   log(`proven ${provenVar}: ${proven.entries.length} applied (${proven.source})`);
   log(`target ${targetVar}: ${target.entries.length} applied (${target.source})`);
   log(`pending on the target: ${pending.length}`);
   for (const p of pending) log(`  ${p}`);
   for (const n of notes) log(`note: ${n}`);
+  for (const u of untaken) log(u);
   if (expect !== null && Number(expect) !== pending.length) refusals.push(`R-COUNT: expected ${expect} pending, found ${pending.length}`);
   if (refusals.length) {
     for (const r of refusals) log(`REFUSE ${r}`);
