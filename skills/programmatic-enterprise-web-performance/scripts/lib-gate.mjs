@@ -137,7 +137,8 @@ export function makeGate({ pewp, run, client, sources, stopsDir, now = () => Dat
     let list;
     try { list = await lookup(name); } catch { return true; }
     if (!Array.isArray(list) || list.length === 0) return true;
-    return list.some((x) => !x || typeof x !== "object" || innerAddress(x.address));
+    // an empty place of the list is an item that is not an object: some() alone skips it, so the list is copied first
+    return [...list].some((x) => !x || typeof x !== "object" || innerAddress(x.address));
   };
   const refusals = new Map(); // host -> 403 answers in a row
   const robots = new Map(); // origin -> the rules, or null: they cannot be read

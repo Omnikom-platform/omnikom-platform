@@ -841,6 +841,16 @@ await t("with no lookup of the caller the gate asks the machine: localhost is no
   eq(a.f.calls.length, 0, "requests");
 });
 
+await t("an empty place in the list of a lookup is not an address, so the name is not read", async () => {
+  const P = { address: "93.184.216.34", family: 4 };
+  for (const [i, list] of [new Array(1), [, P], [P, , P]].entries()) {
+    const a = mk(() => ({ status: 200 }), { lookup: async () => list });
+    const r = await ask(a.gate, "R1", PAGE);
+    eq([r.sent, r.why], [false, "address"], "list " + i);
+    eq(a.f.calls.length, 0, "requests " + i);
+  }
+});
+
 // ---- the mutants: one broken copy of the library for each rule (node scripts/test-gate.mjs --mutants) ----
 // A mutant is one change of the text of lib-gate.mjs: "from" is found one time in the file, and "to" takes its place. The scripts
 // folder and sources.json are copied to a temp folder one time; each mutant is written there and this test runs on it. The test
@@ -901,6 +911,7 @@ const RULES = [
   ["G53", "a robots.txt that moves to an inner address is not followed"],
   ["G54", "an API source is not asked for its address, and a lookup that is not a function is refused"],
   ["G55", "with no lookup of the caller the gate asks the machine: localhost is not read"],
+  ["G56", "an empty place in the list of a lookup is not an address, so the name is not read"],
 ];
 // MUTANTS-BEGIN (the builder fills this list: one entry for each rule id, { from, to }. Nothing outside the two marks changes.)
 const MUTANTS = {
@@ -959,6 +970,7 @@ const MUTANTS = {
   G53: { from: "if (row.kind === \"reader\" && (await isInner(next.hostname))) { notSent({ ...entry, url: next.href }, \"address\"); return null; }\n", to: "" },
   G54: { from: "row.kind === \"reader\" && (await isInner(u.hostname))", to: "(await isInner(u.hostname))" },
   G55: { from: "lookup = (host) => dns.promises.lookup(host, { all: true })", to: "lookup = async () => [{ address: \"93.184.216.34\", family: 4 }]" },
+  G56: { from: "return [...list].some((x) =>", to: "return list.some((x) =>" },
 };
 // MUTANTS-END
 async function mutants() {
