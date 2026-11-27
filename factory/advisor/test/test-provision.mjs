@@ -12,7 +12,7 @@ const TOKEN = 'x'.repeat(24), ACCT = '9f2e4c1a7b3d5e6f8a0b1c2d3e4f5a6b', OTHER_A
 const API = 'https://api.cloudflare.com/client/v4';
 
 // state: { projects: [{ name, domains, kv, vars, more (production's other keys), preview }], namespaces: [{ id, title }] }; opts: replace (PATCH drops names),
-// dropRest (PATCH drops production's other binding kinds and the preview environment), fail (HTTP 403 echoing the token), noDomains (list without domains)
+// dropRest (PATCH drops production's other binding kinds and the preview environment); state.other: { projects, namespaces } = a second account, listed first; fail (HTTP 403 echoing the token), noDomains (list without domains)
 function fakeCF(state, opts = {}) {
   const calls = [];
   const ok = (result, info) => new Response(JSON.stringify({ success: true, errors: [], result, ...(info ? { result_info: info } : {}) }), { status: 200 });
@@ -24,13 +24,13 @@ function fakeCF(state, opts = {}) {
     const u = new URL(url), method = init.method || 'GET', body = init.body ? JSON.parse(init.body) : null;
     calls.push({ method, path: u.pathname.replace('/client/v4', ''), body, auth: init.headers?.authorization, signal: init.signal });
     const parts = u.pathname.replace('/client/v4/', '').split('/');
-    if (parts[0] === 'accounts' && parts.length === 1) return page([{ id: ACCT, name: 'Work' }], u, 50);
+    if (parts[0] === 'accounts' && parts.length === 1) return page([...(state.other ? [{ id: OTHER_ACCT, name: 'Old' }] : []), { id: ACCT, name: 'Work' }], u, 50);
     if (opts.fail) return new Response(JSON.stringify({ success: false, errors: [{ code: 10000, message: 'Authentication error for ' + TOKEN + ' on ' + ACCT }] }), { status: 403 });
-    const acct = parts[1];
-    if (acct !== ACCT) return new Response(JSON.stringify({ success: false, errors: [{ code: 7003, message: 'no route' }] }), { status: 404 });
-    if (parts[2] === 'pages' && parts.length === 4) return page(state.projects.map(show), u, 10);
+    const acct = parts[1], st = acct === ACCT ? state : acct === OTHER_ACCT && state.other ? state.other : null;
+    if (!st) return new Response(JSON.stringify({ success: false, errors: [{ code: 7003, message: 'no route' }] }), { status: 404 });
+    if (parts[2] === 'pages' && parts.length === 4) return page(st.projects.map(show), u, 10);
     if (parts[2] === 'pages') {
-      const p = state.projects.find((x) => x.name === parts[4]);
+      const p = st.projects.find((x) => x.name === parts[4]);
       if (!p) return new Response(JSON.stringify({ success: false, errors: [{ code: 8000007, message: 'Project not found' }] }), { status: 404 });
       if (parts[5] === 'domains') return ok(p.domains.map((name) => ({ name, status: 'active' })));
       if (method === 'PATCH') {
@@ -42,8 +42,8 @@ function fakeCF(state, opts = {}) {
       }
       return ok(show(p));
     }
-    if (parts[2] === 'storage' && method === 'POST') { const n = { id: 'ns' + (state.namespaces.length + 1).toString().padStart(30, '0'), title: body.title }; state.namespaces.push(n); return ok(n); }
-    if (parts[2] === 'storage') return page(state.namespaces, u, 20);
+    if (parts[2] === 'storage' && method === 'POST') { const n = { id: 'ns' + (st.namespaces.length + 1).toString().padStart(30, '0'), title: body.title }; st.namespaces.push(n); return ok(n); }
+    if (parts[2] === 'storage') return page(st.namespaces, u, 20);
     return new Response('{}', { status: 404 });
   };
   return { calls, fetch, state };
@@ -61,7 +61,7 @@ const scenarios = async (dir) => {
     try { code = await run({ argv, env, fetch: cf.fetch, log: (s) => lines.push(String(s)), ...(salt ? { salt } : {}) }); } catch (e) { code = 'threw: ' + e.message; }
     return { code, out: lines.join('\n'), writes: cf.calls.filter((c) => c.method !== 'GET') };
   };
-  const clean = (out, extra = []) => ![TOKEN, ACCT, ...extra].some((s) => out.includes(s));
+  const clean = (out, extra = []) => ![TOKEN, ACCT, OTHER_ACCT, ...extra].some((s) => out.includes(s));
   let cf, r;
 
   // usage and keys
@@ -126,6 +126,12 @@ const scenarios = async (dir) => {
   const mark = cf.calls.length, second = await go(['--apply'], cf);
   check('apply twice: the second run writes nothing (the salt is not rotated)', second.code === 0 && cf.calls.slice(mark).every((c) => c.method === 'GET') && cf.state.projects[0].vars.REPORT_SALT.value === saltValue, second.out);
 
+  // two accounts under one token, the project in the second: that account is named and written to, the other is left alone
+  cf = fakeCF({ other: { projects: others(2), namespaces: [{ id: 'ns-old', title: 'OLD' }] }, projects: [site()], namespaces: [] });
+  r = await go(['--apply'], cf);
+  check('two accounts, the project in the second: YES says account 2 of 2', r.code === 0 && /account 2 of 2/.test(r.out), r.code + '\n' + r.out);
+  check('two accounts: every write goes to the account of the project, none to the other, and neither id is printed', r.writes.length === 2 && r.writes.every((c) => c.path.startsWith('/accounts/' + ACCT + '/')) && cf.state.other.namespaces.length === 1 && cf.state.namespaces.some((n) => n.title === 'ADVISOR_REPORTS') && clean(r.out), r.writes.map((c) => c.method).join(', ') + '\n' + r.out);
+
   // apply when the namespace exists and the salt is set: bind only
   cf = fakeCF({ projects: [site({ vars: { REPORT_SALT: { type: 'secret_text', value: 'keep-me' } } })], namespaces: [{ id: 'ns-adv', title: 'ADVISOR_REPORTS' }] });
   r = await go(['--apply'], cf);
@@ -174,6 +180,8 @@ const MUTANTS = [
   { name: 'the check after the PATCH removed', patches: [P('provision.mjs', 'if (lost.length) {', 'if (false) {')], expect: [/dropped other names/] },
   { name: 'the check after the PATCH reads production only', patches: [P('provision.mjs', 'const names = (dc) => Object.entries(dc).flatMap(', 'const names = (dc) => Object.entries({ production: dc.production || {} }).flatMap(')], expect: [/dropped a preview name/] },
   { name: 'the check after the PATCH reads KV and variables only', patches: [P('provision.mjs', 'Object.entries(c || {}).flatMap(', "Object.entries(c || {}).filter(([kind]) => ['kv_namespaces', 'env_vars'].includes(kind)).flatMap(")], expect: [/binding of another kind/] },
+  { name: 'the namespace made on the first account the token reads', patches: [P('provision.mjs', "ns = await cf('POST', `/accounts/${acct}/storage/kv/namespaces`", "ns = await cf('POST', `/accounts/${accounts[0].id}/storage/kv/namespaces`")], expect: [/every write goes to the account of the project/] },
+  { name: 'the account number fixed at 1', patches: [P('provision.mjs', '${accounts.findIndex((a) => a.id === acct) + 1} of', '1 of')], expect: [/account 2 of 2/] },
   { name: 'the domain matched by suffix', patches: [P('provision.mjs', "(d) => d === domain || d === 'www.' + domain", '(d) => d.endsWith(domain)')], expect: [/look-alikes only/] },
   { name: 'only the first page read', patches: [P('provision.mjs', 'if (list.length < per) break;', 'break;')], expect: [/page 2 of the list/] },
   { name: 'the other-namespace refusal removed', patches: [P('provision.mjs', 'if (bound && (!ns || bound !== ns.id)) {', 'if (false) {')], expect: [/bound to another namespace/, /of another title/] },

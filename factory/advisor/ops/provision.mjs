@@ -66,7 +66,7 @@ export async function run({ argv = [], env = {}, fetch = globalThis.fetch, log =
       say(`BLOCKED — ${domain} is not on this token's account — a token for the account that holds its Pages project`);
       return 3;
     }
-    say(`YES: the Pages project ${project} serves ${domain} (account 1 of ${accounts.length} read; ids not printed).`);
+    say(`YES: the Pages project ${project} serves ${domain} (account ${accounts.findIndex((a) => a.id === acct) + 1} of ${accounts.length} read; ids not printed).`);
     const projPath = `/accounts/${acct}/pages/projects/${project}`;
     const configs = async () => (await cf('GET', projPath))?.deployment_configs || {};
     // every name in every map of both environments (KV, variables and secrets, D1, R2, services, ...): the PATCH may lose none of them
