@@ -42,7 +42,7 @@ async function scenarios(dir) {
     const pages = titles.map((t) => (t in PAGES ? { pageid: 1, title: t, ...PAGES[t] } : { title: t, missing: true }));
     return { body: { batchcomplete: true, query: { pages } } };
   });
-  const env = { WIKI_ACTION_API_BASE: `${srv.url}/w/api.php`, PEWP_TEST_GAP_MS: "0" };
+  const env = { WIKI_ACTION_API_BASE: `${srv.url}/w/api.php`, PEWP_TEST_GAP_MS: "0", PEWP_CONTACT: "person@example.test" };
   const fresh = (n, cities, { approved = true } = {}) => {
     const cwd = path.join(tmp, n), pewp = path.join(cwd, "site-checks", "centres-test.test", ".pewp");
     if (cities) { W(path.join(pewp, "business.json"), business(cities)); if (approved) W(path.join(pewp, "approved", "business.json"), business(cities)); }
@@ -55,7 +55,7 @@ async function scenarios(dir) {
     let r = await go(w);
     const q = srv.reqs.slice(h), qs = q[0] ? new URL(q[0].url, "http://x").searchParams : new URLSearchParams();
     check("centres: one request per city, a GET to /w/api.php with action=query, prop=coordinates, coprimary=primary, formatversion=2, redirects=1 and BOTH candidate titles in one request ('Sacramento, California|Sacramento')", r.code === 0 && q.length === 1 && q[0].method === "GET" && qs.get("action") === "query" && qs.get("prop") === "coordinates" && qs.get("coprimary") === "primary" && qs.get("formatversion") === "2" && qs.get("redirects") === "1" && qs.get("titles") === "Sacramento, California|Sacramento", `exit ${r.code} ${q.length} requests ${q[0]?.url} ${r.out}`);
-    check("centres: a descriptive User-Agent is sent (Wikimedia asks for one)", /PEWP-Research/.test(q[0]?.headers["user-agent"] || ""), JSON.stringify(q[0]?.headers));
+    check("centres: a descriptive User-Agent is sent (Wikimedia asks for one)", q[0]?.headers["user-agent"] === "OmnikomAudit/1.0 (+https://omnikom.ai)", JSON.stringify(q[0]?.headers));
     const cities = fs.existsSync(w.file) ? J(w.file) : [];
     const e = cities[0] || {};
     check("centres: cities.json is a list of { city, lat, lng, source, readAt, title }: Sacramento 38.58111, -121.49389, the source is the page address, readAt is the date", cities.length === 1 && e.city === "Sacramento, CA" && e.lat === 38.58111 && e.lng === -121.49389 && e.source === "https://en.wikipedia.org/wiki/Sacramento,_California" && e.readAt === "2026-11-11" && e.title === "Sacramento, California" && e.by === "wikipedia", JSON.stringify(cities));
@@ -114,6 +114,7 @@ const MUTANTS = [
   { name: "a two-letter state is not spelled out", patches: [{ file: LC, from: "STATES[st.toUpperCase()] || st", to: "st" }], expect: [/^centres: one request per city, a GET/] },
   { name: "the primary coordinates are not asked for", patches: [{ file: LC, from: "coprimary: \"primary\", ", to: "" }], expect: [/^centres: one request per city, a GET/] },
   { name: "no User-Agent", patches: [{ file: LC, from: "init: { headers: { \"user-agent\": UA, accept: \"application/json\" } }", to: "init: { headers: { accept: \"application/json\" } }" }], expect: [/^centres: a descriptive User-Agent/] },
+  { name: "the User-Agent reads the contact variable", patches: [{ file: "research-lib.mjs", from: "export const UA = \"OmnikomAudit/1.0 (+https://omnikom.ai)\";", to: "export const UA = `OmnikomAudit/1.0 (+${process.env.PEWP_CONTACT || \"https://omnikom.ai\"})`;" }], expect: [/^centres: a descriptive User-Agent/] },
   { name: "the source is not the page address", patches: [{ file: LC, from: "source: wikiUrl(pick.title)", to: "source: \"wikipedia\"" }], expect: [/^centres: cities.json is a list/, /^centres: when 'City, State' has no page/] },
   { name: "a page with no coordinates is not noticed (a zero is written)", patches: [{ file: LC, from: "if (!co) continue;", to: "if (!co) return { title: p.title, lat: 0, lng: 0 };" }], expect: [/^centres: a city whose page has no coordinates/] },
   { name: "invalid coordinates are written", patches: [{ file: LC, from: "if (!valid(co)) { sawBad = true; continue; }", to: "" }], expect: [/^centres: coordinates that are not valid numbers/] },
