@@ -48,7 +48,15 @@ XSTATE 01:45 (UNCOMMITTED, all gates run here): engine/flows.mjs + script.mjs/in
 HEAD 01:58 intake of 66bfbaf0 GREEN (his worktree). HEAD 01:50 GO R3 report; 01:58 add a CI job for factory/advisor (npm ci --ignore-scripts, the 10 tests, both packs),
   red once by a mutant on the branch, then green; 02:05 rebase onto master ee341f33. DONE locally: docs/advisor/R3-report.md; ci.yml job advisor; omnikom ci mapping
   (tools/omnikom-cli/commands/ci.mjs, cli-and-testing's file, 3 lines: told the head); omnikom ci --job advisor: "ci: 1 jobs, 1 PASS, 0 FAIL".
-  Rebased onto ee341f33 (02:11; factory/advisor diff against 66bfbaf0 empty). Next: actionlint + CLI real-ci.yml test locally, then push a mutant (red), then clean (green).
+  Rebased onto ee341f33 (02:11; factory/advisor diff against 66bfbaf0 empty). Local: omnikom ci --job workflows PASS (actionlint no findings); CLI run.mjs --unit
+  1255 ok, 1 FAIL (the --bail child of a redact.mjs mutant hit its 240 s spawn timeout, status null; not the ci mapping; CI decides).
+  03:13 clean = fdeb91da (local HEAD). MUTANT de971b31 (route group last) on check/platform/advisor-engine, run 45919460307 QUEUED behind 5 other runs.
+  03:15 advisor job RED on de971b31 (job 140246455383): "FAIL every path answers byte-equal ... (4191 replies compared)" / "FLOWS TEST FAIL: 1 of 9".
+  HEAD 03:15 ruled B: factory/advisor/package-lock.json into tools/test/dep-scan.mjs LOCKFILES, test-dep-scan pins to 5; ci.mjs 3 lines accepted;
+  every CI job green incl. the CLI unit job (the local 240 s --bail timeout counts as unrelated only if CI passes it). Done locally: test red first
+  (FAIL 5, the advisor check "4 lockfile(s), 0 finding(s)"), then PASS dep-scan; real scan "dep-scan: 5 lockfile(s), 0 finding(s), 0 allowed";
+  mutate-dep-scan "27 mutants, 27 caught". Book row E17 (docs/product/1-product.md:152) still says "the 3 package-lock.json": flagged to the head, not edited.
+  Next: commit on fdeb91da, push --force-with-lease=<de971b31>, every job green, send the head the sha.
   NOT DONE: factory/advisor/package-lock.json is not in tools/test/dep-scan.mjs LOCKFILES (its test pins the list of four; asked the head).
 - HEAD 21:53 order: job 3 -> matcher race -> job 4 (VTV in the engine: English base layer, 5.1 compiler, slot readers by type) -> XState flows.
   Job 4's written hand-over goes with job 3's report, with its size. (21:52 I told the head job 3 alone does not run VTV.)

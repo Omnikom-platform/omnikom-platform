@@ -12,7 +12,7 @@ import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
-export const LOCKFILES = ['apps/dashboard/package-lock.json', 'factory/runner/package-lock.json', 'tools/site-backup/package-lock.json', 'deno.lock'];
+export const LOCKFILES = ['apps/dashboard/package-lock.json', 'factory/advisor/package-lock.json', 'factory/runner/package-lock.json', 'tools/site-backup/package-lock.json', 'deno.lock'];
 export const MAX_ALLOW_DAYS = 30;
 const DAY_MS = 86400000;
 const validDate = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;

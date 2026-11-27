@@ -139,9 +139,11 @@ const go = (root, mode = 'clean', extra = [], env = {}) => {
   return { code: p.status, out: (p.stdout || '') + (p.stderr || '') };
 };
 let g = go(mkRoot());
-check('script, clean: exit 0, "4 lockfile(s), 0 finding(s), 0 allowed" (three package-lock.json and deno.lock, all scanned)', g.code === 0 && g.out.trim() === 'dep-scan: 4 lockfile(s), 0 finding(s), 0 allowed', `${g.code} ${g.out}`);
+check('script, clean: exit 0, "5 lockfile(s), 0 finding(s), 0 allowed" (four package-lock.json and deno.lock, all scanned)', g.code === 0 && g.out.trim() === 'dep-scan: 5 lockfile(s), 0 finding(s), 0 allowed', `${g.code} ${g.out}`);
 g = go(mkRoot({ lodashIn: 'apps/dashboard/package-lock.json' }));
 check('script, a finding in one lockfile: exit 1 and the line names that lockfile', g.code === 1 && g.out.includes('dep-scan: apps/dashboard/package-lock.json lodash@4.17.15 GHSA-35jh-r3h4-6jhm Command Injection in lodash'), `${g.code} ${g.out}`);
+g = go(mkRoot({ lodashIn: 'factory/advisor/package-lock.json' }));
+check('script, a finding in the advisor lockfile (the site assistant, xstate): exit 1 and the line names it', g.code === 1 && g.out.includes('dep-scan: factory/advisor/package-lock.json lodash@4.17.15 GHSA-35jh-r3h4-6jhm Command Injection in lodash'), `${g.code} ${g.out}`);
 g = go(mkRoot({ lodashIn: 'apps/dashboard/package-lock.json', allow: [allowOf()] }));
 check('script, the allow file is read: the same finding with an entry is exit 0', g.code === 0 && /1 finding\(s\), 1 allowed/.test(g.out), `${g.code} ${g.out}`);
 g = go(mkRoot({ lodashIn: 'factory/runner/package-lock.json', allow: [allowOf({ until: '2026-11-01' })] }));
@@ -151,7 +153,7 @@ const log = join(scratch, 'scanned.log');
 g = go(root, 'clean', [], { FAKE_LOG: log });
 check('script, deno.lock: its npm entries are scanned as a package-lock.json and a finding is labelled deno.lock', g.code === 1 && g.out.includes('dep-scan: deno.lock lodash@4.17.15 GHSA-35jh-r3h4-6jhm') && existsSync(log) && readFileSync(log, 'utf8').includes('"node_modules/lodash"'), `${g.code} ${g.out}`);
 g = go(mkRoot({ deno: '{"version":"5","npm":{"postgres@3.4.5":{}},"jsr":{"@std/path@1.0.0":{}}}' }));
-check('script, a jsr entry in deno.lock is printed NOT COVERED by name and does not fail the run', g.code === 0 && g.out.includes('dep-scan: deno.lock NOT COVERED (jsr:@std/path@1.0.0') && /4 lockfile\(s\)/.test(g.out), `${g.code} ${g.out}`);
+check('script, a jsr entry in deno.lock is printed NOT COVERED by name and does not fail the run', g.code === 0 && g.out.includes('dep-scan: deno.lock NOT COVERED (jsr:@std/path@1.0.0') && /5 lockfile\(s\)/.test(g.out), `${g.code} ${g.out}`);
 g = go(mkRoot(), 'garbage');
 check('script, osv-scanner printing garbage: exit 2', g.code === 2 && /ERROR osv-scanner its output is not JSON/.test(g.out), `${g.code} ${g.out}`);
 g = go(mkRoot(), 'crash');
@@ -181,9 +183,9 @@ else {
   writeFileSync(join(root, 'tools', 'omnikom-cli', 'tools.json'), readFileSync(join(HERE, '..', 'omnikom-cli', 'tools.json')));
   for (const f of LOCKFILES.filter(f => f !== 'deno.lock')) writeFileSync(join(root, f), readFileSync(join(HERE, '..', '..', f)));
   g = spawnSync(process.execPath, [SUT, '--root', root, '--osv', realOsv, '--allow', join(root, 'allow.json'), '--today', TODAY], { encoding: 'utf8', timeout: 170000 });
-  check('real osv-scanner: lodash 4.17.15 in a deno.lock is found (exit 1, labelled deno.lock) and the three real package-lock.json files are clean', g.status === 1 && /dep-scan: deno\.lock lodash@4\.17\.15 GHSA-35jh-r3h4-6jhm Command Injection in lodash/.test(g.stdout) && /4 lockfile\(s\), 5 finding\(s\), 0 allowed/.test(g.stdout) && !g.stdout.includes('package-lock.json'), `${g.status} ${g.stdout} ${g.stderr}`.slice(0, 600));
+  check('real osv-scanner: lodash 4.17.15 in a deno.lock is found (exit 1, labelled deno.lock) and the four real package-lock.json files are clean', g.status === 1 && /dep-scan: deno\.lock lodash@4\.17\.15 GHSA-35jh-r3h4-6jhm Command Injection in lodash/.test(g.stdout) && /5 lockfile\(s\), 5 finding\(s\), 0 allowed/.test(g.stdout) && !g.stdout.includes('package-lock.json'), `${g.status} ${g.stdout} ${g.stderr}`.slice(0, 600));
 }
-check('the lockfile list is the four lockfiles the platform installs from', JSON.stringify(LOCKFILES) === JSON.stringify(['apps/dashboard/package-lock.json', 'factory/runner/package-lock.json', 'tools/site-backup/package-lock.json', 'deno.lock']), LOCKFILES.join());
+check('the lockfile list is the five lockfiles the platform installs from', JSON.stringify(LOCKFILES) === JSON.stringify(['apps/dashboard/package-lock.json', 'factory/advisor/package-lock.json', 'factory/runner/package-lock.json', 'tools/site-backup/package-lock.json', 'deno.lock']), LOCKFILES.join());
 check('the committed allow file parses and is valid today', (() => { try { return checkAllow(JSON.parse(readFileSync(join(HERE, 'dep-scan-allow.json'), 'utf8')), new Date().toISOString().slice(0, 10)).ok; } catch { return false; } })());
 
 }
