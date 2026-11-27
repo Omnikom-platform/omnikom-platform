@@ -135,6 +135,9 @@ const scenarios = async (dir) => {
   check('apply: says it takes effect at the next production deployment', /next production deployment/.test(r.out), r.out);
   const mark = cf.calls.length, second = await go(['--apply'], cf);
   check('apply twice: the second run writes nothing (the salt is not rotated)', second.code === 0 && cf.calls.slice(mark).every((c) => c.method === 'GET') && cf.state.projects[0].vars.REPORT_SALT.value === saltValue, second.out);
+  const saltOf = async () => { const c = fakeCF({ projects: [site()], namespaces: [] }); await go(['--apply'], c); return c.calls.find((x) => x.method === 'PATCH')?.body?.deployment_configs?.production?.env_vars?.REPORT_SALT?.value || ''; };
+  const s1 = await saltOf(), s2 = await saltOf();
+  check('apply on two fresh projects: two different salts', /^[0-9a-f]{64}$/.test(s1) && /^[0-9a-f]{64}$/.test(s2) && s1 !== s2 && s1 !== saltValue && new Set(s1).size > 4, 'the salts are equal, malformed or one repeated character (values not shown)');
 
   // two accounts under one token, the project in the second: that account is named and written to, the other is left alone
   cf = fakeCF({ other: { projects: others(2), namespaces: [{ id: 'ns-old', title: 'OLD' }] }, projects: [site()], namespaces: [] });
@@ -179,8 +182,14 @@ const scenarios = async (dir) => {
   cf = fakeCF({ projects: [site()], namespaces: [] }, { failPatch: true });
   r = await go(['--apply'], cf, { salt: () => 'ab'.repeat(32) });
   check('partial failure: the PATCH refused after the namespace was made = exit 1, FAIL names the PATCH, says the namespace stays and to run again', r.code === 1 && /FAIL PATCH/.test(r.out) && /400/.test(r.out) && /namespace ADVISOR_REPORTS .*stays/.test(r.out) && /[Rr]un again/.test(r.out) && cf.state.namespaces.length === 1 && !('REPORT_SALT' in cf.state.projects[0].vars), r.code + '\n' + r.out);
+  check('partial failure: the salt echoed by the error is scrubbed', r.code === 1 && /Request body rejected/.test(r.out) && clean(r.out, ['ab'.repeat(32)]), r.code + '\n' + r.out.replaceAll('ab'.repeat(32), '[THE SALT, PRINTED]'));
   r = await go(['--apply'], fakeCF(cf.state));
   check('partial failure: the next run reuses the namespace (no POST), binds it and sets the salt = exit 0', r.code === 0 && !r.writes.some((c) => c.method === 'POST') && r.writes.length === 1 && cf.state.namespaces.length === 1 && cf.state.projects[0].kv.ADVISOR_REPORTS?.namespace_id === cf.state.namespaces[0].id && 'REPORT_SALT' in cf.state.projects[0].vars, r.code + '\n' + r.out);
+
+  // a PATCH that answers 200 and changes nothing is caught by the check after it
+  cf = fakeCF({ projects: [site()], namespaces: [] }, { ignore: true });
+  r = await go(['--apply'], cf);
+  check('apply: a PATCH answered 200 that changed nothing = exit 1, FAIL, no OK', r.code === 1 && /FAIL/.test(r.out) && !/^OK:/m.test(r.out), r.code + '\n' + r.out);
 
   // an API error that echoes the token and the account id
   cf = fakeCF({ projects: [site()], namespaces: [] }, { fail: true });
@@ -202,6 +211,9 @@ const MUTANTS = [
   { name: 'the first project that lists the domain taken', patches: [P('provision.mjs', 'if (found.length > 1) {', 'if (false) {')], expect: [/two projects of one account/, /one project in each of two accounts/] },
   { name: 'the line after a partial failure dropped', patches: [P('provision.mjs', 'if (made) say(', 'if (false) say(')], expect: [/says the namespace stays/] },
   { name: 'the namespace always made', patches: [P('provision.mjs', 'const needNs = !ns,', 'const needNs = true,')], expect: [/next run reuses the namespace/, /namespace exists = no POST/] },
+  { name: 'the salt not hidden from an error', patches: [P('provision.mjs', 'hide.push(value);', '')], expect: [/salt echoed by the error is scrubbed/] },
+  { name: 'the salt a constant', patches: [P('provision.mjs', "randomBytes(32).toString('hex')", "'0'.repeat(64)")], expect: [/two different salts/] },
+  { name: 'the check that the binding and the salt are there removed', patches: [P('provision.mjs', 'if (kvA[BINDING]?.namespace_id !== ns.id || !(SECRET in varsA)) {', 'if (false) {')], expect: [/changed nothing/] },
   { name: 'the domain matched by suffix', patches: [P('provision.mjs', "(d) => d === domain || d === 'www.' + domain", '(d) => d.endsWith(domain)')], expect: [/look-alikes only/] },
   { name: 'only the first page read', patches: [P('provision.mjs', 'if (list.length < per) break;', 'break;')], expect: [/page 2 of the list/] },
   { name: 'the other-namespace refusal removed', patches: [P('provision.mjs', 'if (bound && (!ns || bound !== ns.id)) {', 'if (false) {')], expect: [/bound to another namespace/, /of another title/] },
