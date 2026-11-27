@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1074,
+    "sources": 1075,
     "unowned": 0
   },
   "files": [
@@ -473,6 +473,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-stations.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-step-contracts.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-targets-record.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-test-kit.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-topic-filter.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-vantage.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-work-browser.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
