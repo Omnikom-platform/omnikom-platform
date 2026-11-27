@@ -1,4 +1,21 @@
-## Block 2026-11-26 20:30 (this is the current block)
+## Block 2026-11-27 18:05 PUT DOWN (owner M334, head 18:00; this is the current block)
+
+- **Put down.** The PARK A1 loop was stopped and the PARK file cancelled by the head at 18:00. The hand-off is
+  E:/Omnikom Platform/head-of-operations/drafts/hive/handoff/ADVISOR-ENGINE_code-mode.md.
+- **Land part:** b1d2df62 (on B23 2bf562b7), not pushed; the head accepted point 1 at 17:57. The WIP commit on top holds
+  PARK 2a, 2b and 2c:
+  - factory/advisor/ops/provision.mjs, with test/test-provision.mjs: 33 of 33 pass, MUTANTS 13 of 13 caught, local.
+  - The CI step "Advisor provision script tests and mutants" (the advisor job is now 17 steps).
+  - docs/advisor/r3/HANDOVER-omnikom-io-report.md and provision-dry-run-2026-11-27.md.
+- **2b:** CLOUDFLARE_ADMIN_TOKEN = NO (exit 3). omnikom.io is served by the Pages project omnikom-live on the old account, which
+  CLOUDFLARE_API_TOKEN reads (YES).
+- **NOT DONE:** omnikom ci --job advisor with 17 steps. Try 1: heavy.mjs exit 75 ("cannot read this process's creation
+  time (pwsh)"). Try 2 got the lock and was stopped by me at 18:08 on the put-down order, with no result. The 2a/2b/2c report and
+  the outward command were not sent to the head.
+- **The test's fake token** is now `'x'.repeat(24)`, because gitleaks flagged the old fake literal as generic-api-key. Re-run:
+  PASS apply: a PATCH that dropped other names = exit 1, FAIL names them / PROVISION TEST PASS: 33 of 33 / RED (caught) the check after the PATCH removed: 1 assertion(s) red e.g. "apply: a PATCH that dropped other names = exit 1, FAIL names them" / MUTANTS PASS: 13 of 13 caught (exit 0).
+
+## Block 2026-11-26 20:30 (superseded)
 
 Session ADVISOR-ENGINE_code-mode (Code Mode, Opus 5.5). Head: HEAD-OF-OPERATIONS_Fable_2026-11-11 (SendMessage, 8-line reports, paths only).
 R2 ACCEPTED by the head 20:45 (commit 080f4ff1). Rulings (write into R2/ADRs in place):

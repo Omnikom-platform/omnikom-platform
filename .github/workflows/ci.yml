@@ -637,6 +637,8 @@ jobs:
         run: node factory/advisor/test/golden-turns.mjs
       - name: Advisor session report tests and mutants
         run: node factory/advisor/test/test-report.mjs
+      - name: Advisor provision script tests and mutants
+        run: node factory/advisor/test/test-provision.mjs
       - name: Advisor pack valid (omnikom-io)
         run: node factory/advisor/pack/validate.mjs factory/advisor/packs/omnikom-io/pack.json
       - name: Advisor pack valid (vtv)
