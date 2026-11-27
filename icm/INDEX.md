@@ -181,7 +181,7 @@ none
 
 | Path | Owner | Lines | Title | Summary | Load for |
 |---|---|---|---|---|---|
-| .claude/POSITION.md | head-of-operations | 151 | Block 2026-11-26 20:30 (this is the current block) | Session ADVISOR-ENGINE_code-mode (Code Mode, Opus 5.5). Head: HEAD-OF-OPERATIONS_Fable_2026-11-11 (SendMessage, 8-line reports, paths only). R2 ACCEPTED by t... |  |
+| .claude/POSITION.md | head-of-operations | 164 | Block 2026-11-26 20:30 (this is the current block) | Session ADVISOR-ENGINE_code-mode (Code Mode, Opus 5.5). Head: HEAD-OF-OPERATIONS_Fable_2026-11-11 (SendMessage, 8-line reports, paths only). R2 ACCEPTED by t... |  |
 | docs/blueprint/PROGRESS.md | platform-build | 1912 | Blueprint progress (for the lead session) | Task: build-ready product engineering package (owner, 2026-10-28), raised to engineering practice, tied to published standards, then corrected by an independ... |  |
 | work/STATE.md | head-of-operations | 59 | Where things stand | Rewritten in place, never appended, under 60 lines; last 2026-11-26 by the platform lead, after the landings through A20. Every feature's state: `docs/produc... |  |
 
@@ -268,7 +268,7 @@ none
 | docs/advisor/adr/009-test-strategy.md | platform-build | 21 | ADR 009: Tests: the cp11 bar, golden transcripts, properties, mutants, held-back | Status: accepted by the head 2026-11-26 20:45 (rulings in R2 section 24). Design: `docs/advisor/R2-design.md`. |  |
 | docs/advisor/adr/010-privacy-and-disclosure.md | platform-build | 23 | ADR 010: Disclosure first; data stays in the browser | Status: accepted by the head 2026-11-26 20:45 (rulings in R2 section 24). Design: `docs/advisor/R2-design.md`. |  |
 | docs/advisor/adr/011-pack-versions-and-integrity.md | platform-build | 18 | ADR 011: Immutable pack versions, sha256 pinned, one-step rollback | Status: accepted by the head 2026-11-26 20:45 (rulings in R2 section 24). Design: `docs/advisor/R2-design.md`. |  |
-| docs/advisor/r3/HANDOVER-collector.md | platform-build | 139 | Hand-over: the session report's collector, omnikom.io only (ADR 007 steps 1 and 2) | Asked by the head 2026-11-27 04:10 ("the learning loop's collector (ADR 007 step 1-2) for omnikom.io only ... No build before my GO on the hand-over"). Writt... |  |
+| docs/advisor/r3/HANDOVER-collector.md | platform-build | 149 | Hand-over: the session report's collector, omnikom.io only (ADR 007 steps 1 and 2) | Asked by the head 2026-11-27 04:10 ("the learning loop's collector (ADR 007 step 1-2) for omnikom.io only ... No build before my GO on the hand-over"). Writt... |  |
 | docs/advisor/r3/HANDOVER-cp11-fail-rows.md | platform-build | 122 | Hand-over: job 5, the cp11 FAIL rows (the 3 no-meaning inputs first) | Head's order 2026-11-26 23:30: job 4 -> **this job** -> XState inside the budget. "A red test per row; the 3 no-meaning inputs first, because answering nonse... |  |
 | docs/advisor/r3/HANDOVER-intent-misses.md | platform-build | 60 | Hand-over: the cp11 intent misses (26 rows after job 5) | Head's order 2026-11-26 23:30, rulings 2026-11-27 00:30 (C) and 00:34 (A without ALT). Builder: ADVISOR-ENGINE (worktree advisor-engine, branch advisor/engin... |  |
 | docs/advisor/r3/HANDOVER-port.md | platform-build | 42 | R3 hand-over: port today's omnikom.io advisor to factory/advisor, driven by a pack (step 2 of R3) | Written by ADVISOR-ENGINE (the builder of record) for a helper agent, 2026-11-26. Design: docs/advisor/R2-design.md (sections 2, 4, 5). Worktree: this one; b... |  |
