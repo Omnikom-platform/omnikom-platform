@@ -258,7 +258,7 @@ export function LeadPanel() {
     if (!data || (next || null) === data.owner_team_row) return;
     const before = data.owner_team_row;
     const give = (to: string | null): LeadChange => (to ? { lead: id, owner: to } : { lead: id, unassign: true });
-    void change('owner', give(next || null), { owner_team_row: next || null }, { owner_team_row: before }, `${t('DP-1.3-13', 'Given to')} ${names.team.get(next) ?? ''}.`,
+    void change('owner', give(next || null), { owner_team_row: next || null }, { owner_team_row: before }, next ? `${t('DP-1.3-13', 'Given to')} ${names.team.get(next) ?? ''}.` : t('DP-1.3-13', 'Owner removed.'),
       () => void change('owner', give(before), { owner_team_row: before }, { owner_team_row: next || null }, '', null));
   }
 
