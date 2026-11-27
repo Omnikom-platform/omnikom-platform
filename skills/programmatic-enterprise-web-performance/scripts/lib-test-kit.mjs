@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import http from "node:http";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { pathToFileURL, fileURLToPath } from "node:url";
 
 // handler(req{url,method,headers,body}) -> { status?, body (object -> JSON, string -> as is), headers?, hang? }
@@ -32,11 +32,17 @@ export function runner(dir, home, netLog, clear = []) {
   return (file, argv, { env = {}, timeout = 60000 } = {}) => new Promise((resolve) => {
     const e = { ...process.env, USERPROFILE: home, HOME: home, NODE_OPTIONS: "", PEWP_NETGUARD_LOG: netLog, ...env };
     for (const k of clear) if (!(k in env)) delete e[k];
-    const c = spawn(process.execPath, ["--import", pathToFileURL(path.join(dir, "netguard-import.mjs")).href, path.join(dir, file), ...argv], { stdio: ["ignore", "pipe", "pipe"], env: e, windowsHide: true });
-    let so = "", se = "";
+    const win = process.platform === "win32";
+    const c = spawn(process.execPath, ["--import", pathToFileURL(path.join(dir, "netguard-import.mjs")).href, path.join(dir, file), ...argv], { stdio: ["ignore", "pipe", "pipe"], env: e, windowsHide: true, detached: !win });
+    let so = "", se = "", done = false;
     c.stdout.on("data", (d) => (so += d)); c.stderr.on("data", (d) => (se += d));
-    const timer = setTimeout(() => { se += "TIMED OUT"; c.kill(); }, timeout);
-    c.on("close", (code) => { clearTimeout(timer); resolve({ code, so, se, out: so + se }); });
+    // A grandchild that holds the pipe keeps "close" from firing (test-ledger hung 3 h, 2026-11-27): at the timeout stop the whole tree,
+    // and end on "exit" plus a short drain when "close" does not come.
+    const stopTree = () => { if (win) spawnSync("taskkill", ["/T", "/F", "/PID", String(c.pid)], { stdio: "ignore", windowsHide: true, timeout: 15000 }); else try { process.kill(-c.pid, "SIGKILL"); } catch { c.kill("SIGKILL"); } };
+    const timer = setTimeout(() => { se += "TIMED OUT"; stopTree(); }, timeout);
+    const end = (code) => { if (done) return; done = true; clearTimeout(timer); resolve({ code, so, se, out: so + se }); };
+    c.on("close", end);
+    c.on("exit", (code) => setTimeout(() => end(code), 1000));
   });
 }
 
