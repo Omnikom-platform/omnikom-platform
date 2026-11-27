@@ -52,6 +52,8 @@ const MUTANTS = [
   { file: L, test: "test-lib-stops.mjs", name: "lib: a lift frees desktop mode of nothing", from: "!(mode === \"desktop\" && s.lift && s.lift.mode === \"desktop\")", to: "true", red: "lifted for desktop" },
   { file: L, test: "test-lib-stops.mjs", name: "lib: a new stop keeps the old lift", from: "const rec = { engine, hosts: h, until:", to: "const rec = { ...(existing && existing.lift ? { lift: existing.lift } : {}), engine, hosts: h, until:", red: "a lift frees nothing else" },
   { file: L, test: "test-lib-stops.mjs", name: "lib: an engine name may be a path", from: "const ENGINE_RE = /^[a-z0-9][a-z0-9-]{0,40}$/;", to: "const ENGINE_RE = /./;", red: "bad input is refused" },
+  { file: L, test: "test-lib-stops.mjs", name: "lib: any kind is accepted", from: "if (kind !== null && !STOP_KINDS.includes(kind)) throw", to: "if (false) throw", red: "an unknown kind is refused" },
+  { file: L, test: "test-lib-stops.mjs", name: "lib: the kind is not written", from: "evidence, kind };", to: "evidence, kind: null };", red: "the kind is written" },
 ];
 
 const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : null;

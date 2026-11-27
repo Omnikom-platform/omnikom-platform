@@ -136,7 +136,7 @@ least 2026-11-12 04:29 local** (see "What was proven").
   Facebook, Reddit, BBB, Trustpilot). `capture` refuses inside the gap. A robot check, CAPTCHA or sign-in wall is BLOCKED and writes that engine's 24 h stop, never
   solved, never bypassed. No loop over a query list; the agent asks for each page.
 - **Stops** are one file per engine in the shared format, `~/.claude/state/omnikom-stops/<engine>.json` (`lib-stops.mjs`: engine, hosts, until, reason, setBy, setAt,
-  evidence, optional desktop-only `lift`). A Google stop blocks Google only. Scripts honour a stop until `until`; a lift frees only a person-paced desktop capture.
+  evidence, kind, optional desktop-only `lift`). A Google stop blocks Google only. Scripts honour a stop until `until`; a lift frees only a person-paced desktop capture.
 - **Other hosts** need no Sacramento proof, only the running browser and their own stop. `--settle` waits until the page text has not changed for 5 s (90 s cap), then
   saves; AI engines always settle. The AI answer selectors and the generic page reader are UNPROVEN until a live read (an empty answer is BLOCKED, never guessed).
   An AI capture is saved in the `captures/ai/<id>.json` shape (`engine, question, answer, sources`) plus `citations`, `settle`, `vantage`.

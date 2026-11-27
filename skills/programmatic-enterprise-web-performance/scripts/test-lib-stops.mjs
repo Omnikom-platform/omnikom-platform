@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 // LIB_STOPS_UNDER_TEST points the test at a mutated copy (mutants-vantage.mjs)
-const { activeStops, isStopped, writeStop, liftStop, stopsDir, KNOWN_ENGINES } = await import(process.env.LIB_STOPS_UNDER_TEST ? pathToFileURL(process.env.LIB_STOPS_UNDER_TEST).href : new URL("./lib-stops.mjs", import.meta.url).href);
+const { activeStops, isStopped, writeStop, liftStop, stopsDir, KNOWN_ENGINES, STOP_KINDS } = await import(process.env.LIB_STOPS_UNDER_TEST ? pathToFileURL(process.env.LIB_STOPS_UNDER_TEST).href : new URL("./lib-stops.mjs", import.meta.url).href);
 
 let fails = 0, n = 0;
 const t = (name, fn) => { n++; try { fn(); console.log(`ok   ${name}`); } catch (e) { fails++; console.log(`FAIL ${name}: ${e.message}`); } };
@@ -18,7 +18,7 @@ t("a stop is active until its until, with every field in the agreed format", () 
   eq(r.written, true);
   const s = isStopped("google", NOW + 23 * H, d);
   eq([s.engine, s.hosts, s.until, s.reason, s.setBy, s.setAt, s.evidence], ["google", ["google.com"], "2026-11-12T02:29:12.000Z", "robot check", "test", "2026-11-11T02:29:12.000Z", "e"]);
-  eq(Object.keys(JSON.parse(fs.readFileSync(path.join(d, "google.json"), "utf8"))), ["engine", "hosts", "until", "reason", "setBy", "setAt", "evidence"]);
+  eq(Object.keys(JSON.parse(fs.readFileSync(path.join(d, "google.json"), "utf8"))), ["engine", "hosts", "until", "reason", "setBy", "setAt", "evidence", "kind"]);
   eq(activeStops(NOW + 23 * H, d).length, 1);
 });
 t("an expired stop is ignored and its file is left in place", () => {
@@ -93,6 +93,53 @@ t("a lift needs a stop on file, a person and a note", () => {
   for (const bad of [() => liftStop({ engine: "google", by: "owner", note: "n", dir: d }), () => { put(d); liftStop({ engine: "google", note: "n", dir: d }); }, () => liftStop({ engine: "google", by: "owner", dir: d })]) {
     let threw = false; try { bad(); } catch { threw = true; } eq(threw, true);
   }
+});
+
+const onFile = (d, engine = "google") => JSON.parse(fs.readFileSync(path.join(d, `${engine}.json`), "utf8"));
+t("the kinds of a stop are exactly check and rate", () => {
+  eq(STOP_KINDS, ["check", "rate"]);
+});
+t("the kind is written: null when none is named, else the named one", () => {
+  const a = tmp(), b = tmp(), c = tmp(), d = tmp();
+  const r = put(a);
+  eq("kind" in onFile(a), true); eq(onFile(a).kind, null); eq(r.stop.kind, null); eq(isStopped("google", NOW + H, a).kind, null);
+  const named = put(b, { kind: "check" });
+  eq(onFile(b).kind, "check"); eq(named.stop.kind, "check"); eq(isStopped("www.google.com", NOW + H, b).kind, "check");
+  writeStop({ engine: "bing", kind: "rate", reason: "429", setBy: "test", now: NOW, dir: c });
+  eq(onFile(c, "bing").kind, "rate");
+  put(d, { kind: null });
+  eq(onFile(d).kind, null);
+});
+t("an unknown kind is refused and nothing is written", () => {
+  for (const bad of ["refusal", "quota", "key", "terms", "sign-in", "CHECK", " check", "", 0, 1, true, false, ["check"], {}]) {
+    const d = tmp(); let message = null;
+    try { put(d, { kind: bad }); } catch (e) { message = e.message; }
+    eq(message !== null && message.includes("kind"), true, JSON.stringify(bad));
+    eq(fs.readdirSync(d), [], JSON.stringify(bad));
+  }
+  const d = tmp(); put(d, { kind: "check" });
+  eq(fs.readdirSync(d), ["google.json"]);
+});
+t("a shorter stop changes no kind; a longer one sets its own, and none is carried over", () => {
+  const d = tmp(); put(d, { kind: "check" });
+  const s = put(d, { kind: "rate", until: NOW + 2 * H });
+  eq([s.written, s.stop.kind, onFile(d).kind], [false, "check", "check"]);
+  const l = put(d, { kind: "rate", until: NOW + 48 * H, reason: "429" });
+  eq([l.written, l.stop.kind, onFile(d).kind], [true, "rate", "rate"]);
+  const x = put(d, { until: NOW + 72 * H });
+  eq(x.written, true); eq(x.stop.kind, null); eq("kind" in onFile(d), true); eq(onFile(d).kind, null);
+});
+t("a lift keeps the kind", () => {
+  const d = tmp(); put(d, { kind: "check" });
+  const r = liftStop({ engine: "google", by: "owner (relayed)", note: "n", dir: d, now: NOW });
+  eq([r.kind, onFile(d).kind, onFile(d).lift.mode], ["check", "check", "desktop"]);
+  eq(isStopped("google", NOW + H, d).kind, "check");
+});
+t("a stop file from before the kind still stops, as it is", () => {
+  const d = tmp();
+  fs.writeFileSync(path.join(d, "google.json"), JSON.stringify({ engine: "google", hosts: ["google.com"], until: "2026-11-12T02:29:12.000Z", reason: "robot check", setBy: "test", setAt: "2026-11-11T02:29:12.000Z", evidence: "e" }));
+  const s = isStopped("google", NOW + H, d);
+  eq([s.until, s.reason, !!s.unreadable], ["2026-11-12T02:29:12.000Z", "robot check", false]);
 });
 
 console.log(`\n${n - fails}/${n} passed`);
