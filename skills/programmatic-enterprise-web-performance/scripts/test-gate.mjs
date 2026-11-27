@@ -851,6 +851,52 @@ await t("an empty place in the list of a lookup is not an address, so the name i
   }
 });
 
+await t("a host with a dot at its end is found among the hosts of its row, and a barred site with a dot at its end stays barred", async () => {
+  const a = mk(() => ({ status: 200 }));
+  for (const url of ["https://api.example.test../v1/x", "https://API.Example.Test.:8443/v1/x"]) eq((await ask(a.gate, "A1", url)).sent, true, url);
+  const other = await ask(a.gate, "A1", "https://b.example.test./v1/x");
+  eq([other.sent, other.why], [false, "unknown-source"], "the host of another row");
+  for (const url of ["https://www.barred.test./p", "https://barred.test../p", "https://M.Barred.Test./p"]) {
+    const r = await ask(a.gate, "R1", url);
+    eq([r.sent, r.why], [false, "terms"], url);
+  }
+  eq(a.f.calls.length, 2, "requests");
+});
+
+await t("the stop of a 429 from a host with a dot at its end holds the host with no dot, also for a later gate", async () => {
+  const a = mk(() => ({ status: 429 }));
+  eq((await ask(a.gate, "A1", "https://api.example.test../v1/x")).result, "429");
+  eq(stopFiles(a.stops).map((f) => JSON.parse(fs.readFileSync(path.join(a.stops, f), "utf8")).hosts), [["api.example.test"]]);
+  const f2 = net(() => ({ status: 200 }));
+  const later = makeGate({ pewp: a.pewp, run: "run-1", client: "vtv", sources: TABLE(), stopsDir: a.stops, now: () => NOW, lookup: PUBLIC, fetch: f2 });
+  for (const url of ["https://api.example.test/v1/x", "https://api.example.test./v1/x"]) {
+    const r = await ask(later, "A1", url);
+    eq([r.sent, r.why], [false, "stop"], url);
+  }
+  eq(f2.calls.length, 0, "requests of the later gate");
+});
+
+await t("the stop of a robot check on a host with a dot at its end holds the host with no dot", async () => {
+  const a = mk(() => ({ status: 200, body: "are you a robot?" }));
+  const r = await ask(a.gate, "A1", "https://api.example.test./v1/x", { sort: () => ({ result: "check" }) });
+  eq([r.sent, r.result], [true, "check"]);
+  eq(stopFiles(a.stops), [stopEngine("api.example.test") + ".json"], "the stop file");
+  eq(JSON.parse(fs.readFileSync(path.join(a.stops, stopFiles(a.stops)[0]), "utf8")).hosts, ["api.example.test"]);
+  const again = await ask(a.gate, "A1", "https://api.example.test/v1/x");
+  eq([again.sent, again.why], [false, "stop"], "the form with no dot");
+  eq(a.f.calls.length, 1, "requests");
+});
+
+await t("after three 403 answers a host is skipped with a dot at its end too", async () => {
+  const a = mk((url) => (url.endsWith("/robots.txt") ? { status: 404 } : { status: 403 }));
+  for (let i = 0; i < 3; i++) eq((await ask(a.gate, "R1", PAGE)).result, "403", "ask " + i);
+  for (const url of ["https://site.test./p", "https://SITE.Test../p"]) {
+    const r = await ask(a.gate, "R1", url);
+    eq([r.sent, r.why], [false, "refused"], url);
+  }
+  eq(a.f.calls.length, 4, "requests");
+});
+
 // ---- the mutants: one broken copy of the library for each rule (node scripts/test-gate.mjs --mutants) ----
 // A mutant is one change of the text of lib-gate.mjs: "from" is found one time in the file, and "to" takes its place. The scripts
 // folder and sources.json are copied to a temp folder one time; each mutant is written there and this test runs on it. The test
@@ -912,6 +958,10 @@ const RULES = [
   ["G54", "an API source is not asked for its address, and a lookup that is not a function is refused"],
   ["G55", "with no lookup of the caller the gate asks the machine: localhost is not read"],
   ["G56", "an empty place in the list of a lookup is not an address, so the name is not read"],
+  ["G57", "a host with a dot at its end is found among the hosts of its row, and a barred site with a dot at its end stays barred"],
+  ["G58", "the stop of a 429 from a host with a dot at its end holds the host with no dot, also for a later gate"],
+  ["G59", "the stop of a robot check on a host with a dot at its end holds the host with no dot"],
+  ["G60", "after three 403 answers a host is skipped with a dot at its end too"],
 ];
 // MUTANTS-BEGIN (the builder fills this list: one entry for each rule id, { from, to }. Nothing outside the two marks changes.)
 const MUTANTS = {
@@ -971,6 +1021,10 @@ const MUTANTS = {
   G54: { from: "row.kind === \"reader\" && (await isInner(u.hostname))", to: "(await isInner(u.hostname))" },
   G55: { from: "lookup = (host) => dns.promises.lookup(host, { all: true })", to: "lookup = async () => [{ address: \"93.184.216.34\", family: 4 }]" },
   G56: { from: "return [...list].some((x) =>", to: "return list.some((x) =>" },
+  G57: { from: "else if (!(row.hosts || []).includes(host))", to: "else if (!(row.hosts || []).includes(given))" },
+  G58: { from: "hosts: [host], kind: \"rate\"", to: "hosts: [u.hostname], kind: \"rate\"" },
+  G59: { from: "hosts: [host], kind: \"check\"", to: "hosts: [u.hostname], kind: \"check\"" },
+  G60: { from: "(refusals.get(host) || 0) >= REFUSALS", to: "(refusals.get(given) || 0) >= REFUSALS" },
 };
 // MUTANTS-END
 async function mutants() {
