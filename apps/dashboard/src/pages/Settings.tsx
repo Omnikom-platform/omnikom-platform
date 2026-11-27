@@ -65,7 +65,7 @@ function Account({ workspace, userId }: { workspace: string; userId: string }) {
 }
 
 /** Websites (DP-1.6-07, -19): each site's preview address, domain and state, as the Site screen reads them; no edit. */
-function Websites({ workspace }: { workspace: string }) {
+export function Websites({ workspace }: { workspace: string }) {
   const sites = useSites(workspace);
   const ask = config.askEmail ? <a href={`mailto:${config.askEmail}`} data-plan="DP-1.6-07">Ask Omnikom</a> : null;
   return (

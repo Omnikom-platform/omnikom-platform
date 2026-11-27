@@ -4,7 +4,7 @@ GL.B12b	A removed page answered 200 at its old address (edge cache); the smoke n
 GL.B14c	Media library Replace and Delete flows	nothing	BUILT			B14
 GL.B15b	Preview site flow	nothing	BUILT		2	B15
 GL.B15c	Before-and-after screenshots in the preview	all of it; not a gate for a first client	NOT BUILT		2	B15
-GL.B18	"Ask Omnikom" address on the Websites card	the address is decided (hello@omnikom.ai, owner item 10) and its Cloudflare forward is live since 2026-11-20, but `VITE_ASK_EMAIL` is set in no environment yet; the production build (bring-up inherits the env)	HALF			B18
+GL.B18	"Ask Omnikom" address on the Websites card	the address (hello@omnikom.ai, owner item 10) is in `supabase/ops/environments.json` and both builds read it; not run: the production redeploy (production has the link from the next bring-up deploy)	BUILT-UNPROVEN			B18
 GL.B21a	Search Console numbers on the Overview	a verified property per live site (the account exists and holds omnikom.ai since 2026-11-20); never run live	HALF	6	9	B21
 GL.B21b	AI answers: no runtime writer	stays parked by ruling	NOT BUILT	6	9	B21
 GL.B21c	Overview numbers: staging run of the plan-gate and styles flows	the B21 cell's wording only	BUILT	6	9	B21

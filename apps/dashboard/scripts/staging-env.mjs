@@ -1,19 +1,23 @@
 // The one place that maps the staging variable NAMES to the two the browser build reads. Values are never printed.
 //   STAGING_SUPABASE_REF             -> VITE_SUPABASE_URL (https://<ref>.supabase.co)
 //   STAGING_SUPABASE_PUBLISHABLE_KEY -> VITE_SUPABASE_PUBLISHABLE_KEY (a browser key, by design)
+//   supabase/ops/environments.json   -> VITE_ASK_EMAIL (staging.askEmail, the public "Ask Omnikom" address; it wins over the environment)
 //   with { directFunctions: true }   -> VITE_FUNCTIONS_BASE (https://<ref>.supabase.co/functions/v1: a host with no /functions/v1 forward)
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+export const ASK_EMAIL = JSON.parse(readFileSync(join(ROOT, '..', '..', 'supabase', 'ops', 'environments.json'), 'utf8')).staging.askEmail;
+if (!ASK_EMAIL) throw new Error('supabase/ops/environments.json: staging.askEmail is missing or empty');
 
 export function stagingBuildEnv(env, { directFunctions = false } = {}) {
   const ref = env.STAGING_SUPABASE_REF, key = env.STAGING_SUPABASE_PUBLISHABLE_KEY;
   const missing = [!ref && 'STAGING_SUPABASE_REF', !key && 'STAGING_SUPABASE_PUBLISHABLE_KEY'].filter(Boolean);
   if (missing.length) return { missing };
   const direct = directFunctions ? { VITE_FUNCTIONS_BASE: `https://${ref}.supabase.co/functions/v1` } : {};
-  return { env: { ...env, VITE_SUPABASE_URL: `https://${ref}.supabase.co`, VITE_SUPABASE_PUBLISHABLE_KEY: key, ...direct } };
+  return { env: { ...env, VITE_SUPABASE_URL: `https://${ref}.supabase.co`, VITE_SUPABASE_PUBLISHABLE_KEY: key, VITE_ASK_EMAIL: ASK_EMAIL, ...direct } };
 }
 
 /** Run a node script of this app with the staging environment. Returns the exit status. */

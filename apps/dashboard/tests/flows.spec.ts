@@ -12,6 +12,7 @@ import { join, resolve } from 'node:path';
 import { callAs, leadLabel, mintTokenHash, PEOPLE, personAccessToken, RUN, serviceDelete, serviceGet, supabaseHost, TEST_MARK, WS } from './support/staging';
 import { active, installMutant } from './mutants';
 import { planProblems } from './plan-gate.dom';
+import { ASK_EMAIL } from '../scripts/staging-env.mjs';
 
 const CLI = resolve(import.meta.dirname, '..', '..', '..', 'tools', 'omnikom-cli', 'omnikom.mjs');
 const CLEAN_LEADS = resolve(import.meta.dirname, 'support', 'clean-flow-leads.mjs');
@@ -641,7 +642,7 @@ test.describe('the CRM block 3b screens as an agent', () => {
 // address the head names in SETTINGS_INVITE_EMAIL: a real mail goes out through Auth, so only to that address) invites a person, sees them in the list
 // and removes them through the sheet, checking the exact sentence of DP-1.6-14; a finally removes the person whatever failed. The alert addresses are put back as they were, in a finally. An agent sees only Your account and Sign out everywhere.
 // Sign out everywhere ends EVERY session of the login, so it runs as member-a2 on a FRESH sign-in (no other spec uses member-a2's saved state).
-// With VITE_ASK_EMAIL set in both the build and the test, the owner sees "Ask Omnikom" under Websites as a mail link to that address.
+// The owner sees "Ask Omnikom" under Websites as a mail link to the address the staging build is given (ASK_EMAIL, scripts/staging-env.mjs).
 const settingsUrl = `/w/${WS.a.slug}/settings`;
 const cards = (page: Page) => ({
   account: page.getByRole('heading', { name: 'Your account', exact: true }), alerts: page.getByRole('heading', { name: 'Lead alerts', exact: true }),
@@ -764,12 +765,10 @@ test.describe('settings: the owner', () => {
     }
   });
 
-  test('owner-a sees the Ask Omnikom link under Websites, a mail link to the address the build was given (only with VITE_ASK_EMAIL)', async ({ page }) => {
-    const ask = process.env.VITE_ASK_EMAIL ?? '';   // the same variable the staging build read (scripts/staging-env.mjs passes it through)
-    test.skip(!ask, 'VITE_ASK_EMAIL is not set: the build has no address for Ask Omnikom (the owner gives it, row B18)');
+  test('owner-a sees the Ask Omnikom link under Websites, a mail link to the address the build was given', async ({ page }) => {
     await page.goto(settingsUrl);
     const websites = page.getByRole('region', { name: 'Websites' });
-    await expect(websites.getByRole('link', { name: 'Ask Omnikom', exact: true })).toHaveAttribute('href', `mailto:${ask}`);
+    await expect(websites.getByRole('link', { name: 'Ask Omnikom', exact: true })).toHaveAttribute('href', `mailto:${ASK_EMAIL}`);
   });
 });
 

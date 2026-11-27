@@ -93,6 +93,9 @@ B17	test	supabase/functions/test/team.test.ts	team-list: the owner gets every me
 B17	test	supabase/functions/test/invite.test.ts	invite-member: a new person gets a login from Auth
 B17	test	apps/dashboard/tests/flows.spec.ts	owner-a invites a person, sees them in the list and removes them through the sheet
 B17	test	supabase/tests/e2e-settings.mjs	team-list by owner-a is 200, owners first
+B18	test	apps/dashboard/src/pages/SettingsWebsites.test.tsx	with a site: the card holds the mail link to the address
+B18	test	apps/dashboard/scripts/staging-env.test.mjs	gives the build hello@omnikom.ai
+B18	test	supabase/ops/test/bring-up.test.mjs	staging ask address
 B20	test	apps/dashboard/src/lib/overview.test.ts	O1: this week starts on Monday 00:00 in the local zone
 B20	test	apps/dashboard/tests/plan-gate.spec.ts	the cards, the title, and the Overview tab as the place the owner is in
 B23	test	apps/dashboard/src/pages/Unreachable.test.tsx	a failed read shows the plan sentence as an alert, never Not found

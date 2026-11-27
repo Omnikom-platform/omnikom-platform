@@ -99,8 +99,8 @@ Lead alerts card only and on only when it changed; leaving with unsaved changes 
   says whether Auth took it), Remove behind a confirm sheet on every row but your own. Never the last owner. There is no
   role-change control: inviting an existing member as owner sets the role. A removed person's next request is refused by the wall;
   open sessions are not ended (Supabase Auth has no admin logout by user id).
-- **Websites:** each site's preview address, domain and state; no edit. The "Ask Omnikom" link shows only when `VITE_ASK_EMAIL` is
-  set (no address exists in the repo yet: an owner item).
+- **Websites:** each site's preview address, domain and state; no edit. The "Ask Omnikom" link is a mail link to hello@omnikom.ai
+  (`supabase/ops/environments.json`).
 - **Sign out everywhere:** `signOut({ scope: 'global' })`, then the sign-in card with "You were signed out. Sign in again."
 - **Business details** stay on the Site screen (name, phone, email, address, hours and socials editable; legal name, licences and
   footer notice locked).

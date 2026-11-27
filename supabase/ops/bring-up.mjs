@@ -180,7 +180,7 @@ export async function bringUp(argv, env = process.env, deps = {}) {
       const newest = deployments[0] && deployments[0].deployment_trigger && deployments[0].deployment_trigger.metadata && deployments[0].deployment_trigger.metadata.commit_hash;
       const sha = await guard('dashboard head', () => head());
       const fresh = newest === sha;
-      const buildEnv = { VITE_SUPABASE_URL: `https://${ref}.supabase.co`, VITE_SUPABASE_PUBLISHABLE_KEY: v(`${P}SUPABASE_PUBLISHABLE_KEY`), VITE_FUNCTIONS_BASE: fnBase };
+      const buildEnv = { VITE_SUPABASE_URL: `https://${ref}.supabase.co`, VITE_SUPABASE_PUBLISHABLE_KEY: v(`${P}SUPABASE_PUBLISHABLE_KEY`), VITE_FUNCTIONS_BASE: fnBase, VITE_ASK_EMAIL: E.askEmail };
       await step('dashboard', `deploy ${sha.slice(0, 12)}`, fresh, () => guard(`dashboard deploy ${sha.slice(0, 12)}`, () => deploy({ pages: E.pages, sha, buildEnv })));
     }
     if (prod) { // H repo: a name the repository lacks is set (value on stdin); a present one is never replaced (GitHub shows no value)

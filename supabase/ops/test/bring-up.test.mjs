@@ -211,7 +211,7 @@ async function suite() {
       const d = P.rec.deploys;
       if (d.length !== 1 || d[0].pages !== 'omnikom-app' || d[0].sha !== HEAD1 || JSON.stringify(d[0].buildEnv) !== JSON.stringify({
         VITE_SUPABASE_URL: `https://${env.PROD_SUPABASE_REF}.supabase.co`, VITE_SUPABASE_PUBLISHABLE_KEY: env.PROD_SUPABASE_PUBLISHABLE_KEY,
-        VITE_FUNCTIONS_BASE: `https://${env.PROD_SUPABASE_REF}.supabase.co/functions/v1` })) bad.push(`deploy ${JSON.stringify(d.map(x => x.sha))}`);
+        VITE_FUNCTIONS_BASE: `https://${env.PROD_SUPABASE_REF}.supabase.co/functions/v1`, VITE_ASK_EMAIL: 'hello@omnikom.ai' })) bad.push(`deploy ${JSON.stringify(d.map(x => x.sha))}`);
       const repo = repoNames(ROOT), sets = ghSets(P);
       if (!['PLATFORM_FUNCTIONS_BASE', 'PROD_DB_URL', 'RUNNER_KEY', 'STAGING_DB_URL', 'R2_BUCKET'].every(n => repo.includes(n))) bad.push('repo anchors');
       if (sets.map(g => g.args[2]).sort().join() !== repo.join()) bad.push(`gh set: ${sets.map(g => g.args[2]).join()}`);
@@ -257,6 +257,8 @@ async function suite() {
       if (w.st.auth.smtp_admin_email !== emails.sender.address) bad.push('staging sender');
       if (!w.rec.sql.length || !w.rec.sql.every(s => s.url === w.env.STAGING_DB_URL)) bad.push('sql not on STAGING_DB_URL');
       if (!w.st.project || w.st.project.name !== 'omnikom-app-staging' || w.rec.deploys.length !== 1) bad.push('project or deploy');
+      if (w.rec.deploys[0]?.buildEnv.VITE_ASK_EMAIL !== 'hello@omnikom.ai') bad.push('staging ask address');
+      if (envs.staging.askEmail !== 'hello@omnikom.ai' || envs.production.askEmail !== 'hello@omnikom.ai') bad.push('askEmail in environments.json');
       if (r.exit !== 0 || !/^BRING-UP OK: \d+ changed$/.test(r.last)) bad.push('exit or last line');
       return [!bad.length, `${bad.join('; ')}\n${show(r)}`];
     });
@@ -397,6 +399,7 @@ const MUTANTS = [
   ['10 the extensions read loses its semicolon', [["']);`", "'])`"]], /^16 /],
   ['11 staging takes LEAD_ALERT_FROM from the environment again', [[', ...(prod ? {} : { LEAD_ALERT_FROM: emailsCfg.alerts_sender.address })', '']], /^17 /],
   ['12 staging says nothing about where the alert sender came from', [["if (!prod) say('LEAD_ALERT_FROM: from supabase/auth-emails/emails.json');", '']], /^17 /],
+  ['13 the dashboard build is not given the Ask Omnikom address', [[', VITE_ASK_EMAIL: E.askEmail', '']], /^5 /],
 ];
 
 let exit = 0;

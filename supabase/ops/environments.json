@@ -2,6 +2,7 @@
   "staging": {
     "prefix": "STAGING_",
     "pages": "omnikom-app-staging",
+    "askEmail": "hello@omnikom.ai",
     "domain": null,
     "dashboard": "https://omnikom-app-staging.pages.dev",
     "origins": ["http://localhost:5173", "http://localhost:4173", "https://omnikom-app-staging.pages.dev"]
@@ -9,6 +10,7 @@
   "production": {
     "prefix": "PROD_",
     "pages": "omnikom-app",
+    "askEmail": "hello@omnikom.ai",
     "domain": "app.omnikom.ai",
     "dashboard": "https://app.omnikom.ai",
     "origins": ["https://app.omnikom.ai"]
