@@ -12,7 +12,7 @@ import { RuleMissing } from "./lib-rules.mjs";
 export { localeOf } from "./lib-rules.mjs";
 export { fact, cachedFetch };
 
-export const UA = `PEWP-Research/1.0 (SEO research for the site owner; contact ${process.env.PEWP_CONTACT || "see skill"})`;
+export const UA = "OmnikomAudit/1.0 (+https://omnikom.ai)";
 export class Blocked extends Error { constructor(unblock) { super(unblock); this.unblock = unblock; } }
 export class Usage extends Error {}
 export const iso = () => new Date().toISOString();

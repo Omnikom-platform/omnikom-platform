@@ -292,7 +292,7 @@ try {
   const k1 = await T("research-wiki.mjs", ["--title", "Tracy, California", "--title", "Nonesuch Place"], { WIKI_API_BASE: wk.url });
   const wd = rd("wiki");
   check("wiki: average monthly views, sourced; a missing article is a result (article:false), not a failure", k1.status === 0 && wd.entities[0].monthlyViews.value === 10000 && isFact(wd.entities[0].monthlyViews) && wd.entities[1].article === false && wd.entities[1].monthlyViews.value === null, k1.stdout + k1.stderr);
-  check("wiki: sends a descriptive User-Agent", wk.reqs.every((q) => /PEWP-Research/.test(q.headers["user-agent"] || "")));
+  check("wiki: sends a descriptive User-Agent", wk.reqs.every((q) => q.headers["user-agent"] === "OmnikomAudit/1.0 (+https://omnikom.ai)"));
   wk.close();
 
   // ============================ Reddit / forums ============================
