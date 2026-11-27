@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1069,
+    "sources": 1071,
     "unowned": 0
   },
   "files": [
@@ -307,9 +307,10 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-ask-pace.mjs","owner":"seo-and-audits","exports":["FOCUS_MODES","PACE_KEYS","PaceError","checkPace","focusOf","io","pause","pieces","readingSeconds","wordCount"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-browser-profile.mjs","owner":"seo-and-audits","exports":["chromeTime","keepLocalState","seedProfile","spawnBrowser"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-captures.mjs","owner":"seo-and-audits","exports":["cli","count","daysSince","host","isHttp","nonEmpty","round","runImporter","toDate","toNum"],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-driver-ledger.mjs","owner":"seo-and-audits","exports":["KINDS","RESULTS","WHY","ledgerFile","record"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-driver-ledger.mjs","owner":"seo-and-audits","exports":["KINDS","RESULTS","WHY","ledgerFile","lineOf","record"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-env.mjs","owner":"seo-and-audits","exports":["EnvFileError","envFileArg","loadEnv","loadEnvOrExit","parseEnv"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-freshness.mjs","owner":"seo-and-audits","exports":["GIT_ENV","SKIP_DIRS","buildClockSignature","checkStability","collectDates","findSitemaps","formatLines","freshnessAcrossSnapshots","gitRun","isSitemapName","judge","lastmodProblem","lintSitemaps","mainTextHash","newFailures","parseSitemap","plainReason","rebuildAndJudge","runShell","supervised","walk","whichExe"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-gate.mjs","owner":"seo-and-audits","exports":["REFUSALS","ROBOTS_HOPS","UA","makeGate","parseRobots","readSources","robotsAllows","stopEngine"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-google-auth.mjs","owner":"seo-and-audits","exports":["DEFAULT_SCOPE","DEFAULT_TOKEN_URL","GoogleAuthBlocked","UNBLOCK","clearGoogleAuthCache","getGscToken"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-growth.mjs","owner":"seo-and-audits","exports":["LocaleMissing","carriesQuery","categoryPath","clusterByOverlap","compatibleTypes","containsPhrase","directoryEntry","intentDetail","intentOf","isCompatible","isSchemaType","matchPages","modifiersFor","namesOtherPlace","normResultUrl","pageTypeOf","pageTypeOfPage","placesIn","queryModifiers","schemaInfoOf"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-industry.mjs","owner":"seo-and-audits","exports":["INDUSTRIES_DIR","LICENCE_DEFAULT","detectLicences","licenceDetectFor","resolvePack","topicSetting"],"tests":[],"feature":""},
@@ -422,6 +423,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-demand-label.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-driver-ledger.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-freshness.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-gate.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-google-auth.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-grid-text.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-importers.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
