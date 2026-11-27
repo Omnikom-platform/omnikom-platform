@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1067,
+    "sources": 1069,
     "unowned": 0
   },
   "files": [
@@ -328,8 +328,9 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-shots.mjs","owner":"seo-and-audits","exports":["Blocked","UsageError","launch","opt","positionals","report","resolvePage","serve","urlFor"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-site.mjs","owner":"seo-and-audits","exports":["decode","googleRobotsDirectives","loadSite","normPath","parseHtml","resolveInternal","robotsNoindex","words"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-snowball.mjs","owner":"seo-and-audits","exports":["stemEnglish","stemFor"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-source-tables.mjs","owner":"seo-and-audits","exports":["SOURCE_KINDS","SOURCE_STATES","validateSourceTables"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-stations.mjs","owner":"seo-and-audits","exports":["SOURCE_RULED","STATES","StationError","buildSheet","kindOf","ruleStep","rulingCounts","sheetText","stationsOf"],"tests":["tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-stops.mjs","owner":"seo-and-audits","exports":["KNOWN_ENGINES","STOP_HOURS","activeStops","isStopped","liftStop","stopsDir","writeStop"],"tests":["tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-stops.mjs","owner":"seo-and-audits","exports":["KNOWN_ENGINES","STOP_HOURS","STOP_KINDS","activeStops","isStopped","liftStop","stopsDir","writeStop"],"tests":["tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-test-kit.mjs","owner":"seo-and-audits","exports":["J","W","checker","main","mkTmp","rmTmp","runner","serve","walk","writeVerdicts"],"tests":["factory/advisor/test/test-budget.mjs","factory/advisor/test/test-compile-51.mjs","factory/advisor/test/test-flows.mjs","factory/advisor/test/test-intent-misses.mjs","factory/advisor/test/test-no-meaning.mjs","factory/advisor/test/test-rewrites.mjs","factory/advisor/test/test-validate.mjs","factory/advisor/test/test-vtv-engine.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-text.mjs","owner":"seo-and-audits","exports":["GENERIC_ANCHORS","LocaleMissing","STOP","THRESHOLD","containsHeadTerm","coversTerm","gazetteer","headTerm","isGenericAnchor","missing","overlap","removePlaces","requiredTerms","scanPlaces","seqContains","shingles","showsQuestion","slugify","stem","stemSet","stemmerFor","stopWordsFor","termsOf","titleCase","tokenSet","tokens","uaxWords","words"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-writing-fixture.mjs","owner":"seo-and-audits","exports":["HEADERS","LLMS","PAGES","PNG","pageHtml","patchFile","patchPages","serveSite","writeGoodSite"],"tests":[],"feature":""},
@@ -461,6 +462,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-sitemap.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-snapshot.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-social-words.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-source-tables.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-speed-words.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-start.mjs","owner":"seo-and-audits","exports":["runScenarios"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-stations.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
