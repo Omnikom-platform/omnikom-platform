@@ -1,7 +1,7 @@
 // The ONE stop format for the skill and the CLI (work order 43). A stop says "do not load pages from this engine until <time>": a robot
 // check, a 429, a sign-in wall. One file per engine: ~/.claude/state/omnikom-stops/<engine>.json (OMNIKOM_STOPS_DIR or a `dir` argument
 // overrides the folder, tests do):
-//   { engine, hosts: [host suffixes], until (ISO UTC), reason, setBy, setAt (ISO UTC), evidence }
+//   { engine, hosts: [host suffixes], until (ISO UTC), reason, setBy, setAt (ISO UTC), evidence, kind ("check", "rate" or null) }
 //   optional: lift { mode: "desktop", by, at, note } = a person freed DESKTOP control (a person-paced capture in the owner's own browser)
 //   and nothing else: isStopped(x, now, dir, "script") (the default, every script) stays stopped until `until`.
 // A writer never shortens a later `until`. An expired file is ignored and left where it is (the evidence stays). A file that cannot be
@@ -11,6 +11,8 @@ import os from "node:os";
 import path from "node:path";
 
 export const STOP_HOURS = 24;
+// The kinds a stop file may carry: a robot check on a page, or an HTTP 429. null or absent = no kind named (a stop written before this field has no kind key).
+export const STOP_KINDS = ["check", "rate"];
 // Engines the skill knows, with the host suffixes each one covers. A host matches a suffix when it equals it or is a subdomain of it.
 export const KNOWN_ENGINES = {
   google: ["google.com"],
@@ -71,18 +73,19 @@ export function isStopped(engineOrHost, now = Date.now(), dir, mode = "script") 
 
 /**
  * Write (or extend) an engine's stop. `until` is an ISO string or epoch ms, default 24 h from `now`. A later `until` already on file is
- * kept: the call writes nothing and returns { written: false, stop: <existing> }. hosts default to the known suffixes for the engine.
+ * kept: the call writes nothing and returns { written: false, stop: <existing> }. hosts default to the known suffixes for the engine. kind is one of STOP_KINDS, or null.
  */
-export function writeStop({ engine, hosts, until, reason, setBy, evidence = null, now = Date.now(), dir } = {}) {
+export function writeStop({ engine, hosts, until, reason, setBy, evidence = null, kind = null, now = Date.now(), dir } = {}) {
   const file = fileOf(engine, dir);
   const h = hosts && hosts.length ? hosts.map((x) => String(x).toLowerCase()) : KNOWN_ENGINES[engine];
   if (!h) throw new Error(`engine "${engine}" is not known: pass hosts`);
   if (!reason || !setBy) throw new Error("a stop needs a reason and a setBy");
+  if (kind !== null && !STOP_KINDS.includes(kind)) throw new Error(`unknown stop kind "${kind}" (one of: ${STOP_KINDS.join(", ")}, or none)`);
   const untilMs = until == null ? ms(now) + STOP_HOURS * 3600_000 : ms(until);
   if (!Number.isFinite(untilMs)) throw new Error(`unreadable until: ${until}`);
   const existing = readAll(dir).find((s) => s.engine === engine);
   if (existing && ms(existing.until) > untilMs) return { written: false, stop: existing };
-  const rec = { engine, hosts: h, until: new Date(untilMs).toISOString(), reason, setBy, setAt: new Date(ms(now)).toISOString(), evidence };
+  const rec = { engine, hosts: h, until: new Date(untilMs).toISOString(), reason, setBy, setAt: new Date(ms(now)).toISOString(), evidence, kind };
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(rec, null, 2) + "\n"); // a new or extended stop starts without a lift: it is a new event
   return { written: true, stop: { ...rec, file } };
