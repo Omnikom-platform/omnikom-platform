@@ -897,6 +897,10 @@ await t("after three 403 answers a host is skipped with a dot at its end too", a
   eq(a.f.calls.length, 4, "requests");
 });
 
+await t("no value but a function is taken as the lookup: null and false do not switch the address check off", async () => {
+  for (const lookup of [null, false, 0, "", {}, []]) typeError(() => mk(() => ({ status: 200 }), { lookup }), "lookup " + JSON.stringify(lookup));
+});
+
 // ---- the mutants: one broken copy of the library for each rule (node scripts/test-gate.mjs --mutants) ----
 // A mutant is one change of the text of lib-gate.mjs: "from" is found one time in the file, and "to" takes its place. The scripts
 // folder and sources.json are copied to a temp folder one time; each mutant is written there and this test runs on it. The test
@@ -962,6 +966,7 @@ const RULES = [
   ["G58", "the stop of a 429 from a host with a dot at its end holds the host with no dot, also for a later gate"],
   ["G59", "the stop of a robot check on a host with a dot at its end holds the host with no dot"],
   ["G60", "after three 403 answers a host is skipped with a dot at its end too"],
+  ["G61", "no value but a function is taken as the lookup: null and false do not switch the address check off"],
 ];
 // MUTANTS-BEGIN (the builder fills this list: one entry for each rule id, { from, to }. Nothing outside the two marks changes.)
 const MUTANTS = {
@@ -1025,6 +1030,7 @@ const MUTANTS = {
   G58: { from: "hosts: [host], kind: \"rate\"", to: "hosts: [u.hostname], kind: \"rate\"" },
   G59: { from: "hosts: [host], kind: \"check\"", to: "hosts: [u.hostname], kind: \"check\"" },
   G60: { from: "(refusals.get(host) || 0) >= REFUSALS", to: "(refusals.get(given) || 0) >= REFUSALS" },
+  G61: { from: "  if (typeof lookup !== \"function\") throw new TypeError(\"gate: lookup is a function\");\n", to: "" },
 };
 // MUTANTS-END
 async function mutants() {
