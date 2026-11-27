@@ -58,7 +58,7 @@ export async function run({ argv = [], env = {}, fetch = globalThis.fetch, log =
       for (const p of await all(`/accounts/${a.id}/pages/projects`, 10)) {
         let names = p.domains;
         if (!Array.isArray(p.domains)) names = ((await cf('GET', `/accounts/${a.id}/pages/projects/${p.name}/domains`)) || []).map((d) => d.name);
-        if (names.some((d) => d === domain || d === 'www.' + domain)) found.push({ acct: a.id, project: p.name });
+        if (names.some((d) => d === domain || d === 'www.' + domain) && !found.some((f) => f.acct === a.id && f.project === p.name)) found.push({ acct: a.id, project: p.name });
       }
     }
     if (found.length > 1) { say(`FAIL: ${found.length} Pages projects list ${domain}: ${found.map((f) => f.project).join(', ')}. This script does not choose between them; nothing changed.`); return 1; }

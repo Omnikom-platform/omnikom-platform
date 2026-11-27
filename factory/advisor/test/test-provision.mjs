@@ -111,6 +111,8 @@ const scenarios = async (dir) => {
   r = await go(['--apply'], cf);
   check('domain: no project serves it (look-alikes only) = exit 3, NO, BLOCKED, nothing written', r.code === 3 && /NO/.test(r.out) && /BLOCKED/.test(r.out) && r.writes.length === 0, r.code + '\n' + r.out);
 
+  cf = fakeCF({ projects: [site(), ...others(9), site()], namespaces: [] }); r = await go(['--dry-run'], cf);
+  check('domain: the same project seen on two pages of the list counts once = found', r.code === 0 && /YES/.test(r.out), r.code + '\n' + r.out);
   // more than one project lists the domain: the script does not choose
   cf = fakeCF({ projects: [site(), site({ name: 'omnikom-old' })], namespaces: [] });
   r = await go(['--apply'], cf);
@@ -214,6 +216,7 @@ const MUTANTS = [
   { name: 'the salt not hidden from an error', patches: [P('provision.mjs', 'hide.push(value);', '')], expect: [/salt echoed by the error is scrubbed/] },
   { name: 'the salt a constant', patches: [P('provision.mjs', "randomBytes(32).toString('hex')", "'0'.repeat(64)")], expect: [/two different salts/] },
   { name: 'the check that the binding and the salt are there removed', patches: [P('provision.mjs', 'if (kvA[BINDING]?.namespace_id !== ns.id || !(SECRET in varsA)) {', 'if (false) {')], expect: [/changed nothing/] },
+  { name: 'one project listed twice counted as two', patches: [P('provision.mjs', ' && !found.some((f) => f.acct === a.id && f.project === p.name)', '')], expect: [/counts once/] },
   { name: 'the domain matched by suffix', patches: [P('provision.mjs', "(d) => d === domain || d === 'www.' + domain", '(d) => d.endsWith(domain)')], expect: [/look-alikes only/] },
   { name: 'only the first page read', patches: [P('provision.mjs', 'if (list.length < per) break;', 'break;')], expect: [/page 2 of the list/] },
   { name: 'the other-namespace refusal removed', patches: [P('provision.mjs', 'if (bound && (!ns || bound !== ns.id)) {', 'if (false) {')], expect: [/bound to another namespace/, /of another title/] },
