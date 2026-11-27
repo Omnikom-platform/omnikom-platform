@@ -1,20 +1,26 @@
-// The gate: the one request path of each driver, for each request to another company's host (router job J1c).
+// The gate: the one request path of each driver, for each request to another company's host (router jobs J1c, J1d, J1e).
 // It asks the source table, the stop files, the refusals of this run and robots.txt; a request that may go carries our User-Agent.
 // Each request that goes out, and each refusal, writes one line in the driver ledger. It never retries and never gets around a check.
+// Five rules hold for each text of a site: one host form (no dot at its end), a stop name the stop library takes, no RegExp that a text
+// can make slow, a size limit (10 MiB of an answer, 512 KiB of a robots.txt), and the address check of the reader (no inner address).
 // It also keeps the limits of a source row (one count for each run on the machine, and a hold after a quota answer) and the pace of a
 // row (inside one gate), and a driver's sorter may name an answer: a robot check, a quota answer, a refused key, a sign-in wall.
+import dns from "node:dns";
 import fs from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { isStopped, writeStop } from "./lib-stops.mjs";
-import { record, lineOf, ledgerFile } from "./lib-driver-ledger.mjs";
+import { record, lineOf, ledgerFile, hostForm } from "./lib-driver-ledger.mjs";
 import { UA } from "./research-lib.mjs";
 
 export { UA };
 export const REFUSALS = 3; // 403 answers in a row from one host: the host is skipped for the run
 export const ROBOTS_HOPS = 5; // moves of a robots.txt that are followed
 export const HOLD_HOURS = 24; // a hold with no time of its own
+export const MAX_BYTES = 10 * 1024 * 1024; // the most of an answer that the gate reads
+export const ROBOTS_BYTES = 512 * 1024; // the most of a robots.txt that the gate reads
 const ROBOTS_NAME = "omnikomaudit";
 const DAY = 86400000;
 const WINDOWS = { minute: 60000, hour: 3600000, day: DAY };
@@ -24,14 +30,22 @@ export const readSources = () => JSON.parse(fs.readFileSync(new URL("../sources.
 
 // the name of a host's stop file: the stop library takes lower-case letters, digits and dashes only
 export const stopEngine = (host) =>
-  host.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) + "-" + createHash("sha1").update(host).digest("hex").slice(0, 8);
+  (host.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "host") + "-" + createHash("sha1").update(host).digest("hex").slice(0, 8);
+
+// one robots.txt line as [line, key, value], or null: no RegExp can try one place of the line two times
+const keyValue = (raw) => {
+  const hash = raw.indexOf("#"), line = hash < 0 ? raw : raw.slice(0, hash), colon = line.indexOf(":");
+  if (colon < 0) return null;
+  const key = line.slice(0, colon).trim();
+  return /^[A-Za-z-]+$/.test(key) ? [line, key, line.slice(colon + 1).trim()] : null;
+};
 
 /** The rules of the groups that name us, else of the groups for each reader (the groups are read as snapshot-site.mjs reads them). */
 export function parseRobots(text) {
   const groups = [];
   let g = null;
-  for (const line of text.split(/\r?\n/)) {
-    const m = line.replace(/#.*/, "").match(/^\s*([A-Za-z-]+)\s*:\s*(.*?)\s*$/);
+  for (const raw of text.split(/\r?\n/)) {
+    const m = keyValue(raw);
     if (!m) continue;
     const key = m[1].toLowerCase(), v = m[2];
     if (key === "user-agent") {
@@ -43,27 +57,66 @@ export function parseRobots(text) {
   return (own.length ? own : groups.filter((x) => x.agents.includes("*"))).flatMap((x) => x.rules);
 }
 
+// a rule matches from the start of the path: "*" is each run of characters, a last "$" is the end of the path, any other character is itself.
+// No RegExp is built from the rule: the first part starts the path, each next part is found with indexOf, the last part ends it.
+const ruleMatches = (rule, p) => {
+  const end = rule.endsWith("$"), parts = (end ? rule.slice(0, -1) : rule).split("*");
+  if (!p.startsWith(parts[0])) return false;
+  let at = parts[0].length;
+  if (parts.length === 1) return !end || p.length === at;
+  for (let i = 1; i < parts.length - 1; i++) {
+    const found = p.indexOf(parts[i], at);
+    if (found < 0) return false;
+    at = found + parts[i].length;
+  }
+  const last = parts[parts.length - 1];
+  return end ? p.length - last.length >= at && p.endsWith(last) : p.indexOf(last, at) >= 0;
+};
+
 /** The longest rule that matches wins; with the same length, allow wins; no match is allowed. */
 export function robotsAllows(rules, path) {
   let best = null;
   for (const r of rules) {
     if (!r.path) continue;
-    const re = new RegExp("^" + r.path.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\\\$$/, "$"));
-    if (re.test(path) && (!best || r.path.length > best.path.length || (r.path.length === best.path.length && r.allow))) best = r;
+    if (ruleMatches(r.path, path) && (!best || r.path.length > best.path.length || (r.path.length === best.path.length && r.allow))) best = r;
   }
   return !best || best.allow;
 }
 
 // a leading www. goes; so does the dot that ends a full host name, which names the same site
-const bare = (host) => String(host).toLowerCase().replace(/\.+$/, "").replace(/^www\./, "");
+const bare = (host) => hostForm(host).replace(/^www\./, "");
+
+// the addresses of this machine and of a private network: the reader never reads one
+const INNER = new net.BlockList();
+for (const [a, bits] of [["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15], ["224.0.0.0", 4], ["240.0.0.0", 4]]) INNER.addSubnet(a, bits, "ipv4");
+for (const a of ["::", "::1"]) INNER.addAddress(a, "ipv6");
+for (const [a, bits] of [["fc00::", 7], ["fe80::", 10], ["ff00::", 8]]) INNER.addSubnet(a, bits, "ipv6");
+// an address that is not an IP address, or that INNER holds (a check that throws counts as inner)
+const innerAddress = (address) => { const family = net.isIP(address); if (!family) return true; try { return INNER.check(address, family === 4 ? "ipv4" : "ipv6"); } catch { return true; } };
+
+// read the body of an answer in parts: over the limit the read stops (the loop ends, so the stream is cancelled)
+class Over extends Error { name = "size"; }
+const readBody = async (res, limit) => {
+  if (res.body === null) return Buffer.alloc(0);
+  const chunks = [];
+  let total = 0;
+  for await (const part of res.body) {
+    total += part.length;
+    if (total > limit) throw new Over("over the size limit");
+    chunks.push(part);
+  }
+  return Buffer.concat(chunks, total);
+};
 
 export function makeGate({ pewp, run, client, sources, stopsDir, now = () => Date.now(), fetch: doFetch = globalThis.fetch,
   quotaDir = process.env.OMNIKOM_QUOTA_DIR || path.join(os.homedir(), ".claude", "state", "omnikom-quota"),
-  sleep = (ms) => new Promise((done) => setTimeout(done, ms)) } = {}) {
+  sleep = (ms) => new Promise((done) => setTimeout(done, ms)),
+  lookup = (host) => dns.promises.lookup(host, { all: true }) } = {}) {
   for (const [name, v] of Object.entries({ pewp, run, client })) if (typeof v !== "string" || v === "") throw new TypeError("gate: bad " + name);
   if (!sources || typeof sources !== "object" || !Array.isArray(sources.sources)) throw new TypeError("gate: bad sources");
   if (typeof now !== "function" || typeof doFetch !== "function") throw new TypeError("gate: now and fetch are functions");
   if (typeof sleep !== "function") throw new TypeError("gate: sleep is a function");
+  if (typeof lookup !== "function") throw new TypeError("gate: lookup is a function");
   if (typeof quotaDir !== "string" || quotaDir === "") throw new TypeError("gate: bad quotaDir");
   const rows = sources.sources;
   for (const r of rows) {
@@ -75,6 +128,17 @@ export function makeGate({ pewp, run, client, sources, stopsDir, now = () => Dat
   }
   const barred = rows.filter((r) => r.state === "barred").flatMap((r) => r.hosts || []).map(bare);
   const isBarred = (host) => { const h = bare(host); return barred.some((b) => h === b || h.endsWith("." + b)); };
+  // is the host of a reader an inner address, or a name that gives one (or none, or cannot be found)?
+  const isInner = async (given) => {
+    let name = hostForm(given);
+    if (name.startsWith("[") && name.endsWith("]")) name = name.slice(1, -1);
+    if (name === "") return true;
+    if (net.isIP(name)) return innerAddress(name);
+    let list;
+    try { list = await lookup(name); } catch { return true; }
+    if (!Array.isArray(list) || list.length === 0) return true;
+    return list.some((x) => !x || typeof x !== "object" || innerAddress(x.address));
+  };
   const refusals = new Map(); // host -> 403 answers in a row
   const robots = new Map(); // origin -> the rules, or null: they cannot be read
   const count = (host, status) => refusals.set(host, status === 403 ? (refusals.get(host) || 0) + 1 : 0);
@@ -153,7 +217,8 @@ export function makeGate({ pewp, run, client, sources, stopsDir, now = () => Dat
   };
 
   // checks 3 to 5, for the URL of a call and for each place a robots.txt moves to
-  const siteCheck = (row, host) => {
+  const siteCheck = (row, given) => {
+    const host = hostForm(given);
     if (row.kind === "reader") { if (isBarred(host)) return "terms"; }
     else if (!(row.hosts || []).includes(host)) return "unknown-source";
     if (isStopped(host, now(), stopsDir)) return "stop";
@@ -162,9 +227,9 @@ export function makeGate({ pewp, run, client, sources, stopsDir, now = () => Dat
   };
 
   // the one place that calls the fetch, for a page and for robots.txt
-  async function send(entry, row, { method, headers, body, timeoutMs, sort }) {
+  async function send(entry, row, { method, headers, body, timeoutMs, sort, limit }) {
     lineOf({ ...entry, result: "error" }, now()); // check 7: a line the ledger refuses means no request
-    const u = new URL(entry.url), host = u.hostname, paced = host;
+    const u = new URL(entry.url), host = hostForm(u.hostname), paced = host;
     if (row.paceMs > 0 && ended.has(paced)) {
       const wait = row.paceMs - (now() - ended.get(paced));
       if (wait > 0) await sleep(wait);
@@ -176,7 +241,7 @@ export function makeGate({ pewp, run, client, sources, stopsDir, now = () => Dat
     const before = Date.now();
     try {
       res = await doFetch(entry.url, options); // no-timeout: AbortSignal.timeout(timeoutMs) ends the request
-      data = Buffer.from(await res.arrayBuffer());
+      data = await readBody(res, limit);
     } catch (e) { error = String(e?.name); }
     ended.set(paced, now());
     const ms = Math.max(0, Date.now() - before);
@@ -203,7 +268,7 @@ export function makeGate({ pewp, run, client, sources, stopsDir, now = () => Dat
   async function readRules(origin, row, entry, options) {
     let place = origin + "/robots.txt";
     for (let moves = 0; ; moves++) {
-      const r = await send({ ...entry, url: place }, row, { ...options, method: "GET", headers: {} });
+      const r = await send({ ...entry, url: place }, row, { ...options, method: "GET", headers: {}, limit: ROBOTS_BYTES });
       if (r.status === null) return null;
       if (r.status >= 200 && r.status < 300) return parseRobots(r.body.toString("utf8"));
       if (r.status >= 400 && r.status < 500) return [401, 403, 429].includes(r.status) ? null : [];
@@ -213,6 +278,7 @@ export function makeGate({ pewp, run, client, sources, stopsDir, now = () => Dat
       if (next.protocol !== "http:" && next.protocol !== "https:") return null;
       const why = siteCheck(row, next.hostname);
       if (why) { notSent({ ...entry, url: next.href }, why); return null; }
+      if (row.kind === "reader" && (await isInner(next.hostname))) { notSent({ ...entry, url: next.href }, "address"); return null; }
       place = next.href;
     }
   }
@@ -227,6 +293,7 @@ export function makeGate({ pewp, run, client, sources, stopsDir, now = () => Dat
     if (row.state !== "allowed") return notSent(entry, "terms");
     const why = siteCheck(row, u.hostname);
     if (why) return notSent(entry, why);
+    if (row.kind === "reader" && (await isInner(u.hostname))) return notSent(entry, "address");
     if (overLimit(row)) return notSent(entry, "limit");
     if (row.robotsAtRun === true) {
       if (!robots.has(u.origin)) {
@@ -237,7 +304,7 @@ export function makeGate({ pewp, run, client, sources, stopsDir, now = () => Dat
       const rules = robots.get(u.origin);
       if (rules === null || !robotsAllows(rules, u.pathname + u.search)) return notSent(entry, "robots");
     }
-    return send(entry, row, { method, headers, body, timeoutMs, sort });
+    return send(entry, row, { method, headers, body, timeoutMs, sort, limit: MAX_BYTES });
   }
 
   return { request };

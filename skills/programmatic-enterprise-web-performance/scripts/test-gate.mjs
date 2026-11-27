@@ -6,8 +6,9 @@ import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { writeStop } from "./lib-stops.mjs";
 import { serve } from "./lib-test-kit.mjs";
+import dns from "node:dns";
 // LIB_GATE_UNDER_TEST points the test at another copy of the library (the intake). The copy stands in a folder that holds the other scripts.
-const { makeGate, readSources, parseRobots, robotsAllows, stopEngine, UA, REFUSALS, ROBOTS_HOPS } = await import(process.env.LIB_GATE_UNDER_TEST ? pathToFileURL(process.env.LIB_GATE_UNDER_TEST).href : new URL("./lib-gate.mjs", import.meta.url).href);
+const { makeGate, readSources, parseRobots, robotsAllows, stopEngine, UA, REFUSALS, ROBOTS_HOPS, MAX_BYTES, ROBOTS_BYTES } = await import(process.env.LIB_GATE_UNDER_TEST ? pathToFileURL(process.env.LIB_GATE_UNDER_TEST).href : new URL("./lib-gate.mjs", import.meta.url).href);
 
 const MUT = process.argv.includes("--mutants");
 let fails = 0, n = 0;
@@ -18,6 +19,8 @@ const typeError = (fn, m) => { try { fn(); } catch (e) { if (e instanceof TypeEr
 const rejects = async (p, m) => { try { await p; } catch { return; } throw new Error(m + ": it did not reject"); };
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "gate-test-"));
 process.env.OMNIKOM_QUOTA_DIR = tmp(); // no gate of a test reads or writes the quota folder of the machine
+const machineLookup = dns.promises.lookup; // the guard: no test asks the network for a name. localhost is the one name that the machine answers by itself.
+dns.promises.lookup = async (host, options) => { if (host !== "localhost") throw new Error("a test reached the real lookup: " + host); return machineLookup(host, options); };
 const NOW = Date.parse("2026-11-27T08:00:00Z");
 const OUR_UA = "OmnikomAudit/1.0 (+https://omnikom.ai)";
 const row = (id, kind, state, hosts, robotsAtRun = false) => ({ id, kind, engine: kind === "reader" ? null : "example", hosts, state, robotsAtRun });
@@ -43,9 +46,10 @@ const net = (answer) => {
   f.calls = [];
   return f;
 };
+const PUBLIC = async () => [{ address: "93.184.216.34", family: 4 }]; // the lookup of a test: each name has one public address
 const mk = (answer, more = {}) => {
   const pewp = tmp(), stops = path.join(pewp, "stops"), quota = path.join(pewp, "quota"), f = net(answer);
-  return { pewp, stops, quota, f, gate: makeGate({ pewp, run: "run-1", client: "vtv", sources: TABLE(), stopsDir: stops, quotaDir: quota, now: () => NOW, fetch: f, ...more }) };
+  return { pewp, stops, quota, f, gate: makeGate({ pewp, run: "run-1", client: "vtv", sources: TABLE(), stopsDir: stops, quotaDir: quota, now: () => NOW, fetch: f, lookup: PUBLIC, ...more }) };
 };
 const withRow = (id, more) => { const tb = TABLE(); Object.assign(tb.sources.find((r) => r.id === id), more); return tb; };
 const clock = (t = NOW) => { const c = { t, slept: [] }; c.now = () => c.t; c.sleep = async (ms) => { c.slept.push(ms); c.t += ms; }; return c; };
@@ -55,6 +59,21 @@ const ask = (gate, source, url, more = {}) => gate.request({ driver: "test-drive
 const stopFiles = (stops) => (fs.existsSync(stops) ? fs.readdirSync(stops) : []);
 const API = "https://api.example.test/v1/x?key=SECRET&q=1";
 const ROBOTS = (body) => (url) => (url.endsWith("/robots.txt") ? { status: 200, body } : { status: 200, body: "page" });
+const PAGE = "https://site.test/p";
+// a body of `count` parts of 1 MiB: .pulled counts the parts that were given, .cancelled says that the read was stopped
+const parts = (count) => { const s = { pulled: 0, cancelled: false }; s.body = new ReadableStream({ pull(c) { if (s.pulled >= count) return c.close(); s.pulled++; c.enqueue(new Uint8Array(1048576)); }, cancel() { s.cancelled = true; } }); return s; };
+// ---- the slow cases: one hostile text for each, run in a child with a time limit (node scripts/test-gate.mjs --slow <case>) ----
+const SLOW = {
+  stars: () => robotsAllows([{ allow: false, path: "/" + "a*".repeat(40) + "b" }], "/" + "a".repeat(3000)),
+  spaces: () => parseRobots("User-agent: *\nDisallow: /" + " ".repeat(400000) + "x\n").length,
+  dots: async () => (await ask(mk(() => ({ status: 200 })).gate, "R1", "https://a" + ".".repeat(200000) + "a/p")).sent,
+};
+if (process.argv[2] === "--slow") { console.log(JSON.stringify(await SLOW[process.argv[3]]())); process.exit(0); }
+const slow = async (name) => {
+  const { spawnSync } = await import("node:child_process");
+  const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url), "--slow", name], { encoding: "utf8", timeout: 5000 });
+  return r.status === 0 ? String(r.stdout).trim() : "no answer in 5 s (status " + r.status + ", signal " + r.signal + ")";
+};
 
 await t("a request to an allowed source is sent, with one ledger line", async () => {
   const { gate, f, pewp } = mk(() => ({ status: 200, body: "hello", headers: { "x-test": "1" } }));
@@ -617,6 +636,211 @@ await t("a sorter that gives a Promise is another value, and its rejection does 
   } finally { process.off("unhandledRejection", keep); }
 });
 
+await t("a stop on a host holds for the same host with a dot at its end, and the gate writes its stop under the host with no dot", async () => {
+  const a = mk(() => ({ status: 200 }));
+  writeStop({ engine: "site-test", hosts: ["site.test"], reason: "a test stop", setBy: "test-gate", now: NOW, dir: a.stops });
+  for (const url of ["https://site.test./p", "https://SITE.Test../p"]) {
+    const r = await ask(a.gate, "R1", url);
+    eq([r.sent, r.why], [false, "stop"], url);
+  }
+  eq(a.f.calls.length, 0, "requests");
+  eq(lines(a.pewp).map((l) => l.host), ["site.test", "site.test"]);
+  const b = mk(() => ({ status: 429 }));
+  const r = await ask(b.gate, "A1", "https://api.example.test./v1/x");
+  eq([r.sent, r.result], [true, "429"]);
+  eq(stopFiles(b.stops), [stopEngine("api.example.test") + ".json"], "the stop file");
+  eq(JSON.parse(fs.readFileSync(path.join(b.stops, stopFiles(b.stops)[0]), "utf8")).hosts, ["api.example.test"]);
+  const again = await ask(b.gate, "A1", "https://api.example.test/v1/x");
+  eq([again.sent, again.why], [false, "stop"], "the form with no dot");
+});
+
+await t("the count of 403 answers is one count for a host with and with no dot at its end, also in a later gate", async () => {
+  const a = mk((url) => (url.endsWith("/robots.txt") ? { status: 404 } : { status: 403 }));
+  for (let i = 0; i < 3; i++) {
+    const r = await ask(a.gate, "R1", "https://site.test./p");
+    eq([r.sent, r.result], [true, "403"], "ask " + i);
+  }
+  const four = await ask(a.gate, "R1", "https://site.test/p");
+  eq([four.sent, four.why], [false, "refused"]);
+  eq(a.f.calls.length, 4, "requests");
+  const f2 = net(() => ({ status: 200 }));
+  const later = makeGate({ pewp: a.pewp, run: "run-1", client: "vtv", sources: TABLE(), stopsDir: a.stops, now: () => NOW, lookup: PUBLIC, fetch: f2 });
+  const five = await ask(later, "R1", "https://site.test/p");
+  eq([five.sent, five.why], [false, "refused"], "the later gate");
+  eq(f2.calls.length, 0, "requests of the later gate");
+});
+
+await t("an API host with a dot at its end is the host of the row, with one pace for the two forms, and the ledger line holds the host with no dot", async () => {
+  const a = mk(() => ({ status: 200 }));
+  const r = await ask(a.gate, "A1", "https://api.example.test./v1/x");
+  eq([r.sent, r.status], [true, 200]);
+  eq(a.f.calls.map((c) => c.url), ["https://api.example.test./v1/x"]);
+  eq(lines(a.pewp)[0].host, "api.example.test");
+  const c = clock();
+  const b = mk(() => ({ status: 200 }), { sources: withRow("A1", { paceMs: 1000 }), now: c.now, sleep: c.sleep });
+  for (const url of ["https://api.example.test./v1/x", "https://api.example.test/v1/x"]) eq((await ask(b.gate, "A1", url)).sent, true, url);
+  eq(c.slept, [1000], "one pace for the two forms");
+});
+
+await t("a host with no letter and no digit gets a stop name that the stop library takes", async () => {
+  const one = stopEngine("[::]"), two = stopEngine("_");
+  ok(/^host-[0-9a-f]{8}$/.test(one), one);
+  ok(/^host-[0-9a-f]{8}$/.test(two), two);
+  ok(one !== two, "the two names are the same");
+  eq(stopEngine("api.example.test"), "api-example-test-9277b7d0");
+  const a = mk(() => ({ status: 429 }), { sources: withRow("A1", { hosts: ["_"] }) });
+  const r = await ask(a.gate, "A1", "https://_/x");
+  eq([r.sent, r.result], [true, "429"]);
+  eq(stopFiles(a.stops), [stopEngine("_") + ".json"]);
+  const again = await ask(a.gate, "A1", "https://_/x");
+  eq([again.sent, again.why], [false, "stop"]);
+});
+
+const MEANING = [["/private","/private/a",false], ["/private","/priv",true], ["/*.php$","/a/b.php",false], ["/*.php$","/a/b.php?x=1",true], ["/*.php$","/a.php5",true], ["/a*b*c","/axxbyyc",false], ["/a*b*c","/acb",true], ["/a*b*c","/abc/more",false], ["/x$","/x",false], ["/x$","/x/",true], ["/a$b","/a$b",false], ["/a$b","/a",true], ["*","/anything",false], ["/*","/",false], ["/a*a$","/aa",false], ["/a*a$","/a",true], ["/*ab*ab$","/abab",false], ["/*ab*ab$","/abxab",false], ["/*ab*ab$","/ab",true], ["/a*$","/a",false], ["/a**b","/ab",false], ["/a.b","/axb",true], ["/a?b=1","/a?b=1&c=2",false], ["/$","/",false], ["/$","/x",true], ["$","/",true], ["/a*$b","/aXX$b",false], ["/x$","/x/x",true]];
+await t("robots.txt: a star is each run of characters, a last $ is the end of the path, and another $ is itself", async () => {
+  const allows = (rule, p) => robotsAllows([{ allow: false, path: rule }], p);
+  for (const [rule, p, allowed] of MEANING) eq(allows(rule, p), allowed, rule + " " + p);
+});
+
+await t("a robots.txt rule of many stars is matched in time", async () => {
+  eq(await slow("stars"), "true");
+});
+
+await t("a robots.txt line of many spaces is read in time", async () => {
+  eq(await slow("spaces"), "1");
+});
+
+await t("a host of many dots is read in time", async () => {
+  eq(await slow("dots"), "true");
+});
+
+await t("an answer over the size limit is not kept: the read stops, and the line says error", async () => {
+  eq([MAX_BYTES, ROBOTS_BYTES], [10485760, 524288]);
+  const s = parts(14);
+  let asked = 0;
+  const a = mk(() => ({ status: 200, body: s.body }));
+  const r = await ask(a.gate, "A1", API, { sort: () => { asked++; return { result: "key" }; } });
+  eq([r.sent, r.status, r.result, r.error], [true, null, "error", "size"]);
+  ok(r.body === undefined, "the body is kept");
+  ok(r.headers === undefined, "the headers are kept");
+  eq(asked, 0, "the sorter is asked");
+  ok(s.cancelled === true, "the read was not stopped");
+  ok(s.pulled < 14, "the whole body was read");
+  const l = lines(a.pewp);
+  eq(l.length, 1, "lines");
+  eq([l[0].status, l[0].result, l[0].why, l[0].bytes], [null, "error", null, null]);
+  ok(typeof l[0].ms === "number", "ms");
+  const exact = mk(() => ({ status: 200, body: Buffer.alloc(MAX_BYTES) }));
+  const c = await ask(exact.gate, "A1", API);
+  eq([c.sent, c.result, c.body.length], [true, "read", MAX_BYTES]);
+  eq(lines(exact.pewp)[0].bytes, MAX_BYTES);
+  const over = Buffer.alloc(MAX_BYTES + 1);
+  const d = await ask(mk(() => ({ status: 200, body: over })).gate, "A1", API);
+  eq([d.status, d.result, d.error], [null, "error", "size"]);
+  const e = mk(() => ({ status: 403, body: over }));
+  for (let i = 0; i < 4; i++) {
+    const x = await ask(e.gate, "A1", API);
+    eq([x.sent, x.result], [true, "error"], "403 ask " + i);
+  }
+  const g429 = mk(() => ({ status: 429, body: over }));
+  const f = await ask(g429.gate, "A1", API);
+  eq([f.result, f.error], ["error", "size"]);
+  eq(stopFiles(g429.stops).length, 1, "stop files");
+  const f2 = await ask(g429.gate, "A1", API);
+  eq([f2.sent, f2.why], [false, "stop"]);
+  const lim = mk(() => ({ status: 200, body: over }), { sources: withRow("A1", { limits: [{ count: 1, per: "run" }] }) });
+  const first = await ask(lim.gate, "A1", API);
+  eq([first.sent, first.result], [true, "error"]);
+  const second = await ask(lim.gate, "A1", API);
+  eq([second.sent, second.why], [false, "limit"]);
+  eq(lim.f.calls.length, 1, "requests");
+  const none = mk(() => ({}), { fetch: async () => new Response(null, { status: 204 }) });
+  const h = await ask(none.gate, "A1", API);
+  eq([h.sent, h.status, h.result, h.body.length], [true, 204, "read", 0]);
+  eq(lines(none.pewp)[0].bytes, 0);
+});
+
+await t("robots.txt over its size limit cannot be read, so the site is not read", async () => {
+  const big = (n) => { const head = "User-agent: *\nAllow: /\n#"; return head + "x".repeat(n - head.length); };
+  const a = mk(ROBOTS(big(ROBOTS_BYTES + 1)));
+  const r = await ask(a.gate, "R1", PAGE);
+  eq([r.sent, r.why], [false, "robots"]);
+  eq(a.f.calls.map((c) => c.url), ["https://site.test/robots.txt"]);
+  eq(lines(a.pewp).map((l) => [l.path, l.status, l.result, l.why]), [["/robots.txt", null, "error", null], ["/p", null, "not sent", "robots"]]);
+  const b = mk(ROBOTS(big(ROBOTS_BYTES)));
+  eq((await ask(b.gate, "R1", PAGE)).sent, true);
+});
+
+const INNER_URLS = ["http://127.0.0.1/x", "http://127.9.9.9/x", "http://10.0.0.5/x", "http://172.16.0.1/x", "http://172.31.255.255/x", "http://192.168.1.1/x", "http://169.254.169.254/latest/meta-data", "http://0.0.0.0/x", "http://100.64.0.1/x", "http://198.18.0.1/x", "http://224.0.0.1/x", "http://255.255.255.255/x", "http://2130706433/x", "http://0x7f.1/x", "http://[::1]/x", "http://[::]/x", "http://[fc00::1]/x", "http://[fd12:3456::1]/x", "http://[fe80::1]/x", "http://[ff02::1]/x", "http://[::ffff:127.0.0.1]/x", "http://[::ffff:10.0.0.5]/x", "http://./x"];
+const PUBLIC_URLS = ["http://93.184.216.34/x", "http://172.15.0.1/x", "http://172.32.0.1/x", "http://100.128.0.1/x", "http://[2606:2800:220:1::1]/x", "http://[::ffff:93.184.216.34]/x"];
+await t("the reader does not read an address of this machine or of a private network", async () => {
+  const seen = [];
+  const a = mk(() => ({ status: 200 }), { lookup: async (h) => { seen.push(h); return PUBLIC(); } });
+  for (const url of INNER_URLS) {
+    const r = await ask(a.gate, "R1", url);
+    eq([r.sent, r.why], [false, "address"], url);
+  }
+  eq(a.f.calls.length, 0, "requests");
+  eq(seen, [], "lookups");
+  ok(lines(a.pewp).every((l) => l.kind === "reader"), "kind");
+  for (const url of PUBLIC_URLS) eq((await ask(a.gate, "R1", url)).sent, true, url);
+  eq(seen, [], "lookups of an address");
+});
+
+await t("a name that gives an inner address is not read, and neither is a name that cannot be found", async () => {
+  const lookups = [
+    async () => [{ address: "93.184.216.34", family: 4 }, { address: "10.0.0.7", family: 4 }],
+    async () => [{ address: "::1", family: 6 }],
+    async () => { throw new Error("ENOTFOUND"); },
+    async () => [],
+    async () => [{ address: "not an address", family: 4 }],
+    async () => "93.184.216.34",
+    async () => [null],
+  ];
+  for (const [i, lookup] of lookups.entries()) {
+    const a = mk(() => ({ status: 200 }), { lookup });
+    const r = await ask(a.gate, "R1", PAGE);
+    eq([r.sent, r.why], [false, "address"], "lookup " + i);
+    eq(a.f.calls.length, 0, "requests " + i);
+  }
+  const seen = [];
+  const b = mk(() => ({ status: 200 }), { lookup: async (h) => { seen.push(h); return PUBLIC(); } });
+  eq((await ask(b.gate, "R1", "https://Site.Test./p")).sent, true);
+  eq(seen, ["site.test"]);
+  eq(b.f.calls.length, 2, "requests");
+});
+
+await t("a robots.txt that moves to an inner address is not followed", async () => {
+  const want = (host) => [["site.test", "/robots.txt", "read", null], [host, "/robots.txt", "not sent", "address"], ["site.test", "/p", "not sent", "robots"]];
+  const a = mk((url) => (url === "https://site.test/robots.txt" ? { status: 301, headers: { location: "http://10.0.0.5/robots.txt" } } : { status: 200 }));
+  const r = await ask(a.gate, "R1", PAGE);
+  eq([r.sent, r.why], [false, "robots"]);
+  eq(a.f.calls.map((c) => c.url), ["https://site.test/robots.txt"]);
+  eq(lines(a.pewp).map((l) => [l.host, l.path, l.result, l.why]), want("10.0.0.5"));
+  const b = mk((url) => (url === "https://site.test/robots.txt" ? { status: 301, headers: { location: "https://inner.test/robots.txt" } } : { status: 200 }),
+    { lookup: async (h) => [{ address: h === "inner.test" ? "192.168.0.9" : "93.184.216.34", family: 4 }] });
+  const s = await ask(b.gate, "R1", PAGE);
+  eq([s.sent, s.why], [false, "robots"]);
+  eq(b.f.calls.length, 1, "requests");
+  eq(lines(b.pewp).map((l) => [l.host, l.path, l.result, l.why]), want("inner.test"));
+});
+
+await t("an API source is not asked for its address, and a lookup that is not a function is refused", async () => {
+  const a = mk(() => ({ status: 200 }), { lookup: async () => { throw new Error("the lookup was called"); } });
+  eq((await ask(a.gate, "A1", API)).sent, true);
+  eq((await ask(a.gate, "L1", "http://127.0.0.1/x")).sent, true);
+  for (const lookup of [5, "x"]) typeError(() => mk(() => ({ status: 200 }), { lookup }), "lookup " + lookup);
+});
+
+await t("with no lookup of the caller the gate asks the machine: localhost is not read", async () => {
+  const a = mk(() => ({ status: 200 }), { lookup: undefined });
+  for (const url of ["http://localhost/x", "http://localhost./x"]) {
+    const r = await ask(a.gate, "R1", url);
+    eq([r.sent, r.why], [false, "address"], url);
+  }
+  eq(a.f.calls.length, 0, "requests");
+});
+
 // ---- the mutants: one broken copy of the library for each rule (node scripts/test-gate.mjs --mutants) ----
 // A mutant is one change of the text of lib-gate.mjs: "from" is found one time in the file, and "to" takes its place. The scripts
 // folder and sources.json are copied to a temp folder one time; each mutant is written there and this test runs on it. The test
@@ -662,6 +886,21 @@ const RULES = [
   ["G38", "makeGate and request refuse a sleep, a quota folder or a sorter that is not well formed"],
   ["G39", "the time limit of a request starts after the pace wait"],
   ["G40", "a sorter that gives a Promise is another value, and its rejection does not end the run"],
+  ["G41", "a stop on a host holds for the same host with a dot at its end, and the gate writes its stop under the host with no dot"],
+  ["G42", "the count of 403 answers is one count for a host with and with no dot at its end, also in a later gate"],
+  ["G43", "an API host with a dot at its end is the host of the row, with one pace for the two forms, and the ledger line holds the host with no dot"],
+  ["G44", "a host with no letter and no digit gets a stop name that the stop library takes"],
+  ["G45", "robots.txt: a star is each run of characters, a last $ is the end of the path, and another $ is itself"],
+  ["G46", "a robots.txt rule of many stars is matched in time"],
+  ["G47", "a robots.txt line of many spaces is read in time"],
+  ["G48", "a host of many dots is read in time"],
+  ["G49", "an answer over the size limit is not kept: the read stops, and the line says error"],
+  ["G50", "robots.txt over its size limit cannot be read, so the site is not read"],
+  ["G51", "the reader does not read an address of this machine or of a private network"],
+  ["G52", "a name that gives an inner address is not read, and neither is a name that cannot be found"],
+  ["G53", "a robots.txt that moves to an inner address is not followed"],
+  ["G54", "an API source is not asked for its address, and a lookup that is not a function is refused"],
+  ["G55", "with no lookup of the caller the gate asks the machine: localhost is not read"],
 ];
 // MUTANTS-BEGIN (the builder fills this list: one entry for each rule id, { from, to }. Nothing outside the two marks changes.)
 const MUTANTS = {
@@ -692,7 +931,7 @@ const MUTANTS = {
   G25: { from: "error = String(e?.name); }", to: "error = String(e?.name); row.limits = []; }" },
   G26: { from: "line.result !== \"not sent\") addRan", to: "line.result === \"not sent\") addRan" },
   G27: { from: "row.paceMs - (now() - ended.get(paced))", to: "row.paceMs" },
-  G28: { from: "host = u.hostname, paced = host;", to: "host = u.hostname, paced = \"\";" },
+  G28: { from: "host = hostForm(u.hostname), paced = host;", to: "host = hostForm(u.hostname), paced = \"\";" },
   G29: { from: "kind: \"check\"", to: "kind: \"rate\"" },
   G30: { from: "if (held(row.id, at)) return true;", to: "" },
   G31: { from: "(longest || HOLD_HOURS * WINDOWS.hour)", to: "(HOLD_HOURS * WINDOWS.hour)" },
@@ -705,6 +944,21 @@ const MUTANTS = {
   G38: { from: "sort !== undefined && typeof sort !== \"function\"", to: "sort === 5" },
   G39: { from: "    if (row.paceMs > 0 && ended.has(paced)) {\n      const wait = row.paceMs - (now() - ended.get(paced));\n      if (wait > 0) await sleep(wait);\n    }\n    const own = Object.fromEntries(Object.entries(headers).filter(([k]) => k.toLowerCase() !== \"user-agent\"));\n    const options = { method, headers: { ...own, \"user-agent\": UA }, body, redirect: \"manual\", signal: AbortSignal.timeout(timeoutMs) };", to: "const early = AbortSignal.timeout(timeoutMs);\n    if (row.paceMs > 0 && ended.has(paced)) {\n      const wait = row.paceMs - (now() - ended.get(paced));\n      if (wait > 0) await sleep(wait);\n    }\n    const own = Object.fromEntries(Object.entries(headers).filter(([k]) => k.toLowerCase() !== \"user-agent\"));\n    const options = { method, headers: { ...own, \"user-agent\": UA }, body, redirect: \"manual\", signal: early };" },
   G40: { from: "if (v instanceof Promise) v.catch(() => {});", to: "" },
+  G41: { from: "if (isStopped(host, now(), stopsDir)) return \"stop\";", to: "if (isStopped(given, now(), stopsDir)) return \"stop\";" },
+  G42: { from: "if (!NAMED.includes(result)) count(host, status);", to: "if (!NAMED.includes(result)) count(u.hostname, status);" },
+  G43: { from: "host = hostForm(u.hostname), paced = host;", to: "host = hostForm(u.hostname), paced = u.hostname;" },
+  G44: { from: ".slice(0, 30) || \"host\")", to: ".slice(0, 30))" },
+  G45: { from: "const end = rule.endsWith(\"$\"),", to: "const end = false," },
+  G46: { from: "ruleMatches(r.path, path) &&", to: "new RegExp(\"^\" + r.path.replace(/[.+?^${}()|[\\]\\\\]/g, \"\\\\$&\").replace(/\\*/g, \".*\").replace(/\\\\\\$$/, \"$\")).test(path) &&" },
+  G47: { from: "const m = keyValue(raw);", to: "const m = raw.replace(/#.*/, \"\").match(/^\\s*([A-Za-z-]+)\\s*:\\s*(.*?)\\s*$/);" },
+  G48: { from: "const bare = (host) => hostForm(host).replace(/^www\\./, \"\");", to: "const bare = (host) => String(host).toLowerCase().replace(/\\.+$/, \"\").replace(/^www\\./, \"\");" },
+  G49: { from: "if (total > limit) throw new Over(", to: "if (total >= limit) throw new Over(" },
+  G50: { from: "headers: {}, limit: ROBOTS_BYTES });", to: "headers: {}, limit: MAX_BYTES });" },
+  G51: { from: "row.kind === \"reader\" && (await isInner(u.hostname))", to: "row.kind === \"reader\" && false" },
+  G52: { from: "if (!Array.isArray(list) || list.length === 0) return true;", to: "if (!Array.isArray(list)) return true;" },
+  G53: { from: "if (row.kind === \"reader\" && (await isInner(next.hostname))) { notSent({ ...entry, url: next.href }, \"address\"); return null; }\n", to: "" },
+  G54: { from: "row.kind === \"reader\" && (await isInner(u.hostname))", to: "(await isInner(u.hostname))" },
+  G55: { from: "lookup = (host) => dns.promises.lookup(host, { all: true })", to: "lookup = async () => [{ address: \"93.184.216.34\", family: 4 }]" },
 };
 // MUTANTS-END
 async function mutants() {

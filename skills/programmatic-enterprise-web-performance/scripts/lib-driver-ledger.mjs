@@ -7,9 +7,12 @@ import path from "node:path";
 
 export const KINDS = ["api", "file", "reader", "site"];
 export const RESULTS = ["read", "check", "403", "429", "quota", "key", "sign-in", "error", "not sent"];
-export const WHY = ["unknown-source", "terms", "stop", "limit", "robots", "refused"];
+export const WHY = ["unknown-source", "terms", "stop", "limit", "robots", "refused", "address"];
 const KEYS = ["run", "client", "driver", "source", "kind", "url", "result", "signedIn", "status", "why", "bytes", "ms"];
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
+
+// one form of a host name: lower case, and no dot at its end. A loop, not a RegExp: a RegExp is slow on a host of many dots.
+export const hostForm = (host) => { const s = String(host).toLowerCase(); let end = s.length; while (end > 0 && s[end - 1] === ".") end--; return s.slice(0, end); };
 
 export const ledgerFile = (pewp) => path.join(pewp, "ledger", "requests.jsonl");
 
@@ -41,7 +44,7 @@ export function lineOf(entry, now = Date.now()) {
     need(why === null, "why");
     need(result === "error" || status !== null, "status");
   }
-  return { at: new Date(now).toISOString(), run, client, driver, source, host: u.hostname, kind, path: u.pathname, params: [...new Set(u.searchParams.keys())].sort(), signedIn, status, result, why, bytes, ms };
+  return { at: new Date(now).toISOString(), run, client, driver, source, host: hostForm(u.hostname), kind, path: u.pathname, params: [...new Set(u.searchParams.keys())].sort(), signedIn, status, result, why, bytes, ms };
 }
 
 export function record(pewp, entry, now = Date.now()) {

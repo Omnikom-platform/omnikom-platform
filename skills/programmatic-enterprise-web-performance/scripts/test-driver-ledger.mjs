@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 // LIB_DRIVER_LEDGER_UNDER_TEST points the test at a broken copy (the intake)
-const { record, lineOf, KINDS, RESULTS, WHY } = await import(process.env.LIB_DRIVER_LEDGER_UNDER_TEST ? pathToFileURL(process.env.LIB_DRIVER_LEDGER_UNDER_TEST).href : new URL("./lib-driver-ledger.mjs", import.meta.url).href);
+const { record, lineOf, hostForm, KINDS, RESULTS, WHY } = await import(process.env.LIB_DRIVER_LEDGER_UNDER_TEST ? pathToFileURL(process.env.LIB_DRIVER_LEDGER_UNDER_TEST).href : new URL("./lib-driver-ledger.mjs", import.meta.url).href);
 
 let fails = 0, n = 0;
 const t = (name, fn) => { n++; try { fn(); console.log(`ok   ${name}`); } catch (e) { fails++; console.log(`FAIL ${name}: ${e.message}`); } };
@@ -34,12 +34,14 @@ t("T2 no secret reaches the file", () => {
 t("T3 the host is lower case and has no port", () => {
   const l = one(good({ url: "HTTPS://API.Example.TEST:8443/A/b" }));
   eq([l.host, l.path, l.params], ["api.example.test", "/A/b", []]);
+  eq(one(good({ url: "https://API.Example.TEST.:8443/A/b" })).host, "api.example.test", "a dot at the end");
+  eq(["Site.Test..", "[::1]", ".", "a.b", ""].map(hostForm), ["site.test", "[::1]", "", "a.b", ""]);
 });
 t("T4 a request that is not sent gives one line", () => {
   const d = tmp();
   for (const why of WHY) record(d, { ...BASE, url: URL_X, result: "not sent", why }, NOW);
   eq(lines(d).map((l) => [l.status, l.bytes, l.ms, l.result, l.why]), WHY.map((why) => [null, null, null, "not sent", why]));
-  eq(lines(d).length, 6);
+  eq(lines(d).length, 7);
 });
 t("T5 signed in or not", () => {
   eq(one(good()).signedIn, false);
@@ -70,7 +72,7 @@ t("T8 the results error and quota", () => {
 t("T9 the three lists", () => {
   eq(KINDS, ["api", "file", "reader", "site"]);
   eq(RESULTS, ["read", "check", "403", "429", "quota", "key", "sign-in", "error", "not sent"]);
-  eq(WHY, ["unknown-source", "terms", "stop", "limit", "robots", "refused"]);
+  eq(WHY, ["unknown-source", "terms", "stop", "limit", "robots", "refused", "address"]);
 });
 t("T10 each refusal throws and writes nothing", () => {
   const c = tmp(); record(c, good(), NOW);
