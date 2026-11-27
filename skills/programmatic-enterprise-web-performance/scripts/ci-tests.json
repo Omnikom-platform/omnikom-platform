@@ -41,5 +41,6 @@
   { "file": "test-open-plain.mjs", "plain": ["--no-mutants"], "mutants": [] },
   { "file": "test-driver-ledger.mjs", "plain": [], "mutants": [] },
   { "file": "test-source-tables.mjs", "plain": [], "mutants": ["--mutants"] },
-  { "file": "test-gate.mjs", "plain": [], "mutants": ["--mutants"] }
+  { "file": "test-gate.mjs", "plain": [], "mutants": ["--mutants"] },
+  { "file": "test-step-gate.mjs", "plain": [], "mutants": ["--mutants"] }
 ]

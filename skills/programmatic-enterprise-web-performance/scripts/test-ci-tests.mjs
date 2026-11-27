@@ -167,9 +167,9 @@ const two = (plainA, plainB, mutA = ["--mutants"], mutB = ["--mutants"]) => [
     for (const k of ["plain", "mutants"]) if (!Array.isArray(e[k]) || e[k].some((w) => typeof w !== "string")) bad.push(`${e.file}: ${k} is not an array of strings`);
     if (!fs.existsSync(path.join(dir, e.file))) bad.push(`${e.file} is listed but missing`);
   });
-  for (const must of ["test-ci-tests.mjs", "test-client-copy.mjs"]) if (!seen.has(must)) bad.push(`${must} is not listed`);
+  for (const must of ["test-ci-tests.mjs", "test-client-copy.mjs", "test-step-gate.mjs"]) if (!seen.has(must)) bad.push(`${must} is not listed`);
   return [bad.length === 0, bad.join(" | ")];
-}); check("case 6: the real list is valid by the runner's rules, every file exists, and it holds this test and the client copy test", ok, detail); }
+}); check("case 6: the real list is valid by the runner's rules, every file exists, and it holds this test, the client copy test and the step gate test", ok, detail); }
 
 fs.rmSync(tmp, { recursive: true, force: true });
 const passed = results.filter((r) => r.ok).length;
