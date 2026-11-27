@@ -5,9 +5,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export const KINDS = ["api", "file", "reader"];
+export const KINDS = ["api", "file", "reader", "site"];
 export const RESULTS = ["read", "check", "403", "429", "quota", "key", "sign-in", "error", "not sent"];
-export const WHY = ["unknown-source", "terms", "stop", "limit", "robots"];
+export const WHY = ["unknown-source", "terms", "stop", "limit", "robots", "refused"];
 const KEYS = ["run", "client", "driver", "source", "kind", "url", "result", "signedIn", "status", "why", "bytes", "ms"];
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
 
@@ -17,12 +17,13 @@ export const ledgerFile = (pewp) => path.join(pewp, "ledger", "requests.jsonl");
 const need = (ok, field) => { if (!ok) throw new Error(`driver ledger: bad ${field}`); };
 const count = (v) => v === null || (Number.isInteger(v) && v >= 0);
 
-export function record(pewp, entry, now = Date.now()) {
-  need(typeof pewp === "string" && pewp !== "", "pewp");
+// the line that record would write: every check but the one on pewp; writes nothing
+export function lineOf(entry, now = Date.now()) {
   for (const k of Object.keys(entry)) need(KEYS.includes(k), `key ${k}`);
   const { run, client, driver, source, kind, url, result, signedIn = false, status = null, why = null, bytes = null, ms = null } = entry;
   for (const [field, v] of Object.entries({ run, client, driver, source })) need(typeof v === "string" && NAME.test(v), field);
-  need(KINDS.includes(kind), "kind");
+  // a source that is not in the table has no kind
+  need(KINDS.includes(kind) || (kind === null && why === "unknown-source"), "kind");
   need(RESULTS.includes(result), "result");
   need(typeof url === "string" && URL.canParse(url), "url");
   const u = new URL(url);
@@ -40,7 +41,12 @@ export function record(pewp, entry, now = Date.now()) {
     need(why === null, "why");
     need(result === "error" || status !== null, "status");
   }
-  const line = { at: new Date(now).toISOString(), run, client, driver, source, host: u.hostname, kind, path: u.pathname, params: [...new Set(u.searchParams.keys())].sort(), signedIn, status, result, why, bytes, ms };
+  return { at: new Date(now).toISOString(), run, client, driver, source, host: u.hostname, kind, path: u.pathname, params: [...new Set(u.searchParams.keys())].sort(), signedIn, status, result, why, bytes, ms };
+}
+
+export function record(pewp, entry, now = Date.now()) {
+  need(typeof pewp === "string" && pewp !== "", "pewp");
+  const line = lineOf(entry, now);
   const file = ledgerFile(pewp);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.appendFileSync(file, JSON.stringify(line) + "\n");
