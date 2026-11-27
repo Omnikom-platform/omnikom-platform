@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1073,
+    "sources": 1075,
     "unowned": 0
   },
   "files": [
@@ -101,7 +101,7 @@
     {"path":"apps/dashboard/src/site-choice.ts","owner":"platform-build","exports":["activeSiteId","rememberSite","storedSite"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/site-context.ts","owner":"platform-build","exports":["SiteContext","SiteValue","useSiteValue"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/supabase.ts","owner":"platform-build","exports":["supabase"],"tests":["apps/dashboard/tests/sign-out.spec.ts"],"feature":""},
-    {"path":"apps/dashboard/src/toast.tsx","owner":"platform-build","exports":["ToastAction","ToastProvider","UNDO","useToast"],"tests":["apps/dashboard/tests/site.spec.ts"],"feature":""},
+    {"path":"apps/dashboard/src/toast.tsx","owner":"platform-build","exports":["ToastAction","ToastProvider","UNDO","useToast"],"tests":["apps/dashboard/tests/site.spec.ts","apps/dashboard/tests/status-undo.spec.ts"],"feature":""},
     {"path":"apps/dashboard/src/vite-env.d.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/workspace-context.ts","owner":"platform-build","exports":["WorkspaceContext","WorkspaceValue","useWorkspaceValue"],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/business-switch-mutants.ts","owner":"platform-build","exports":["BusinessSwitchMutant","active","installBusinessSwitchMutant"],"tests":[],"feature":""},
@@ -124,6 +124,8 @@
     {"path":"apps/dashboard/tests/site-switcher-mutants.ts","owner":"platform-build","exports":["SiteSwitcherMutant","active","installSiteSwitcherMutant"],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/site-switcher.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/site.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"apps/dashboard/tests/status-undo-mutants.ts","owner":"platform-build","exports":["StatusUndoMutant","installStatusUndoMutant"],"tests":[],"feature":""},
+    {"path":"apps/dashboard/tests/status-undo.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/styles.spec.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/support/clean-flow-leads.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/tests/support/own-lead.ts","owner":"platform-build","exports":["OwnLead","makeOwnLead","removeOwnLeads"],"tests":[],"feature":""},

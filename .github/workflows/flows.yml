@@ -17,6 +17,7 @@ on:
           - sign-out.spec.ts
           - site-switcher.spec.ts
           - site.spec.ts
+          - status-undo.spec.ts
           - styles.spec.ts
       grep:
         description: The -g text that names the flow
