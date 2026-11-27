@@ -49,6 +49,7 @@ export async function run({ argv = [], env = {}, fetch = globalThis.fetch, log =
     }
     return out;
   };
+  let made = false;
   try {
     const accounts = await all('/accounts', 50);
     for (const a of accounts) hide.push(a.id);
@@ -87,7 +88,7 @@ export async function run({ argv = [], env = {}, fetch = globalThis.fetch, log =
       say(`DRY RUN: nothing was changed. ${needNs || needBind || needSalt ? '--apply makes the changes above.' : 'Nothing to do.'}`);
       return 0;
     }
-    if (needNs) { ns = await cf('POST', `/accounts/${acct}/storage/kv/namespaces`, { title: NS_TITLE }); say(`done: created the Workers KV namespace ${NS_TITLE}`); }
+    if (needNs) { ns = await cf('POST', `/accounts/${acct}/storage/kv/namespaces`, { title: NS_TITLE }); made = true; say(`done: created the Workers KV namespace ${NS_TITLE}`); }
     const production = before.wrangler_config_hash ? { wrangler_config_hash: before.wrangler_config_hash } : {};
     if (needBind) production.kv_namespaces = { [BINDING]: { namespace_id: ns.id } };
     if (needSalt) { const value = salt(); hide.push(value); production.env_vars = { [SECRET]: { type: 'secret_text', value } }; }
@@ -101,6 +102,7 @@ export async function run({ argv = [], env = {}, fetch = globalThis.fetch, log =
     return 0;
   } catch (e) {
     say(`FAIL ${e.message}`);
+    if (made) say(`The namespace ${NS_TITLE} was made before this failure and stays. Run again: it is reused, and only what is missing is set.`);
     return 1;
   }
 }

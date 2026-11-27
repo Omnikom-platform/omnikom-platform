@@ -12,7 +12,8 @@ const TOKEN = 'x'.repeat(24), ACCT = '9f2e4c1a7b3d5e6f8a0b1c2d3e4f5a6b', OTHER_A
 const API = 'https://api.cloudflare.com/client/v4';
 
 // state: { projects: [{ name, domains, kv, vars, more (production's other keys), preview }], namespaces: [{ id, title }] }; opts: replace (PATCH drops names),
-// dropRest (PATCH drops production's other binding kinds and the preview environment); state.other: { projects, namespaces } = a second account, listed first; fail (HTTP 403 echoing the token), noDomains (list without domains)
+// dropRest (PATCH drops production's other binding kinds and the preview environment); state.other: { projects, namespaces } = a second account, listed first;
+// failPatch (the PATCH answers HTTP 400 and echoes its request body), ignore (the PATCH answers 200 and changes nothing), fail (HTTP 403 echoing the token), noDomains (list without domains)
 function fakeCF(state, opts = {}) {
   const calls = [];
   const ok = (result, info) => new Response(JSON.stringify({ success: true, errors: [], result, ...(info ? { result_info: info } : {}) }), { status: 200 });
@@ -33,7 +34,8 @@ function fakeCF(state, opts = {}) {
       const p = st.projects.find((x) => x.name === parts[4]);
       if (!p) return new Response(JSON.stringify({ success: false, errors: [{ code: 8000007, message: 'Project not found' }] }), { status: 404 });
       if (parts[5] === 'domains') return ok(p.domains.map((name) => ({ name, status: 'active' })));
-      if (method === 'PATCH') {
+      if (method === 'PATCH' && opts.failPatch) return new Response(JSON.stringify({ success: false, errors: [{ code: 8000000, message: 'Request body rejected: ' + init.body }] }), { status: 400 });
+      if (method === 'PATCH' && !opts.ignore) {
         const prod = body?.deployment_configs?.production || {};
         if (opts.replace) { if (prod.kv_namespaces) p.kv = {}; if (prod.env_vars) p.vars = {}; }
         if (opts.dropRest) { p.more = {}; p.preview = {}; }
@@ -173,6 +175,13 @@ const scenarios = async (dir) => {
   r = await go(['--apply'], cf);
   check('apply: other binding kinds and the preview environment kept = exit 0', r.code === 0 && !/FAIL/.test(r.out), r.code + '\n' + r.out);
 
+  // partial failure: the namespace is made, then the PATCH is refused (its error echoes the request body, the salt in it)
+  cf = fakeCF({ projects: [site()], namespaces: [] }, { failPatch: true });
+  r = await go(['--apply'], cf, { salt: () => 'ab'.repeat(32) });
+  check('partial failure: the PATCH refused after the namespace was made = exit 1, FAIL names the PATCH, says the namespace stays and to run again', r.code === 1 && /FAIL PATCH/.test(r.out) && /400/.test(r.out) && /namespace ADVISOR_REPORTS .*stays/.test(r.out) && /[Rr]un again/.test(r.out) && cf.state.namespaces.length === 1 && !('REPORT_SALT' in cf.state.projects[0].vars), r.code + '\n' + r.out);
+  r = await go(['--apply'], fakeCF(cf.state));
+  check('partial failure: the next run reuses the namespace (no POST), binds it and sets the salt = exit 0', r.code === 0 && !r.writes.some((c) => c.method === 'POST') && r.writes.length === 1 && cf.state.namespaces.length === 1 && cf.state.projects[0].kv.ADVISOR_REPORTS?.namespace_id === cf.state.namespaces[0].id && 'REPORT_SALT' in cf.state.projects[0].vars, r.code + '\n' + r.out);
+
   // an API error that echoes the token and the account id
   cf = fakeCF({ projects: [site()], namespaces: [] }, { fail: true });
   r = await go(['--dry-run'], cf);
@@ -191,6 +200,8 @@ const MUTANTS = [
   { name: 'the namespace made on the first account the token reads', patches: [P('provision.mjs', "ns = await cf('POST', `/accounts/${acct}/storage/kv/namespaces`", "ns = await cf('POST', `/accounts/${accounts[0].id}/storage/kv/namespaces`")], expect: [/every write goes to the account of the project/] },
   { name: 'the account number fixed at 1', patches: [P('provision.mjs', '${accounts.findIndex((a) => a.id === acct) + 1} of', '1 of')], expect: [/account 2 of 2/] },
   { name: 'the first project that lists the domain taken', patches: [P('provision.mjs', 'if (found.length > 1) {', 'if (false) {')], expect: [/two projects of one account/, /one project in each of two accounts/] },
+  { name: 'the line after a partial failure dropped', patches: [P('provision.mjs', 'if (made) say(', 'if (false) say(')], expect: [/says the namespace stays/] },
+  { name: 'the namespace always made', patches: [P('provision.mjs', 'const needNs = !ns,', 'const needNs = true,')], expect: [/next run reuses the namespace/, /namespace exists = no POST/] },
   { name: 'the domain matched by suffix', patches: [P('provision.mjs', "(d) => d === domain || d === 'www.' + domain", '(d) => d.endsWith(domain)')], expect: [/look-alikes only/] },
   { name: 'only the first page read', patches: [P('provision.mjs', 'if (list.length < per) break;', 'break;')], expect: [/page 2 of the list/] },
   { name: 'the other-namespace refusal removed', patches: [P('provision.mjs', 'if (bound && (!ns || bound !== ns.id)) {', 'if (false) {')], expect: [/bound to another namespace/, /of another title/] },
