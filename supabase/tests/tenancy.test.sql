@@ -4291,12 +4291,13 @@ insert into members (workspace_id, user_id, role, team_row_id) values
 create function test.d8_lead(p_name text, p_owner uuid) returns uuid language sql as $$
   insert into public.leads (workspace_id, site_id, form, page_path, name, email, consent_text, owner_team_row) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', p_name, lower(replace(p_name, ' ', '-')) || '@test', 'I agree', p_owner) returning id $$;
 update public.sites set lead_alert_to = array['d8-boss@example.test'], alert_assignee = true where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
--- (a) the agent's lead: two rows, the agent's address lower-cased; both are claimed with the workspace slug; a second call adds none
+-- (a) the agent's lead: two rows, the agent's address lower-cased; a retry before the claim adds none and raises nothing; both are claimed with the workspace slug; a call after the claim adds none
 insert into test.ids select 'd8_la', test.d8_lead('D8 Lead A', test.id('d8_agent'));
 do $$ declare n int; begin
   n := service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_la'));
   assert n = 2, 'T54a an agent''s lead queues two rows: ' || n;
   assert (select array_agg(to_text order by to_text) from public.mail_outbox where lead_id = test.id('d8_la')) = array['d8-agent@example.test', 'd8-boss@example.test'], 'T54a the rows are the agent (lower-cased) and the business';
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_la')) = 0 and (select count(*) from public.mail_outbox where lead_id = test.id('d8_la')) = 2, 'T54a a retry before the claim adds nothing';
   create temp table t54_a on commit drop as select * from service.outbox_claim(1000);
   assert (select count(*) from t54_a where lead_id = test.id('d8_la') and workspace_slug = 'test-demo-a') = 2, 'T54a both rows are claimed with the workspace slug';
   assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_la')) = 0 and (select count(*) from public.mail_outbox where lead_id = test.id('d8_la')) = 2, 'T54a a second call adds nothing';
