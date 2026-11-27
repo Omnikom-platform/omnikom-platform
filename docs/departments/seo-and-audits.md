@@ -583,11 +583,11 @@ options, never a fix made here.
   test-pipeline 147 of 147 on the repo copy. Mutant suites NOT RUN on CI yet (skill-CI job pending); see HANDOVER.
 
 ## HANDOVER 2026-11-11 (head of SEO, wrap-up at about 90% of the week)
-- **Which copy is the source:** the skill's outside repo `C:\Users\DELL\.claude\skills\programmatic-enterprise-web-performance`
-  (its own git, HEAD `44e39e9`, never pushed to its GitHub) is where the skill is edited. `skills/programmatic-enterprise-web-performance/`
-  here is a copy made by `node skills/sync-skill.mjs programmatic-enterprise-web-performance`. The row in `skills/SOURCE.md` names the
-  synced sha. Never edit the repo copy; never start from it if SOURCE.md's sha differs from the outside HEAD. Sync only from a
-  committed, clean outside tree (`git status` empty): the sync copies uncommitted files too.
+- **Which copy is the source (corrected 2026-11-27):** `skills/programmatic-enterprise-web-performance/` in this repository is the
+  only copy of the skill, and it is where the skill is edited. The outside folder
+  `~/.claude/skills/programmatic-enterprise-web-performance` is a link to it, and the old git repository of the outside copy is
+  retired (`skills/SOURCE.md`, the row of the skill). No sync step runs for this skill (`skills/SOURCE.md`, the note under its
+  table).
 - **On master or riding the train:** WO38 dashboard hardening (`check/seo/dashboard-hardening`, landing). The skill sync
   (`check/seo/audit-pipeline`).
 - **Open, in order:**
