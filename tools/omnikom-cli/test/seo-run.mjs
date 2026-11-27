@@ -502,6 +502,48 @@ export async function seoRunTests({ check, cli, CLI_ROOT, REPO_ROOT, lib }) {
     writeFileSync(join(s.skill, 'scripts', 'vantage.mjs'), readFileSync(join(FIX, 'skill', 'scripts', 'vantage.mjs'), 'utf8').replace("console.log(`vantage-args", "(await import('node:fs')).mkdirSync(process.argv[4], { recursive: true }); (await import('node:fs')).writeFileSync(process.argv[4] + '/vantage.json', '{\"checks\":[]}'); console.log(`vantage-args"));
     r = await run(s);
     check('seo run: a vantage step is an ordinary step (its status is read, its dependents go on) and the run never calls start', row(r, 'vantage').state === 'RUN' && row(r, 'after-vantage').state === 'RUN' && rec(s).filter(x => x.id === 'vantage').every(x => x.args[0] === 'status') && rec(s).filter(x => x.id === 'vantage').length === 1, JSON.stringify(rec(s)));
+    // ================================================================ ledger and proof-gates: the skill's merge.mjs and proof-gates.mjs, a pass-through
+    {
+      const { TOOL_MINUTES } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'seo.mjs')).href);
+      const A = p => resolve(p), J = x => JSON.stringify(x);
+      const tools = [
+        { verb: 'ledger', script: 'merge', tag: 'ledger', exitVar: 'FIXTURE_LEDGER_EXIT', codes: [2, 3, 4],
+          argv: ['--proof', 'some/root', '--with', 'other/root-b', '--checklist', 'a/check'],
+          want: [A('some/root'), '--proof', '--with', A('other/root-b'), '--checklist', A('a/check')],
+          bad: { none: [[], [''], ['--proof']], extra: [['r', 'second']], flag: [['r', '--json'], ['r', '--fresh'], ['r', '--verify'], ['r', '--gates', 'G1'], ['r', '--shipgate', 'd'], ['r', '--expect', 'ok']], value: [['r', '--with'], ['r', '--with='], ['r', '--checklist'], ['r', '--checklist=']] } },
+        { verb: 'proof-gates', script: 'proof-gates', tag: 'gates', exitVar: 'FIXTURE_GATES_EXIT', codes: [1, 2],
+          argv: ['some/proof/cycle-1', '--verify', '--gates', 'G1,G7', '--checklist', 'a/check', '--shipgate', 'a/gate'],
+          want: [A('some/proof/cycle-1'), '--verify', '--gates', 'G1,G7', '--checklist', A('a/check'), '--shipgate', A('a/gate')],
+          bad: { none: [[], [''], ['--verify']], extra: [['c', 'second']], flag: [['c', '--json'], ['c', '--proof'], ['c', '--with', 'd'], ['c', '--expect', 'ok']], value: [['c', '--gates'], ['c', '--gates='], ['c', '--shipgate'], ['c', '--shipgate='], ['c', '--checklist=']] } },
+      ];
+      for (const t of tools) {
+        const name = `seo ${t.verb}`, x = site();
+        // the command puts the folder first, then the flags in the order given
+        let r = await go(x, [t.verb, ...t.argv]);
+        const call = rec(x)[0] || { args: [], cwd: '' };
+        check(`${name}: the script gets the folder first, then the flags in the order given, every path absolute against the caller's folder`, J(call.args) === J(t.want), J([call.args, t.want, r.all.slice(0, 200)]));
+        check(`${name}: the script runs in the skill folder`, norm(call.cwd).toLowerCase().endsWith(norm(x.skill).toLowerCase().split('/').slice(-2).join('/')), J([call.cwd, x.skill]));
+        check(`${name}: the script's own stdout and stderr, unchanged (not wrapped), exit 0`, r.exit === 0 && r.stdout === `${t.tag}-args ${J(call.args)}\n` && r.stderr === `${t.tag}-stderr line\n`, J([r.stdout, r.stderr, r.exit]));
+        for (const code of t.codes) {
+          r = await go(site(), [t.verb, 'd'], { [t.exitVar]: String(code) });
+          check(`${name}: exit ${code} comes back as ${code}`, r.exit === code && r.stdout.startsWith(`${t.tag}-args `), J([r.stdout, r.exit]));
+        }
+        r = await go(site(), [t.verb, 'd'], { FIXTURE_KEY: KEY });
+        check(`${name}: a key the script prints comes back redacted on both streams`, !r.all.includes(KEY) && r.stdout.includes(`${t.tag}-key <redacted:FIXTURE_KEY>`) && r.stderr.includes(`${t.tag}-key-err <redacted:FIXTURE_KEY>`), J([r.stdout, r.stderr]).split(KEY).join('(the key)'));
+        for (const [why, label] of [['none', 'no folder'], ['extra', 'an extra argument'], ['flag', 'a flag it does not take (also --json)'], ['value', 'a flag with no value']]) {
+          const y = site(), got = [];
+          for (const argv of t.bad[why]) { const q = await go(y, [t.verb, ...argv]); got.push([argv.join(' '), q.exit, !q.stdout.includes('seo takes')]); }
+          check(`${name}: ${label} is exit 2 and nothing is started`, got.every(g => g[1] === 2 && g[2]) && rec(y).length === 0, J([got, rec(y).length]));
+        }
+        r = await go(site(), [t.verb, 'd'], { FIXTURE_HANG_MS: '60000' }, { toolMinutes: 0.05 });
+        check(`${name}: a run past the limit is exit 1 with one stderr line saying so`, r.exit === 1 && r.stderr.endsWith(`${name}: stopped after 0.05 minutes\n`), J([r.stderr, r.exit]));
+        const gone = site();
+        rmSync(join(gone.skill, 'scripts', `${t.script}.mjs`), { force: true });
+        r = await go(gone, [t.verb, 'd']);
+        check(`${name}: a missing script is BLOCKED (exit 3) and names it`, r.exit === 3 && r.stdout.startsWith(`ERROR ${t.script}.mjs is not at `) && r.stdout.includes(`scripts/${t.script}.mjs`) && r.stdout.includes('unblocks:'), r.all.slice(0, 300));
+      }
+      check('seo ledger and proof-gates: the limits are 120 and 360 minutes', Boolean(TOOL_MINUTES) && TOOL_MINUTES.ledger === 120 && TOOL_MINUTES['proof-gates'] === 360, J(TOOL_MINUTES || null));
+    }
     // ================================================================ engine stops (a robot check on google, a ban): the step never starts [stops]
     {
       const stops = join(root, 'stops');

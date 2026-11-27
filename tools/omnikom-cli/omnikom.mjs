@@ -41,6 +41,7 @@ import { loadRegistry, findRow, runWrapped, helpText } from './lib/wrap.mjs';
 const COMMANDS = { __proto__: null, status, apply, test: testGroup, seed: seedGroup, key: keyGroup, contract: contractGroup, lead: leadGroup, privacy: privacyGroup, content: contentGroup, publish, job: jobGroup, verify, mfa: mfaGroup, audit, gate, tools: toolsGroup, ci, impact, land, hooks: hooksGroup, seo: seoGroup, usage: usageGroup, skill: skillGroup, session: sessionGroup, helper: helperGroup, truth };
 export const COMMAND_NAMES = Object.keys(COMMANDS);
 // the commands that print text lines by default (with --json: the result object), and the ones that talk to no target
+const RAW_SEO = new Set(['vantage', 'ledger', 'proof-gates']);   // these print their script's output
 const TEXT = { __proto__: null, impact: impactText, land: landText, hooks: hooksText, seo: seoText, truth: truthText };
 const NO_TARGET = new Set(['impact', 'land', 'hooks', 'seo', 'usage', 'skill', 'session', 'helper']);
 export const USAGE = [
@@ -61,6 +62,8 @@ export const USAGE = [
   'seo run <url or profile:<slug>> --client <slug> [--only id,id] [--from id] [--module name] [--fresh] [--env-file <f>] | seo resume <url or profile:<slug>> | seo status <url or profile:<slug>>   (every mechanical step of a client SEO audit, from SEO\'s manifest skills/programmatic-enterprise-web-performance/pipeline.json; a coverage table of RUN | SKIPPED | BLOCKED | WAITING | PARTIAL | FAILED per step, from the run log {pewp}/seo-run.json; exit 0 no FAILED step, 1 a FAILED step, 2 usage or an invalid manifest; no target)',
   'seo station <url or profile:<slug>> [--station <id>] | seo rule <url or profile:<slug>> <step> --why <text> --by <who>   (the stations of the audit: station writes {pewp}/stations/sheet.json and sheet.md, listing only the steps an agent must judge, exit 0 every station CLOSED, 1 one is OPEN; rule records "not gathered" for one such step, exit 0 written, 1 REFUSED; 2 usage)',
   'seo vantage status [--json] [--pewp <dir>]   (SEO\'s scripts/vantage.mjs status: its output unchanged; its exit code too, except 4 (SKIPPED: no allowed US egress), which comes back as 3; a missing script is BLOCKED, exit 3; a seo run never calls start)',
+  'seo ledger <repo root> [--with <root-b>] [--proof] [--checklist <dir>]   (SEO\'s scripts/merge.mjs: its output and its exit code unchanged, 0, 2 or 3; past 120 minutes exit 1; a missing script is BLOCKED, exit 3; 2 usage; no target)',
+  'seo proof-gates <cycle dir> [--verify] [--gates G1,G7] [--checklist <dir>] [--shipgate <dir>]   (SEO\'s scripts/proof-gates.mjs: its output and its exit code unchanged, 0, 1 or 2; past 360 minutes exit 1; a missing script is BLOCKED, exit 3; 2 usage; no target)',
   'usage rate | usage fit --windows <file>   (the weekly meter: exit 0 inside the pace, 1 over it, 3 BLOCKED on a stale reading or no rate yet; the fit: points per list dollar per model from 3 or more windows; no target)',
   'skill check pewp   (is the machine\'s skill a junction to this repository\'s copy, with no change in it, at backup-gh/master? exit 0 yes, 1 no; no target)',
   'session start head|lane [--area <a>] [--resume <session id>] [--dry-run] | helper run <job-id> --model <id> --effort <level> --goal <exit test> [--brief <file>] [--dry-run]   (a head or lane: writes its CRLF launcher and opens it in a window; a headless helper: claude -p for one job row, waited for; --dry-run starts nothing; no target)',
@@ -137,7 +140,7 @@ export async function main(argv, deps = {}) {
     const first = parsed.positionals[0] || argv.find(a => !a.startsWith('--'));
     if (first === 'ci' && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: ciText(obj, env), stderr: '' };
     if ((first === 'audit' || first === 'gate') && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: textOutput(first, obj, env), stderr: '' };
-    if (first === 'seo' && parsed.positionals[1] === 'vantage' && obj.data && obj.data.raw) return { exit: obj.data.exit, stdout: redact(obj.data.stdout, env), stderr: redact(obj.data.stderr, env) };   // the script's own output and exit code, never the JSON object
+    if (first === 'seo' && RAW_SEO.has(parsed.positionals[1]) && obj.data && obj.data.raw) return { exit: obj.data.exit, stdout: redact(obj.data.stdout, env), stderr: redact(obj.data.stderr, env) };   // the script's own output and exit code, never the JSON object
     if (first === 'test' && parsed.positionals[1] === 'journey' && obj.data && obj.data.steps && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: journeyText(obj, env), stderr: '' };
     if (TEXT[first] && obj.command !== 'help' && !parsed.flags.json && !argv.includes('--json')) return { exit: obj.exit, stdout: TEXT[first](obj, env), stderr: '' };
     const lines = obj.data && Array.isArray(obj.data.lines) && obj.command === 'verify' ? obj.data.lines.map(l => redact(l, env)).join('\n') + '\n' : '';
