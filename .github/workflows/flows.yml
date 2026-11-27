@@ -15,6 +15,7 @@ on:
           - plan-gate.spec.ts
           - realtime.spec.ts
           - sign-out.spec.ts
+          - site-switcher.spec.ts
           - site.spec.ts
           - styles.spec.ts
       grep:
