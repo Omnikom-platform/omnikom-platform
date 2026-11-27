@@ -26,6 +26,9 @@ const scenarios = async (dir) => {
   const has = async (name, code, mut) => { const c = await codes(mut); check(name + ' -> ' + code, c.includes(code), 'got: ' + JSON.stringify(c)); };
   const ok = await codes(() => {});
   check('valid fixture: no errors', ok.length === 0, 'got: ' + JSON.stringify(ok));
+  // the session report: on only for a listed pack (docs/advisor/r3/HANDOVER-collector.md)
+  await has('report: true on a pack not on the list', 'META_REPORT_SITE', (p) => { p.meta.report = true; });
+  { const c = await codes((p) => { p.meta.pack = 'omnikom-io'; p.meta.report = true; }); check('report: true on omnikom-io: no META_REPORT_SITE (control)', !c.includes('META_REPORT_SITE'), 'got: ' + JSON.stringify(c)); }
   await has('wrong schema', 'META_SCHEMA', (p) => { p.meta.schema = 'omnikom-advisor-pack/0'; });
   await has('report not boolean', 'META_REPORT', (p) => { p.meta.report = 'yes'; });
   await has('version not x.y.z', 'META_VERSION', (p) => { p.meta.version = 'v1'; });
@@ -100,6 +103,7 @@ const MUTANTS = [
   { name: 'steer rx unchecked', patches: [{ file: 'validate.mjs', from: "if (!isObj(p?.rx?.engine) || !isObj(p.rx.engine[r?.last]))", to: 'if (false)' }], expect: [/STEER_RX/] },
   { name: 'flow closed list unchecked', patches: [{ file: 'validate.mjs', from: "if (r?.if !== undefined && !GUARDS.has(r.if?.[0]))", to: 'if (false)' }], expect: [/flow guard not on the closed list/] },
   { name: 'flow lines not spoken', patches: [{ file: 'validate.mjs', from: "for (const k of ['texts', 'script', 'refusals', 'flows'])", to: "for (const k of ['texts', 'script', 'refusals'])" }], expect: [/\$ amount in a flow line/] },
+  { name: 'report pack list unchecked', patches: [{ file: 'validate.mjs', from: 'if (m.report === true && !REPORT_PACKS.includes(m.pack))', to: 'if (false)' }], expect: [/META_REPORT_SITE/] },
   { name: 'missing fact used unchecked', patches: [{ file: 'validate.mjs', from: "if (missing.has(k))", to: 'if (false)' }], expect: [/FACT_MISSING_USED/] },
 ];
 process.exit(await main({ label: 'PACK VALIDATOR', scenarios, MUTANTS, scriptsDir: path.join(here, '../pack'), argv: process.argv.slice(2) }));

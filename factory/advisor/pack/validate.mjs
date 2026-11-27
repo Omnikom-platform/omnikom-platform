@@ -10,6 +10,9 @@ import { resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const SCHEMA = 'omnikom-advisor-pack/1';
+// the packs that may send a session report (docs/advisor/r3/HANDOVER-collector.md); factory/advisor/report/policy.mjs holds the same list
+// (this file imports only node built-ins, so test-validate's mutant copies of pack/ still load), and test-report checks the two are equal
+export const REPORT_PACKS = ['omnikom-io'];
 const SLOW_MS = 5;
 const WATCHDOG_MS = 1000; // per pattern, armed only once the worker has started (a busy machine starts a worker slowly)
 const STARTUP_MS = 20000;
@@ -127,6 +130,7 @@ export async function validatePack(p) {
   for (const k of ['pack', 'client']) if (typeof m[k] !== 'string' || !m[k]) err('META_FIELD', 'meta.' + k, 'required');
   if (!/^\d+\.\d+\.\d+$/.test(String(m.version))) err('META_VERSION', 'meta.version', 'must be x.y.z');
   if ('report' in m && typeof m.report !== 'boolean') err('META_REPORT', 'meta.report', 'must be true or false (off by default)');
+  if (m.report === true && !REPORT_PACKS.includes(m.pack)) err('META_REPORT_SITE', 'meta.report', 'true only for a pack on the report list (' + REPORT_PACKS.join(', ') + '); a client site never sends a report');
   const hosts = (Array.isArray(m.allowedHosts) ? m.allowedHosts : []).map((h) => String(h).toLowerCase());
   const site = String(m.domain || '').toLowerCase();
   const under = (h, d) => !!d && (h === d || h.endsWith('.' + d));

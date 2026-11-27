@@ -68,6 +68,19 @@ HEAD 01:58 intake of 66bfbaf0 GREEN (his worktree). HEAD 01:50 GO R3 report; 01:
   (head 04:10), docs/advisor/r3/, NO BUILD before GO. (head 06:46: master B6 c9c88b6c; rebased, icm regen on a clean tree "OK: icm index is fresh (398 docs, 1065 source files)", gitleaks c9c88b6c..HEAD
   "no leaks found"; PUSHED 923130cd, run 45943417750. 07:50 run 45943417750 21/21 success; sent the head.)
 
+## 2026-11-27 08:45 ADVISOR-ENGINE: collector job (HEAD 08:20 GO), built, local gates green, NOT YET PUSHED
+- GO 08:20: D1 = A (Pages Function + KV; B stays the home for client sites once production has tables), D2 = 30/IP/day, D3 = random id per tab.
+  Three fixes written into docs/advisor/r3/HANDOVER-collector.md first: 2 KV writes per SEND x up to 3 sends = about 166 sessions/day worst case on Free, 500 only
+  if each sends once; a KV put that throws -> 503, nothing stored, no crash; the body parsed whatever its Content-Type (text/plain from sendBeacon, application/json).
+- Red first (no code): test-report "SESSION REPORT TEST FAIL: 52 of 56"; test-validate "PACK VALIDATOR TEST FAIL: 1 of 42" (META_REPORT_SITE).
+- Code: factory/advisor/report/{policy,redact,collect,endpoint}.mjs; pack/validate.mjs REPORT_PACKS + META_REPORT_SITE (the list is written twice: the kit copies
+  one folder per mutant and validate.mjs may import only node built-ins; test-report checks the two lists are equal). Engine unchanged.
+- Green: "SESSION REPORT TEST PASS: 56 of 56", "MUTANTS PASS: 18 of 18 caught" (16 + try removed + body parsed only as JSON); "PACK VALIDATOR TEST PASS: 42 of 42";
+  both packs PACK VALID; NO CLIENT TEXT PASS; GOLDEN 10765 of 10765. ci.yml step "Advisor session report tests and mutants" + ADVISOR_STEPS (ci.mjs).
+- Running: the 8 mutant steps through heavy.mjs; then the CLI real-ci.yml test, icm on a clean tree, gitleaks, one push, CI, return to the head (30 lines).
+- NOT this job (the head rules after intake): the KV binding, REPORT_SALT, the omnikom.io wiring, the privacy paragraph live first. UNPROVEN: KV deletes at 30 days live;
+  omnikom.io traffic against 166-500 sessions/day.
+
 ## 2026-11-27 08:15 ADVISOR-ENGINE: LANDED 923130cd (head 07:58); collector hand-over written, HOLD for GO
 - master = 923130cd95e29967a8b1e307a921eb44d56dcf60 (the engine, XState, R3 report, CI job advisor, dep-scan 5 lockfiles, E17, runner "ten jobs").
 - docs/advisor/r3/HANDOVER-collector.md: ADR 007 steps 1-2 for omnikom.io only. D1 endpoint home: A omnikom.io Pages Function + Workers KV (recommended; TTL 30 d,
