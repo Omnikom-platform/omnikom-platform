@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1089,
+    "sources": 1091,
     "unowned": 0
   },
   "files": [
@@ -175,6 +175,7 @@
     {"path":"factory/advisor/engine/split.mjs","owner":"platform-build","exports":["splitKeep"],"tests":["factory/advisor/test/test-rewrites.mjs"],"feature":""},
     {"path":"factory/advisor/engine/text.mjs","owner":"platform-build","exports":["createText","doubledEnd"],"tests":["factory/advisor/test/test-rewrites.mjs"],"feature":""},
     {"path":"factory/advisor/engine/typed-slots.mjs","owner":"platform-build","exports":["createTypedSlots"],"tests":["factory/advisor/test/test-vtv-engine.mjs"],"feature":""},
+    {"path":"factory/advisor/ops/provision.mjs","owner":"platform-build","exports":["run"],"tests":["factory/advisor/test/test-provision.mjs","tools/client-infra/test/mutate.mjs","tools/client-infra/test/onboard-fakes.mjs","tools/client-infra/test/run.mjs"],"feature":""},
     {"path":"factory/advisor/pack/build-pack.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/pack/compile-51.mjs","owner":"platform-build","exports":["compile51"],"tests":["factory/advisor/test/test-compile-51.mjs","factory/advisor/test/test-vtv-engine.mjs"],"feature":""},
     {"path":"factory/advisor/pack/convert-omnikom.mjs","owner":"platform-build","exports":["scanRegexes"],"tests":[],"feature":""},
@@ -202,6 +203,7 @@
     {"path":"factory/advisor/test/test-flows.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/test/test-intent-misses.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/test/test-no-meaning.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"factory/advisor/test/test-provision.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/test/test-report.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/test/test-rewrites.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"factory/advisor/test/test-validate.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
@@ -347,7 +349,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-source-tables.mjs","owner":"seo-and-audits","exports":["SOURCE_KINDS","SOURCE_STATES","validateSourceTables"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-stations.mjs","owner":"seo-and-audits","exports":["SOURCE_RULED","STATES","StationError","buildSheet","kindOf","ruleStep","rulingCounts","sheetText","stationsOf"],"tests":["tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-stops.mjs","owner":"seo-and-audits","exports":["KNOWN_ENGINES","STOP_HOURS","STOP_KINDS","activeStops","isStopped","liftStop","stopsDir","writeStop"],"tests":["tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-test-kit.mjs","owner":"seo-and-audits","exports":["J","W","checker","main","mkTmp","rmTmp","runner","serve","walk","writeVerdicts"],"tests":["factory/advisor/test/test-budget.mjs","factory/advisor/test/test-compile-51.mjs","factory/advisor/test/test-flows.mjs","factory/advisor/test/test-intent-misses.mjs","factory/advisor/test/test-no-meaning.mjs","factory/advisor/test/test-report.mjs","factory/advisor/test/test-rewrites.mjs","factory/advisor/test/test-validate.mjs","factory/advisor/test/test-vtv-engine.mjs"],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-test-kit.mjs","owner":"seo-and-audits","exports":["J","W","checker","main","mkTmp","rmTmp","runner","serve","walk","writeVerdicts"],"tests":["factory/advisor/test/test-budget.mjs","factory/advisor/test/test-compile-51.mjs","factory/advisor/test/test-flows.mjs","factory/advisor/test/test-intent-misses.mjs","factory/advisor/test/test-no-meaning.mjs","factory/advisor/test/test-provision.mjs","factory/advisor/test/test-report.mjs","factory/advisor/test/test-rewrites.mjs","factory/advisor/test/test-validate.mjs","factory/advisor/test/test-vtv-engine.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-text.mjs","owner":"seo-and-audits","exports":["GENERIC_ANCHORS","LocaleMissing","STOP","THRESHOLD","containsHeadTerm","coversTerm","gazetteer","headTerm","isGenericAnchor","missing","overlap","removePlaces","requiredTerms","scanPlaces","seqContains","shingles","showsQuestion","slugify","stem","stemSet","stemmerFor","stopWordsFor","termsOf","titleCase","tokenSet","tokens","uaxWords","words"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-writing-fixture.mjs","owner":"seo-and-audits","exports":["HEADERS","LLMS","PAGES","PNG","pageHtml","patchFile","patchPages","serveSite","writeGoodSite"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/live-target.mjs","owner":"seo-and-audits","exports":["latestComplete"],"tests":["tools/audit/test/run.mjs"],"feature":""},
@@ -775,7 +777,7 @@
     {"path":"tools/client-infra/onboard.mjs","owner":"clients","exports":["REPO","Refused","checkIntake","hashEmail","loadInboxes","onboard","parseArgs","precheck","slugify"],"tests":["tools/client-infra/test/onboard-mutate.mjs","tools/client-infra/test/onboard-run.mjs"],"feature":""},
     {"path":"tools/client-infra/proof-offboard.mjs","owner":"clients","exports":[],"tests":["tools/client-infra/test/offboard-mutate.mjs","tools/client-infra/test/offboard-run.mjs"],"feature":""},
     {"path":"tools/client-infra/proof-staging.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
-    {"path":"tools/client-infra/provision.mjs","owner":"clients","exports":["ENVS","HOST_RE","Refused","loadAllowed","parseArgs","provision"],"tests":["tools/client-infra/test/mutate.mjs","tools/client-infra/test/onboard-fakes.mjs","tools/client-infra/test/run.mjs"],"feature":""},
+    {"path":"tools/client-infra/provision.mjs","owner":"clients","exports":["ENVS","HOST_RE","Refused","loadAllowed","parseArgs","provision"],"tests":["factory/advisor/test/test-provision.mjs","tools/client-infra/test/mutate.mjs","tools/client-infra/test/onboard-fakes.mjs","tools/client-infra/test/run.mjs"],"feature":""},
     {"path":"tools/client-infra/test/fakes.mjs","owner":"clients","exports":["addKey","addSite","fakeDeps","newState"],"tests":[],"feature":""},
     {"path":"tools/client-infra/test/mutate.mjs","owner":"clients","exports":[],"tests":[],"feature":""},
     {"path":"tools/client-infra/test/offboard-fakes.mjs","owner":"clients","exports":["OTHER_WS","SITE","TICKET","WS","newWorld","offboardFakeDeps"],"tests":[],"feature":""},
