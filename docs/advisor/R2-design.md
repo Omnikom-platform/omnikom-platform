@@ -315,7 +315,7 @@ That is 67,459 + 57,865 = 125,324 B gzip. The card is also preloaded before the 
 | Each reply | at most 50 ms of main-thread work; INP at most 200 ms ("An INP below or at 200 milliseconds means a page has good responsiveness", web.dev) | UNPROVEN |
 | LCP | unchanged with the chat present (bar 2.5 s) | UNPROVEN |
 
-Measured in R3 (ADR 003): 15,000 (UI, target) + 11,656 (engine) + 14,500 (XState, R1) + 68,188 (pack) = 109,344 B, under the line.
+Measured in R3 with XState built in (`test/test-budget.mjs`, red by a mutant over the line): 15,000 (UI, target) + 12,915 (engine) + 13,753 (XState) + 68,842 (pack) = 110,510 B, under the line.
 If XState does not fit, the flow table is hand-written (zero dependency, the same statechart shape; head 2026-11-26 23:12).
 Loading starts when the visitor presses the button (brief constraint 4), never on hover. The search index is built in the browser from the pack's phrasings, not shipped.
 **One stated exception:** during shadow (section 18), the sampled sessions load both engines, after the old one has answered. That ends when shadow ends (ADR 008).

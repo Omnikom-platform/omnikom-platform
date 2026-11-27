@@ -87,5 +87,5 @@ dev). osv-scanner on `factory/advisor/package-lock.json`: "No issues found".
 
 ## NOT DONE in this job
 VTV's qualify flow (client words); the card storing the saved position in sessionStorage (OMNIKOM-IO-SITE's lane, through the head);
-the engine's own conversation (`respond`) inside the machine (ADR 002 in full); CI running the advisor tests (no workflow runs
-`factory/advisor` today).
+the engine's own conversation (`respond`) inside the machine (ADR 002 in full). CI: the ci.yml job `advisor` came after this
+job (head 01:58), with the R3 report.

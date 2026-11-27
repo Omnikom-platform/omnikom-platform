@@ -597,3 +597,45 @@ jobs:
       # .github/production/ holds the production repository's workflows (they never run here; linted here all the same)
       - name: Lint every workflow (with the pinned shellcheck)
         run: '"$RUNNER_TEMP/actionlint/actionlint" -color -shellcheck "$RUNNER_TEMP/shellcheck-v0.11.0/shellcheck" .github/workflows/*.yml .github/production/*.yml'
+
+  advisor:
+    name: advisor engine (tests, mutants, both packs)
+    runs-on: ubuntu-latest
+    # the site assistant's engine and packs (docs/advisor/R3-report.md): about 7 min on the laptop. cp11 (the head's harness) and the
+    # omnikom.io converter (the lovable sources) read files outside this repository, so they stay local runs.
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Install the advisor's pinned dependencies (xstate; dev @xstate/graph, fast-check, vite), install scripts off
+        run: npm ci --prefix factory/advisor --ignore-scripts --no-fund
+      - name: Advisor flow tests and mutants
+        run: node factory/advisor/test/test-flows.mjs
+      - name: Advisor budget test and mutant
+        run: node factory/advisor/test/test-budget.mjs
+      - name: Advisor pack validator tests and mutants
+        run: node factory/advisor/test/test-validate.mjs
+      - name: Advisor VTV engine tests and mutants
+        run: node factory/advisor/test/test-vtv-engine.mjs
+      - name: Advisor no-meaning tests and mutants
+        run: node factory/advisor/test/test-no-meaning.mjs
+      - name: Advisor intent-miss tests and mutants
+        run: node factory/advisor/test/test-intent-misses.mjs
+      - name: Advisor pattern rewrite tests and mutants
+        run: node factory/advisor/test/test-rewrites.mjs
+      - name: Advisor 5.1 compiler tests and mutants
+        run: node factory/advisor/test/test-compile-51.mjs
+      - name: Advisor engine names no client text
+        run: node factory/advisor/test/no-client-text.mjs
+      - name: Advisor golden turns
+        run: node factory/advisor/test/golden-turns.mjs
+      - name: Advisor pack valid (omnikom-io)
+        run: node factory/advisor/pack/validate.mjs factory/advisor/packs/omnikom-io/pack.json
+      - name: Advisor pack valid (vtv)
+        run: node factory/advisor/pack/validate.mjs factory/advisor/packs/vtv/pack.json

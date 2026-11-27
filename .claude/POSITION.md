@@ -45,6 +45,11 @@ XSTATE 01:45 (UNCOMMITTED, all gates run here): engine/flows.mjs + script.mjs/in
   Now: FLOWS 9/9 (4191 replies byte-equal) mutants 4/4; BUDGET 110510 of 125324 B (engine 12915 + XState 13753, pack 68842) mutant 1/1; VALIDATOR 40/40, 18/18;
   GOLDEN 10765/10765; cp11 FAIL 19, worse 0, 915 rows identical in every field to the 0ae1baa3 run; PACK VALID both; VTV 25/25, NO MEANING, INTENT MISSES, REWRITES, COMPILE 51, NO CLIENT TEXT green.
   Next: commit + push, report to the head. UNPROVEN on CI: no workflow runs factory/advisor.
+HEAD 01:58 intake of 66bfbaf0 GREEN (his worktree). HEAD 01:50 GO R3 report; 01:58 add a CI job for factory/advisor (npm ci --ignore-scripts, the 10 tests, both packs),
+  red once by a mutant on the branch, then green; 02:05 rebase onto master ee341f33. DONE locally: docs/advisor/R3-report.md; ci.yml job advisor; omnikom ci mapping
+  (tools/omnikom-cli/commands/ci.mjs, cli-and-testing's file, 3 lines: told the head); omnikom ci --job advisor: "ci: 1 jobs, 1 PASS, 0 FAIL".
+  Rebased onto ee341f33 (02:11; factory/advisor diff against 66bfbaf0 empty). Next: actionlint + CLI real-ci.yml test locally, then push a mutant (red), then clean (green).
+  NOT DONE: factory/advisor/package-lock.json is not in tools/test/dep-scan.mjs LOCKFILES (its test pins the list of four; asked the head).
 - HEAD 21:53 order: job 3 -> matcher race -> job 4 (VTV in the engine: English base layer, 5.1 compiler, slot readers by type) -> XState flows.
   Job 4's written hand-over goes with job 3's report, with its size. (21:52 I told the head job 3 alone does not run VTV.)
 - JOB 3 (21:55): red test = test/no-client-text.mjs extended to intent ids + families: FAIL 72 (engine.mjs 71, matcher.mjs 1).
