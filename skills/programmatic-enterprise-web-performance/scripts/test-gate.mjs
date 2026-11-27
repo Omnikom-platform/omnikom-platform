@@ -17,6 +17,7 @@ const ok = (v, m) => { if (!v) throw new Error(m); };
 const typeError = (fn, m) => { try { fn(); } catch (e) { if (e instanceof TypeError) return; throw new Error(m + ": it threw " + e.name); } throw new Error(m + ": it did not throw"); };
 const rejects = async (p, m) => { try { await p; } catch { return; } throw new Error(m + ": it did not reject"); };
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "gate-test-"));
+process.env.OMNIKOM_QUOTA_DIR = tmp(); // no gate of a test reads or writes the quota folder of the machine
 const NOW = Date.parse("2026-11-27T08:00:00Z");
 const OUR_UA = "OmnikomAudit/1.0 (+https://omnikom.ai)";
 const row = (id, kind, state, hosts, robotsAtRun = false) => ({ id, kind, engine: kind === "reader" ? null : "example", hosts, state, robotsAtRun });
@@ -43,9 +44,12 @@ const net = (answer) => {
   return f;
 };
 const mk = (answer, more = {}) => {
-  const pewp = tmp(), stops = path.join(pewp, "stops"), f = net(answer);
-  return { pewp, stops, f, gate: makeGate({ pewp, run: "run-1", client: "vtv", sources: TABLE(), stopsDir: stops, now: () => NOW, fetch: f, ...more }) };
+  const pewp = tmp(), stops = path.join(pewp, "stops"), quota = path.join(pewp, "quota"), f = net(answer);
+  return { pewp, stops, quota, f, gate: makeGate({ pewp, run: "run-1", client: "vtv", sources: TABLE(), stopsDir: stops, quotaDir: quota, now: () => NOW, fetch: f, ...more }) };
 };
+const withRow = (id, more) => { const tb = TABLE(); Object.assign(tb.sources.find((r) => r.id === id), more); return tb; };
+const clock = (t = NOW) => { const c = { t, slept: [] }; c.now = () => c.t; c.sleep = async (ms) => { c.slept.push(ms); c.t += ms; }; return c; };
+const quotaFiles = (q) => (fs.existsSync(q) ? fs.readdirSync(q).sort() : []);
 const lines = (pewp) => { try { return fs.readFileSync(path.join(pewp, "ledger", "requests.jsonl"), "utf8").split("\n").slice(0, -1).map((l) => JSON.parse(l)); } catch { return []; } };
 const ask = (gate, source, url, more = {}) => gate.request({ driver: "test-driver", source, url, ...more });
 const stopFiles = (stops) => (fs.existsSync(stops) ? fs.readdirSync(stops) : []);
@@ -349,6 +353,270 @@ await t("the table of the skill: readSources reads it, and a row that is not all
   eq(lines(pewp).map((l) => l.source), closed.map((r) => r.id), "one line for each row");
 });
 
+const DAY = 86400000;
+const limited = (limits) => withRow("A1", { limits });
+const sentOk = async (gate, why, source = "A1", url = API) => { const r = await ask(gate, source, url); eq(r.sent, true, why); return r; };
+const notSentLimit = async (gate, pewp, why) => {
+  const r = await ask(gate, "A1", API), l = lines(pewp).at(-1);
+  eq([r.sent, r.why, l.result, l.why, l.status], [false, "limit", "not sent", "limit", null], why);
+};
+
+await t("a row with a pace or a limit that is not well formed is refused when the gate is made", async () => {
+  const bad = [{ paceMs: -1 }, { paceMs: 1.5 }, { paceMs: "100" }, { limits: "2" }, { limits: [{ count: 0, per: "minute" }] }, { limits: [{ count: 2 }] },
+    { limits: [{ count: 2, per: "week" }] }, { limits: [{ count: 2, per: "day" }, { count: 3, per: "day" }] }];
+  const make = (sources) => mk(() => ({}), { sources });
+  for (const x of bad) typeError(() => make(withRow("A1", x)), JSON.stringify(x));
+  typeError(() => make(withRow("R1", { limits: [{ count: 2, per: "run" }] })), "a limit on a row with robotsAtRun");
+  make(withRow("A1", { paceMs: 0, limits: [] }));
+  make(withRow("A1", { paceMs: null, limits: null }));
+  make(withRow("R1", { paceMs: 500, limits: [] }));
+  make(readSources());
+});
+
+await t("a source at the limit of its window is not sent, and the line says limit", async () => {
+  const { gate, f, pewp, stops, quota } = mk(() => ({ status: 200 }), { sources: limited([{ count: 2, per: "minute" }]) });
+  await sentOk(gate, "ask 1"); await sentOk(gate, "ask 2");
+  await notSentLimit(gate, pewp, "ask 3");
+  eq([f.calls.length, lines(pewp).length], [2, 3], "requests and lines");
+  eq(quotaFiles(quota), ["A1.2026-11-27.hits"]);
+  eq(fs.readFileSync(path.join(quota, "A1.2026-11-27.hits"), "utf8").split("\n").slice(0, -1).length, 2, "hits");
+  eq(stopFiles(stops), []);
+});
+
+await t("the window passes and the source opens again", async () => {
+  const c = clock();
+  const a = mk(() => ({ status: 200 }), { sources: limited([{ count: 2, per: "minute" }]), now: c.now, sleep: c.sleep });
+  await sentOk(a.gate, "ask 1"); await sentOk(a.gate, "ask 2");
+  c.t += 59999; await notSentLimit(a.gate, a.pewp, "before the minute ends");
+  c.t += 1; await sentOk(a.gate, "after the minute");
+  const h = clock();
+  const b = mk(() => ({ status: 200 }), { sources: limited([{ count: 1, per: "hour" }]), now: h.now, sleep: h.sleep });
+  await sentOk(b.gate, "hour: ask 1");
+  h.t += 3599999; await notSentLimit(b.gate, b.pewp, "before the hour ends");
+  h.t += 1; await sentOk(b.gate, "after the hour");
+});
+
+await t("the count of a window is one for each gate and each run on the machine", async () => {
+  const shared = tmp(), sources = limited([{ count: 2, per: "day" }]);
+  const a = mk(() => ({ status: 200 }), { sources, quotaDir: shared });
+  const b = mk(() => ({ status: 200 }), { sources, quotaDir: shared, run: "run-2" });
+  await sentOk(a.gate, "gate 1"); await sentOk(b.gate, "gate 2");
+  await notSentLimit(a.gate, a.pewp, "gate 1 again");
+  await notSentLimit(b.gate, b.pewp, "gate 2 again");
+});
+
+await t("a day window reads the file of the day before", async () => {
+  const c = clock(Date.parse("2026-11-26T23:50:00Z"));
+  const { gate, pewp, quota } = mk(() => ({ status: 200 }), { sources: limited([{ count: 1, per: "day" }]), now: c.now, sleep: c.sleep });
+  await sentOk(gate, "ask 1");
+  eq(quotaFiles(quota), ["A1.2026-11-26.hits"]);
+  c.t = Date.parse("2026-11-27T00:10:00Z"); await notSentLimit(gate, pewp, "the next date, inside the day");
+  c.t = Date.parse("2026-11-27T23:50:00Z"); await sentOk(gate, "after the day");
+  eq(quotaFiles(quota), ["A1.2026-11-26.hits", "A1.2026-11-27.hits"]);
+});
+
+await t("a request is counted when it goes out, also when it fails; a request that is not sent is not counted", async () => {
+  const { gate, f, pewp } = mk(() => ({ fail: true }), { sources: limited([{ count: 1, per: "minute" }]) });
+  const o = await ask(gate, "A1", "https://other.example.test/x");
+  eq([o.sent, o.why], [false, "unknown-source"]);
+  eq((await sentOk(gate, "the first ask")).result, "error");
+  await notSentLimit(gate, pewp, "after the failed request");
+  eq(f.calls.length, 1, "requests");
+});
+
+await t("a limit for the run counts the requests of the run, also those of an earlier gate", async () => {
+  const sources = limited([{ count: 2, per: "run" }]);
+  const a = mk(() => ({ status: 200 }), { sources });
+  await sentOk(a.gate, "ask 1"); await sentOk(a.gate, "ask 2");
+  await notSentLimit(a.gate, a.pewp, "ask 3");
+  eq(quotaFiles(a.quota), []);
+  const again = (run) => mk(() => ({ status: 200 }), { sources, pewp: a.pewp, run }).gate;
+  await notSentLimit(again("run-1"), a.pewp, "a later gate of the run");
+  await sentOk(again("run-2"), "another run");
+  const b = mk(() => ({ status: 200 }), { sources });
+  await sentOk(b.gate, "one request of the run");
+  const off = await ask(b.gate, "A1", "https://other.example.test/x");
+  eq([off.sent, off.why], [false, "unknown-source"], "a line that is not sent");
+  await sentOk(mk(() => ({ status: 200 }), { sources, pewp: b.pewp }).gate, "a later gate does not count a line that was not sent");
+});
+
+await t("two requests to one host are not closer than the pace of the row", async () => {
+  const c = clock();
+  const { gate } = mk(() => ({ status: 200 }), { sources: withRow("A1", { paceMs: 1000 }), now: c.now, sleep: c.sleep });
+  await sentOk(gate, "ask 1"); eq(c.slept, []);
+  c.t += 400; await sentOk(gate, "ask 2"); eq(c.slept, [600]);
+  c.t += 1000; await sentOk(gate, "ask 3"); eq(c.slept, [600]);
+  const at = [];
+  const own = mk(() => { at.push(Date.now()); return { status: 200 }; }, { now: undefined, sleep: undefined, sources: withRow("A1", { paceMs: 40 }) });
+  await sentOk(own.gate, "own timer 1"); await sentOk(own.gate, "own timer 2");
+  ok(at[1] - at[0] >= 30, "the own timer: " + (at[1] - at[0]) + " ms");
+});
+
+await t("the pace is for each host, and a robots.txt read keeps it too", async () => {
+  const c = clock();
+  const { gate, f } = mk(ROBOTS("User-agent: *\nAllow: /"), { sources: withRow("R1", { paceMs: 1000 }), now: c.now, sleep: c.sleep });
+  await sentOk(gate, "host one", "R1", "https://one.example.test/a"); eq(c.slept, [1000]);
+  await sentOk(gate, "host two", "R1", "https://two.example.test/a"); eq(c.slept, [1000, 1000]);
+  eq(f.calls.length, 4, "requests");
+});
+
+await t("a robot check that the driver names writes a stop with the kind check", async () => {
+  const { gate, f, pewp, stops, quota } = mk(() => ({ status: 200, body: "challenge" }));
+  const more = { sort: () => ({ result: "check" }) };
+  const r = await ask(gate, "A1", API, more);
+  eq([r.sent, r.status, r.result], [true, 200, "check"]);
+  eq([lines(pewp)[0].result, lines(pewp)[0].status], ["check", 200]);
+  eq(stopFiles(stops).length, 1, "stop files");
+  const s = JSON.parse(fs.readFileSync(path.join(stops, stopFiles(stops)[0]), "utf8"));
+  eq([s.kind, s.hosts, s.evidence], ["check", ["api.example.test"], "https://api.example.test/v1/x"]);
+  eq(quotaFiles(quota), []);
+  const again = await ask(gate, "A1", API, more);
+  eq([again.sent, again.why], [false, "stop"]);
+  eq(f.calls.length, 1, "requests");
+});
+
+await t("a quota answer that the driver names holds the source for each run, and writes no stop", async () => {
+  const shared = tmp(), more = { sort: () => ({ result: "quota" }) };
+  const a = mk(() => ({ status: 403 }), { quotaDir: shared });
+  const b = mk(() => ({ status: 403 }), { quotaDir: shared, run: "run-2" });
+  const r = await ask(a.gate, "A1", API, more);
+  eq([r.sent, r.status, r.result, r.until], [true, 403, "quota", NOW + DAY]);
+  eq(lines(a.pewp)[0].result, "quota");
+  eq(stopFiles(a.stops), []);
+  eq(quotaFiles(shared), ["A1.hold.json"]);
+  const h = JSON.parse(fs.readFileSync(path.join(shared, "A1.hold.json"), "utf8"));
+  eq([h.source, h.until, h.setBy, h.evidence], ["A1", NOW + DAY, "lib-gate.mjs", "https://api.example.test/v1/x"]);
+  await notSentLimit(a.gate, a.pewp, "gate 1 again");
+  await notSentLimit(b.gate, b.pewp, "gate 2");
+  eq([a.f.calls.length, b.f.calls.length], [1, 0], "requests");
+});
+
+await t("the hold ends at the time the driver gives, else after the longest window of the row", async () => {
+  const c = clock();
+  let i = 0;
+  const a = mk(() => ({ status: i++ ? 200 : 403 }), { now: c.now, sleep: c.sleep });
+  const more = { sort: (x) => (x.status === 403 ? { result: "quota", until: NOW + 5000 } : null) };
+  const r = await ask(a.gate, "A1", API, more);
+  eq([r.result, r.until], ["quota", NOW + 5000]);
+  c.t = NOW + 4999; await notSentLimit(a.gate, a.pewp, "before the time of the driver");
+  c.t = NOW + 5000;
+  const s = await ask(a.gate, "A1", API, more);
+  eq([s.sent, s.result], [true, "read"]);
+  const b = mk(() => ({ status: 403 }), { sources: limited([{ count: 100, per: "minute" }, { count: 1000, per: "hour" }]) });
+  const q = await ask(b.gate, "A1", API, { sort: () => ({ result: "quota" }) });
+  eq([q.until, JSON.parse(fs.readFileSync(path.join(b.quota, "A1.hold.json"), "utf8")).until], [NOW + 3600000, NOW + 3600000]);
+});
+
+await t("a hold file that cannot be read holds for 24 hours from its writing", async () => {
+  for (const text of ["{not json", '{"until":"soon"}']) {
+    const c = clock();
+    const { gate, pewp, quota } = mk(() => ({ status: 200 }), { now: c.now, sleep: c.sleep });
+    fs.mkdirSync(quota, { recursive: true });
+    const file = path.join(quota, "A1.hold.json");
+    fs.writeFileSync(file, text);
+    fs.utimesSync(file, new Date(NOW), new Date(NOW));
+    c.t = NOW + DAY - 1; await notSentLimit(gate, pewp, text + ": before the 24 hours end");
+    c.t = NOW + DAY; await sentOk(gate, text + ": after 24 hours");
+  }
+});
+
+await t("a refused key and a sign-in wall write no stop, and neither counts as a 403", async () => {
+  const key = { sort: () => ({ result: "key" }) };
+  const forbid = () => ({ status: 403 });
+  const a = mk(forbid);
+  for (let i = 0; i < 4; i++) { const r = await ask(a.gate, "A1", API, key); eq([r.sent, r.result], [true, "key"], "ask " + i); }
+  eq(lines(a.pewp).map((l) => l.result), ["key", "key", "key", "key"]);
+  eq([stopFiles(a.stops), quotaFiles(a.quota)], [[], []]);
+  eq((await ask(mk(() => ({ status: 200 })).gate, "A1", API, { sort: () => ({ result: "sign-in" }) })).result, "sign-in");
+  const b = mk(forbid);
+  const seq = [];
+  for (const more of [{}, {}, key, {}]) seq.push((await ask(b.gate, "A1", API, more)).result);
+  eq(seq, ["403", "403", "key", "403"]);
+  const last = await ask(b.gate, "A1", API);
+  eq([last.sent, last.why], [false, "refused"]);
+  const c = mk(forbid);
+  for (const more of [{}, {}, key]) await ask(c.gate, "A1", API, more);
+  const later = mk(forbid, { pewp: c.pewp }).gate;
+  const one = await ask(later, "A1", API);
+  eq([one.sent, one.result], [true, "403"], "the later gate");
+  const two = await ask(later, "A1", API);
+  eq([two.sent, two.why], [false, "refused"], "the later gate, again");
+});
+
+await t("a 429 is never sorted: the gate writes its stop, and the sorter is not asked", async () => {
+  let asked = 0;
+  const more = { sort: () => { asked++; return { result: "key" }; } };
+  const { gate, stops } = mk((url) => ({ status: url.includes("b.example.test") ? 200 : 429 }));
+  eq((await ask(gate, "A2", "https://b.example.test/x", more)).result, "key");
+  eq(asked, 1);
+  eq((await ask(gate, "A1", API, more)).result, "429");
+  eq([asked, stopFiles(stops).length], [1, 1]);
+  eq(JSON.parse(fs.readFileSync(path.join(stops, stopFiles(stops)[0]), "utf8")).kind, "rate");
+});
+
+await t("a sorter that throws or gives another value: the line says error, and nothing else is written", async () => {
+  const bad = [() => "read", () => ({ result: "read" }), () => ({ result: "429" }), () => 5, () => ({ result: "quota", until: NOW }), () => { throw new Error("x"); }];
+  for (const [i, sort] of bad.entries()) {
+    const { gate, pewp, stops, quota } = mk(() => ({ status: 403 }));
+    const r = await ask(gate, "A1", API, { sort });
+    eq([r.sent, r.status, r.result, r.error], [true, 403, "error", "sort"], "sorter " + i);
+    eq([lines(pewp)[0].result, lines(pewp)[0].status, stopFiles(stops), quotaFiles(quota)], ["error", 403, [], []], "sorter " + i);
+  }
+  const { gate } = mk(() => ({ status: 403 }));
+  for (let i = 0; i < 3; i++) await ask(gate, "A1", API, { sort: () => 5 });
+  const four = await ask(gate, "A1", API);
+  eq([four.sent, four.why], [false, "refused"]);
+});
+
+await t("the sorter sees the status, the headers and the body, and null keeps the gate's own result", async () => {
+  const seen = [], more = { sort: (a) => { seen.push(a); return null; } };
+  const { gate } = mk(() => ({ status: 403, body: "no", headers: { "x-reason": "daily" } }));
+  eq((await ask(gate, "A1", API, more)).result, "403");
+  eq(seen.length, 1);
+  eq([seen[0].status, seen[0].headers["x-reason"], Buffer.isBuffer(seen[0].body), String(seen[0].body)], [403, "daily", true, "no"]);
+  await ask(gate, "A1", API, more); await ask(gate, "A1", API, more);
+  const r = await ask(gate, "A1", API, more);
+  eq([r.sent, r.why], [false, "refused"]);
+  eq((await ask(mk(() => ({ status: 200 })).gate, "A1", API, { sort: () => undefined })).result, "read");
+});
+
+await t("the sorter is not asked for a robots.txt read", async () => {
+  let asked = 0;
+  const { gate, f } = mk(ROBOTS("User-agent: *\nAllow: /"));
+  const r = await ask(gate, "R1", "https://one.example.test/a", { sort: () => { asked++; return null; } });
+  eq([r.sent, f.calls.length, asked], [true, 2, 1]);
+});
+
+await t("makeGate and request refuse a sleep, a quota folder or a sorter that is not well formed", async () => {
+  for (const more of [{ sleep: 5 }, { quotaDir: "" }, { quotaDir: 5 }]) typeError(() => mk(() => ({}), more), JSON.stringify(more));
+  const { gate, f, pewp } = mk(() => ({ status: 200 }));
+  await rejects(ask(gate, "A1", API, { sort: "x" }), "a sorter that is not a function");
+  await rejects(ask(gate, "A1", API, { sort: null }), "a sorter that is null");
+  eq([lines(pewp).length, f.calls.length], [0, 0], "lines and requests");
+});
+
+await t("the time limit of a request starts after the pace wait", async () => {
+  const seen = [];
+  const own = mk((url, opts) => { seen.push(opts.signal.aborted); return { status: 200 }; }, { now: undefined, sleep: undefined, sources: withRow("A1", { paceMs: 80 }) });
+  const a = await ask(own.gate, "A1", API, { timeoutMs: 20 }), b = await ask(own.gate, "A1", API, { timeoutMs: 20 });
+  eq([a.result, b.result, seen], ["read", "read", [false, false]]);
+});
+
+await t("a sorter that gives a Promise is another value, and its rejection does not end the run", async () => {
+  const loose = [], keep = (e) => loose.push(String(e?.message));
+  process.on("unhandledRejection", keep);
+  try {
+    for (const sort of [async () => ({ result: "key" }), async () => { throw new Error("late"); }]) {
+      const { gate, pewp, stops, quota } = mk(() => ({ status: 200 }));
+      const r = await ask(gate, "A1", API, { sort });
+      eq([r.sent, r.status, r.result, r.error], [true, 200, "error", "sort"]);
+      eq([lines(pewp).length, stopFiles(stops), quotaFiles(quota)], [1, [], []]);
+    }
+    await new Promise((done) => setTimeout(done, 20));
+    eq(loose, [], "rejections that nobody handled");
+  } finally { process.off("unhandledRejection", keep); }
+});
+
 // ---- the mutants: one broken copy of the library for each rule (node scripts/test-gate.mjs --mutants) ----
 // A mutant is one change of the text of lib-gate.mjs: "from" is found one time in the file, and "to" takes its place. The scripts
 // folder and sources.json are copied to a temp folder one time; each mutant is written there and this test runs on it. The test
@@ -373,6 +641,27 @@ const RULES = [
   ["G17", "a request that fails gives one line with the result error, and the count of 403 stays"],
   ["G18", "makeGate and request refuse a call that is not well formed"],
   ["G19", "no request goes out when the ledger would refuse its line"],
+  ["G20", "a row with a pace or a limit that is not well formed is refused when the gate is made"],
+  ["G21", "a source at the limit of its window is not sent, and the line says limit"],
+  ["G22", "the window passes and the source opens again"],
+  ["G23", "the count of a window is one for each gate and each run on the machine"],
+  ["G24", "a day window reads the file of the day before"],
+  ["G25", "a request is counted when it goes out, also when it fails; a request that is not sent is not counted"],
+  ["G26", "a limit for the run counts the requests of the run, also those of an earlier gate"],
+  ["G27", "two requests to one host are not closer than the pace of the row"],
+  ["G28", "the pace is for each host, and a robots.txt read keeps it too"],
+  ["G29", "a robot check that the driver names writes a stop with the kind check"],
+  ["G30", "a quota answer that the driver names holds the source for each run, and writes no stop"],
+  ["G31", "the hold ends at the time the driver gives, else after the longest window of the row"],
+  ["G32", "a hold file that cannot be read holds for 24 hours from its writing"],
+  ["G33", "a refused key and a sign-in wall write no stop, and neither counts as a 403"],
+  ["G34", "a 429 is never sorted: the gate writes its stop, and the sorter is not asked"],
+  ["G35", "a sorter that throws or gives another value: the line says error, and nothing else is written"],
+  ["G36", "the sorter sees the status, the headers and the body, and null keeps the gate's own result"],
+  ["G37", "the sorter is not asked for a robots.txt read"],
+  ["G38", "makeGate and request refuse a sleep, a quota folder or a sorter that is not well formed"],
+  ["G39", "the time limit of a request starts after the pace wait"],
+  ["G40", "a sorter that gives a Promise is another value, and its rejection does not end the run"],
 ];
 // MUTANTS-BEGIN (the builder fills this list: one entry for each rule id, { from, to }. Nothing outside the two marks changes.)
 const MUTANTS = {
@@ -395,6 +684,27 @@ const MUTANTS = {
   G17: { from: "answer = { sent: true, status: null,", to: "refusals.delete(host);\n      answer = { sent: true, status: null," },
   G18: { from: "typeof now !== \"function\" || typeof doFetch", to: "typeof doFetch" },
   G19: { from: "lineOf({ ...entry, result: \"error\" }, now()); // check 7: a line the ledger refuses means no request", to: "" },
+  G20: { from: "if (r.robotsAtRun === true && limits.length)", to: "if (!r.id && limits.length)" },
+  G21: { from: ".length) >= most", to: ".length) >= most + 1" },
+  G22: { from: "at - t < WINDOWS[per]", to: "at - t <= WINDOWS[per]" },
+  G23: { from: "encodeURIComponent(id) + \".\" + end", to: "encodeURIComponent(id) + \".\" + run + end" },
+  G24: { from: "[at - DAY, at]", to: "[at]" },
+  G25: { from: "error = String(e?.name); }", to: "error = String(e?.name); row.limits = []; }" },
+  G26: { from: "line.result !== \"not sent\") addRan", to: "line.result === \"not sent\") addRan" },
+  G27: { from: "row.paceMs - (now() - ended.get(paced))", to: "row.paceMs" },
+  G28: { from: "host = u.hostname, paced = host;", to: "host = u.hostname, paced = \"\";" },
+  G29: { from: "kind: \"check\"", to: "kind: \"rate\"" },
+  G30: { from: "if (held(row.id, at)) return true;", to: "" },
+  G31: { from: "(longest || HOLD_HOURS * WINDOWS.hour)", to: "(HOLD_HOURS * WINDOWS.hour)" },
+  G32: { from: "until = fs.statSync(file).mtimeMs + HOLD_HOURS * WINDOWS.hour;", to: "until = 0;" },
+  G33: { from: "if (!NAMED.includes(result)) count(host, status);", to: "count(host, status);" },
+  G34: { from: "sort && status !== 429", to: "sort && status !== 999" },
+  G35: { from: "if (!NAMED.includes(result)) return { result: \"error\", error: \"sort\" };", to: "if (!NAMED.includes(result)) return { result: \"error\", error: \"other\" };" },
+  G36: { from: "{ status, headers: got, body: data }) : null", to: "{ status, headers: {}, body: data }) : null" },
+  G37: { from: "{ timeoutMs }));", to: "{ timeoutMs, sort }));" },
+  G38: { from: "sort !== undefined && typeof sort !== \"function\"", to: "sort === 5" },
+  G39: { from: "    if (row.paceMs > 0 && ended.has(paced)) {\n      const wait = row.paceMs - (now() - ended.get(paced));\n      if (wait > 0) await sleep(wait);\n    }\n    const own = Object.fromEntries(Object.entries(headers).filter(([k]) => k.toLowerCase() !== \"user-agent\"));\n    const options = { method, headers: { ...own, \"user-agent\": UA }, body, redirect: \"manual\", signal: AbortSignal.timeout(timeoutMs) };", to: "const early = AbortSignal.timeout(timeoutMs);\n    if (row.paceMs > 0 && ended.has(paced)) {\n      const wait = row.paceMs - (now() - ended.get(paced));\n      if (wait > 0) await sleep(wait);\n    }\n    const own = Object.fromEntries(Object.entries(headers).filter(([k]) => k.toLowerCase() !== \"user-agent\"));\n    const options = { method, headers: { ...own, \"user-agent\": UA }, body, redirect: \"manual\", signal: early };" },
+  G40: { from: "if (v instanceof Promise) v.catch(() => {});", to: "" },
 };
 // MUTANTS-END
 async function mutants() {
