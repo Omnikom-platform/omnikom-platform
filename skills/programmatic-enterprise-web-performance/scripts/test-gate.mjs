@@ -914,6 +914,19 @@ await t("with no lookup of the caller the gate asks the machine for each address
   } finally { dns.promises.lookup = guard; }
 });
 
+// the first and the last address of each range of the inner list, and public addresses next to a range
+const INNER_ENDS = ["0.0.0.0", "0.255.255.255", "10.0.0.0", "10.255.255.255", "100.64.0.0", "100.127.255.255", "127.0.0.0", "127.255.255.255", "169.254.0.0", "169.254.255.255", "172.16.0.0", "172.31.255.255", "192.0.0.0", "192.0.0.255", "192.168.0.0", "192.168.255.255", "198.18.0.0", "198.19.255.255", "224.0.0.0", "239.255.255.255", "240.0.0.0", "255.255.255.255", "[fc00::]", "[fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]", "[fe80::]", "[febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff]", "[ff00::]", "[ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]"];
+const NEXT_TO = ["1.0.0.0", "9.255.255.255", "11.0.0.0", "100.63.255.255", "100.128.0.0", "126.255.255.255", "128.0.0.0", "169.253.255.255", "169.255.0.0", "172.15.255.255", "172.32.0.0", "191.255.255.255", "192.0.1.0", "192.167.255.255", "192.169.0.0", "198.17.255.255", "198.20.0.0", "223.255.255.255"];
+await t("each range of the inner list holds from its first address to its last, and the address next to a range is read", async () => {
+  const a = mk(() => ({ status: 200 }));
+  for (const host of INNER_ENDS) {
+    const r = await ask(a.gate, "R1", "http://" + host + "/x");
+    eq([r.sent, r.why], [false, "address"], host);
+  }
+  eq(a.f.calls.length, 0, "requests");
+  for (const host of NEXT_TO) eq((await ask(a.gate, "R1", "http://" + host + "/x")).sent, true, host);
+});
+
 // ---- the mutants: one broken copy of the library for each rule (node scripts/test-gate.mjs --mutants) ----
 // A mutant is one change of the text of lib-gate.mjs: "from" is found one time in the file, and "to" takes its place. The scripts
 // folder and sources.json are copied to a temp folder one time; each mutant is written there and this test runs on it. The test
@@ -981,6 +994,7 @@ const RULES = [
   ["G60", "after three 403 answers a host is skipped with a dot at its end too"],
   ["G61", "no value but a function is taken as the lookup: null and false do not switch the address check off"],
   ["G62", "with no lookup of the caller the gate asks the machine for each address of a name, and a name with public addresses is read"],
+  ["G63", "each range of the inner list holds from its first address to its last, and the address next to a range is read"],
 ];
 // MUTANTS-BEGIN (the builder fills this list: one entry for each rule id, { from, to }. Nothing outside the two marks changes.)
 const MUTANTS = {
@@ -1046,6 +1060,7 @@ const MUTANTS = {
   G60: { from: "(refusals.get(host) || 0) >= REFUSALS", to: "(refusals.get(given) || 0) >= REFUSALS" },
   G61: { from: "  if (typeof lookup !== \"function\") throw new TypeError(\"gate: lookup is a function\");\n", to: "" },
   G62: { from: "dns.promises.lookup(host, { all: true })", to: "dns.promises.lookup(host, {})" },
+  G63: { from: "[\"192.0.0.0\", 24], ", to: "" },
 };
 // MUTANTS-END
 async function mutants() {
