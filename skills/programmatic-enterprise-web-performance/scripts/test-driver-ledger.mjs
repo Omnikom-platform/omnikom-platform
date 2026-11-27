@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 // LIB_DRIVER_LEDGER_UNDER_TEST points the test at a broken copy (the intake)
-const { record, KINDS, RESULTS, WHY } = await import(process.env.LIB_DRIVER_LEDGER_UNDER_TEST ? pathToFileURL(process.env.LIB_DRIVER_LEDGER_UNDER_TEST).href : new URL("./lib-driver-ledger.mjs", import.meta.url).href);
+const { record, lineOf, KINDS, RESULTS, WHY } = await import(process.env.LIB_DRIVER_LEDGER_UNDER_TEST ? pathToFileURL(process.env.LIB_DRIVER_LEDGER_UNDER_TEST).href : new URL("./lib-driver-ledger.mjs", import.meta.url).href);
 
 let fails = 0, n = 0;
 const t = (name, fn) => { n++; try { fn(); console.log(`ok   ${name}`); } catch (e) { fails++; console.log(`FAIL ${name}: ${e.message}`); } };
@@ -39,7 +39,7 @@ t("T4 a request that is not sent gives one line", () => {
   const d = tmp();
   for (const why of WHY) record(d, { ...BASE, url: URL_X, result: "not sent", why }, NOW);
   eq(lines(d).map((l) => [l.status, l.bytes, l.ms, l.result, l.why]), WHY.map((why) => [null, null, null, "not sent", why]));
-  eq(lines(d).length, 5);
+  eq(lines(d).length, 6);
 });
 t("T5 signed in or not", () => {
   eq(one(good()).signedIn, false);
@@ -68,9 +68,9 @@ t("T8 the results error and quota", () => {
   eq(one(good({ result: "quota", status: 403 })).status, 403);
 });
 t("T9 the three lists", () => {
-  eq(KINDS, ["api", "file", "reader"]);
+  eq(KINDS, ["api", "file", "reader", "site"]);
   eq(RESULTS, ["read", "check", "403", "429", "quota", "key", "sign-in", "error", "not sent"]);
-  eq(WHY, ["unknown-source", "terms", "stop", "limit", "robots"]);
+  eq(WHY, ["unknown-source", "terms", "stop", "limit", "robots", "refused"]);
 });
 t("T10 each refusal throws and writes nothing", () => {
   const c = tmp(); record(c, good(), NOW);
@@ -89,13 +89,13 @@ t("T10 each refusal throws and writes nothing", () => {
   const notSent = (extra) => ({ ...BASE, url: URL_X, result: "not sent", why: "stop", ...extra });
   const bad = [
     { run: "" }, { run: "a b" }, { run: "r".repeat(81) }, { run: 123 }, { client: "a/b" }, { driver: "a b" }, { source: "" },
-    { kind: "browser" }, { result: "ok" }, { result: "READ" },
+    { kind: "browser" }, { kind: null }, { result: "ok" }, { result: "READ" },
     { url: "not a url" }, { url: "ftp://x.test/a" }, { url: "file:///c:/x" }, { url: new URL(URL_X) },
     { signedIn: "yes" },
     { status: "200" }, { status: 99 }, { status: 600 }, { status: 200.5 }, { bytes: -1 }, { bytes: 1.5 }, { bytes: "10" }, { ms: -1 },
     { why: "stop" }, { status: undefined }, { result: "429", status: undefined }, { result: "quota", status: undefined },
   ].map((extra) => good(extra));
-  bad.push(notSent({ status: 200 }), notSent({ why: undefined }), notSent({ why: "because" }), notSent({ bytes: 0 }), notSent({ ms: 0 }));
+  bad.push(notSent({ status: 200 }), notSent({ why: undefined }), notSent({ why: "because" }), notSent({ bytes: 0 }), notSent({ ms: 0 }), notSent({ kind: null }), notSent({ kind: undefined, why: "unknown-source" }));
   for (const e of bad) refused(JSON.stringify(e), e);
 });
 t("T11 the limits that are accepted", () => {
@@ -105,9 +105,20 @@ t("T11 the limits that are accepted", () => {
   const l = one(good({ status: 200, bytes: 0, ms: 0 }));
   eq([l.bytes, l.ms], [0, 0]);
   one({ ...BASE, url: URL_X, result: "error", status: null, bytes: null, ms: null, why: null });
+  eq(one(good({ kind: "site" })).kind, "site");
+  eq(one({ ...BASE, kind: null, url: URL_X, result: "not sent", why: "unknown-source" }).kind, null);
 });
 t("T12 the order of the names", () => {
   eq(one(good({ url: "https://api.example.test/x?b=1&A=2&a=3&B=4&a=5" })).params, ["A", "B", "a", "b"]);
+});
+t("T13 lineOf gives the line of record and writes nothing", () => {
+  const d = tmp(), cwd = process.cwd();
+  let line, threw = false;
+  process.chdir(d); // lineOf must not write relative to the working folder either
+  try { line = lineOf(good(), NOW); try { lineOf(good({ driver: "a b" }), NOW); } catch { threw = true; } } finally { process.chdir(cwd); }
+  eq(fs.readdirSync(d), [], "wrote");
+  eq(threw, true, "a bad driver name: no throw");
+  eq(line, record(d, good(), NOW), "the same line as record");
 });
 
 console.log(`\n${n - fails}/${n} passed`);
