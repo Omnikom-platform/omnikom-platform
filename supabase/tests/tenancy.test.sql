@@ -4352,6 +4352,13 @@ do $$ begin
   assert (select array_agg(to_text) from t54_h where lead_id = test.id('d8_lh')) = array['d8-boss@example.test'], 'T54h the business row is claimed, the agent''s is not';
   assert (select count(*) from public.lead_events where lead_id = test.id('d8_lh') and kind = 'alert-failed' and detail = jsonb_build_object('to', 'd8-agent@example.test', 'reason', 'suppressed')) = 1, 'T54h one alert-failed event names the agent''s address';
 end $$;
+-- (i) an empty list with the tick on: the agent is mailed alone (the lead's ruling on question 5)
+update public.sites set lead_alert_to = '{}' where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+insert into test.ids select 'd8_li', test.d8_lead('D8 Lead I', test.id('d8_agent'));
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8_li')) = 1, 'T54i with an empty list the agent is mailed alone';
+  assert (select array_agg(to_text) from public.mail_outbox where lead_id = test.id('d8_li')) = array['d8-agent@example.test'], 'T54i the one row is the agent';
+end $$;
 drop function test.d8_lead(text, uuid);
 update public.sites set lead_alert_to = (select lead_alert_to from test.t54_site), alert_assignee = (select alert_assignee from test.t54_site) where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
 
