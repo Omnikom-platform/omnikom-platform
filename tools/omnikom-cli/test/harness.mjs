@@ -167,6 +167,8 @@ export async function cli(argv, env, deps = {}) {
 // function takes one signature twice (no claim, as before migration 53): each is a broken function that `verify` must catch.
 export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIdem = false, doubleAlert = false, noSecurityLog = false, doubleConsent = false, pausedAs500 = false, noClaim = false }) {
   const { verify } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'signature.ts')).href);
+  const { SiteKeyCache, KEY_CACHE_MS, KEY_CACHE_SITES } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'site-keys.ts')).href);
+  const cache = new SiteKeyCache(KEY_CACHE_MS, KEY_CACHE_SITES);   // E5-SIG: the function's own cache class, one per model (as one function instance)
   const sql = makeSql({ url: dbUrl });
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const lit = v => (v === null || v === undefined ? 'null' : `'${String(v).replace(/'/g, "''")}'`);
@@ -195,10 +197,14 @@ export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIde
     const path = u.pathname.replace(/^\/functions\/v1/, '') + u.search;
     const event = (kind, code) => { if (!noSecurityLog) sql.exec(`select service.record_security_event(${lit(kind)}, ${lit(code)}, null, ${lit(site)}::uuid, null, null, ${lit(JSON.stringify({ path: u.pathname }))}::jsonb);`); };
     let ok = naive;
+    // E5-SIG, as the function (capture-lead/index.ts): keys read in the last 10 s that none of verifies the post: refused with no database work and no event
+    const held = naive ? null : cache.get(site);
+    if (held) { let any = false; for (const k of held) if (await verify((init.headers || {})['x-site-signature'] || null, k.secret, 'POST', path, body)) { any = true; break; } if (!any) return reply(401, { problems: [{ code: 'SIGNATURE' }] }); }
     // the keys come from the database exactly as the function reads them (index.ts): service.active_key joined to the Vault view.
     // (until 2026-10-30 the model held the keys in memory and never asked the lookup: a lookup that finds nothing passed every test)
     const found = sql.rows(`select s.decrypted_secret as secret from service.active_key('site-signing', ${lit(site)}::uuid) k join vault.decrypted_secrets s on s.name = k.vault_ref`);
     if (!found.ok) return reply(500, { problems: [{ code: 'SERVER' }] });
+    if (!naive) cache.put(site, found.rows.map(k => ({ id: '', secret: k.secret })));
     for (const k of found.rows) if (await verify((init.headers || {})['x-site-signature'] || null, k.secret, 'POST', path, body)) ok = true;
     if (!ok) { event('bad-signature', 'SIGNATURE'); return reply(401, { problems: [{ code: 'SIGNATURE' }] }); }
     let d;

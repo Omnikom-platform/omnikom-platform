@@ -6,11 +6,13 @@
 import { handle } from '../capture-lead/index.ts';
 import { sign, verify } from '../_shared/signature.ts';
 import { assert, claimOf, crmForms, eq, freshT, SITE_A, t, WS_A, withSql } from './util.ts';
+import { siteKeys } from '../_shared/site-keys.ts';
 
 const KEY = 'test-site-signing-key-not-a-secret';
 const REF = 'site-test-demo-a-key-1';
 
 async function seedKey() {
+  siteKeys.clear();
   const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(KEY))), b => b.toString(16).padStart(2, '0')).join('');
   await withSql(async sql => {
     const [v] = await sql`select to_regclass('vault.decrypted_secrets') as t`;
@@ -173,6 +175,7 @@ t('capture-lead [E5]: a visitor that is not 64 lower-case hex is no visitor: nev
 
 // SEC-LEAD-ORDER (rule 35). DB_POOLER_URL is unset in these posts: connect() then throws, so a post that reaches the database door answers 500 CONFIG and one that does not is seen by its own answer.
 const doorShut = async <T>(fn: () => Promise<T>): Promise<T> => {
+  siteKeys.clear();
   const old = Deno.env.get('DB_POOLER_URL'); Deno.env.delete('DB_POOLER_URL');
   try { return await fn(); } finally { if (old !== undefined) Deno.env.set('DB_POOLER_URL', old); }
 };
