@@ -237,7 +237,8 @@ jobs:
   audit:
     name: audit engine (tests and mutants)
     runs-on: ubuntu-latest
-    # 60 since 2026-11-25: the audit mutants (~20 min) and the search skill mutants (~18 min) passed 40 and cancelled the run twice
+    # the audit engine's own tests and mutants (the search skill's tests run in the job search_skill, split off 2026-11-28)
+    # 60 since 2026-11-25; on 2026-11-28 (run 46092715803) this job took 17 min 24 s with only the audit engine in it
     timeout-minutes: 60
     steps:
       - name: Check out the repository
@@ -252,6 +253,22 @@ jobs:
         run: node tools/audit/test/run.mjs
       - name: Audit mutants
         run: node tools/audit/test/mutate.mjs
+
+  search_skill:
+    name: search skill (tests and mutants)
+    runs-on: ubuntu-latest
+    # 60 since 2026-11-28: run 46092715803 took 46 min 08 s with the audit engine and the search skill in one job (audit tests 20 s, audit mutants 17 min 04 s,
+    # search skill tests 1 min 29 s, search skill mutants 27 min 02 s); more mutants are coming, so the search skill has its own job, parallel to audit
+    timeout-minutes: 60
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
       # the search skill's tests that are proven on this runner (the list: skills/programmatic-enterprise-web-performance/scripts/ci-tests.json),
       # then their seeded faults; a red test, a missing file, a fault that stays green or a patch that does not apply fails the step
       - name: Search skill tests

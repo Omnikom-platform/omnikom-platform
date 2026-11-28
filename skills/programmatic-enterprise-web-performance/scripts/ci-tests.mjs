@@ -1,6 +1,6 @@
 // Usage: node ci-tests.mjs [--mutants] [--scripts <dir>]
 // Runs the tests of this skill that GitHub runs: the list is <dir>/ci-tests.json, every test is <dir>/<file>. <dir> defaults to
-// this file's own folder. GitHub's `audit` job starts it twice: the step "Search skill tests" (no argument) and the step
+// this file's own folder. GitHub's `search_skill` job starts it twice: the step "Search skill tests" (no argument) and the step
 // "Search skill mutants" (--mutants: each test's seeded faults). Every listed test is started, one after another, each as a
 // child (the same node, 256 MB), even when an earlier one was red; only exit code 0 is green. A list that is missing, not JSON,
 // empty, wrongly formed, with a repeated name or naming a file that is not there is a STOP: exit 1, no test started.
