@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1094,
+    "sources": 1096,
     "unowned": 0
   },
   "files": [
@@ -326,10 +326,10 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-ask-pace.mjs","owner":"seo-and-audits","exports":["FOCUS_MODES","PACE_KEYS","PaceError","checkPace","focusOf","io","pause","pieces","readingSeconds","wordCount"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-browser-profile.mjs","owner":"seo-and-audits","exports":["chromeTime","keepLocalState","seedProfile","spawnBrowser"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-captures.mjs","owner":"seo-and-audits","exports":["cli","count","daysSince","host","isHttp","nonEmpty","round","runImporter","toDate","toNum"],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-driver-ledger.mjs","owner":"seo-and-audits","exports":["KINDS","RESULTS","WHY","ledgerFile","lineOf","record"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-driver-ledger.mjs","owner":"seo-and-audits","exports":["KINDS","RESULTS","WHY","hostForm","ledgerFile","lineOf","record"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-env.mjs","owner":"seo-and-audits","exports":["EnvFileError","envFileArg","loadEnv","loadEnvOrExit","parseEnv"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-freshness.mjs","owner":"seo-and-audits","exports":["GIT_ENV","SKIP_DIRS","buildClockSignature","checkStability","collectDates","findSitemaps","formatLines","freshnessAcrossSnapshots","gitRun","isSitemapName","judge","lastmodProblem","lintSitemaps","mainTextHash","newFailures","parseSitemap","plainReason","rebuildAndJudge","runShell","supervised","walk","whichExe"],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-gate.mjs","owner":"seo-and-audits","exports":["HOLD_HOURS","REFUSALS","ROBOTS_HOPS","UA","makeGate","parseRobots","readSources","robotsAllows","stopEngine"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-gate.mjs","owner":"seo-and-audits","exports":["HOLD_HOURS","MAX_BYTES","REFUSALS","ROBOTS_BYTES","ROBOTS_HOPS","UA","makeGate","parseRobots","readSources","robotsAllows","stopEngine"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-google-auth.mjs","owner":"seo-and-audits","exports":["DEFAULT_SCOPE","DEFAULT_TOKEN_URL","GoogleAuthBlocked","UNBLOCK","clearGoogleAuthCache","getGscToken"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-growth.mjs","owner":"seo-and-audits","exports":["LocaleMissing","carriesQuery","categoryPath","clusterByOverlap","compatibleTypes","containsPhrase","directoryEntry","intentDetail","intentOf","isCompatible","isSchemaType","matchPages","modifiersFor","namesOtherPlace","normResultUrl","pageTypeOf","pageTypeOfPage","placesIn","queryModifiers","schemaInfoOf"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-industry.mjs","owner":"seo-and-audits","exports":["INDUSTRIES_DIR","LICENCE_DEFAULT","detectLicences","licenceDetectFor","resolvePack","topicSetting"],"tests":[],"feature":""},
@@ -350,6 +350,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-snowball.mjs","owner":"seo-and-audits","exports":["stemEnglish","stemFor"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-source-tables.mjs","owner":"seo-and-audits","exports":["SOURCE_KINDS","SOURCE_STATES","validateSourceTables"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-stations.mjs","owner":"seo-and-audits","exports":["SOURCE_RULED","STATES","StationError","buildSheet","kindOf","ruleStep","rulingCounts","sheetText","stationsOf"],"tests":["tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-step-gate.mjs","owner":"seo-and-audits","exports":["runNames","stepGate"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-stops.mjs","owner":"seo-and-audits","exports":["KNOWN_ENGINES","STOP_HOURS","STOP_KINDS","activeStops","isStopped","liftStop","stopsDir","writeStop"],"tests":["tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/seo-run.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-test-kit.mjs","owner":"seo-and-audits","exports":["J","W","checker","main","mkTmp","rmTmp","runner","serve","walk","writeVerdicts"],"tests":["factory/advisor/test/test-budget.mjs","factory/advisor/test/test-compile-51.mjs","factory/advisor/test/test-flows.mjs","factory/advisor/test/test-intent-misses.mjs","factory/advisor/test/test-no-meaning.mjs","factory/advisor/test/test-provision.mjs","factory/advisor/test/test-report.mjs","factory/advisor/test/test-rewrites.mjs","factory/advisor/test/test-validate.mjs","factory/advisor/test/test-vtv-engine.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-text.mjs","owner":"seo-and-audits","exports":["GENERIC_ANCHORS","LocaleMissing","STOP","THRESHOLD","containsHeadTerm","coversTerm","gazetteer","headTerm","isGenericAnchor","missing","overlap","removePlaces","requiredTerms","scanPlaces","seqContains","shingles","showsQuestion","slugify","stem","stemSet","stemmerFor","stopWordsFor","termsOf","titleCase","tokenSet","tokens","uaxWords","words"],"tests":[],"feature":""},
@@ -475,7 +476,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-read-bing.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-ref.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-refactor.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-reports.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-reports.mjs","owner":"seo-and-audits","exports":["baselineForMutants","blockedReason","judgeMutant"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-reputation-notread.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-research.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-rules.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
@@ -488,6 +489,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-start.mjs","owner":"seo-and-audits","exports":["runScenarios"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-stations.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-step-contracts.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-step-gate.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-targets-record.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-test-kit.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-topic-filter.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
