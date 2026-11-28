@@ -209,14 +209,17 @@ t('sitekey [E5-SIG] C8 acceptance is unchanged for an upper-case site id', async
   eq(r.status, 202, r.text); eq((await snap()).leads - before.leads, 1, 'one lead stored');
 });
 
-t('sitekey [E5-SIG] C9 a key rotated inside the window costs at most one refused post', async () => {
+t('sitekey [E5-SIG] C9 a key minted after the fill is refused inside the window and heard after KEY_CACHE_MS', async () => {
   const K5 = 'test-site-signing-key-five', R5 = 'site-test-demo-a-key-5', K6 = 'test-site-signing-key-six', R6 = 'site-test-demo-a-key-6';
-  await fresh(); await seedAll(); await seed(SITE_A, WS_A, R5, K5);
+  const { KEY_CACHE_MS } = await fresh(); await seedAll(); await seed(SITE_A, WS_A, R5, K5);
   try {
-    const a = await send({ key: K5 }); eq(a.status, 202, 'the old key is live: ' + a.text);
-    await seed(SITE_A, WS_A, R6, K6); await revoke(R5);   // the rotation
-    const first = await send({ key: K6 }); eq(first.status, 401, 'the one refused post, inside the window: ' + first.text);
-    await new Promise(ok => setTimeout(ok, 10_300));
-    const next = await send({ key: K6 }); eq(next.status, 202, 'the next post after the window verifies with the new key: ' + next.text);
+    const a = await send({ key: K5 }); eq(a.status, 202, 'the old key is live, and its post filled the entry: ' + a.text);
+    await seed(SITE_A, WS_A, R6, K6);   // the new key is minted after the fill
+    const before = await snap();
+    for (let i = 0; i < 2; i++) { const r = await send({ key: K6 }); eq(r.status, 401, 'inside the window every post with the new key is refused, post ' + i + ': ' + r.text); }
+    eq((await snap()).leads - before.leads, 0, 'no lead stored inside the window');
+    await new Promise(ok => setTimeout(ok, Math.min(KEY_CACHE_MS, 10_000) + 300));   // a cache held longer than 10 s must fail the check below, not be waited out (the mutant 'held for an hour' would sit until the harness kills deno)
+    const next = await send({ key: K6 }); eq(next.status, 202, 'the first post after KEY_CACHE_MS + 300 ms verifies with the new key: ' + next.text);
+    eq((await snap()).leads - before.leads, 1, 'its lead is stored');
   } finally { await unseed(R5); await unseed(R6); }
 });

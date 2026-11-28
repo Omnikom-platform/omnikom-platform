@@ -10,7 +10,7 @@
 //   11 the same signed post twice stores one row (no idempotency key: only the claim of the signature, migration 53, can make it one)
 // The ledgers migration 7 added are counted before and after (read-only). Security events are counted as sum(n) of security_event_counts
 // (migration 20: one bucket per source and minute, n counts every event of it, the first included; a bucket writes one security_events row):
-// a refused signature that needs the key adds one event (kind bad-signature, the site; one that cannot verify adds none; the keys are held 10 s, so the check waits 10.5 s first and sends the wrong key last), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
+// a refused signature that needs the key adds one event (kind bad-signature, the site; one that cannot verify adds none; the keys are held KEY_CACHE_MS (10 s), so the check waits that plus 0.5 s first and sends the wrong key last), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
 // row and a retry of the same key adds none. Both ledgers are append-only: a run leaves its rows behind, by design.
 import { Usage, Blocked } from '../lib/errors.mjs';
 import { uuidLit, lit, jsonLit } from '../lib/sql.mjs';
@@ -19,6 +19,15 @@ import { parseIdentity, machineKey, personToken, PERSONS } from '../lib/identity
 import { WS_A, WS_B } from './seed.mjs';
 import { callFunction } from '../lib/fn.mjs';
 import { loadFixture } from '../lib/fixtures.mjs';
+import { importRepo } from '../lib/repo.mjs';
+
+// How long verify waits for capture-lead's held keys to run out: the function's own KEY_CACHE_MS plus 500 ms (10.5 s against staging). A function model that
+// carries its own shorter keyCacheMs (the local test harness) is waited for that long, so the test run does not sit 10.5 s on every call.
+// KEY_CACHE_MS is read through importRepo (OMNIKOM_REPO_ROOT), never by a relative path: the mutation runner runs copies of this folder from a temp folder, where no such path exists (Node strips the types of the .ts).
+export async function keyWaitMs(fetchImpl) {
+  const own = fetchImpl && fetchImpl.keyCacheMs;
+  return (own ?? (await importRepo('supabase/functions/_shared/site-keys.ts')).KEY_CACHE_MS) + 500;
+}
 
 export async function verify(ctx) {
   const f = ctx.flags;
@@ -67,7 +76,8 @@ export async function verify(ctx) {
   // The posts above filled that entry, so wait it out. The three posts that cannot verify go first, while nothing is held: a function that looked the keys up for one of
   // them would record it. The wrong key goes last: it reaches the database and is recorded once. (Sent first, it would fill the entry, and the held keys would then refuse
   // the other three from memory whatever the function does with such a header: the check could not fail.)
-  await new Promise(done => setTimeout(done, 10_500));
+  const waitMs = await keyWaitMs(ctx.fetch);
+  await new Promise(done => setTimeout(done, waitMs));
   const deltas = [];   // security_events (bad-signature, this site) added by each refused signature
   let seen = events('bad-signature');
   const recorded = () => { const now = events('bad-signature'); deltas.push(now - seen); seen = now; };

@@ -92,7 +92,8 @@ async function sha256Hex(s: string): Promise<string> {
 }
 
 // Rule 35: what needs no key is judged before anything costs a connection. A signature header that is missing, not t=<digits>,v1=<64 lower-case hex> (the form of _shared/signature.ts verify)
-// or more than 300 s from now can never verify. A forged one of the right form still needs the site's key, read through the database: that costs one lookup, as before.
+// or more than 300 s from now can never verify. A forged one of the right form still needs the site's key: it is judged against the keys this function holds for the site
+// (_shared/site-keys.ts, KEY_CACHE_MS), and only a site with nothing held, or a post that a held key verifies, costs a database lookup.
 // The pattern and the window are COPIES of verify's (signature.ts:35, :38); capture.test.ts T5 holds the two equal for every header a site signs.
 const SIGNATURE_SHAPE = /^t=(\d{1,12}),v1=[0-9a-f]{64}$/;
 export function signatureLooksValid(header: string | null, now: number = Math.floor(Date.now() / 1000)): boolean {
