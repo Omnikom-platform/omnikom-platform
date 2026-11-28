@@ -64,7 +64,8 @@ const scenarios = async (dir) => {
     try { code = await run({ argv, env, fetch: cf.fetch, log: (s) => lines.push(String(s)), ...(salt ? { salt } : {}) }); } catch (e) { code = 'threw: ' + e.message; }
     return { code, out: lines.join('\n'), writes: cf.calls.filter((c) => c.method !== 'GET') };
   };
-  const clean = (out, extra = []) => ![TOKEN, ACCT, OTHER_ACCT, ...extra].some((s) => out.includes(s));
+  const once = (out, re) => (out.match(re) || []).length === 1;
+const clean = (out, extra = []) => ![TOKEN, ACCT, OTHER_ACCT, ...extra].some((s) => out.includes(s));
   let cf, r;
 
   // usage and keys
@@ -136,9 +137,11 @@ const scenarios = async (dir) => {
   check('apply: the salt, the token and the account id never printed', saltValue.length === 64 && clean(r.out, [saltValue]), r.out);
   check('apply: the other names are kept', !!cf.state.projects[0].vars.TURNSTILE_SECRET && !!cf.state.projects[0].kv.LEAD_LIMITS, JSON.stringify(Object.keys(cf.state.projects[0].vars)));
   check('apply: the namespace creation is said once', (r.out.match(/^done: .*creat(e|ed) the Workers KV namespace ADVISOR_REPORTS/gm) || []).length === 1, r.out);
+  check('apply: the bind and the salt steps are said once each, no "already"', once(r.out, /^done: bind ADVISOR_REPORTS /gm) && once(r.out, /^done: generate REPORT_SALT /gm) && !/already/.test(r.out), r.out);
   check('apply: says it takes effect at the next production deployment', /next production deployment/.test(r.out), r.out);
   const mark = cf.calls.length, second = await go(['--apply'], cf);
   check('apply twice: the second run writes nothing (the salt is not rotated)', second.code === 0 && cf.calls.slice(mark).every((c) => c.method === 'GET') && cf.state.projects[0].vars.REPORT_SALT.value === saltValue, second.out);
+  check('apply twice: each step is said once on a second run (three "already" lines, no "done")', second.code === 0 && once(second.out, /^already: the Workers KV namespace ADVISOR_REPORTS exists/gm) && once(second.out, /^already: ADVISOR_REPORTS is bound/gm) && once(second.out, /^already: REPORT_SALT is set/gm) && !/^done:/m.test(second.out), second.out);
   const saltOf = async () => { const c = fakeCF({ projects: [site()], namespaces: [] }); await go(['--apply'], c); return c.calls.find((x) => x.method === 'PATCH')?.body?.deployment_configs?.production?.env_vars?.REPORT_SALT?.value || ''; };
   const s1 = await saltOf(), s2 = await saltOf();
   check('apply on two fresh projects: two different salts', /^[0-9a-f]{64}$/.test(s1) && /^[0-9a-f]{64}$/.test(s2) && s1 !== s2 && s1 !== saltValue && new Set(s1).size > 4, 'the salts are equal, malformed or one repeated character (values not shown)');
@@ -187,8 +190,11 @@ const scenarios = async (dir) => {
   r = await go(['--apply'], cf, { salt: () => 'ab'.repeat(32) });
   check('partial failure: the PATCH refused after the namespace was made = exit 1, FAIL names the PATCH, says the namespace stays and to run again', r.code === 1 && /FAIL PATCH/.test(r.out) && /400/.test(r.out) && /namespace ADVISOR_REPORTS .*stays/.test(r.out) && /[Rr]un again/.test(r.out) && cf.state.namespaces.length === 1 && !('REPORT_SALT' in cf.state.projects[0].vars), r.code + '\n' + r.out);
   check('partial failure: the salt echoed by the error is scrubbed', r.code === 1 && /Request body rejected/.test(r.out) && clean(r.out, ['ab'.repeat(32)]), r.code + '\n' + r.out.replaceAll('ab'.repeat(32), '[THE SALT, PRINTED]'));
+  check('partial failure: the creation is said once, before the FAIL line', once(r.out, /^done: created the Workers KV namespace ADVISOR_REPORTS/gm) && r.out.indexOf('done: created') < r.out.indexOf('FAIL PATCH'), r.out);
   r = await go(['--apply'], fakeCF(cf.state));
   check('partial failure: the next run reuses the namespace (no POST), binds it and sets the salt = exit 0', r.code === 0 && !r.writes.some((c) => c.method === 'POST') && r.writes.length === 1 && cf.state.namespaces.length === 1 && cf.state.projects[0].kv.ADVISOR_REPORTS?.namespace_id === cf.state.namespaces[0].id && 'REPORT_SALT' in cf.state.projects[0].vars, r.code + '\n' + r.out);
+
+  check('partial failure: the next run says the namespace already exists once, and each other step once', once(r.out, /^already: the Workers KV namespace ADVISOR_REPORTS exists/gm) && once(r.out, /^done: bind ADVISOR_REPORTS /gm) && once(r.out, /^done: generate REPORT_SALT /gm) && !/creat/.test(r.out), r.out);
 
   // a PATCH that answers 200 and changes nothing is caught by the check after it
   cf = fakeCF({ projects: [site()], namespaces: [] }, { ignore: true });
@@ -239,6 +245,7 @@ const MUTANTS = [
   { name: 'the wrangler_config_hash dropped', patches: [P('provision.mjs', 'const production = before.wrangler_config_hash ? { wrangler_config_hash: before.wrangler_config_hash } : {};', 'const production = {};')], expect: [/wrangler_config_hash/] },
   { name: 'exit 3 dropped from the header', patches: [P('provision.mjs', '3 no Pages project on the', '(none) no Pages project on the')], expect: [/header: the exit line names every code/] },
   { name: 'the namespace line said twice', patches: [P('provision.mjs', "for (const l of plan.slice(needNs ? 1 : 0)) say(", 'for (const l of plan) say(')], expect: [/namespace creation is said once/] },
+  { name: 'the namespace line dropped when it already exists', patches: [P('provision.mjs', 'plan.slice(needNs ? 1 : 0)', 'plan.slice(1)')], expect: [/said once on a second run/] },
   { name: 'the domains call dropped', patches: [P('provision.mjs', 'if (!Array.isArray(p.domains))', 'if (false)')], expect: [/asked per project/] },
 ];
 process.exit(await main({ label: 'PROVISION', scenarios, MUTANTS, scriptsDir: path.join(here, '../ops'), argv: process.argv.slice(2) }));
