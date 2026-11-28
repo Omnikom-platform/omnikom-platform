@@ -48,13 +48,46 @@ function parseGroups(raw) { // "q, w" -> ["Q", "W"]; an unknown letter is an err
   return gs;
 }
 
+// The reason a Chrome that was found did not start: the text after "PNG BLOCKED: " in plan-picture's line, cut to 200 characters. null = no such line, or the no-Chrome line.
+export const blockedReason = (out) => { const m = /PNG BLOCKED: (?!no Chrome)(.+?); SVG and table written/.exec(String(out)); return m ? m[1].slice(0, 200) : null; };
+
+// One mutant, one verdict. A mutant that needs Chrome can only be measured when Chrome starts (CI run 46059758582: Chrome found, not started, "survived" was false).
+// A run whose N check took the "found but did not start" branch is run once more; if it still does not start, or the unmutated run did not start either, the
+// verdict is "not measured" with the reason, never "caught" and never "survived". Any other run is judged as usual.
+const refusedOf = (res) => res.find((r) => r.branch === "chrome-refused");
+export async function judgeMutant(mu, run, baselineRefused = null) {
+  if (mu.needsChrome && baselineRefused) return { state: "not measured", reason: baselineRefused.reason };
+  let res = await run();
+  if (mu.needsChrome && refusedOf(res)) res = await run();
+  const ref = mu.needsChrome ? refusedOf(res) : null;
+  if (ref) return { state: "not measured", reason: ref.reason };
+  const red = res.filter((r) => !r.ok);
+  const missing = mu.expect.filter((re) => !red.some((r) => re.test(r.name)));
+  return { state: red.length > 0 && !missing.length ? "caught" : "survived", red, missing };
+}
+
+// The unmutated run's N check found a Chrome that did not start: group N is run once more before any mutant (a re-run was green on CI run 46059758582).
+// baselineRefused = the refusal that counts (null = Chrome mutants are judged), secondTry = the line to print when the second try rendered a real PNG with every N check green, results = the second run.
+export async function baselineForMutants(main, rerunN) {
+  const first = refusedOf(main);
+  if (!first) return { baselineRefused: null, secondTry: null, results: [] };
+  const results = await rerunN(), again = refusedOf(results);
+  if (again) return { baselineRefused: again, secondTry: null, results };
+  const ok = results.some((r) => r.branch === "chrome") && results.every((r) => r.ok);
+  return { baselineRefused: null, secondTry: ok ? `PNG branch, second try: Chrome did not start on the first try (${first.reason}); it started on the second try, a real PNG was rendered and checked` : null, results };
+}
+
 async function runScenarios(skill, groups = null) {
   const scripts = path.join(skill, "scripts");
   const results = [];
   // G starts this file again; the child must not start it a third time
   const want = (g) => (!groups || groups.includes(g)) && !(g === "G" && process.env.PEWP_REPORTS_NESTED);
   const check = (g, name, ok, detail = "") => results.push({ name: `${g}: ${name}`, ok: !!ok, detail: ok ? "" : String(detail).slice(0, 900) });
-  const run = (script, args, env = {}) => spawnSync(nodeBin, [path.join(scripts, script), ...args], { encoding: "utf8", timeout: 120_000, windowsHide: true, env: { ...process.env, NODE_OPTIONS: "", ...env } });
+  const run = (script, args, env = {}) => { // every child has a limit; a limit that is hit is named in stderr, so the check that needed it fails with the name of what hung
+    const r = spawnSync(nodeBin, [path.join(scripts, script), ...args], { encoding: "utf8", timeout: 120_000, windowsHide: true, env: { ...process.env, NODE_OPTIONS: "", ...env } });
+    if (r.error && r.error.code === "ETIMEDOUT") r.stderr = (r.stderr || "") + "\nHUNG: " + script + " " + args.join(" ") + " hit the 120 s limit";
+    return r;
+  };
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-reports-"));
   const fresh = (name) => path.join(root, name);
   const copyFixture = (name) => { const d = fresh(name); fs.cpSync(path.join(skill, "fixtures", "pewp"), d, { recursive: true }); return d; };
@@ -148,7 +181,7 @@ async function runScenarios(skill, groups = null) {
       const png = path.join(outDir, "page-plan.png");
       // A Chrome that is found may still refuse to start (GitHub's runner, 2026-11-20: "Chrome did not open its DevTools port"):
       // the branch is what the tool itself reported, never only whether a binary exists.
-      const refused = cdp.CHROME_PATH ? /PNG BLOCKED: (?!no Chrome)[^;]+; SVG and table written/.exec(r.stdout) : null;
+      const refused = cdp.CHROME_PATH ? blockedReason(r.stdout) : null;
       const b = fs.existsSync(png) ? fs.readFileSync(png) : Buffer.alloc(0);
       if (cdp.CHROME_PATH && !refused) {
         const sig = b.length > 24 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
@@ -159,6 +192,7 @@ async function runScenarios(skill, groups = null) {
         check("N", "[branch: no Chrome on this machine] the BLOCKED line is printed, SVG and table written, no PNG, exit 0", r.status === 0 && r.stdout.includes("PNG BLOCKED: no Chrome (set CHROME_PATH); SVG and table written") && !fs.existsSync(png) && fs.existsSync(path.join(outDir, "page-plan.svg")), r.stdout + r.stderr);
       }
       results[results.length - 1].branch = cdp.CHROME_PATH ? (refused ? "chrome-refused" : "chrome") : "no-chrome";
+      results[results.length - 1].reason = refused;
     }
   }
 
@@ -334,7 +368,7 @@ async function runScenarios(skill, groups = null) {
   // =============================== G: --group (work order 28) ===============================
   if (want("G")) {
     const self = path.join(scripts, "test-reports.mjs");
-    const sub = (args) => run("test-reports.mjs", args, { PEWP_REPORTS_NESTED: "1" });
+    const sub = (args, env = {}) => run("test-reports.mjs", args, { PEWP_REPORTS_NESTED: "1", ...env });
     const lines = (r) => (r.stdout || "").split("\n");
     const help = sub(["--help"]);
     check("G", "usage lines (the comment on line 1 and --help) name --group and no longer name --keep, which nothing read", help.status === 0 && /--group/.test(help.stdout) && !/--keep/.test(help.stdout) && /--group/.test(rt(self).split("\n")[0]) && !/--keep/.test(rt(self).split("\n")[0]), (help.stdout + help.stderr).slice(0, 300) + " | line 1: " + rt(self).split("\n")[0]);
@@ -346,6 +380,46 @@ async function runScenarios(skill, groups = null) {
     const inG = sub(["--group", "A", "--mutant", "A: the refusal exits 0"]);
     const outG = sub(["--group", "D", "--mutant", "A: the refusal exits 0"]);
     check("G", "--group selects mutants too: an A mutant runs under --group A and not under --group D", inG.status === 0 && /RED \(caught\) A: the refusal exits 0/.test(inG.stdout) && /MUTANTS PASS: 1 of 1 caught/.test(inG.stdout) && outG.status === 0 && !/RED \(caught\)/.test(outG.stdout) && /MUTANTS PASS: 0 of 0 caught/.test(outG.stdout), `${inG.status}: ${inG.stdout.split("\n").slice(-4).join(" | ")} || ${outG.status}: ${outG.stdout.split("\n").slice(-4).join(" | ")}`.slice(0, 600));
+
+    // A Chrome that is found but does not start cannot measure a Chrome mutant (CI run 46059758582, 2026-11-27: "FAIL (survived) N: the screenshot is a JPEG ... 90 of 91 caught").
+    const trMod = await import(pathToFileURL(self).href + "?t=" + Date.now() + Math.random());
+    const isFn = (f) => typeof f === "function";
+    check("G", "blockedReason: the text after PNG BLOCKED up to the SVG words (a semicolon inside stays), cut to 200 characters; the no-Chrome line and no line at all give null", isFn(trMod.blockedReason) && trMod.blockedReason("PNG BLOCKED: Chrome did not open its DevTools port; SVG and table written\npage plan picture: 3 pages") === "Chrome did not open its DevTools port" && trMod.blockedReason("PNG BLOCKED: a; b; SVG and table written") === "a; b" && trMod.blockedReason("PNG BLOCKED: " + "x".repeat(300) + "; SVG and table written\n").length === 200 && trMod.blockedReason("PNG BLOCKED: no Chrome (set CHROME_PATH); SVG and table written") === null && trMod.blockedReason("page plan picture: 3 pages") === null, "blockedReason is " + typeof trMod.blockedReason);
+    const CH = "N: [branch: Chrome found at x]";
+    const refusedRes = [{ name: "N: [branch: Chrome found at x but it did not start] the BLOCKED line", ok: true, branch: "chrome-refused", reason: "Chrome did not open its DevTools port" }];
+    const redRes = [{ name: CH + " page-plan.png is a PNG", ok: false, branch: "chrome" }];
+    const greenRes = [{ name: CH + " page-plan.png is a PNG", ok: true, branch: "chrome" }];
+    const seq = (...rs) => { const f = async () => { f.calls++; return rs[Math.min(f.calls, rs.length) - 1]; }; f.calls = 0; return f; };
+    const muC = { name: "m", needsChrome: true, expect: [/^N: \[branch: Chrome found/] }, muP = { name: "p", expect: [/^N: /] };
+    if (!isFn(trMod.judgeMutant)) {
+      check("G", "a Chrome mutant whose run did not start is run once more and then judged as usual (red = caught, green = survived)", false, "judgeMutant is not exported");
+      check("G", "a Chrome mutant that cannot be measured is NOT MEASURED with the reason (never caught, never survived): second start fails too, or the unmutated run did not start; a mutant that needs no Chrome is never retried", false, "judgeMutant is not exported");
+    } else {
+      const f1 = seq(refusedRes, redRes), v1 = await trMod.judgeMutant(muC, f1);
+      const f2 = seq(refusedRes, greenRes), v2 = await trMod.judgeMutant(muC, f2);
+      check("G", "a Chrome mutant whose run did not start is run once more and then judged as usual (red = caught, green = survived)", v1.state === "caught" && f1.calls === 2 && v2.state === "survived" && f2.calls === 2, JSON.stringify([v1.state, f1.calls, v2.state, f2.calls]));
+      const f3 = seq(refusedRes), v3 = await trMod.judgeMutant(muC, f3);
+      const f4 = seq(redRes), v4 = await trMod.judgeMutant(muC, f4, refusedRes[0]);
+      const f5 = seq(refusedRes), v5 = await trMod.judgeMutant(muP, f5);
+      check("G", "a Chrome mutant that cannot be measured is NOT MEASURED with the reason (never caught, never survived): second start fails too, or the unmutated run did not start; a mutant that needs no Chrome is never retried", v3.state === "not measured" && v3.reason === "Chrome did not open its DevTools port" && f3.calls === 2 && v4.state === "not measured" && v4.reason === "Chrome did not open its DevTools port" && f4.calls === 0 && f5.calls === 1 && v5.state !== "not measured", JSON.stringify([v3, f3.calls, v4, f4.calls, v5.state, f5.calls]));
+    }
+    // The unmutated run's N check found a Chrome that did not start: group N is run once more before any mutant (CI run 46059758582 was green on a re-run)
+    const tryBf = async (m, rerun) => { try { return await trMod.baselineForMutants(m, rerun); } catch (e) { return { error: String(e) }; } };
+    const first = refusedRes[0], again = [{ ...first, reason: "Chrome exited at once" }];
+    const r1 = seq(greenRes), b1 = await tryBf([first], r1);
+    check("G", "baselineForMutants: first try not started, second try rendered a real PNG with every N check green: the mutants are judged as usual and one line names both facts", b1.baselineRefused === null && r1.calls === 1 && b1.secondTry === "PNG branch, second try: Chrome did not start on the first try (Chrome did not open its DevTools port); it started on the second try, a real PNG was rendered and checked", JSON.stringify([b1, r1.calls]));
+    const r2 = seq(again), b2 = await tryBf([first], r2);
+    check("G", "baselineForMutants: first try not started, second try not started either: the Chrome mutants stay NOT MEASURED with the reason of the second try, no second-try line", !!b2.baselineRefused && b2.baselineRefused.reason === "Chrome exited at once" && b2.secondTry === null && r2.calls === 1, JSON.stringify([b2, r2.calls]));
+    const r3 = seq(redRes), b3 = await tryBf([first], r3);
+    check("G", "baselineForMutants: first try not started, second try started with a red N check: the red checks are returned, no baseline is refused, no second-try line (the run fails, no mutant runs)", b3.baselineRefused === null && b3.secondTry === null && Array.isArray(b3.results) && b3.results.filter((r) => !r.ok).length === 1 && r3.calls === 1, JSON.stringify([b3, r3.calls]));
+    const r4 = seq(greenRes), r4b = seq(greenRes), b4 = await tryBf(greenRes, r4), b4b = await tryBf([{ name: "N: x", ok: true, branch: "no-chrome" }], r4b);
+    check("G", "baselineForMutants: first try on branch chrome or no-chrome: no second try (the runner is called 0 times), nothing refused, nothing printed", b4.baselineRefused === null && b4.secondTry === null && r4.calls === 0 && b4b.baselineRefused === null && b4b.secondTry === null && r4b.calls === 0, JSON.stringify([b4, r4.calls, b4b, r4b.calls]));
+    // --no-mutants: the one call sits under the guard of the mutant block, so the plain step never runs group N twice (read from the source, no Chrome here to count a second run)
+    check("G", "baselineForMutants: --no-mutants makes no second try (its only call is the first line under the guard that --no-mutants closes)", /if \(!failed && !A\.includes\("--no-mutants"\)\) \{\s*base = await baselineForMutants\(/.test(rt(self)) && rt(self).split("await baselineFor" + "Mutants(").length === 2, "call site not found under the --no-mutants guard");
+    // end to end with a browser that is found and exits at once: node itself, given as CHROME_PATH, refuses the Chrome flags and stops
+    const st = sub(["--group", "N", "--mutant", "N: "], { CHROME_PATH: nodeBin });
+    const notMeasured = lines(st).filter((l) => /^NOT MEASURED/.test(l));
+    check("G", "with a browser that is found and exits at once: the plain run says why it did not start, both Chrome mutants are NOT MEASURED with that reason, none is survived or caught, the summary counts them, exit is not 0", st.status !== 0 && /PNG branch taken on this machine: Chrome found but it did not start \(Chrome did not open its DevTools port\)/.test(st.stdout) && notMeasured.length === 2 && notMeasured.every((l) => l.startsWith("NOT MEASURED (Chrome found but it did not start: Chrome did not open its DevTools port) N: ")) && notMeasured.some((l) => l.includes("the screenshot is a JPEG")) && notMeasured.some((l) => l.includes("the picture is never rendered")) && !/FAIL \(survived\)|RED \(caught\)/.test(st.stdout) && /MUTANTS FAIL: 0 of 2 caught, 2 NOT MEASURED/.test(st.stdout), st.status + ": " + (st.stdout + st.stderr).split("\n").slice(-12).join(" | "));
   }
 
   // =============================== X: the extras (crux + six importers) ===============================
@@ -523,11 +597,28 @@ const MUTANTS = [
   { name: "teammate: a left-out line is printed for a run with none", file: "scripts/report-live.mjs", from: "...(related.rows.length ? [\"\", \"Left out of every competitor table", to: "...(true ? [\"\", \"Left out of every competitor table", sc: "T", expect: [/^T: a run with no relation prints no left-out line/] },
   { name: "teammate: the business record is not read for related", file: "scripts/lib-related.mjs", from: "for (const f of [\"business.json\", \"approved/business.json\"]) add(J(path.join(pewp, f))?.related);", to: "", sc: "T", expect: [/^T: declared in business\.json only/] },
   { name: "teammate: the competitors file is not read for related", file: "scripts/lib-related.mjs", from: "for (const f of [\"research/competitors-proposed.json\", \"approved/competitors.json\"]) add(J(path.join(pewp, f))?.excluded);", to: "", sc: "T", expect: [/^T: a run with related declared builds/, /^T: section 4: the teammate is no competitor row/] },
+  { name: "G: not measured: a Chrome mutant is not run a second time", file: "scripts/test-reports.mjs", from: "if (mu.needsChrome && re" + "fusedOf(res)) res = await run();", to: "", sc: "G", expect: [/^G: a Chrome mutant whose run did not start is run once more/] },
+  { name: "G: not measured: a mutant that needs no Chrome is retried too", file: "scripts/test-reports.mjs", from: "if (mu.needsChrome && re" + "fusedOf(res)) res = await", to: "if (refusedOf(res)) res = await", sc: "G", expect: [/^G: a Chrome mutant that cannot be measured is NOT MEASURED/] },
+  { name: "G: not measured: the unmutated run that did not start is ignored", file: "scripts/test-reports.mjs", from: "if (mu.needsChrome && base" + "lineRefused) return", to: "if (false) return", sc: "G", expect: [/^G: a Chrome mutant that cannot be measured is NOT MEASURED/, /^G: with a browser that is found and exits at once/] },
+  { name: "G: not measured: a mutant that never started is called survived", file: "scripts/test-reports.mjs", from: 'if (ref) return { state: "not' + ' measured"', to: 'if (false) return { state: "not measured"', sc: "G", expect: [/^G: a Chrome mutant that cannot be measured is NOT MEASURED/, /^G: with a browser that is found and exits at once/] },
+  { name: "G: not measured: the unmutated run is never looked at", file: "scripts/test-reports.mjs", from: 'baselineRefused = main.find((r) => r.branch === "chrome-ref' + 'used") || null;', to: "baselineRefused = null;", sc: "G", expect: [/^G: with a browser that is found and exits at once/] },
+  { name: "G: not measured: the reason is missing from the PNG branch line", file: "scripts/test-reports.mjs", from: "it did not start (${" + "baselineRefused.reason}), the BLOCKED", to: "it did not start (unknown), the BLOCKED", sc: "G", expect: [/^G: with a browser that is found and exits at once/] },
+  { name: "G: not measured: the reason is missing from the NOT MEASURED line", file: "scripts/test-reports.mjs", from: "(Chrome found but it did not start: ${v" + ".reason}) ", to: "(Chrome found but it did not start) ", sc: "G", expect: [/^G: with a browser that is found and exits at once/] },
+  { name: "G: not measured: the reason is not kept on the N result", file: "scripts/test-reports.mjs", from: "].reason = ref" + "used;", to: "].reason = null;", sc: "G", expect: [/^G: with a browser that is found and exits at once/] },
+  { name: "G: not measured: a mutant not measured does not fail the run", file: "scripts/test-reports.mjs", from: "notMeasured++; fai" + "led++;", to: "notMeasured++;", sc: "G", expect: [/^G: with a browser that is found and exits at once/] },
+  { name: "G: not measured: the summary does not count them", file: "scripts/test-reports.mjs", from: ", ${notMeasured} NOT" + " MEASURED`", to: "`", sc: "G", expect: [/^G: with a browser that is found and exits at once/] },
+  { name: "G: not measured: the reason is not cut to 200 characters", file: "scripts/test-reports.mjs", from: "m[1].slice(0, " + "200)", to: "m[1]", sc: "G", expect: [/^G: blockedReason/] },
+  { name: "G: second try: a second try that started is still NOT MEASURED", file: "scripts/test-reports.mjs", from: "{ baselineRefused: nu" + "ll, secondTry: ok ?", to: "{ baselineRefused: first, secondTry: ok ?", sc: "G", expect: [/^G: baselineForMutants: first try not started, second try rendered a real PNG/] },
+  { name: "G: second try: a second try that did not start is judged by the first reason", file: "scripts/test-reports.mjs", from: "if (ag" + "ain) return { baselineRefused: again", to: "if (again) return { baselineRefused: first", sc: "G", expect: [/^G: baselineForMutants: first try not started, second try not started either/] },
+  { name: "G: second try: a red second try is called a started Chrome", file: "scripts/test-reports.mjs", from: "const ok = results.some((r) => r.branch === \"chrome\") && results.eve" + "ry((r) => r.ok);", to: "const ok = results.some((r) => r.branch === \"chrome\");", sc: "G", expect: [/^G: baselineForMutants: first try not started, second try started with a red N check/] },
+  { name: "G: second try: a first try that started is run again", file: "scripts/test-reports.mjs", from: "if (!fi" + "rst) return { baselineRefused: null", to: "if (false) return { baselineRefused: null", sc: "G", expect: [/^G: baselineForMutants: first try on branch chrome or no-chrome/] },
+  { name: "G: not measured: the no-Chrome line counts as a reason", file: "scripts/test-reports.mjs", from: "(?!no Chr" + "ome)(.+?)", to: "(.+?)", sc: "G", expect: [/^G: blockedReason/] },
 ];
 
 const mutantsIn = (groups) => MUTANTS.filter((m) => !groups || m.sc.split("+").every((g) => groups.includes(g))); // all of a mutant's groups must be chosen
 
-if (isMain(import.meta.url)) {
+// a module imported with a ?query (the G checks load this file to call judgeMutant) must not run the main block: isMain ignores the query, so it did, again and again
+if (isMain(import.meta.url) && !new URL(import.meta.url).search) {
   if (A.includes("--help")) { console.log("usage: node test-reports.mjs [--scripts <dir>] [--no-mutants] [--mutant <name part>] [--group <letter>[,<letter>]]"); process.exit(0); }
   let groups = null;
   if (A.includes("--group")) { try { groups = parseGroups(opt("--group")); } catch (e) { console.error(e.message); process.exit(2); } }
@@ -535,12 +626,18 @@ if (isMain(import.meta.url)) {
   const main = await runScenarios(skill0, groups);
   for (const r of main) console.log(`${r.ok ? "PASS" : "FAIL"} ${r.name}${r.ok ? "" : `\n     ${r.detail.slice(0, 700)}`}`);
   let failed = main.filter((r) => !r.ok).length;
-  const branch = main.find((r) => r.branch)?.branch;
-  console.log(`PNG branch taken on this machine: ${branch === "chrome" ? "Chrome found, a real PNG was rendered and checked" : branch === "chrome-refused" ? "Chrome found but it did not start, the BLOCKED line and the SVG were checked, NO PNG was rendered" : branch === "no-chrome" ? "no Chrome, the BLOCKED line was checked" : "not run"}`);
+  const branch = main.find((r) => r.branch)?.branch, baselineRefused = main.find((r) => r.branch === "chrome-refused") || null;
+  console.log(`PNG branch taken on this machine: ${branch === "chrome" ? "Chrome found, a real PNG was rendered and checked" : branch === "chrome-refused" ? `Chrome found but it did not start (${baselineRefused.reason}), the BLOCKED line and the SVG were checked, NO PNG was rendered` : branch === "no-chrome" ? "no Chrome, the BLOCKED line was checked" : "not run"}`);
   console.log(failed ? `REPORTS TEST FAIL: ${failed} of ${main.length}` : `REPORTS TEST PASS: ${main.length} of ${main.length}`);
+  let base = { baselineRefused: null, results: [] };
+  if (!failed && !A.includes("--no-mutants")) {
+    base = await baselineForMutants(main, () => runScenarios(skill0, ["N"]));
+    for (const r of base.results.filter((x) => !x.ok)) { console.log(`FAIL ${r.name}\n     ${r.detail.slice(0, 700)}`); failed++; }
+    if (base.secondTry) console.log(base.secondTry);
+  }
   if (!failed && !A.includes("--no-mutants")) {
     console.log("\nWatched-fail mutants (each must turn the named assertions red; the unmutated tree is green above):");
-    let caught = 0, ran = 0;
+    let caught = 0, ran = 0, notMeasured = 0;
     const cdp0 = await import(pathToFileURL(path.join(scriptsDir0, "cdp-measure.mjs")).href);
     for (const mu of mutantsIn(groups).filter((m) => !opt("--mutant") || m.name.includes(opt("--mutant")))) {
       if (mu.needsChrome && !cdp0.CHROME_PATH) { console.log(`SKIP (no Chrome on this machine) ${mu.name}`); continue; }
@@ -551,15 +648,14 @@ if (isMain(import.meta.url)) {
       if (count !== 1) { console.log(`FAIL mutant "${mu.name}": patch target found ${count} times in ${mu.file} (the patch did not apply)`); failed++; fs.rmSync(mdir, { recursive: true, force: true }); continue; }
       fs.writeFileSync(target, src.replace(mu.from, () => mu.to));
       if (target.endsWith(".mjs")) { const chk = spawnSync(nodeBin, ["--check", target], { encoding: "utf8", timeout: 60_000 }); if (chk.status) { console.log(`FAIL mutant "${mu.name}": mutated file does not parse: ${chk.stderr.slice(0, 200)}`); failed++; fs.rmSync(mdir, { recursive: true, force: true }); continue; } }
-      const res = await runScenarios(mdir, mu.sc.split("+"));
-      const red = res.filter((r) => !r.ok);
-      const missing = mu.expect.filter((re) => !red.some((r) => re.test(r.name)));
-      const ok = red.length > 0 && !missing.length;
+      const v = await judgeMutant(mu, () => runScenarios(mdir, mu.sc.split("+")), base.baselineRefused);
+      if (v.state === "not measured") { notMeasured++; failed++; console.log(`NOT MEASURED (Chrome found but it did not start: ${v.reason}) ${mu.name}`); fs.rmSync(mdir, { recursive: true, force: true, maxRetries: 5 }); continue; }
+      const { red, missing } = v, ok = v.state === "caught";
       if (ok) caught++; else failed++;
       console.log(`${ok ? "RED (caught)" : "FAIL (survived)"} ${mu.name}: ${red.length} assertion(s) red${red.length ? ` e.g. "${red[0].name.slice(0, 80)}"` : ""}${missing.length ? `; expected red but green: ${missing.map(String).join(" ")}` : ""}`);
       fs.rmSync(mdir, { recursive: true, force: true, maxRetries: 5 });
     }
-    console.log(failed ? `MUTANTS FAIL: ${caught} of ${ran} caught` : `MUTANTS PASS: ${caught} of ${ran} caught`);
+    console.log(failed ? `MUTANTS FAIL: ${caught} of ${ran} caught${notMeasured ? `, ${notMeasured} NOT MEASURED` : ""}` : `MUTANTS PASS: ${caught} of ${ran} caught`);
   }
   process.exit(failed ? 1 : 0);
 }
