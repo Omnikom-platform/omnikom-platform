@@ -59,7 +59,7 @@ options, never a fix made here.
 - The skill's tests on GitHub: `node skills/programmatic-enterprise-web-performance/scripts/ci-tests.mjs` runs the
   tests listed in `scripts/ci-tests.json` and ends `ci-tests: N of N green`, exit 0; with `--mutants` it runs
   their seeded faults (a fault that stays green, or whose patch does not apply, is exit 1). Both are steps of the
-  `search_skill` job of ci.yml (split from the `audit` job, which keeps the audit engine's own tests and mutants, on 2026-11-28). A test of the skill that is not in that list runs in no job.
+  `search_skill` job of ci.yml (split from the `audit` job on 2026-11-28); the mutants run in the three jobs "search skill mutants, shard i of 3" (`--mutants --shard i/3`: the entry at index x of the list is in shard (x mod 3) + 1). A test of the skill that is not in that list runs in no job.
 - Every check cites its source in `tools/audit/rules/<rule id>.md` (the checklist rule id and file, or a vendor page URL with the date
   read); `node tools/audit/run.mjs --list` prints every rule with its source, and gate 1 fails on a rule whose source file is missing.
 - The head re-runs gates 1 to 3 itself before a slice is accepted (Rule 2); outputs go to `docs/blueprint/PROGRESS.md` under

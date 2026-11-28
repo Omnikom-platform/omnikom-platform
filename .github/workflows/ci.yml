@@ -254,11 +254,13 @@ jobs:
       - name: Audit mutants
         run: node tools/audit/test/mutate.mjs
 
+  # The search skill's tests run in this job; its seeded faults (ci-tests.mjs --mutants) run in the three jobs below, in parallel. Measured (run
+  # 46108202642, attempt 2): the one job took 41 min 8 s of its 60, the mutants step alone 39 min 3 s (longest files, seconds: test-reports 540,
+  # test-client-copy 344, test-start 313, test-ledger 307, test-proof-gates 191, test-approve 143; all 44 files 2340); more mutants are coming.
   search_skill:
-    name: search skill (tests and mutants)
+    name: search skill (tests)
     runs-on: ubuntu-latest
-    # 60 since 2026-11-28: run 46092715803 took 46 min 08 s with the audit engine and the search skill in one job (audit tests 20 s, audit mutants 17 min 04 s,
-    # search skill tests 1 min 29 s, search skill mutants 27 min 02 s); more mutants are coming, so the search skill has its own job, parallel to audit
+    # 60 since 2026-11-28 (the tests alone took 1 min 29 s in run 46092715803)
     timeout-minutes: 60
     steps:
       - name: Check out the repository
@@ -269,12 +271,61 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.22.1
-      # the search skill's tests that are proven on this runner (the list: skills/programmatic-enterprise-web-performance/scripts/ci-tests.json),
-      # then their seeded faults; a red test, a missing file, a fault that stays green or a patch that does not apply fails the step
+      # the search skill's tests that are proven on this runner (the list: skills/programmatic-enterprise-web-performance/scripts/ci-tests.json);
+      # a red test, a missing file or a bad list fails the step
       - name: Search skill tests
         run: node skills/programmatic-enterprise-web-performance/scripts/ci-tests.mjs
+
+  # The search skill's mutants, 3 shards in parallel (ci-tests.mjs --mutants --shard i/3: the entry at index x of ci-tests.json goes to shard (x mod 3) + 1).
+  # Written out, not a matrix: omnikom ci models no strategy, and land (lib/ghrun.mjs) reads each job by its own name, so every shard is a job that must
+  # be green. test-ci-tests.mjs cases 7 and 11 keep the three copies equal but for the shard number and the four names in master-ruleset.json.
+  search-skill-mutants-1:
+    name: search skill mutants, shard 1 of 3
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
       - name: Search skill mutants
-        run: node skills/programmatic-enterprise-web-performance/scripts/ci-tests.mjs --mutants
+        run: node skills/programmatic-enterprise-web-performance/scripts/ci-tests.mjs --mutants --shard 1/3
+
+  search-skill-mutants-2:
+    name: search skill mutants, shard 2 of 3
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Search skill mutants
+        run: node skills/programmatic-enterprise-web-performance/scripts/ci-tests.mjs --mutants --shard 2/3
+
+  search-skill-mutants-3:
+    name: search skill mutants, shard 3 of 3
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+      - name: Search skill mutants
+        run: node skills/programmatic-enterprise-web-performance/scripts/ci-tests.mjs --mutants --shard 3/3
 
   cli:
     name: platform CLI (unit tests; full suite when the change reaches it)
