@@ -71,6 +71,8 @@ B7	test	supabase/tests/tenancy.test.sql	one private.save_version only: the old s
 B7	test	supabase/functions/test/save-base.test.ts	save base: a save that names the newest version is accepted
 B8	test	apps/dashboard/tests/site.spec.ts	Restore and its Undo are new versions too
 B8	test	apps/dashboard/src/lib/site.test.ts	an item comes back as a new version, or at its newest when that holds the content
+B8	test	apps/dashboard/src/lib/version-runs.test.ts	a gap of 10 minutes and 1 second splits
+B8	test	apps/dashboard/src/pages/EditorHistory.test.tsx	a run of 3 is one line
 B9	test	apps/dashboard/src/lib/site.test.ts	a title under 20 and a description under 50 characters are short
 B9	test	apps/dashboard/tests/site.spec.ts	a short title saves, the sheet refuses it with I-MIN and Fix
 B10	test	apps/dashboard/tests/site.spec.ts	an invalid draft stops the sheet at the failed check with Fix

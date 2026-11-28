@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1099,
+    "sources": 1102,
     "unowned": 0
   },
   "files": [
@@ -51,6 +51,8 @@
     {"path":"apps/dashboard/src/lib/settings.ts","owner":"platform-build","exports":["AlertProblem","MAX_ALERTS","Member","ParsedAlerts","alertsChanged","alertsText","canRemove","canSaveAlerts","memberName","onlyYou","parseAlerts","validEmail"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/site.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/site.ts","owner":"platform-build","exports":["Card","Change","CollectionDef","Contract","FieldDef","FieldRef","Job","JobEvent","JobState","LeftOut","Line","Over","Path","Placement","RUNNING","RestoreStep","SEO_DESCRIPTION_MAX","SEO_DESCRIPTION_MIN","SEO_TITLE_MAX","SEO_TITLE_MIN","SectionDef","SiteState","canAdd","canDelete","changesBetween","checksLine","clock","draftLink","dropDraft","editorCards","failureLines","feedLine","fieldLabel","getAt","humanize","keepDraft","leftOutLine","listCollections","loadDraft","overLimits","pathKey","progressLines","restoreSteps","rowTitle","sameData","seoShort","setAt","siteUrl","slugify","staleLine","stateLine","stepWords","visibleTo"],"tests":["apps/dashboard/tests/site-switcher.spec.ts"],"feature":""},
+    {"path":"apps/dashboard/src/lib/version-runs.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/lib/version-runs.ts","owner":"platform-build","exports":["RUN_MS","VersionRun","versionRuns"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/views.test.ts","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/lib/views.ts","owner":"platform-build","exports":["AddressFilter","ColumnInfo","DISPLAY_ONLY","DUPLICATE","FOLLOW_UP","LeadsSearch","PickerLine","SavedQuery","SavedView","Screen","allColumns","canChangeView","canShareView","commitColumns","fromAddress","fromSaved","groupViews","moveColumn","parseAddress","pickerLines","shownColumns","toAddress","toSaved","toggleColumn"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/main.tsx","owner":"platform-build","exports":[],"tests":["apps/dashboard/tests/mutants.ts"],"feature":""},
@@ -63,6 +65,7 @@
     {"path":"apps/dashboard/src/pages/DeleteSheet.tsx","owner":"platform-build","exports":["DELETE_FAILED","DeleteSheet"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Editor.tsx","owner":"platform-build","exports":["Editor"],"tests":["apps/dashboard/tests/plan-gate.test.mjs"],"feature":""},
     {"path":"apps/dashboard/src/pages/EditorAutosave.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
+    {"path":"apps/dashboard/src/pages/EditorHistory.test.tsx","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/ExportControl.tsx","owner":"platform-build","exports":["ExportControl"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/Frame.tsx","owner":"platform-build","exports":["Frame"],"tests":[],"feature":""},
     {"path":"apps/dashboard/src/pages/ImportLeads.tsx","owner":"platform-build","exports":["ImportLeads"],"tests":[],"feature":""},

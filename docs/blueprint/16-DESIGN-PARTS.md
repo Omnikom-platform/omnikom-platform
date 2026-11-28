@@ -200,7 +200,7 @@ and you get an email."), the spam state, the "Add a lead" form (1.3b), the expor
 | DP-1.4-16 | 5.4 | Editor: search-result card (title and description with length bars and a Google-style preview) | type | the preview updates | | |
 | DP-1.4-17 | 5.4 | Save (and autosave after 10 s idle) | click | `save` with the base version -> a new version; the site does not change | toast "Saved"; the changed mark | validation: errors under the fields, the first scrolled to; stale (S-STALE): "Agent One saved a newer version at 14:02. See their changes, then save again."; network: "Not saved yet, retrying", draft kept locally |
 | DP-1.4-18 | 5.4 | Preview | click | the instant preview (1.5) of this page with the draft | | |
-| DP-1.4-19 | 5.4 | History: the version list (who, when) with Compare and Restore | click | | | |
+| DP-1.4-19 | 5.4 | History: the version list (who, when) with Compare and Restore; a run of autosaves by one person shows as one line with '<N> saves' | click | | | |
 | DP-1.4-20 | 5.4 | Restore | click a version, Restore | a new version with that content (nothing is deleted) | toast "Restored the version from Mon 10:12. Undo" | |
 | DP-1.4-21 | 5.4 | Item: Delete (owner and staff, in the editor's bar; not on pages, the business details, the team or uploads) | click | opens the delete sheet (DP-1.4-23) | | |
 | DP-1.4-22 | 5.4 | Empty states per collection ("No articles yet. Add your first one.") | | | | |

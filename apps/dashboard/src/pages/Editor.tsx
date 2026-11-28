@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { deleteItem, saveItem, setOnSite } from '../api';
 import { config } from '../config';
+import { versionRuns } from '../lib/version-runs';
 import { fetchVersions, useVersions, type ContentRow, type VersionSign } from '../data';
 import { receivedWords } from '../lib/leads';
 import { CallFailed } from '../lib/problems';
@@ -71,6 +72,7 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
   const [open, setOpen] = useState('');
   const [jump, setJump] = useState(search.field ?? '');
   const [showHistory, setShowHistory] = useState(false);
+  const [unfolded, setUnfolded] = useState<Set<number>>(new Set());   // the runs of autosaves unfolded in History, by their newest version
   const [showFrame, setShowFrame] = useState(false);
   const [compare, setCompare] = useState<Change[] | null>(null);
   const [asking, setAsking] = useState(false);
@@ -251,13 +253,31 @@ function EditorBody({ collection, row, current }: { collection: string; row: str
       {showHistory && (
         <div data-plan="DP-1.4-19" className={css.history}>
           <ol>
-            {(versions.data ?? []).map((v, i) => (
-              <li key={v.n}>
-                {nameOfVersion(v)} <time dateTime={v.at}>{receivedWords(v.at)}</time>
-                <button type="button" onClick={() => setCompare(changesBetween(v.data, data))}>Compare</button>
-                {i > 0 && <button type="button" data-plan="DP-1.4-20" disabled={busy} onClick={() => void restore(v)}>Restore</button>}
-              </li>
-            ))}
+            {versionRuns(versions.data ?? []).map((run, i) => {
+              const open = unfolded.has(run.head.n);
+              const line = (v: VersionSign, canRestore: boolean) => (
+                <>
+                  {nameOfVersion(v)} <time dateTime={v.at}>{receivedWords(v.at)}</time>
+                  {v === run.head && run.rest.length > 0 && (
+                    <button type="button" aria-expanded={open} onClick={() => setUnfolded(s => { const n = new Set(s); if (!n.delete(v.n)) n.add(v.n); return n; })}>{run.rest.length + 1} saves</button>
+                  )}
+                  <span className={css.rowActions}>
+                    <button type="button" onClick={() => setCompare(changesBetween(v.data, data))}>Compare</button>
+                    {canRestore && <button type="button" data-plan="DP-1.4-20" disabled={busy} onClick={() => void restore(v)}>Restore</button>}
+                  </span>
+                </>
+              );
+              return (
+                <li key={run.head.n}>
+                  {line(run.head, i > 0)}
+                  {open && (
+                    <ol className={css.run}>
+                      {run.rest.map(v => <li key={v.n}>{line(v, true)}</li>)}
+                    </ol>
+                  )}
+                </li>
+              );
+            })}
           </ol>
         </div>
       )}
