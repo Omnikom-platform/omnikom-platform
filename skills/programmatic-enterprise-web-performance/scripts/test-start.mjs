@@ -163,7 +163,7 @@ const names = (cs) => cs.map((c) => c.script.replace(".mjs", ""));
 // ---------------- scenarios ----------------
 export async function runScenarios(sdir, only = null) {
   const results = [];
-  try { await runScenariosInner(sdir, only, results); } catch (e) { results.push({ name: "the scenarios crashed", ok: false, detail: String(e.stack || e).slice(0, 500) }); }
+  try { await runScenariosInner(sdir, only, results); } catch (e) { results.push({ name: "the scenarios crashed", ok: false, detail: String(e.stack || e).slice(0, 700) }); }
   return results;
 }
 async function runScenariosInner(sdir, only, results) {
@@ -724,7 +724,7 @@ async function runScenariosInner(sdir, only, results) {
       const lastLine = (s) => s.trim().split("\n").pop();
       const intakeArgs = (cw) => ["build", path.join(cw, "empty-biz"), "--stage", "intake"];
       const [ia, ib] = await Promise.all([piped("exit-a", intakeArgs, padEnv, 0), piped("exit-b", intakeArgs, padEnv, 1500)]);
-      const facts = rj(path.join(ib.cw, "empty-biz", ".pewp", "intake-facts.json")); const qs = facts.questions || [];
+      let qs = []; try { qs = rj(path.join(ib.cw, "empty-biz", ".pewp", "intake-facts.json")).questions || []; } catch {} // a cut run may not have written it: then the check below is red with its detail, not a throw
       const lastQ = qs.length ? `${qs.length}. [${qs[qs.length - 1].id}] (` : "no questions";
       const logTail = (() => { try { return lastLine(fs.readFileSync(path.join(ib.cw, "empty-biz", ".pewp", "start", "intake.log"), "utf8")); } catch (e) { return String(e.message); } })();
       check("F: start's intake stop read by a LATE pipe reader (300 KB first): exit 3, the last question and the QUESTIONS-JSON line are there, the byte count equals the run with a prompt reader", !ia.hung && !ib.hung && ia.code === 3 && ib.code === 3 && ib.out.includes(lastQ) && /^QUESTIONS-JSON /.test(lastLine(ib.out)) && ib.bytes === ia.bytes && ia.bytes > 300000, `hung ${ia.hung}/${ib.hung} code ${ia.code}/${ib.code} bytes prompt ${ia.bytes} late ${ib.bytes} last: ${lastLine(ib.out).slice(0, 160)}`);
@@ -830,7 +830,8 @@ if (isMain(import.meta.url)) { // lib-main.mjs: real paths (started through a ju
       ran++;
       const mdir = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-mutant-"));
       const sdir = path.join(mdir, "scripts");
-      for (let t = 0; ; t++) { try { fs.mkdirSync(sdir, { recursive: true }); fs.cpSync(scriptsDir, sdir, { recursive: true }); break; } catch (e) { if (t >= 4) throw e; } }
+      // F runs the real stage scripts: they read the skill's fixtures, rules and schemas next to scripts/, so a mutant copy of F carries them
+      for (let t = 0; ; t++) { try { fs.mkdirSync(sdir, { recursive: true }); fs.cpSync(scriptsDir, sdir, { recursive: true }); if (mu.sc.split("+").includes("F")) for (const e of fs.readdirSync(path.dirname(scriptsDir))) if (!["scripts", "runs"].includes(e)) fs.cpSync(path.join(path.dirname(scriptsDir), e), path.join(mdir, e), { recursive: true }); break; } catch (e) { if (t >= 4) throw e; } }
       const target = path.join(sdir, mu.file); const src = fs.readFileSync(target, "utf8"); const count = src.split(mu.from).length - 1;
       if (count !== 1) { console.log(`FAIL mutant "${mu.name}": patch target found ${count} times in ${mu.file} (the patch did not apply)`); failed++; fs.rmSync(mdir, { recursive: true, force: true }); continue; }
       fs.writeFileSync(target, src.replace(mu.from, () => mu.to));
@@ -839,9 +840,10 @@ if (isMain(import.meta.url)) { // lib-main.mjs: real paths (started through a ju
       const res = await runScenarios(sdir, mu.sc.split("+"));
       const red = res.filter((r) => !r.ok);
       const missing = mu.expect.filter((re) => !red.some((r) => re.test(r.name)));
-      const ok = red.length > 0 && !missing.length;
+      const crash = red.find((r) => r.name === "the scenarios crashed"); // a crash is never a catch; its stack is printed (the first 600 characters, one line)
+      const ok = red.length > 0 && !missing.length && !crash;
       if (ok) caught++; else failed++;
-      console.log(`${ok ? "RED (caught)" : "FAIL (survived)"} ${mu.name}: ${red.length} assertion(s) red${red.length ? ` e.g. "${red[0].name.slice(0, 80)}"` : ""}${missing.length ? `; expected red but green: ${missing.map(String).join(" ")}` : ""}`);
+      console.log(`${ok ? "RED (caught)" : "FAIL (survived)"} ${mu.name}: ${red.length} assertion(s) red${red.length ? ` e.g. "${red[0].name.slice(0, 80)}"` : ""}${missing.length ? `; expected red but green: ${missing.map(String).join(" ")}` : ""}${crash ? `; CRASH: ${crash.detail.replace(/\s+/g, " ").slice(0, 600)}` : ""}`);
       fs.rmSync(mdir, { recursive: true, force: true, maxRetries: 5 });
     }
     console.log(failed ? `MUTANTS FAIL: ${caught} of ${ran} caught` : `MUTANTS PASS: ${caught} of ${ran} caught`);
