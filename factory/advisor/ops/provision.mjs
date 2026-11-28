@@ -99,7 +99,7 @@ export async function run({ argv = [], env = {}, fetch = globalThis.fetch, log =
     const left = names(dcA), lost = names(dcB).filter((n) => !left.includes(n));
     if (lost.length) { say(`FAIL: after the PATCH these names are gone from ${project}: ${lost.join(', ')}. Set them again by hand.`); return 1; }
     if (kvA[BINDING]?.namespace_id !== ns.id || !(SECRET in varsA)) { say(`FAIL: after the PATCH ${BINDING} or ${SECRET} is not on ${project} (production).`); return 1; }
-    for (const l of plan) say(l.startsWith('already') ? l : 'done: ' + l);
+    for (const l of plan.slice(needNs ? 1 : 0)) say(l.startsWith('already') ? l : 'done: ' + l); // the namespace line was said after the POST
     say(`OK: it takes effect at ${project}'s next production deployment ("Redeploy your project for the binding to take effect.").`);
     return 0;
   } catch (e) {

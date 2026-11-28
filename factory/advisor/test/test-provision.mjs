@@ -135,6 +135,7 @@ const scenarios = async (dir) => {
   check('apply: the PATCH names only the two new keys', Object.keys(prod.kv_namespaces || {}).join() === 'ADVISOR_REPORTS' && Object.keys(prod.env_vars || {}).join() === 'REPORT_SALT', JSON.stringify(Object.keys(prod)));
   check('apply: the salt, the token and the account id never printed', saltValue.length === 64 && clean(r.out, [saltValue]), r.out);
   check('apply: the other names are kept', !!cf.state.projects[0].vars.TURNSTILE_SECRET && !!cf.state.projects[0].kv.LEAD_LIMITS, JSON.stringify(Object.keys(cf.state.projects[0].vars)));
+  check('apply: the namespace creation is said once', (r.out.match(/^done: .*creat(e|ed) the Workers KV namespace ADVISOR_REPORTS/gm) || []).length === 1, r.out);
   check('apply: says it takes effect at the next production deployment', /next production deployment/.test(r.out), r.out);
   const mark = cf.calls.length, second = await go(['--apply'], cf);
   check('apply twice: the second run writes nothing (the salt is not rotated)', second.code === 0 && cf.calls.slice(mark).every((c) => c.method === 'GET') && cf.state.projects[0].vars.REPORT_SALT.value === saltValue, second.out);
@@ -237,6 +238,7 @@ const MUTANTS = [
   { name: 'any variable name taken as a token', patches: [P('provision.mjs', '/^CLOUDFLARE_[A-Z_]*TOKEN$/.test(tokenName)', 'true')], expect: [/not a Cloudflare token/] },
   { name: 'the wrangler_config_hash dropped', patches: [P('provision.mjs', 'const production = before.wrangler_config_hash ? { wrangler_config_hash: before.wrangler_config_hash } : {};', 'const production = {};')], expect: [/wrangler_config_hash/] },
   { name: 'exit 3 dropped from the header', patches: [P('provision.mjs', '3 no Pages project on the', '(none) no Pages project on the')], expect: [/header: the exit line names every code/] },
+  { name: 'the namespace line said twice', patches: [P('provision.mjs', "for (const l of plan.slice(needNs ? 1 : 0)) say(", 'for (const l of plan) say(')], expect: [/namespace creation is said once/] },
   { name: 'the domains call dropped', patches: [P('provision.mjs', 'if (!Array.isArray(p.domains))', 'if (false)')], expect: [/asked per project/] },
 ];
 process.exit(await main({ label: 'PROVISION', scenarios, MUTANTS, scriptsDir: path.join(here, '../ops'), argv: process.argv.slice(2) }));
