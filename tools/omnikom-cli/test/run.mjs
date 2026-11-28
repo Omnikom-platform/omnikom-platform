@@ -57,6 +57,9 @@ async function units() {
   const { verify } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'signature.ts')).href);
   check('sign: the platform verifier (signature.ts) accepts it', await verify(header, key, 'POST', '/capture-lead?site=' + UUID_X, '{"a":1}', 1800000010));
   check('sign: and refuses it after 301 s', !(await verify(header, key, 'POST', '/capture-lead?site=' + UUID_X, '{"a":1}', 1800000301)));
+  // ---- E5-SIG: the model of capture-lead (harness.mjs makeFunctionModel) loads the function's own key cache with Node, which strips the types and runs no other TypeScript
+  const keyCache = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'site-keys.ts')).href).then(m => { const c = new m.SiteKeyCache(1000, 2, () => 0); c.put(UUID_X.toUpperCase(), [{ id: 'k', secret: 's' }]); return JSON.stringify(c.get(UUID_X)); }, e => `not loaded: ${e.code || e.message}`);
+  check('site keys: Node loads site-keys.ts as it is, and the cache gives back what was put', keyCache === '[{"id":"k","secret":"s"}]', keyCache);
 
   // ---- rule 1: redaction
   const S = rand();

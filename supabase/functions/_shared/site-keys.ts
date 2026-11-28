@@ -9,7 +9,10 @@ const norm = (s: string) => s.toLowerCase();
 
 export class SiteKeyCache {
   private m = new Map<string, { keys: SiteKey[]; at: number }>();
-  constructor(private ttl: number, private max: number, private now: () => number = Date.now) {}
+  // Plain fields, not constructor parameter properties: the CLI's model of capture-lead (tools/omnikom-cli/test/harness.mjs) loads this file with Node,
+  // which strips the types and refuses a parameter property.
+  private ttl: number; private max: number; private now: () => number;
+  constructor(ttl: number, max: number, now: () => number = Date.now) { this.ttl = ttl; this.max = max; this.now = now; }
   get(site: string): SiteKey[] | null {
     const k = norm(site), e = this.m.get(k);
     if (!e) return null;
