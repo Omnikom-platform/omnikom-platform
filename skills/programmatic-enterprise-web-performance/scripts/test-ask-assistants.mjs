@@ -1,11 +1,15 @@
-// Usage: node test-ask-assistants.mjs [--no-mutants] [--mutant <text>] [--json]
+// Usage: node test-ask-assistants.mjs [--no-mutants] [--mutant <text>] [--json] [--groups <a,b,...>] [--faults-only]
 // Test of ask-assistants.mjs THROUGH THE COMMAND: it asks invented assistant pages (a server on 127.0.0.1) in ONE real headless browser on a temp profile and
 // reads back what each page counted (key presses, clicks, sends, loads, a heartbeat while its tab is open). The run is invented as test-ai-oneshot.mjs invents
 // one (a business file, the two texts built and locked); every save is ai-oneshot.mjs's own file. No network, no real assistant, no clipboard.
+// CI runs test-ask-assistants.mjs for group G only (5 checks and its 4 planted faults, no browser, about 7 s each); the browser groups (61 checks, 49 faults) run by hand under the lock: node ~/.claude/scripts/heavy.mjs -- node test-ask-assistants.mjs (909 s measured).
 // Run it through the machine heavy lock (a browser): node ~/.claude/scripts/heavy.mjs -- node test-ask-assistants.mjs
 // Case 18 (owner, 2026-11-22 11:43, M255: a human check is answered by the owner's own hand and the run waits for it): the invented pages can show a check by themselves (by title, by a check frame, by words in the
 // body) and take it away by themselves after 3 looks that saw it, as a person's answer does (see CHECKJS); while it shows they report every key, input, click, mouse move, focus and scroll as a "touch".
-// ASK_TEST_FROM=18 (an environment variable of this TEST only, for runs that want cases 18 to 20 alone) skips every case before 18 and case 10; the last line then says how many cases ran. The sleep hook makes a wait whose why is
+// --groups 17,18 runs only those groups of cases (the blocks of this file: 1 = cases 1, 2, 8, then 3 4 5 6 7 9 11 12 13 14 15 17 18 19 21 20 10, and G = this file's own group table); no flag runs every group, as always.
+// Group 10 reads the files the others wrote, so it always brings group 1. A planted fault runs ONLY the groups its expect patterns name (lib-ask-test-groups.mjs derives them from the patterns); with --groups only the faults inside those groups run.
+// --faults-only does not run the unmutated pass (0 checks): the plain entry of scripts/ci-tests.json runs every group once, the faults entry runs only the faults, each in its own groups. ASK_TEST_FROM is gone: one way in, --groups 18,19,21,20.
+// The sleep hook makes a wait whose why is
 // "after check" last 700 real ms (the page of 18f loads itself again at the look that finds its check gone: the wait lets that load end before the next look); every other wait, the "human check" waits too, is recorded and skipped (the checks go by looks, not by time). io.ring is replaced by a recorder.
 import fs from "node:fs";
 import os from "node:os";
@@ -18,6 +22,7 @@ import { spawnBrowser } from "./lib-browser-profile.mjs";
 import { CHROME_PATH } from "./cdp-measure.mjs";
 import { connect } from "./vantage.mjs";
 import { writeStop } from "./lib-stops.mjs";
+import { GROUPS, parseGroups, groupsFor } from "./lib-ask-test-groups.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SITE = "https://sample-valley-realty.test/", HOST = "sample-valley-realty.test";
@@ -28,10 +33,12 @@ const BROWSER_WORDS = "work browser (Edge, US exit)";
 // the pace the head of operations settled (owner, 2026-11-22, M250); case 17e holds the real engines file to exactly these numbers
 const PACE = { tabsAtOnce: 1, afterLoadSeconds: 8, typeCharactersPerSecond: 8, beforeSendSeconds: 3, readSecondsPer100Words: 12, readSecondsMin: 15, readSecondsMax: 90, betweenAssistantsSeconds: 180, checkWaitSeconds: 300, checkLookSeconds: 5 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// ASK_TEST_FROM (an environment variable of THIS TEST, never of the product script): "18" runs cases 18 and 19 alone. Anything else is a usage error. Unset: the whole test, as always.
-const FROM = process.env.ASK_TEST_FROM;
-if (FROM !== undefined && FROM !== "18") { console.error("ASK_TEST_FROM can only be 18 (cases 18 and 19 alone), not " + JSON.stringify(FROM)); process.exit(2); }
-const ONLY18 = FROM === "18";
+// The groups of this pass (lib-ask-test-groups.mjs). --groups names some; a wrong name or the old ASK_TEST_FROM is a usage error (exit 2).
+const ARGV = process.argv.slice(2), FAULTS_ONLY = ARGV.includes("--faults-only");
+if (process.env.ASK_TEST_FROM !== undefined) { console.error("ASK_TEST_FROM is gone: use --groups (for example --groups 18,19,21,20)"); process.exit(2); }
+let PLAIN = null;   // null = every group
+if (ARGV.includes("--groups")) { try { PLAIN = parseGroups(ARGV[ARGV.indexOf("--groups") + 1] ?? ""); } catch (e) { console.error("--groups: " + e.message); process.exit(2); } }
+const PASS_GROUPS = FAULTS_ONLY ? [] : PLAIN || GROUPS;   // the groups of the unmutated pass
 let RAN = 0;   // how many assertions the last pass of scenarios() made
 
 // ---------------------------------------------------------------- the invented assistant pages
@@ -149,10 +156,12 @@ process.on("exit", closeBrowser);
 const openTabs = async (port, base) => { try { return (await (await fetch("http://127.0.0.1:" + port + "/json/list", { signal: AbortSignal.timeout(10000) })).json()).filter((t) => t.type === "page" && String(t.url).startsWith(base)); } catch { return null; } };
 
 // ---------------------------------------------------------------- scenarios
-async function scenarios(dir) {
+// mu: the fault this pass belongs to (the kit hands it over): only the groups its expect patterns name run; no mu: the groups of the plain pass
+async function scenarios(dir, mu) {
+  const groups = mu ? groupsFor(mu.expect) : PASS_GROUPS, on = (g) => groups.includes(g);
   const results = [], check = checker(results), tmp = mkTmp("ask-assistants"), home = path.join(tmp, "home");
   fs.mkdirSync(home);
-  const srv = await startServer(), br = await browser();
+  const srv = await startServer(), br = groups.some((g) => g !== "G") ? await browser() : null;   // group G alone needs no browser
   const run = runner(dir, home, path.join(tmp, "net.log")), allOut = [];
   let n = 0;
   const world = async () => {
@@ -194,8 +203,18 @@ async function scenarios(dir) {
     // the browser also reports input events that add nothing (seen 2026-11-22: 99 of them beside 528 pieces, on a text with line breaks); a size of 0 is not a piece
     const pieceSizes = (page) => srv.log.filter((e) => e.page === page && e.kind === "input").map((e) => Number(e.x));
     const realFile = J(path.join(dir, "work-browser-engines.json"));
-    // ASK_TEST_FROM=18 (an environment variable of this test only): the cases before case 18 and case 10 do not run
-    if (!ONLY18) {
+    // ---- group G: the group table of this file (no browser): lib-ask-test-groups.mjs is read from the tree under test, so a fault in it shows here
+    if (on("G")) {
+      const gl = await import(pathToFileURL(path.join(dir, "lib-ask-test-groups.mjs")).href), same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+      const throwsFor = (f) => { try { f(); return false; } catch { return true; } };
+      check("case G1: a fault that expects cases of group 21 runs group 21 and nothing else", same(gl.groupsFor([/^case 21a:/, /^case 21b:/, /^case 21c:/]), ["21"]) && same(gl.groupsFor([/^case 17a:/, /^case 17b:/]), ["17"]), JSON.stringify([gl.groupsFor([/^case 21a:/]), gl.groupsFor([/^case 17a:/])]));
+      check("case G2: the cases of one block go to one group (2 and 8 to group 1, 17d to group 17), two blocks give two groups in the file's order", same(gl.groupsFor([/^case 2:/, /^case 8:/, /^case 1b:/]), ["1"]) && same(gl.groupsFor([/^case 17d:/]), ["17"]) && same(gl.groupsFor([/^case 18f:/, /^case 17d:/]), ["17", "18"]), JSON.stringify([gl.groupsFor([/^case 2:/, /^case 8:/]), gl.groupsFor([/^case 17d:/]), gl.groupsFor([/^case 18f:/, /^case 17d:/])]));
+      check("case G3: case 10 reads the files the other groups wrote, so group 10 brings group 1; --groups 10 is the same", same(gl.groupsFor([/^case 10:/]), ["1", "10"]) && same(gl.parseGroups("10"), ["1", "10"]), JSON.stringify([gl.groupsFor([/^case 10:/]), gl.parseGroups("10")]));
+      check("case G4: a pattern that names no known case, an empty expect list and an unknown group name are errors, never a quiet empty run", throwsFor(() => gl.groupsFor([/^case 99:/])) && throwsFor(() => gl.groupsFor([/^nothing:/])) && throwsFor(() => gl.groupsFor([])) && throwsFor(() => gl.parseGroups("17,x")) && throwsFor(() => gl.parseGroups("")), "no error from one of the five");
+      const own = fs.readFileSync(path.join(dir, "test-ask-assistants.mjs"), "utf8"), nums = [...new Set([...own.matchAll(/check\("case (\d+)/g)].map((m) => Number(m[1])))], seenG = new Set(Object.values(gl.CASE_GROUP));
+      check("case G5: every case number this file checks has a group, and every group of the table (except G) has a case", nums.length > 15 && nums.every((n) => !!gl.CASE_GROUP[n]) && gl.GROUPS.every((g) => g === "G" || seenG.has(g)), "cases without a group: " + nums.filter((n) => !gl.CASE_GROUP[n]).join(" ") + " | groups without a case: " + gl.GROUPS.filter((g) => g !== "G" && !seenG.has(g)).join(" "));
+    }
+    if (on("1")) {
     // ---- case 1, 2, 8: the good page and a second good page, asked one after the other
     const A = await world();
     const r1 = await ask(A, { chatgpt: spec("good1"), gemini: gem("good2") });
@@ -212,7 +231,9 @@ async function scenarios(dir) {
       /^\| 1 \| Alpha Homes \| Alpha Homes site \[https:\/\/alpha-homes\.test\/q1\] \|$/m.test(t1) && /^\| Rank \| Name \| Source \|$/m.test(t1) && /^## Part 1|^## .*Part 1/m.test(t1) && /^- first point$/m.test(t1) && /Plain address: https:\/\/zeta\.test\/(\s|$)/.test(t1) && !/zeta\.test\/ \[https/.test(t1), t1.slice(0, 700));
     const beats1 = srv.log.filter((e) => e.page === "good1" && e.kind === "beat").map((e) => e.t), load2 = srv.log.find((e) => e.page === "good2" && e.kind === "load");
     check("case 8: two engines: the second page's first load comes after the first tab closed (its heartbeat has stopped)", beats1.length > 5 && !!load2 && Math.max(...beats1) < load2.t, "beats " + beats1.length + " last beat " + Math.max(...beats1) + " second load " + load2?.t);
+    }
 
+    if (on("3")) {
     // ---- case 3: the mode
     const B = await world(), rb = await ask(B, { chatgpt: spec("modeNever", { modeSteps: [] }) });
     check("case 3a: modeProof never matches: the box stayed empty, 0 sends, blocked 'temporary chat not confirmed', nothing saved",
@@ -220,35 +241,47 @@ async function scenarios(dir) {
     const B2 = await world(), rb2 = await ask(B2, { chatgpt: spec("modeSteps", { modeSteps: ["#mode-btn"] }) });
     check("case 3b: with modeSteps that switch it on (clicked once): asked normally, both saved, the mode is in the record",
       rb2.code === 0 && srv.log.filter((e) => e.page === "modeSteps" && e.kind === "click" && e.x === "mode-btn").length === 1 && !!jr(cap(B2, "chatgpt-2.json")) && count("modeSteps", "send") === 2, d(rb2) + " mode clicks " + srv.log.filter((e) => e.page === "modeSteps" && e.kind === "click" && e.x === "mode-btn").length);
+    }
 
+    if (on("4")) {
     // ---- case 4: a robot check
     const C = await world(), rc = await ask(C, { chatgpt: spec("robot") }), stopFile = path.join(C.stops, "chatgpt.json");
     const loadsAfter1 = count("robot", "load"), rc2 = await ask(C, { chatgpt: spec("robot") });
     check("case 4a: a robot-check page: 0 clicks and 0 key presses, blocked 'robot check', a stop file for the engine",
       rc.code === 3 && count("robot", "click") === 0 && count("robot", "key") === 0 && blockedWhy(C, "chatgpt") === "robot check" && fs.existsSync(stopFile) && /robot check/.test(fs.readFileSync(stopFile, "utf8")), d(rc));
     check("case 4b: a second run does not load the page again (the stop holds)", loadsAfter1 === 1 && count("robot", "load") === 1 && rc2.code === 3 && /stopped until/.test(last(rc2)), "loads " + count("robot", "load") + " | " + d(rc2));
+    }
 
+    if (on("5")) {
     // ---- case 5: a sign-in wall
     const D = await world(), rd = await ask(D, { chatgpt: spec("signin") });
     check("case 5: a sign-in wall: blocked 'sign-in wall', no stop file, 0 key presses, 0 inputs, 0 clicks",
       rd.code === 3 && blockedWhy(D, "chatgpt") === "sign-in wall" && !fs.existsSync(path.join(D.stops, "chatgpt.json")) && count("signin", "key") === 0 && count("signin", "input") === 0 && count("signin", "click") === 0, d(rd));
+    }
 
+    if (on("6")) {
     // ---- case 6: a box that changes the text
     const E = await world(), re = await ask(E, { chatgpt: spec("mangle") });
     check("case 6: a box that changes the text put into it: 0 sends, blocked 'the box did not hold the text', nothing saved",
       re.code === 3 && count("mangle", "input") >= 1 && count("mangle", "send") === 0 && blockedWhy(E, "chatgpt") === "the box did not hold the text" && !fs.existsSync(cap(E, "chatgpt-1.json")), d(re));
+    }
 
+    if (on("7")) {
     // ---- case 7: reply 1 already on file
     const F = await world(), boxF = path.join(tmp, "f-box.txt"), ansF = path.join(tmp, "f-reply.txt");
     W(boxF, F.lock.text1); W(ansF, "An earlier reply, long enough to be saved as a whole reply by the command. ".repeat(6));
     const f1 = await F.cmd("box", "chatgpt", "1", "--file", boxF), f2 = await F.cmd("save", "chatgpt", "1", "--file", ansF), rf = await ask(F, { chatgpt: spec("unused") });
     check("case 7: reply 1 already on file: 0 loads of that engine's page, nothing sent, the line says 'already asked'",
       f1.code === 0 && f2.code === 0 && rf.code === 0 && count("unused", "load") === 0 && count("unused", "send") === 0 && /chatgpt already asked/.test(last(rf)), d(f2) + " | " + d(rf));
+    }
 
+    if (on("9")) {
     // ---- case 9: a page that never answers
     const G = await world(), rg = await ask(G, { chatgpt: spec("silent", { capSeconds: 3 }) });
     check("case 9: a page that never answers, capSeconds 3: blocked 'no reply in 3 s'", rg.code === 3 && count("silent", "send") === 1 && blockedWhy(G, "chatgpt") === "no reply in 3 s" && !fs.existsSync(cap(G, "chatgpt-1.json")), d(rg));
+    }
 
+    if (on("11")) {
     // ---- case 11: no port, a page description not set, an engine the file does not have
     const H = await world(), rh = await ask(H, { chatgpt: spec("unused") }, { port: null });
     check("case 11a: no port given and none to find: exit 3 with the BLOCKED line, nothing loaded", rh.code === 3 && /^BLOCKED: the work browser is not open \| unblocks: node work-browser\.mjs open/m.test(rh.out) && count("unused", "load") === 0, d(rh));
@@ -256,7 +289,9 @@ async function scenarios(dir) {
     check("case 11b: an engine with \"selectors\": \"NOT SET\": blocked 'page description not set', 0 loads, nothing opened", ri.code === 3 && blockedWhy(I, "chatgpt") === "page description not set" && /chatgpt: page description not set/.test(last(ri)) && (await openTabs(br.port, srv.base))?.length === 0, d(ri));
     const rj = await ask(I, { chatgpt: spec("unused") }, { extra: ["--engines", "bing"] });
     check("case 11c: an engine name the file does not have is a usage error (exit 2)", rj.code === 2 && count("unused", "load") === 0, d(rj));
+    }
 
+    if (on("12")) {
     // ---- case 12: a fresh context carries no cookie of the browser's own session
     const ctxCount = async () => { const k = await connect(br.port); try { return (await k.send("Target.getBrowserContexts")).browserContextIds.length; } finally { k.close(); } };
     const ctx0 = await ctxCount(), ck = (page) => srv.log.filter((e) => e.page === page), seen = (page) => ck(page).filter((e) => e.cookie).length;
@@ -267,7 +302,9 @@ async function scenarios(dir) {
     const K2 = await world(), rk2 = await ask(K2, { chatgpt: spec("ck1"), gemini: gem("ck2") });
     check("case 12b: the control, the same two without freshContext: the server DID see the cookie on the second assistant", rk2.code === 0 && seen("ck2") > 0 && ck("ck2").some((e) => e.kind === "load" && e.cookie), d(rk2) + " | ck2 requests with a cookie " + seen("ck2"));
     check("case 12c: after the run the browser has no more browser contexts than before it", ctx1 === ctx0, "before " + ctx0 + " after the fresh-context run " + ctx1);
+    }
 
+    if (on("13")) {
     // ---- case 13: a reply that ai-oneshot save refuses
     const R1 = await world(), rr1 = await ask(R1, { chatgpt: spec("short1"), gemini: gem("ask1") });
     check("case 13a: message 1 of the first answered with 20 characters: the first is blocked 'reply refused: REFUSED: the text is 20 characters...', nothing saved for it, the second is read, exit 0, the last line names both",
@@ -279,7 +316,9 @@ async function scenarios(dir) {
     const lockLoads = count("ask1", "load"), rr3 = await ask(R3, { chatgpt: spec("lockGone"), gemini: gem("ask1") });
     check("case 13c: a save that exits 3 (the lock was removed while the reply came in) still ends the run: exit 3, the BLOCKED line, the second assistant is never opened",
       rr3.code === 3 && /^BLOCKED: the prompt is not locked/m.test(rr3.out) && count("ask1", "load") === lockLoads, d(rr3));
+    }
 
+    if (on("14")) {
     // ---- case 14: a robot check that shows in the page's title (the body holds none of the words)
     const titled = async (page, label) => { const w = await world(), r = await ask(w, { chatgpt: spec(page) }), stopF = path.join(w.stops, "chatgpt.json"), loads = count(page, "load"), r2 = await ask(w, { chatgpt: spec(page) });
       return { label, ok: r.code === 3 && blockedWhy(w, "chatgpt") === "robot check" && fs.existsSync(stopF) && count(page, "click") === 0 && count(page, "key") === 0 && loads === 1 && count(page, "load") === 1 && r2.code === 3, why: label + ": " + d(r) + " loads " + count(page, "load") }; };
@@ -289,7 +328,9 @@ async function scenarios(dir) {
     check("case 14c: a page titled 'Checking your browser' (body without the words): the same", q3.ok, q3.why);
     check("case 14d: a page titled 'Attention Required' (body without the words): the same", q4.ok, q4.why);
     check("case 14e: a neutral title and the body 'Verifying you are human. This may take a few seconds.': the same", q5.ok, q5.why);
+    }
 
+    if (on("15")) {
     // ---- case 15: the run ends BLOCKED when no assistant could be asked
     const stopFor = (w, engine) => writeStop({ engine, reason: "robot check", setBy: "the test", dir: w.stops });
     const S1 = await world(); stopFor(S1, "chatgpt"); const rs1 = await ask(S1, { chatgpt: spec("unused") });
@@ -300,7 +341,9 @@ async function scenarios(dir) {
       rs2.code === 3 && /^BLOCKED: no assistant could be asked \(chatgpt: robot check, stopped until .*Z, gemini: page description not set\) \| unblocks: /.test(last(rs2)) && !/outside:/.test(last(rs2)) && count("unused", "load") === 0, d(rs2) + " | last: " + last(rs2));
     const S3 = await world(); stopFor(S3, "chatgpt"); const rs3 = await ask(S3, { chatgpt: spec("unused"), gemini: gem("ask2") });
     check("case 15c: two assistants, one stopped and one read: exit 0 and the ASKED line", rs3.code === 0 && !!jr(cap(S3, "gemini-2.json")) && last(rs3) === "ASKED: chatgpt blocked (robot check), gemini read", d(rs3) + " | last: " + last(rs3));
+    }
 
+    if (on("17")) {
     // ---- case 17: the pace (every number is the engines file's; the waits are read back from the recorder that replaces io.sleep)
     const P1w = await world(), r17 = await ask(P1w, { chatgpt: spec("p17a1"), gemini: gem("p17a2") });
     const re1 = jr(cap(P1w, "chatgpt-1.json"))?.answerText || "", re2 = jr(cap(P1w, "gemini-1.json"))?.answerText || "";
@@ -336,8 +379,8 @@ async function scenarios(dir) {
       rEnv.code === 0 && asked(rEnv) === JSON.stringify(waitsOf(Ew, reEnv, true)) && flagged.every((x) => x.ok) && count("p17f", "load") === 1, d(rEnv) + " | asked " + asked(rEnv).slice(0, 200) + " | " + flagged.filter((x) => !x.ok).map((x) => x.why).join(" || ") + " loads " + count("p17f", "load"));
     const own = ["ask-assistants.mjs", "lib-ask-pace.mjs"].map((n) => [n, fs.readFileSync(path.join(dir, n), "utf8")]);
     check("case 17g: nothing in the script or its pace file is chance: the word \"random\" is in neither (a random wait would be there to look like a person)", own.every(([, s]) => !/random/i.test(s)), own.filter(([, s]) => /random/i.test(s)).map(([n]) => n).join(", "));
-
     }
+
     // ---- case 18: a human check rings the owner and waits (ChatGPT and Perplexity); the pages show a check by themselves and take it away by themselves
     const RING = { humanCheck: "ring" }, LOOK = PACE.checkLookSeconds;
     // the pages number every report in their own order (s) and give each load an id (l): a window is read from those numbers, never from the server's clock
@@ -350,6 +393,7 @@ async function scenarios(dir) {
     const lines = (r, re) => r.out.split("\n").filter((l) => re.test(l));
     const RINGLINE = (e) => "RING: " + e + " shows a human check: answer it in the work browser window; the run waits up to " + PACE.checkWaitSeconds + " s and sends nothing to that tab";
     const noTabs = async () => (await openTabs(br.port, srv.base))?.length === 0;
+    if (on("18")) {
     const HK1 = await world(), r18a = await ask(HK1, { chatgpt: spec("c18a", RING) }), re18a = jr(cap(HK1, "chatgpt-1.json"))?.answerText || "", ck18a = jr(cap(HK1, "chatgpt-check.json")), h18a = human(r18a);
     const want18a = JSON.stringify([["after load", PACE.afterLoadSeconds], ...h18a.map(() => ["human check", LOOK]), ["after check", PACE.afterLoadSeconds], ...waitsOf(HK1, re18a, true).slice(1)]);
     check("case 18a: a ringing engine, a check by title at load that goes by itself: io.ring called once with the engine, one RING line, 'human check' waits of checkLookSeconds each then ONE 'after check' wait, the CHECK line names the seconds, then both texts at the pace of 17a, exit 0, no stop file, and the check file says rang, answered, load, no second showing",
@@ -398,9 +442,10 @@ async function scenarios(dir) {
       d(r18f) + " | loads " + loadsF.length + " sends " + count("c18f", "send") + " after reload " + JSON.stringify(afterReload.slice(0, 3)) + " during " + JSON.stringify(during("c18f").slice(0, 3)) + " | check file " + JSON.stringify(ck18f));
     check("case 18g: the real engines file: chatgpt and perplexity ring, gemini stops, and its pace block holds checkWaitSeconds 300 and checkLookSeconds 5",
       realFile.chatgpt?.humanCheck === "ring" && realFile.perplexity?.humanCheck === "ring" && realFile.gemini?.humanCheck === "stop" && realFile.pace.checkWaitSeconds === 300 && realFile.pace.checkLookSeconds === 5, JSON.stringify(realFile));
+    }
 
+    if (on("19")) {
     // ---- case 19 (AB-9): one record per run of the script, captures/ai-oneshot/asked.json = { step: "ai-ask", at, outcomes: { <engine>: "<the outcome exactly as in the ASKED line>" } }, on exit 0 and on exit 3 (the step ai-ask's evidence)
-    // This case stands outside the ASK_TEST_FROM guard: the run with ASK_TEST_FROM=18 runs cases 18 and 19.
     const askedOf = (w) => jr(cap(w, "asked.json"));
     const askedLine = (rec) => "ASKED: " + Object.entries(rec?.outcomes || {}).map(([e, o]) => e + " " + o).join(", ");
     const K1 = await world(), r19a = await ask(K1, { chatgpt: spec("a19a1"), gemini: gem("a19a2") }), a19a = askedOf(K1);
@@ -418,7 +463,9 @@ async function scenarios(dir) {
     check("case 19c: a second run on the same folder (both assistants already asked): exit 0, the ASKED line says so, no page is loaded again, and asked.json is NEWER (its time and the file's) with both outcomes 'already asked'",
       r19c.code === 0 && last(r19c) === "ASKED: chatgpt already asked, gemini already asked" && JSON.stringify(a19c?.outcomes) === JSON.stringify({ chatgpt: "already asked", gemini: "already asked" }) && Date.parse(a19c?.at) > Date.parse(a19a?.at) && m19c > m19 && count("a19a1", "load") === 1 && count("a19a2", "load") === 1,
       d(r19c) + " | " + JSON.stringify(a19c) + " | mtime " + m19 + " -> " + m19c);
+    }
 
+    if (on("21")) {
     // ---- case 21 (J28): an engine the paste form does not take (perplexity: its terms bar a manual process too) is never asked by the script
     const J1 = await world(), la = count("ask1", "load"), lp = count("ask2", "load"), r21a = await ask(J1, { chatgpt: spec("ask1"), perplexity: spec("ask2") }), a21 = jr(cap(J1, "asked.json"));
     const dir21 = path.join(J1.pewp, "captures", "ai-oneshot"), of21 = fs.existsSync(dir21) ? fs.readdirSync(dir21).filter((x) => x.startsWith("perplexity")) : ["(no folder)"];
@@ -430,11 +477,12 @@ async function scenarios(dir) {
     check("case 21b: the other assistant stopped: exit 3, the BLOCKED line names no perplexity and still ends ' | outside: stop'", r21b.code === 3 && /^BLOCKED: no assistant could be asked \(chatgpt: robot check, stopped until [^)]*\) \| .* \| outside: stop$/.test(last(r21b)), d(r21b) + " | last: " + last(r21b));
     const J3 = await world(), lp3 = count("ask2", "load"), r21c = await ask(J3, { chatgpt: spec("ask1"), perplexity: spec("ask2") }, { extra: ["--engines", "perplexity"] });
     check("case 21c: only perplexity asked for: exit 1 with a REFUSED line, no page loaded, no asked.json", r21c.code === 1 && /^REFUSED: perplexity is not asked/.test(last(r21c)) && count("ask2", "load") === lp3 && !fs.existsSync(cap(J3, "asked.json")), d(r21c));
+    }
 
+    if (on("20")) {
     // ---- case 20 (AB-13): the focus emulation is a declared behaviour. The script's CDP methods are recorded by a second preload (cdp-hook.mjs, the test's own --import beside the sleep hook): it wraps the global
     // WebSocket, so every message the script sends to the browser is appended as { m: method, e: params.enabled }, and it wraps io.sleep a second time so that every wait is appended as { s: why } in the same file and in the
     // same order. "A check is answered" is read from that order: the wait "after check" comes right after the look that found the check gone. Nothing here reads the server's clock.
-    // This case stands outside the ASK_TEST_FROM guard: the run with ASK_TEST_FROM=18 runs cases 18 to 20.
     const cdpHook = path.join(tmp, "cdp-hook.mjs");
     fs.writeFileSync(cdpHook, 'import fs from "node:fs";\nimport { io } from ' + JSON.stringify(pathToFileURL(path.join(dir, "lib-ask-pace.mjs")).href) + ';\nconst L = (o) => fs.appendFileSync(process.env.ASK_CDP_LOG, JSON.stringify(o) + "\\n");\nconst Real = globalThis.WebSocket;\nglobalThis.WebSocket = class extends Real { send(d) { try { const m = JSON.parse(d); L({ m: m.method, e: m.params && m.params.enabled }); } catch { /* not JSON */ } return super.send(d); } };\nconst prev = io.sleep;\nio.sleep = (ms, why) => { L({ s: why }); return prev(ms, why); };\n');
     let c20n = 0;
@@ -462,8 +510,9 @@ async function scenarios(dir) {
       ck20a?.focus === "emulated" && r20c.code === 0 && ck20c?.focus === "front" && ck20c?.rang === true && !r20c.cdp.some((x) => String(x.m).startsWith("Emulation.")), d(r20c) + " | " + JSON.stringify(ck20a) + " | " + JSON.stringify(ck20c));
     const K20d = await world(), r20d = await ask20(K20d, { chatgpt: spec("c20d", { focus: "sideways" }) });
     check("case 20d: a focus value that is neither 'emulated' nor 'front' is exit 2 before any page is loaded, naming the engine and the key", K20d.ok && r20d.code === 2 && /chatgpt/.test(r20d.out) && /focus/.test(r20d.out) && count("c20d", "load") === 0 && r20d.cdp.length === 0, d(r20d));
+    }
 
-    if (!ONLY18) {
+    if (on("10")) {
     // ---- case 10: the side list is in no file written and no line printed
     const files = walk(tmp).filter((f) => !/[\\/]net\.log$/.test(f)), hits = files.filter((f) => { try { return fs.readFileSync(f, "utf8").includes("HISTORY-MARKER"); } catch { return false; } });
     check("case 10: a side list on the page holds HISTORY-MARKER: the word is in no file written (" + files.length + " files looked at) and no line printed", files.length > 20 && hits.length === 0 && !allOut.some((o) => o.includes("HISTORY-MARKER")), "in: " + hits.join(", "));
@@ -473,11 +522,13 @@ async function scenarios(dir) {
   }
   srv.close(); rmTmp(tmp);
   RAN = results.length;
+  if (mu) console.log("   [this fault ran groups " + groups.join(" ") + ": " + RAN + " checks]");
   return results;
 }
 
 const one = (name, from, to, ...expect) => ({ name, patches: [{ file: "ask-assistants.mjs", from, to }], expect });
 const lib = (name, from, to, ...expect) => ({ name, patches: [{ file: "lib-ask-pace.mjs", from, to }], expect });
+const grp = (name, from, to, ...expect) => ({ name, patches: [{ file: "lib-ask-test-groups.mjs", from, to }], expect });
 const PAUSE = "export const pause = (seconds, why) => io.sleep(seconds * 1000, why);";
 const MUTANTS = [
   lib("the pauses are cut (no sleep is asked for)", PAUSE, "export const pause = (seconds, why) => Promise.resolve();", /^case 17a:/, /^case 17b:/, /^case 17c:/),
@@ -528,12 +579,18 @@ const MUTANTS = [
   one("a left-out engine is not named", 'for (const n of listed) if (LEFT_OUT.has(n)) console.log(', 'for (const n of listed) if (false) console.log(', /^case 21a:/),
   one("nothing left to ask is not refused", "if (!names.length) throw new Stop(\"REFUSED: \"", "if (false) throw new Stop(\"REFUSED: \"", /^case 21c:/),
   lib("a bad focus value is accepted", "if (!FOCUS_MODES.has(v)) throw new Error(", "if (false) throw new Error(", /^case 20d:/),
+  grp("a fault is sent to one fixed group, not the group of its cases", "CASE_GROUP[Number(m[1])]", "CASE_GROUP[3]", /^case G1:/, /^case G2:/),
+  grp("case 10 does not bring group 1", 'export const NEEDS = { "10": ["1"] };', "export const NEEDS = {};", /^case G3:/),
+  grp("a pattern that names no case is quietly sent to group 1", 'if (!g) throw new Error("the pattern "', 'if (!g) return "1"; if (false) throw new Error("the pattern "', /^case G4:/),
+  grp("an unknown group name is accepted", 'if (!GROUPS.includes(n)) throw new Error("unknown group "', 'if (false) throw new Error("unknown group "', /^case G4:/),
   one("an outcome is cut to its first word in asked.json", "outcomes: Object.fromEntries(outcomes) }", "outcomes: Object.fromEntries(outcomes.map(([n, o]) => [n, o.split(\" \")[0]])) }", /^case 19b:/, /^case 19c:/),
 ];
 
-// with ASK_TEST_FROM=18 only the faults whose cases ran can be judged: those that expect a case 18, case 19, case 20, case 21 or case 17d and nothing else
-const FAULTS = ONLY18 ? MUTANTS.filter((m) => m.expect.every((re) => /case 18|case 19|case 20|case 21|case 17d/.test(String(re)))) : MUTANTS;
+// A pass of the faults: --groups limits them to the faults whose groups are inside the named ones; every fault then runs ONLY the groups its expect patterns name (lib-ask-test-groups.mjs derives them).
+// --faults-only: the unmutated pass is NOT run here (0 checks; the plain entry of scripts/ci-tests.json runs every group once), so a fault costs only its own groups.
+const FAULTS = PLAIN ? MUTANTS.filter((m) => groupsFor(m.expect).every((g) => PLAIN.includes(g))) : MUTANTS;
+if (FAULTS_ONLY) console.log("FAULTS ONLY: the unmutated pass is not run in this command (0 checks); the plain entry runs every group once. Faults: " + FAULTS.length + " of " + MUTANTS.length);
 const code = await main({ label: "ASK ASSISTANTS", scenarios, MUTANTS: FAULTS, scriptsDir: here, argv: process.argv.slice(2) });
 closeBrowser();
-if (ONLY18) console.log("ASK_TEST_FROM=18: the cases before case 18 and case 10 did not run; " + RAN + " cases ran in the last pass");
+if (PLAIN || FAULTS_ONLY) console.log("GROUPS of the unmutated pass: " + (PASS_GROUPS.join(" ") || "none (faults only)"));
 process.exit(code);

@@ -77,7 +77,7 @@ export async function main({ label, scenarios, MUTANTS, scriptsDir, argv }) {
       }
       if (!applied) { rmTmp(mdir); continue; }
       let res;
-      try { res = await scenarios(sdir); } catch (e) { res = [{ name: `crashed: ${e.message}`, ok: false }]; }
+      try { res = await scenarios(sdir, mu); } catch (e) { res = [{ name: `crashed: ${e.message}`, ok: false }]; }
       const red = res.filter((r) => !r.ok);
       const missing = mu.expect.filter((re) => !red.some((r) => re.test(r.name)));
       const ok = red.length > 0 && !missing.length;

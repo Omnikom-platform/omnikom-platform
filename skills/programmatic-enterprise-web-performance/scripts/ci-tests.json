@@ -42,5 +42,6 @@
   { "file": "test-driver-ledger.mjs", "plain": [], "mutants": [] },
   { "file": "test-source-tables.mjs", "plain": [], "mutants": ["--mutants"] },
   { "file": "test-gate.mjs", "plain": [], "mutants": ["--mutants"] },
-  { "file": "test-step-gate.mjs", "plain": [], "mutants": ["--mutants"] }
+  { "file": "test-step-gate.mjs", "plain": [], "mutants": ["--mutants"] },
+  { "file": "test-ask-assistants.mjs", "plain": ["--groups", "G", "--no-mutants"], "mutants": ["--groups", "G", "--faults-only"] }
 ]
