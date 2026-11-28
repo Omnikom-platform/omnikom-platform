@@ -164,6 +164,7 @@ async function scenarios(dir) {
     return { cwd, pewp, cmd, ok: b.code === 0 && l.code === 0, lock, stops: path.join(tmp, "stops" + n), temp: fs.mkdirSync(path.join(tmp, "tmp" + n), { recursive: true }) && path.join(tmp, "tmp" + n) };
   };
   const spec = (page, over = {}) => ({ url: srv.base + "/p/" + page, mode: "temporary chat", signedIn: false, freshContext: false, composer: "#box", send: "#send", reply: ".reply", busy: "#busy", modeProof: "#temp-on", modeSteps: [], capSeconds: 40, quietSeconds: 2, ...over });
+  const gem = (page, over = {}) => spec(page, { signedIn: true, ...over });   // the second assistant: a gemini reply is saved only with --signed-in
   let ef = 0;
   // every wait of the script goes through io.sleep of lib-ask-pace.mjs; a preload replaces it by one that appends { ms, why } to a file and returns at once, so the
   // test is fast and reads back exactly which waits were asked for (the numbers still come from the pace block in the engines file, which the script reads)
@@ -197,11 +198,11 @@ async function scenarios(dir) {
     if (!ONLY18) {
     // ---- case 1, 2, 8: the good page and a second good page, asked one after the other
     const A = await world();
-    const r1 = await ask(A, { chatgpt: spec("good1"), perplexity: spec("good2") });
-    const c1 = jr(cap(A, "chatgpt-1.json")), c2 = jr(cap(A, "chatgpt-2.json")), p1 = jr(cap(A, "perplexity-1.json"));
+    const r1 = await ask(A, { chatgpt: spec("good1"), gemini: gem("good2") });
+    const c1 = jr(cap(A, "chatgpt-1.json")), c2 = jr(cap(A, "chatgpt-2.json")), p1 = jr(cap(A, "gemini-1.json"));
     const tabs = await openTabs(br.port, srv.base);
     check("case 1a: the good page: both replies are saved by ai-oneshot's own files, the reply that came in pieces over 2 s is whole, the last line says what was done",
-      A.ok && r1.code === 0 && !!c1 && !!c2 && /END-OF-REPLY-1/.test(c1.answerText) && /Part 1: your recommendations \(1\)/.test(c1.answerText) && /END-OF-REPLY-2/.test(c2.answerText) && c1.pasted === "clipboard, box checked" && last(r1) === "ASKED: chatgpt read, perplexity read", d(r1) + " | c1 tail: " + String(c1?.answerText).slice(-80));
+      A.ok && r1.code === 0 && !!c1 && !!c2 && /END-OF-REPLY-1/.test(c1.answerText) && /Part 1: your recommendations \(1\)/.test(c1.answerText) && /END-OF-REPLY-2/.test(c2.answerText) && c1.pasted === "clipboard, box checked" && last(r1) === "ASKED: chatgpt read, gemini read", d(r1) + " | c1 tail: " + String(c1?.answerText).slice(-80));
     const chars = A.lock.text1.length + A.lock.text2.length;   // a paste into a box fires a few input events (about one per line), never one per character
     check("case 1b: 0 character key presses, both texts pasted (a few input events, never one per character), 2 sends, 1 page load for both messages, and the tab is gone afterwards",
       count("good1", "key") === 0 && count("good1", "input") > 1 && count("good1", "input") * 4 < chars && count("good1", "send") === 2 && count("good1", "load") === 1 && tabs && tabs.length === 0, "keys " + count("good1", "key") + " inputs " + count("good1", "input") + " of " + chars + " characters," + " sends " + count("good1", "send") + " loads " + count("good1", "load") + " tabs " + (tabs ? tabs.length : "?"));
@@ -259,23 +260,23 @@ async function scenarios(dir) {
     // ---- case 12: a fresh context carries no cookie of the browser's own session
     const ctxCount = async () => { const k = await connect(br.port); try { return (await k.send("Target.getBrowserContexts")).browserContextIds.length; } finally { k.close(); } };
     const ctx0 = await ctxCount(), ck = (page) => srv.log.filter((e) => e.page === page), seen = (page) => ck(page).filter((e) => e.cookie).length;
-    const K = await world(), rk = await ask(K, { chatgpt: spec("ck1"), perplexity: spec("ck2", { freshContext: true }) });
+    const K = await world(), rk = await ask(K, { chatgpt: spec("ck1"), gemini: gem("ck2", { freshContext: true }) });
     const ctx1 = await ctxCount();
     check("case 12a: the second assistant is marked freshContext: its page load carried NO cookie (the first assistant's visit left one in the browser's own session), and both assistants' replies are saved",
-      rk.code === 0 && ck("ck1").length > 1 && count("ck2", "load") === 1 && ck("ck2").length > 2 && ck("ck2").find((e) => e.kind === "load").cookie === "" && ck("ck1").some((e) => e.cookie) && !!jr(cap(K, "chatgpt-2.json")) && !!jr(cap(K, "perplexity-1.json")) && !!jr(cap(K, "perplexity-2.json")), d(rk) + " | ck2 load cookie: '" + ((ck("ck2").find((e) => e.kind === "load") || {}).cookie || "") + "'");
-    const K2 = await world(), rk2 = await ask(K2, { chatgpt: spec("ck1"), perplexity: spec("ck2") });
+      rk.code === 0 && ck("ck1").length > 1 && count("ck2", "load") === 1 && ck("ck2").length > 2 && ck("ck2").find((e) => e.kind === "load").cookie === "" && ck("ck1").some((e) => e.cookie) && !!jr(cap(K, "chatgpt-2.json")) && !!jr(cap(K, "gemini-1.json")) && !!jr(cap(K, "gemini-2.json")), d(rk) + " | ck2 load cookie: '" + ((ck("ck2").find((e) => e.kind === "load") || {}).cookie || "") + "'");
+    const K2 = await world(), rk2 = await ask(K2, { chatgpt: spec("ck1"), gemini: gem("ck2") });
     check("case 12b: the control, the same two without freshContext: the server DID see the cookie on the second assistant", rk2.code === 0 && seen("ck2") > 0 && ck("ck2").some((e) => e.kind === "load" && e.cookie), d(rk2) + " | ck2 requests with a cookie " + seen("ck2"));
     check("case 12c: after the run the browser has no more browser contexts than before it", ctx1 === ctx0, "before " + ctx0 + " after the fresh-context run " + ctx1);
 
     // ---- case 13: a reply that ai-oneshot save refuses
-    const R1 = await world(), rr1 = await ask(R1, { chatgpt: spec("short1"), perplexity: spec("ask1") });
+    const R1 = await world(), rr1 = await ask(R1, { chatgpt: spec("short1"), gemini: gem("ask1") });
     check("case 13a: message 1 of the first answered with 20 characters: the first is blocked 'reply refused: REFUSED: the text is 20 characters...', nothing saved for it, the second is read, exit 0, the last line names both",
-      rr1.code === 0 && /^reply refused: REFUSED: the text is 20 characters/.test(String(blockedWhy(R1, "chatgpt"))) && !fs.existsSync(cap(R1, "chatgpt-1.json")) && !!jr(cap(R1, "perplexity-2.json")) && /^ASKED: chatgpt blocked \(reply refused: REFUSED: the text is 20 characters.*\), perplexity read$/.test(last(rr1)), d(rr1));
+      rr1.code === 0 && /^reply refused: REFUSED: the text is 20 characters/.test(String(blockedWhy(R1, "chatgpt"))) && !fs.existsSync(cap(R1, "chatgpt-1.json")) && !!jr(cap(R1, "gemini-2.json")) && /^ASKED: chatgpt blocked \(reply refused: REFUSED: the text is 20 characters.*\), gemini read$/.test(last(rr1)), d(rr1));
     const R2 = await world(), rr2 = await ask(R2, { chatgpt: spec("short2") });
     check("case 13b: the second reply is 20 characters: reply 1 is on file, no blocked record, no reply 2, exit 0, the last line says 'follow-up refused'",
       rr2.code === 0 && !!jr(cap(R2, "chatgpt-1.json")) && !fs.existsSync(cap(R2, "chatgpt-blocked.json")) && !fs.existsSync(cap(R2, "chatgpt-2.json")) && /^ASKED: chatgpt read, follow-up refused: REFUSED: the text is 20 characters/.test(last(rr2)), d(rr2));
     const R3 = await world(); srv.hooks.lockGone = () => { try { fs.rmSync(path.join(R3.pewp, "captures", "ai-oneshot", "prompt-lock.json")); } catch { /* gone */ } };
-    const lockLoads = count("ask1", "load"), rr3 = await ask(R3, { chatgpt: spec("lockGone"), perplexity: spec("ask1") });
+    const lockLoads = count("ask1", "load"), rr3 = await ask(R3, { chatgpt: spec("lockGone"), gemini: gem("ask1") });
     check("case 13c: a save that exits 3 (the lock was removed while the reply came in) still ends the run: exit 3, the BLOCKED line, the second assistant is never opened",
       rr3.code === 3 && /^BLOCKED: the prompt is not locked/m.test(rr3.out) && count("ask1", "load") === lockLoads, d(rr3));
 
@@ -294,15 +295,15 @@ async function scenarios(dir) {
     const S1 = await world(); stopFor(S1, "chatgpt"); const rs1 = await ask(S1, { chatgpt: spec("unused") });
     check("case 15a: one assistant, stopped: exit 3, the BLOCKED line says 'stopped until' and ends ' | outside: stop', a blocked record is on file, 0 pages loaded",
       rs1.code === 3 && /^BLOCKED: no assistant could be asked \(chatgpt: robot check, stopped until \d{4}-\d\d-\d\dT[\d:.]+Z\) \| unblocks: the stops end or the owner lifts them; the page descriptions are set \| outside: stop$/.test(last(rs1)) && blockedWhy(S1, "chatgpt") === "robot check" && count("unused", "load") === 0, d(rs1) + " | last: " + last(rs1));
-    const S2 = await world(); stopFor(S2, "chatgpt"); const rs2 = await ask(S2, { chatgpt: spec("unused"), perplexity: { selectors: "NOT SET" } });
+    const S2 = await world(); stopFor(S2, "chatgpt"); const rs2 = await ask(S2, { chatgpt: spec("unused"), gemini: { selectors: "NOT SET" } });
     check("case 15b: two assistants, one stopped and one 'NOT SET': exit 3, no 'outside' mark, both reasons named",
-      rs2.code === 3 && /^BLOCKED: no assistant could be asked \(chatgpt: robot check, stopped until .*Z, perplexity: page description not set\) \| unblocks: /.test(last(rs2)) && !/outside:/.test(last(rs2)) && count("unused", "load") === 0, d(rs2) + " | last: " + last(rs2));
-    const S3 = await world(); stopFor(S3, "chatgpt"); const rs3 = await ask(S3, { chatgpt: spec("unused"), perplexity: spec("ask2") });
-    check("case 15c: two assistants, one stopped and one read: exit 0 and the ASKED line", rs3.code === 0 && !!jr(cap(S3, "perplexity-2.json")) && last(rs3) === "ASKED: chatgpt blocked (robot check), perplexity read", d(rs3) + " | last: " + last(rs3));
+      rs2.code === 3 && /^BLOCKED: no assistant could be asked \(chatgpt: robot check, stopped until .*Z, gemini: page description not set\) \| unblocks: /.test(last(rs2)) && !/outside:/.test(last(rs2)) && count("unused", "load") === 0, d(rs2) + " | last: " + last(rs2));
+    const S3 = await world(); stopFor(S3, "chatgpt"); const rs3 = await ask(S3, { chatgpt: spec("unused"), gemini: gem("ask2") });
+    check("case 15c: two assistants, one stopped and one read: exit 0 and the ASKED line", rs3.code === 0 && !!jr(cap(S3, "gemini-2.json")) && last(rs3) === "ASKED: chatgpt blocked (robot check), gemini read", d(rs3) + " | last: " + last(rs3));
 
     // ---- case 17: the pace (every number is the engines file's; the waits are read back from the recorder that replaces io.sleep)
-    const P1w = await world(), r17 = await ask(P1w, { chatgpt: spec("p17a1"), perplexity: spec("p17a2") });
-    const re1 = jr(cap(P1w, "chatgpt-1.json"))?.answerText || "", re2 = jr(cap(P1w, "perplexity-1.json"))?.answerText || "";
+    const P1w = await world(), r17 = await ask(P1w, { chatgpt: spec("p17a1"), gemini: gem("p17a2") });
+    const re1 = jr(cap(P1w, "chatgpt-1.json"))?.answerText || "", re2 = jr(cap(P1w, "gemini-1.json"))?.answerText || "";
     const want17 = JSON.stringify([...waitsOf(P1w, re1, true), ...waitsOf(P1w, re2, false)]);
     check("case 17a: two assistants: the waits asked for are afterLoadSeconds after each load, one second per piece, beforeSendSeconds before each of the four sends, a reading pause after each first reply, betweenAssistantsSeconds exactly once, nothing else, in that order",
       P1w.ok && r17.code === 0 && re1.length > 0 && re2.length > 0 && asked(r17) === want17 && r17.sleeps.filter((s) => s.why === "between assistants").length === 1, d(r17) + " | asked " + asked(r17).slice(0, 300) + " | wanted " + want17.slice(0, 300));
@@ -313,7 +314,7 @@ async function scenarios(dir) {
     const w10 = await reading("words10"), w500 = await reading("words500"), w2000 = await reading("words2000");
     check("case 17b: the reading pause: a first reply of 10 words waits readSecondsMin (15), one of 2000 words waits readSecondsMax (90), one of 500 words waits 60",
       w10.n === 10 && w500.n === 500 && w2000.n === 2000 && JSON.stringify(w10.got) === "[15]" && JSON.stringify(w500.got) === "[60]" && JSON.stringify(w2000.got) === "[90]", JSON.stringify([w10.got, w10.n, w500.got, w500.n, w2000.got, w2000.n]) + " | " + d(w10.r));
-    const P3w = await world(), r17c = await ask(P3w, { chatgpt: spec("robot"), perplexity: spec("ask2") }), re3 = jr(cap(P3w, "perplexity-1.json"))?.answerText || "";
+    const P3w = await world(), r17c = await ask(P3w, { chatgpt: spec("robot"), gemini: gem("ask2") }), re3 = jr(cap(P3w, "gemini-1.json"))?.answerText || "";
     check("case 17c: the first assistant shows a check: its page is not touched, the wait before the second is betweenAssistantsSeconds, and the second's pieces and pauses are those of 17a (the pace did not change)",
       r17c.code === 0 && blockedWhy(P3w, "chatgpt") === "robot check" && count("robot", "click") === 0 && count("robot", "key") === 0 && asked(r17c) === JSON.stringify([["after load", PACE.afterLoadSeconds], ...waitsOf(P3w, re3, false)]), d(r17c) + " | asked " + asked(r17c).slice(0, 300));
     // the pace block is checked before any page is loaded: exit 2, the key named, nothing loaded, nothing waited for
@@ -372,16 +373,16 @@ async function scenarios(dir) {
     const HK4 = await world(), r18b4 = await ask(HK4, { chatgpt: spec("c18bp", RING) });
     check("case 18b4: a reply that holds the words 'verify you are human' (no check at all): io.ring never called, no check file, read (the page text is not part of the later look)",
       r18b4.code === 0 && last(r18b4) === "ASKED: chatgpt read" && r18b4.rings.length === 0 && !fs.existsSync(cap(HK4, "chatgpt-check.json")) && !!jr(cap(HK4, "chatgpt-2.json")) && /verify you are human/i.test(jr(cap(HK4, "chatgpt-1.json"))?.answerText || ""), d(r18b4) + " | rings " + JSON.stringify(r18b4.rings));
-    const HK5 = await world(), r18c = await ask(HK5, { chatgpt: spec("c18c", RING), perplexity: spec("c18c2") }), re18c = jr(cap(HK5, "perplexity-1.json"))?.answerText || "", ck18c = jr(cap(HK5, "chatgpt-check.json"));
+    const HK5 = await world(), r18c = await ask(HK5, { chatgpt: spec("c18c", RING), gemini: gem("c18c2") }), re18c = jr(cap(HK5, "gemini-1.json"))?.answerText || "", ck18c = jr(cap(HK5, "chatgpt-check.json"));
     check("case 18c: the second showing (the check is back at the look after 'after check'): the tab is closed, a stop file with reason 'robot check', io.ring ONCE, blocked 'robot check shown again after a person answered it', zero touch events, and the next assistant is asked after betweenAssistantsSeconds at the pace of 17a",
       r18c.code === 0 && fs.existsSync(path.join(HK5.stops, "chatgpt.json")) && /robot check/.test(fs.readFileSync(path.join(HK5.stops, "chatgpt.json"), "utf8")) && JSON.stringify(r18c.rings) === JSON.stringify(["chatgpt"]) && blockedWhy(HK5, "chatgpt") === "robot check shown again after a person answered it"
-        && during("c18c").length === 0 && count("c18c", "touch") === 0 && await noTabs() && core(r18c) === JSON.stringify([["after load", PACE.afterLoadSeconds], ...waitsOf(HK5, re18c, false)]) && /^ASKED: chatgpt blocked \(robot check shown again after a person answered it\), perplexity read$/.test(last(r18c))
+        && during("c18c").length === 0 && count("c18c", "touch") === 0 && await noTabs() && core(r18c) === JSON.stringify([["after load", PACE.afterLoadSeconds], ...waitsOf(HK5, re18c, false)]) && /^ASKED: chatgpt blocked \(robot check shown again after a person answered it\), gemini read$/.test(last(r18c))
         && ck18c?.rang === true && ck18c?.answered === true && ck18c?.secondShowing === true && lines(r18c, /^CHECK: /).length === 0,
       d(r18c) + " | rings " + JSON.stringify(r18c.rings) + " | core " + core(r18c).slice(0, 300) + " | check file " + JSON.stringify(ck18c));
-    const HK6 = await world(), r18d = await ask(HK6, { chatgpt: spec("c18d", RING), perplexity: spec("c18d2") }), re18d = jr(cap(HK6, "perplexity-1.json"))?.answerText || "", ck18d = jr(cap(HK6, "chatgpt-check.json")), h18d = human(r18d);
+    const HK6 = await world(), r18d = await ask(HK6, { chatgpt: spec("c18d", RING), gemini: gem("c18d2") }), re18d = jr(cap(HK6, "gemini-1.json"))?.answerText || "", ck18d = jr(cap(HK6, "chatgpt-check.json")), h18d = human(r18d);
     check("case 18d: nobody answers (the check never goes): the 'human check' waits add up to exactly checkWaitSeconds (300 s) and no more, one ring, blocked 'human check not answered in 300 s', NO stop file, the tab closed, zero touch events, and the next assistant is asked",
       r18d.code === 0 && h18d.reduce((a, s) => a + s.ms, 0) === PACE.checkWaitSeconds * 1000 && h18d.length === PACE.checkWaitSeconds / LOOK && r18d.rings.length === 1 && blockedWhy(HK6, "chatgpt") === "human check not answered in " + PACE.checkWaitSeconds + " s" && !fs.existsSync(path.join(HK6.stops, "chatgpt.json"))
-        && await noTabs() && during("c18d").length === 0 && count("c18d", "touch") === 0 && core(r18d) === JSON.stringify([["after load", PACE.afterLoadSeconds], ...waitsOf(HK6, re18d, false)]) && /^ASKED: chatgpt blocked \(human check not answered in 300 s\), perplexity read$/.test(last(r18d))
+        && await noTabs() && during("c18d").length === 0 && count("c18d", "touch") === 0 && core(r18d) === JSON.stringify([["after load", PACE.afterLoadSeconds], ...waitsOf(HK6, re18d, false)]) && /^ASKED: chatgpt blocked \(human check not answered in 300 s\), gemini read$/.test(last(r18d))
         && ck18d?.rang === true && ck18d?.answered === false && ck18d?.waitedSeconds === PACE.checkWaitSeconds && ck18d?.secondShowing === false && lines(r18d, /^CHECK: /).length === 0,
       d(r18d) + " | waits " + h18d.length + " sum " + h18d.reduce((a, s) => a + s.ms, 0) + " | rings " + JSON.stringify(r18d.rings) + " | check file " + JSON.stringify(ck18d));
     const HK7 = await world(), r18e = await ask(HK7, { chatgpt: spec("c18e1", { humanCheck: "stop" }) }), HK7b = await world(), r18e0 = await ask(HK7b, { chatgpt: spec("c18e1") });
@@ -402,21 +403,33 @@ async function scenarios(dir) {
     // This case stands outside the ASK_TEST_FROM guard: the run with ASK_TEST_FROM=18 runs cases 18 and 19.
     const askedOf = (w) => jr(cap(w, "asked.json"));
     const askedLine = (rec) => "ASKED: " + Object.entries(rec?.outcomes || {}).map(([e, o]) => e + " " + o).join(", ");
-    const K1 = await world(), r19a = await ask(K1, { chatgpt: spec("a19a1"), perplexity: spec("a19a2") }), a19a = askedOf(K1);
+    const K1 = await world(), r19a = await ask(K1, { chatgpt: spec("a19a1"), gemini: gem("a19a2") }), a19a = askedOf(K1);
     check("case 19a: a run that read two assistants: exit 0, and asked.json holds step ai-ask, an ISO time and both outcomes, which put back into words are exactly the ASKED line",
-      K1.ok && r19a.code === 0 && last(r19a) === "ASKED: chatgpt read, perplexity read" && a19a?.step === "ai-ask" && Number.isFinite(Date.parse(a19a.at)) && JSON.stringify(a19a.outcomes) === JSON.stringify({ chatgpt: "read", perplexity: "read" }) && askedLine(a19a) === last(r19a),
+      K1.ok && r19a.code === 0 && last(r19a) === "ASKED: chatgpt read, gemini read" && a19a?.step === "ai-ask" && Number.isFinite(Date.parse(a19a.at)) && JSON.stringify(a19a.outcomes) === JSON.stringify({ chatgpt: "read", gemini: "read" }) && askedLine(a19a) === last(r19a),
       d(r19a) + " | " + JSON.stringify(a19a));
     const K2 = await world(); writeStop({ engine: "chatgpt", reason: "robot check", setBy: "the test", dir: K2.stops });
-    const r19b = await ask(K2, { chatgpt: spec("unused"), perplexity: { selectors: "NOT SET" } }), a19b = askedOf(K2);
+    const r19b = await ask(K2, { chatgpt: spec("unused"), gemini: { selectors: "NOT SET" } }), a19b = askedOf(K2);
     check("case 19b: a run that ended BLOCKED (one assistant stopped, one with no page description): the exit is still 3 with the BLOCKED line, and asked.json holds every outcome, as the ASKED line has them",
-      K2.ok && r19b.code === 3 && /^BLOCKED: no assistant could be asked/.test(last(r19b)) && a19b?.step === "ai-ask" && Number.isFinite(Date.parse(a19b.at)) && JSON.stringify(a19b.outcomes) === JSON.stringify({ chatgpt: "blocked (robot check)", perplexity: "blocked (page description not set)" }) && r19b.out.split("\n").includes(askedLine(a19b)),
+      K2.ok && r19b.code === 3 && /^BLOCKED: no assistant could be asked/.test(last(r19b)) && a19b?.step === "ai-ask" && Number.isFinite(Date.parse(a19b.at)) && JSON.stringify(a19b.outcomes) === JSON.stringify({ chatgpt: "blocked (robot check)", gemini: "blocked (page description not set)" }) && r19b.out.split("\n").includes(askedLine(a19b)),
       d(r19b) + " | " + JSON.stringify(a19b));
     const m19 = fs.existsSync(cap(K1, "asked.json")) ? fs.statSync(cap(K1, "asked.json")).mtimeMs : 0;
     await sleep(40);
-    const r19c = await ask(K1, { chatgpt: spec("a19a1"), perplexity: spec("a19a2") }), a19c = askedOf(K1), m19c = fs.existsSync(cap(K1, "asked.json")) ? fs.statSync(cap(K1, "asked.json")).mtimeMs : 0;
+    const r19c = await ask(K1, { chatgpt: spec("a19a1"), gemini: gem("a19a2") }), a19c = askedOf(K1), m19c = fs.existsSync(cap(K1, "asked.json")) ? fs.statSync(cap(K1, "asked.json")).mtimeMs : 0;
     check("case 19c: a second run on the same folder (both assistants already asked): exit 0, the ASKED line says so, no page is loaded again, and asked.json is NEWER (its time and the file's) with both outcomes 'already asked'",
-      r19c.code === 0 && last(r19c) === "ASKED: chatgpt already asked, perplexity already asked" && JSON.stringify(a19c?.outcomes) === JSON.stringify({ chatgpt: "already asked", perplexity: "already asked" }) && Date.parse(a19c?.at) > Date.parse(a19a?.at) && m19c > m19 && count("a19a1", "load") === 1 && count("a19a2", "load") === 1,
+      r19c.code === 0 && last(r19c) === "ASKED: chatgpt already asked, gemini already asked" && JSON.stringify(a19c?.outcomes) === JSON.stringify({ chatgpt: "already asked", gemini: "already asked" }) && Date.parse(a19c?.at) > Date.parse(a19a?.at) && m19c > m19 && count("a19a1", "load") === 1 && count("a19a2", "load") === 1,
       d(r19c) + " | " + JSON.stringify(a19c) + " | mtime " + m19 + " -> " + m19c);
+
+    // ---- case 21 (J28): an engine the paste form does not take (perplexity: its terms bar a manual process too) is never asked by the script
+    const J1 = await world(), la = count("ask1", "load"), lp = count("ask2", "load"), r21a = await ask(J1, { chatgpt: spec("ask1"), perplexity: spec("ask2") }), a21 = jr(cap(J1, "asked.json"));
+    const dir21 = path.join(J1.pewp, "captures", "ai-oneshot"), of21 = fs.existsSync(dir21) ? fs.readdirSync(dir21).filter((x) => x.startsWith("perplexity")) : ["(no folder)"];
+    check("case 21a: perplexity in the engines file: its page is never loaded, nothing of it is written (no blocked record either), it is in no ASKED line and not in asked.json, one LEFT OUT line names it and the stand-in RT-A, and the other is asked with no wait between assistants",
+      J1.ok && r21a.code === 0 && count("ask1", "load") === la + 1 && count("ask2", "load") === lp && of21.length === 0 && last(r21a) === "ASKED: chatgpt read" && JSON.stringify(Object.keys(a21?.outcomes || {})) === JSON.stringify(["chatgpt"]) && lines(r21a, /^LEFT OUT: perplexity .*RT-A/).length === 1 && !r21a.sleeps.some((s) => s.why === "between assistants"),
+      d(r21a) + " | loads " + (count("ask2", "load") - lp) + " | files " + of21.join(" ") + " | " + JSON.stringify(a21));
+    const J2 = await world(); writeStop({ engine: "chatgpt", reason: "robot check", setBy: "the test", dir: J2.stops });
+    const r21b = await ask(J2, { chatgpt: spec("unused"), perplexity: spec("ask2") });
+    check("case 21b: the other assistant stopped: exit 3, the BLOCKED line names no perplexity and still ends ' | outside: stop'", r21b.code === 3 && /^BLOCKED: no assistant could be asked \(chatgpt: robot check, stopped until [^)]*\) \| .* \| outside: stop$/.test(last(r21b)), d(r21b) + " | last: " + last(r21b));
+    const J3 = await world(), lp3 = count("ask2", "load"), r21c = await ask(J3, { chatgpt: spec("ask1"), perplexity: spec("ask2") }, { extra: ["--engines", "perplexity"] });
+    check("case 21c: only perplexity asked for: exit 1 with a REFUSED line, no page loaded, no asked.json", r21c.code === 1 && /^REFUSED: perplexity is not asked/.test(last(r21c)) && count("ask2", "load") === lp3 && !fs.existsSync(cap(J3, "asked.json")), d(r21c));
 
     // ---- case 20 (AB-13): the focus emulation is a declared behaviour. The script's CDP methods are recorded by a second preload (cdp-hook.mjs, the test's own --import beside the sleep hook): it wraps the global
     // WebSocket, so every message the script sends to the browser is appended as { m: method, e: params.enabled }, and it wraps io.sleep a second time so that every wait is appended as { s: why } in the same file and in the
@@ -511,12 +524,15 @@ const MUTANTS = [
   one("a front engine still gets the emulation", 'if (focus !== "front") { try { await c.send("Emulation.setFocusEmulationEnabled", { enabled: true }, sid); }', 'if (true) { try { await c.send("Emulation.setFocusEmulationEnabled", { enabled: true }, sid); }', /^case 20b:/),
   one("a front engine is not brought to the front before its texts", 'if (focus === "front") await front();', "", /^case 20b:/),
   one("the check record does not say the focus mode", "secondShowing: false, focus };", "secondShowing: false };", /^case 20c:/),
+  one("the engine the paste form does not take is asked", "const names = listed.filter((n) => !LEFT_OUT.has(n));", "const names = listed;", /^case 21a:/, /^case 21b:/, /^case 21c:/),
+  one("a left-out engine is not named", 'for (const n of listed) if (LEFT_OUT.has(n)) console.log(', 'for (const n of listed) if (false) console.log(', /^case 21a:/),
+  one("nothing left to ask is not refused", "if (!names.length) throw new Stop(\"REFUSED: \"", "if (false) throw new Stop(\"REFUSED: \"", /^case 21c:/),
   lib("a bad focus value is accepted", "if (!FOCUS_MODES.has(v)) throw new Error(", "if (false) throw new Error(", /^case 20d:/),
   one("an outcome is cut to its first word in asked.json", "outcomes: Object.fromEntries(outcomes) }", "outcomes: Object.fromEntries(outcomes.map(([n, o]) => [n, o.split(\" \")[0]])) }", /^case 19b:/, /^case 19c:/),
 ];
 
-// with ASK_TEST_FROM=18 only the faults whose cases ran can be judged: those that expect a case 18, case 19, case 20 or case 17d and nothing else
-const FAULTS = ONLY18 ? MUTANTS.filter((m) => m.expect.every((re) => /case 18|case 19|case 20|case 17d/.test(String(re)))) : MUTANTS;
+// with ASK_TEST_FROM=18 only the faults whose cases ran can be judged: those that expect a case 18, case 19, case 20, case 21 or case 17d and nothing else
+const FAULTS = ONLY18 ? MUTANTS.filter((m) => m.expect.every((re) => /case 18|case 19|case 20|case 21|case 17d/.test(String(re)))) : MUTANTS;
 const code = await main({ label: "ASK ASSISTANTS", scenarios, MUTANTS: FAULTS, scriptsDir: here, argv: process.argv.slice(2) });
 closeBrowser();
 if (ONLY18) console.log("ASK_TEST_FROM=18: the cases before case 18 and case 10 did not run; " + RAN + " cases ran in the last pass");

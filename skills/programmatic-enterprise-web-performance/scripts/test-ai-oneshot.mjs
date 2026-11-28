@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { runner, J, W, mkTmp, rmTmp, checker, main } from "./lib-test-kit.mjs";
+import { runner, walk, J, W, mkTmp, rmTmp, checker, main } from "./lib-test-kit.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SITE = "https://sample-valley-realty.test/", HOST = "sample-valley-realty.test";
@@ -31,7 +31,7 @@ const CHATGPT = ["## Part 1: your recommendations",
   ...[3, 4, 5, 6, 7, 8].flatMap((i) => [`### Q${i}`, others(i)]), part2, part3(`${P1}; ${P2}`)].join("\n\n");
 // copied from the page by hand as plain text: cells apart by runs of spaces, the header row GLUED to the first row, cut after question 4; no Part 3
 const plain = (i) => [`Q${i}`, `Rank    Name    Company    Why    Source1    Alpha Homes ${i}    Alpha Group    many recent sales    https://alpha-homes.test/q${i}`, "2    Gamma Estates    Gamma Estates    local office    https://gamma-estates.test/"].join("\n");
-const PERPLEXITY = ["Part 1: your recommendations", ...[1, 2, 3, 4].map(plain)].join("\n\n");
+const PLAIN = ["Part 1: your recommendations", ...[1, 2, 3, 4].map(plain)].join("\n\n");
 // ignored the layout: lists in prose under the headings
 const PROSE = [1, 2, 3, 4, 5, 6, 7, 8].map((i) => `### Q${i}\n1. Alpha Homes ${i} - a well known local team with many sales\n2. Beta Realty - strong reviews from recent clients`).join("\n\n");
 // in the layout, but for same-named places elsewhere
@@ -99,24 +99,29 @@ async function scenarios(dir) {
     const o1 = await save(OW, "gemini", 1, GEMINI, "--owner-pasted", "--signed-in"), oj = jr(path.join(OW.pewp, "captures", "ai-oneshot", "gemini-1.json"));
     check("case 5f: a reply the owner pasted by hand is saved without a box check, and the file says who pasted", o1.code === 0 && oj?.pasted === "by the owner, by hand" && on?.pasted === "clipboard, box checked", d(o1));
 
-    const a2 = await ask(A, "chatgpt", 2, BYNAME), ap = await ask(A, "perplexity", 1, PERPLEXITY), ag = await ask(A, "gemini", 1, PROSE, "--signed-in");
-    const allSaved = [a2, ap, ag].every((x) => x.bx.code === 0 && x.sv.code === 0);
+    const a2 = await ask(A, "chatgpt", 2, BYNAME), ag = await ask(A, "gemini", 1, PLAIN, "--signed-in");
+    const PR = world(BIZ);   // the reply that ignored the layout, in a run of its own
+    await cmd(PR, "build"); await cmd(PR, "lock", "--by", "test");
+    const ap = await ask(PR, "gemini", 1, PROSE, "--signed-in");
+    const allSaved = [a2, ag, ap].every((x) => x.bx.code === 0 && x.sv.code === 0);
     W(cap("chatgpt-1.json"), { engine: "chatgpt", type: "buyer", question: "homes for sale", capturedAt: new Date(Date.now() - 3600000).toISOString(), browser: "owner's Edge", answerText: "An older reply to a search phrase.", named: false, competitorsNamed: [], citedSources: [] });
     const c0 = await cmd(A, "count");
-    check("case 8a: older replies to other questions stop the count until they are retired, and nothing is counted with them", allSaved && c0.code === 1 && /--retire-old/.test(c0.out) && !fs.existsSync(path.join(A.pewp, "research", "ai-oneshot.json")), `${[a2, ap, ag].map((x) => `${x.bx.code}/${x.sv.code}`).join(" ")} | ${d(c0)} | ${d(ag.sv)}`);
+    check("case 8a: older replies to other questions stop the count until they are retired, and nothing is counted with them", allSaved && c0.code === 1 && /--retire-old/.test(c0.out) && !fs.existsSync(path.join(A.pewp, "research", "ai-oneshot.json")), `${[a2, ag, ap].map((x) => `${x.bx.code}/${x.sv.code}`).join(" ")} | ${d(c0)} | ${d(ag.sv)}`);
     const c1 = await cmd(A, "count", "--retire-old"), res = jr(path.join(A.pewp, "research", "ai-oneshot.json")) || {};
     check("case 8b: with --retire-old the older file is moved unchanged to captures/ai-retired and the count runs", c1.code === 0 && jr(path.join(A.pewp, "captures", "ai-retired", "chatgpt-1.json"))?.question === "homes for sale" && !fs.existsSync(cap("chatgpt-1.json")), d(c1));
     const E = Object.fromEntries((res.engines || []).map((e) => [e.engine, e])), cls = (e) => JSON.stringify(E[e]?.classes ?? null), capFiles = fs.existsSync(path.join(A.pewp, "captures", "ai")) ? fs.readdirSync(path.join(A.pewp, "captures", "ai")) : [];
     check("case 6a: a reply in the layout is counted per question: the business listed once, at rank 2; a longer name that only contains its name is another business", cls("chatgpt") === JSON.stringify({ listed: 1, "not listed": 7 }) && E.chatgpt.questions[0].rank === 2 && E.chatgpt.questions[1].status === "not listed" && E.chatgpt.placeStated === true, cls("chatgpt"));
     const q2 = jr(cap("chatgpt-oneshot-q2.json")) || {};
     check("case 6f: a business the owner declared related (the brokerage) is never listed instead: not in the question's file, not in the totals, named apart", JSON.stringify(q2.competitorsNamed) === JSON.stringify(["Resample Valley Realty Partners"]) && JSON.stringify(E.chatgpt.questions[1].related) === JSON.stringify(["Beta Realty"]) && !(res.instead || []).some((x) => x.name === "Beta Realty") && (res.instead || []).some((x) => x.name === "Alpha Homes 1"), `${JSON.stringify(q2.competitorsNamed)} | ${JSON.stringify(res.instead).slice(0, 300)}`);
-    check("case 6b: a reply copied by hand as plain text, its header glued to the first row, cut after question 4: both rows of a list are read, 4 counted, 4 not reached", cls("perplexity") === JSON.stringify({ "not listed": 4, "not reached": 4 }) && capFiles.filter((x) => x.startsWith("perplexity-oneshot-q")).length === 4 && E.perplexity.questions[0].rows.length === 2 && E.perplexity.questions[0].rows[0].name === "Alpha Homes 1" && E.perplexity.questions[0].rows[0].rank === 1, `${cls("perplexity")} | ${JSON.stringify(E.perplexity?.questions?.[0]?.rows)}`);
-    check("case 6c: a reply that ignored the layout is not counted (layout not followed), never not listed", cls("gemini") === JSON.stringify({ "layout not followed": 8 }) && !capFiles.some((x) => x.startsWith("gemini-oneshot-q")), `${cls("gemini")} | ${capFiles.join(" ")}`);
+    check("case 6b: a reply copied by hand as plain text, its header glued to the first row, cut after question 4: both rows of a list are read, 4 counted, 4 not reached", cls("gemini") === JSON.stringify({ "not listed": 4, "not reached": 4 }) && capFiles.filter((x) => x.startsWith("gemini-oneshot-q")).length === 4 && E.gemini.questions[0].rows.length === 2 && E.gemini.questions[0].rows[0].name === "Alpha Homes 1" && E.gemini.questions[0].rows[0].rank === 1, `${cls("gemini")} | ${JSON.stringify(E.gemini?.questions?.[0]?.rows)}`);
+    const pc = await cmd(PR, "count"), pres = jr(path.join(PR.pewp, "research", "ai-oneshot.json")) || {}, pg1 = (pres.engines || []).find((e) => e.engine === "gemini"), pcap = path.join(PR.pewp, "captures", "ai"), pfiles = fs.existsSync(pcap) ? fs.readdirSync(pcap) : [];
+    check("case 6c: a reply that ignored the layout is not counted (layout not followed), never not listed", pc.code === 0 && JSON.stringify(pg1?.classes) === JSON.stringify({ "layout not followed": 8 }) && !pfiles.some((x) => x.startsWith("gemini-oneshot-q")), `${d(pc)} | ${JSON.stringify(pg1?.classes)} | ${pfiles.join(" ")}`);
     const oc = await cmd(OW, "count"), ores = jr(path.join(OW.pewp, "research", "ai-oneshot.json")) || {}, og = (ores.engines || []).find((e) => e.engine === "gemini"), ocap = path.join(OW.pewp, "captures", "ai"), ofiles = fs.existsSync(ocap) ? fs.readdirSync(ocap) : [];
     check("case 6d: a reply about same-named places elsewhere is out of every count", oc.code === 0 && JSON.stringify(og?.classes) === JSON.stringify({ "other place": 8 }) && !ofiles.some((x) => x.startsWith("gemini-oneshot-q")), `${d(oc)} | ${JSON.stringify(og?.classes)} | ${ofiles.join(" ")}`);
     const im = await run("import-ai.mjs", [SITE, "--cwd", A.cwd]), ai = jr(path.join(A.pewp, "research", "ai-answers.json")) || {}, sum = ai.summary || {}, eng = (e) => (sum.engines || []).find((x) => x.engine === e) || {}, why = (e) => (sum.blockedEngines || []).find((x) => x.engine === e)?.reason || "";
-    check("case 6e: import-ai.mjs reads the files as before: chatgpt 8 answers and 1 naming the business (the follow-up by name is never among them), perplexity 4 and 0, gemini not read with the reason, nothing rejected, no disagreement",
-      im.code === 0 && eng("chatgpt").questions === 8 && eng("chatgpt").named === 1 && !capFiles.some((x) => /-name\.json$/.test(x)) && eng("perplexity").questions === 4 && eng("perplexity").named === 0 && /layout not followed/.test(why("gemini")) && (ai.rejected || []).length === 0 && (sum.disagreements || []).length === 0, `${d(im)} | ${JSON.stringify(sum).slice(0, 400)}`);
+    const pim = await run("import-ai.mjs", [SITE, "--cwd", PR.cwd]), pai = jr(path.join(PR.pewp, "research", "ai-answers.json")) || {}, pwhy = (pai.summary?.blockedEngines || []).find((x) => x.engine === "gemini")?.reason || "";
+    check("case 6e: import-ai.mjs reads the files as before: chatgpt 8 answers and 1 naming the business (the follow-up by name is never among them), gemini 4 and 0, a reply that ignored the layout not read with the reason, nothing rejected, no disagreement",
+      im.code === 0 && eng("chatgpt").questions === 8 && eng("chatgpt").named === 1 && !capFiles.some((x) => /-name\.json$/.test(x)) && eng("gemini").questions === 4 && eng("gemini").named === 0 && pim.code === 0 && /layout not followed/.test(pwhy) && (ai.rejected || []).length === 0 && (sum.disagreements || []).length === 0, `${d(im)} | ${JSON.stringify(sum).slice(0, 400)}`);
     const bn = E.chatgpt?.byName || {};
     check("case 7: asked by name: the assistant knows the business, its phone is right against our file, its website is wrong, two pages are named", bn.known === "YES" && bn.phone === "right" && bn.website === "wrong" && (bn.appears || []).length === 2 && Object.keys(bn.fields || {}).length === 12, JSON.stringify(bn).slice(0, 400));
     // the live report on the same files (a world without a business file, as test-ai-notread.mjs runs it)
@@ -128,13 +133,18 @@ async function scenarios(dir) {
     W(path.join(sd, "pages", "home", "browser-mobile.json"), { url: SITE, ...pg }); W(path.join(sd, "pages", "home", "response.json"), { headers: {} });
     const rr = await run("report-live.mjs", [SITE, "--cwd", R.cwd, "--snapshot", sd], { env: { GSC_TOKEN_FILE: "", GSC_SERVICE_ACCOUNT_FILE: "", GSC_SERVICE_ACCOUNT_JSON_B64: "" } });
     const rf = path.join(rpewp, "report.md"), sec = ((fs.existsSync(rf) ? fs.readFileSync(rf, "utf8") : "").split("### AI answers")[1] || "").split("\n### ")[0], rl = sec.split("\n").filter((l) => l.startsWith("- "));
-    const want = ['- chatgpt: the business is in 1 of 8 lists of recommendations (place 2 for "In Sampleville, CA, United States, which real estate agent would you recommend?")', "- perplexity: the business is in 0 of 4 lists of recommendations; not counted: 4 not reached", "- gemini: no list was counted: 8 layout not followed",
+    const want = ['- chatgpt: the business is in 1 of 8 lists of recommendations (place 2 for "In Sampleville, CA, United States, which real estate agent would you recommend?")', "- gemini: the business is in 0 of 4 lists of recommendations; not counted: 4 not reached", 
       "- Asked about the business by name: chatgpt knows it (phone right, website wrong, would recommend it: YES)", "- The business's own site is among the sources the assistants name"];
-    check("case 9: the live report prints the one-prompt run in its own words: lists of recommendations per assistant, what was not counted, the follow-up by name apart; never 'answers name the business'", rr.code === 0 && want.every((x) => rl.includes(x)) && !rl.some((l) => /answers name the business|named in \d+ of/.test(l)) && rl.some((l) => l.startsWith("- Listed most often instead: ") && !l.includes("Beta Realty")), `exit ${rr.code} | ${JSON.stringify(rl)}`);
+    const R2 = { cwd: path.join(tmp, "wr2") };   // the same report on the run whose one reply ignored the layout
+    fs.cpSync(R.cwd, R2.cwd, { recursive: true });
+    for (const sub of ["research", "captures"]) { const to = path.join(R2.cwd, "site-checks", HOST, ".pewp", sub); fs.rmSync(to, { recursive: true, force: true }); fs.cpSync(path.join(PR.pewp, sub), to, { recursive: true }); }
+    const rr2 = await run("report-live.mjs", [SITE, "--cwd", R2.cwd, "--snapshot", path.join(R2.cwd, "site-checks", HOST, "snapshots", "2026-10-24")], { env: { GSC_TOKEN_FILE: "", GSC_SERVICE_ACCOUNT_FILE: "", GSC_SERVICE_ACCOUNT_JSON_B64: "" } });
+    const rf2 = path.join(R2.cwd, "site-checks", HOST, ".pewp", "report.md"), none2 = (fs.existsSync(rf2) ? fs.readFileSync(rf2, "utf8") : "").split("\n").includes("- gemini: no list was counted: 8 layout not followed");
+    check("case 9: the live report prints the one-prompt run in its own words: lists of recommendations per assistant, what was not counted, the follow-up by name apart; never 'answers name the business'", rr.code === 0 && rr2.code === 0 && none2 && want.every((x) => rl.includes(x)) && !rl.some((l) => /answers name the business|named in \d+ of/.test(l)) && rl.some((l) => l.startsWith("- Listed most often instead: ") && !l.includes("Beta Realty")), `exit ${rr.code} | ${JSON.stringify(rl)}`);
     // ---- case 18h: the check record of ask-assistants.mjs (captures/ai-oneshot/<engine>-check.json, owner 2026-11-22 11:43) is not a reply: count, lock and blocked do not trip over it
     const CKW = world(BIZ), ckd = path.join(CKW.pewp, "captures", "ai-oneshot"), rec18 = (engine) => ({ engine, host: engine + ".test", shownAt: new Date().toISOString(), stage: "load", rang: true, answered: true, waitedSeconds: 10, secondShowing: false });
     await cmd(CKW, "build"); const lk1 = await cmd(CKW, "lock", "--by", "test");
-    W(path.join(ckd, "chatgpt-check.json"), rec18("chatgpt")); W(path.join(ckd, "perplexity-check.json"), rec18("perplexity")); W(path.join(A.pewp, "captures", "ai-oneshot", "chatgpt-check.json"), rec18("chatgpt"));
+    W(path.join(ckd, "chatgpt-check.json"), rec18("chatgpt")); W(path.join(ckd, "gemini-check.json"), rec18("gemini")); W(path.join(A.pewp, "captures", "ai-oneshot", "chatgpt-check.json"), rec18("chatgpt"));
     const bk = await cmd(CKW, "blocked", "gemini", "--reason", "sign-in wall");
     W(path.join(CKW.pewp, "business.json"), { ...BIZ, name: "Sample Valley Realty Group" });   // a changed prompt: a new lock is refused only when REPLY files answer the old one
     const lb = await cmd(CKW, "build"), lk2 = await cmd(CKW, "lock", "--by", "test");
@@ -151,7 +161,7 @@ async function scenarios(dir) {
     const ll2 = await cmd(LK, "lock", "--by", byText), lj2 = jr(lkf) || {};
     check("case 20b: a second lock of the same, unchanged prompt (the step run again) is NOT refused: exit 0, the hashes and the text are as before and the reply on file stays (it writes the lock again, with a new time)", ll2.code === 0 && lj2.promptHash === lj1.promptHash && lj2.hash1 === lj1.hash1 && lj2.hash2 === lj1.hash2 && lj2.by === byText && Date.parse(lj2.lockedAt) >= Date.parse(lj1.lockedAt) && fs.existsSync(path.join(LK.pewp, "captures", "ai-oneshot", "chatgpt-1.json")), d(ll2));
     const cnt20a = await cmd(LK, "count"), eng20a = jr(path.join(LK.pewp, "research", "ai-oneshot.json"))?.engines;
-    const askedDoc = { step: "ai-ask", at: new Date().toISOString(), outcomes: { chatgpt: "read", perplexity: "already asked", gemini: "blocked (sign-in wall)" } };
+    const askedDoc = { step: "ai-ask", at: new Date().toISOString(), outcomes: { chatgpt: "read", gemini: "blocked (sign-in wall)" } };
     W(path.join(LK.pewp, "captures", "ai-oneshot", "asked.json"), askedDoc);
     const cnt20b = await cmd(LK, "count"), eng20b = jr(path.join(LK.pewp, "research", "ai-oneshot.json"))?.engines;   // the same engines with asked.json beside the replies
     const blk20 = await cmd(LK, "blocked", "gemini", "--reason", "sign-in wall"), lkA = await cmd(LK, "lock", "--by", byText);
@@ -160,10 +170,38 @@ async function scenarios(dir) {
     W(path.join(AK.pewp, "business.json"), { ...BIZ, name: "Sample Valley Realty Group" });   // a changed prompt: a new lock is refused only when REPLY files answer the old one
     const akb = await cmd(AK, "build"), akl = await cmd(AK, "lock", "--by", byText);
     check("case 20c: with asked.json in the folder: count gives the same engines as without it, blocked and a second lock still work, and a changed prompt is locked again (asked.json is not a reply)", cnt20a.code === 0 && cnt20b.code === 0 && blk20.code === 0 && lkA.code === 0 && JSON.stringify(eng20b) === JSON.stringify(eng20a) && (eng20a || []).length > 0 && akb.code === 0 && akl.code === 0, [cnt20a, blk20, lkA, cnt20b, akb, akl].map(d).join(" || "));
-    // ---- case 10: three assistants (owner, 2026-11-22: copilot is a wrapper for GPT and leaves)
+    // ---- case 10: two assistants (copilot left on 2026-11-22; Perplexity leaves the paste form, owner's pick M332)
     const three = await Promise.all([cmd(A, "box", "copilot", "1", "--file", boxF), cmd(A, "blocked", "copilot", "--reason", "sign-in wall"), cmd(A, "save", "nobody", "1", "--file", boxF)]);
     const listed = three.map((r) => (/the assistant is one of ([a-z, ]+)/.exec(r.out) || [])[1]);
-    check("case 10: the assistants a new run asks are three: chatgpt, perplexity, gemini; copilot is refused (exit 2) with exactly that list, by box and by blocked, as any other name is", three.every((r) => r.code === 2) && listed.every((l) => l === "chatgpt, perplexity, gemini") && !fs.existsSync(path.join(A.pewp, "captures", "ai-oneshot", "copilot-blocked.json")), three.map((r) => d(r)).join(" || "));
+    check("case 10: the assistants a new run asks are two: chatgpt, gemini; copilot is refused (exit 2) with exactly that list, by box and by blocked, as any other name is", three.every((r) => r.code === 2) && listed.every((l) => l === "chatgpt, gemini") && !fs.existsSync(path.join(A.pewp, "captures", "ai-oneshot", "copilot-blocked.json")), three.map((r) => d(r)).join(" || "));
+    // ---- case 21: Perplexity left the paste form (its terms bar a manual process too); count writes one gap line for it, with the stand-in RT-A
+    const QUOTE = "or engage in any manual process to do the same", AT = "perplexity-terms.txt:97";
+    const tree = (w) => walk(w.cwd).map((p) => `${path.relative(w.cwd, p)} ${fs.statSync(p).size} ${fs.statSync(p).mtimeMs}`).sort().join("\n");
+    const PX = world(BIZ);
+    await cmd(PX, "build"); await cmd(PX, "lock", "--by", "test"); W(boxF, text1); W(ansF, CHATGPT);
+    const noShell = path.join(tmp, "empty-path");   // clip is run with no PowerShell to be found, so a clip that is not refused cannot touch the machine's clipboard
+    fs.mkdirSync(noShell);
+    const noPs = Object.fromEntries([...Object.keys(process.env).filter((k) => k.toUpperCase() === "PATH"), "PATH"].map((k) => [k, noShell]));
+    const was = tree(PX);
+    const px = [
+      ["clip", await run("ai-oneshot.mjs", ["clip", SITE, "perplexity", "1", "--cwd", PX.cwd], { env: noPs })],
+      ["box", await cmd(PX, "box", "perplexity", "1", "--file", boxF)],
+      ["save", await cmd(PX, "save", "perplexity", "1", "--file", ansF)],
+      ["save --owner-pasted", await cmd(PX, "save", "perplexity", "1", "--file", ansF, "--owner-pasted")],
+      ["blocked", await cmd(PX, "blocked", "perplexity", "--reason", "sign-in wall")],
+    ];
+    for (const [verb, r] of px) check(`case 21a: ${verb} for perplexity is REFUSED (exit 1) with one line that quotes the terms and names the line of the file`, r.code === 1 && r.out.trim().split("\n").length === 1 && r.out.startsWith("REFUSED: ") && r.out.includes(QUOTE) && r.out.includes(AT), d(r));
+    check("case 21a: after clip, box, save and blocked for perplexity no file is written or changed", tree(PX) === was, tree(PX));
+    const g0 = await cmd(PX, "count");
+    check("case 21b: with no reply and no blocked assistant on file the count is still BLOCKED: the gap line is not a sitting", g0.code === 3 && /no reply and no blocked assistant/.test(g0.out) && !fs.existsSync(path.join(PX.pewp, "research", "ai-oneshot.json")), d(g0));
+    await ask(PX, "chatgpt", 1, CHATGPT); await ask(PX, "gemini", 1, PLAIN, "--signed-in");
+    const old = path.join(PX.pewp, "captures", "ai-oneshot", "perplexity-1.json");   // a reply saved before Perplexity left, under the same locked prompt
+    W(old, { engine: "perplexity", message: 1, promptHash: doc.promptHash, textHash: doc.hash1, capturedAt: new Date().toISOString(), signedIn: true, answerText: CHATGPT.replaceAll("Alpha Homes", "Omega Homes") });
+    const oldText = fs.readFileSync(old, "utf8");
+    const g1 = await cmd(PX, "count"), gres = jr(path.join(PX.pewp, "research", "ai-oneshot.json")) || {}, ge = gres.engines || [], gap = ge.filter((e) => e.engine === "perplexity");
+    check("case 21c: with chatgpt and gemini on file the count is OK: 2 read assistants and exactly one gap line for perplexity, with the terms line as its reason and the stand-in RT-A", g1.code === 0 && JSON.stringify(ge.filter((e) => e.status === "read").map((e) => e.engine)) === JSON.stringify(["chatgpt", "gemini"]) && ge.length === 3 && gap.length === 1 && gap[0].status === "gap" && gap[0].standIn === "RT-A" && String(gap[0].reason).includes(QUOTE) && String(gap[0].reason).includes(AT) && g1.out.split("\n").filter((l) => /^\s*perplexity: gap/.test(l)).length === 1, `${d(g1)} | ${JSON.stringify(gap)}`);
+    const gcap = path.join(PX.pewp, "captures", "ai"), gfiles = fs.existsSync(gcap) ? fs.readdirSync(gcap) : [];
+    check("case 21d: a perplexity reply already on file is not counted (no file in captures/ai, none of its names in any total) and is left where it is", !gfiles.some((x) => x.startsWith("perplexity")) && gfiles.length > 0 && !JSON.stringify(gres).includes("Omega Homes") && fs.existsSync(old) && fs.readFileSync(old, "utf8") === oldText, `${gfiles.join(" ")} | ${JSON.stringify(gres.instead).slice(0, 300)}`);
   } catch (e) {
     check("the test ran to its end", false, e.stack || e);
   }
@@ -175,7 +213,7 @@ const one = (name, from, to, ...expect) => ({ name, patches: [{ file: "ai-onesho
 const MUTANTS = [
   one("a check record is read as a reply", '/-[12]\\.json$/.test(x)', '/-[a-z0-9]+\\.json$/.test(x)', /^case 18h:/),
   one("asked.json is read as a reply", '/-[12]\\.json$/.test(x)', '/(-[12]|asked)\\.json$/.test(x)', /^case 20c:/),
-  one("copilot is back among the assistants", 'const ENGINES = ["chatgpt", "perplexity", "gemini"];', 'const ENGINES = ["chatgpt", "perplexity", "copilot", "gemini"];', /^case 10:/),
+  one("copilot is back among the assistants", 'const ENGINES = ["chatgpt", "gemini"];', 'const ENGINES = ["chatgpt", "copilot", "gemini"];', /^case 10:/),
   one("a service question loses its place", 'text: `In ${p.full}, who would you recommend for "${need}"?`', 'text: `Who would you recommend for "${need}"?`', /^case 1a:/),
   one("a US place without a state passes", "if (us && !p.state) throw new Blocked(", "if (false) throw new Blocked(", /^case 2:/),
   one("the name scan of message 1 is off", "if (leak) throw new Refused(", "if (false) throw new Refused(", /^case 3:/),
@@ -192,6 +230,12 @@ const MUTANTS = [
   one("a related business is listed instead", "real.filter((r) => r !== mine && !isRelated(r)).map((r) => r.name))]", "real.filter((r) => r !== mine).map((r) => r.name))]", /^case 6f:/),
   one("the owner's own paste is not recorded", 'pasted: a.has("owner-pasted") ? "by the owner, by hand" : "clipboard, box checked"', 'pasted: "clipboard, box checked"', /^case 5f:/),
   { name: "the live report ignores the one-prompt run", patches: [{ file: "report-live.mjs", from: "if (one) return one;", to: "if (false) return one;" }], expect: [/^case 9:/] },
+  one("perplexity is taken by clip, box and save again", "  refuseOut(engine);\n  if (!ENGINES.includes(engine)) throw new Usage(`the assistant is one of ${ENGINES.join(\", \")}`);\n  if (n !== 1", "  if (n !== 1", /^case 21a:/),
+  one("perplexity is taken by blocked again", "  refuseOut(engine);\n  if (!ENGINES.includes(engine)) throw new Usage(`the assistant is one of ${ENGINES.join(\", \")}`);\n  if (!reason)", "  if (!reason)", /^case 21a:/),
+  one("the refusal does not name the terms line", "is not asked by hand or by script: ${OUT[engine]}", "is not asked by hand or by script", /^case 21a:/),
+  one("the gap line is not written", "engines: [...engines, ...GAPS]", "engines", /^case 21c:/),
+  one("the gap line is not printed", "...GAPS.map(line), ", "", /^case 21c:/),
+  one("perplexity is counted again", 'const ENGINES = ["chatgpt", "gemini"];', 'const ENGINES = ["chatgpt", "perplexity", "gemini"];', /^case 21d:/),
   one("older answers are counted with the new", "if (old.length && !retire) throw new Refused(", "if (false) throw new Refused(", /^case 8a:/),
 ];
 

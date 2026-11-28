@@ -1,4 +1,4 @@
-// The assistants, asked by a script (owner, 2026-11-22): for each assistant, one after the other, the locked text 1 and then the locked text 2 in the SAME
+// The assistants, asked by a script (owner, 2026-11-22): for each assistant the paste form takes (chatgpt, gemini; perplexity is LEFT OUT, M332/J28: its terms bar a manual process too, RT-A stands in), one after the other, the locked text 1 and then the locked text 2 in the SAME
 // chat of the work browser (a browser on a debugging port). The texts go in by Input.insertText in small pieces at the fixed pace below, never by key presses; ai-oneshot.mjs does every check and every
 // save (box, save, blocked). No model is called. An assistant is never asked twice, a robot check is never passed (a 24 h stop, nothing clicked; a HUMAN check on ChatGPT and Perplexity is rung to the owner first, see below), a sign-in
 // form is never typed into, and no chat history or side list is read: the script reads only the page's own composer, send, reply, busy and mode elements, and the
@@ -55,6 +55,7 @@ const USAGE = "usage: node ask-assistants.mjs <url> [--engines a,b] [--engines-f
 const FLAGS = new Set(["engines", "engines-file", "port", "cwd"]);   // no other flag: none of them changes the pace
 const ROBOT_WORDS = /just a moment|verifying you are human|verify you are (?:a )?human|checking your browser|attention required/i;   // a robot check's title or text
 const CHECK_FRAME = 'iframe[src*="challenges.cloudflare.com"], iframe[src*="hcaptcha.com"], iframe[src*="recaptcha"], iframe[title*="challenge" i]';   // a check frame in the page: seen as an element, its inside is never read
+const LEFT_OUT = new Set(["perplexity"]);   // J28: not asked by script or paste; ai-oneshot.mjs REFUSES it
 const HUMAN_CHECK = new Set(["ring", "stop"]);   // an engine's "humanCheck"; absent means "stop"
 class Stop extends Error { constructor(line, code) { super(line); this.line = line; this.code = code; } }
 
@@ -112,9 +113,12 @@ async function main() {
   let pace;   // read once, here, and checked before any page is loaded; nothing below changes it
   try { pace = checkPace(all.pace); } catch (e) { if (e instanceof PaceError) throw new Stop(e.message + " (key: " + e.key + ")\n" + USAGE, 2); throw e; }
   const engineNames = Object.keys(all).filter((k) => k !== "pace");
-  const names = opt.has("engines") ? opt.get("engines").split(",").map((s) => s.trim()).filter(Boolean) : engineNames;
-  const unknown = names.filter((n) => !engineNames.includes(n));
-  if (!names.length || unknown.length) throw new Stop("the engines file has no engine " + (unknown.join(", ") || "(none given)") + "; it has " + engineNames.join(", ") + "\n" + USAGE, 2);
+  const listed = opt.has("engines") ? opt.get("engines").split(",").map((s) => s.trim()).filter(Boolean) : engineNames;
+  const unknown = listed.filter((n) => !engineNames.includes(n));
+  if (!listed.length || unknown.length) throw new Stop("the engines file has no engine " + (unknown.join(", ") || "(none given)") + "; it has " + engineNames.join(", ") + "\n" + USAGE, 2);
+  const names = listed.filter((n) => !LEFT_OUT.has(n));   // the paste form of ai-oneshot.mjs does not take these: never loaded, nothing written
+  for (const n of listed) if (LEFT_OUT.has(n)) console.log("LEFT OUT: " + n + " is not asked (its terms bar a manual process too); the gap stays, stand-in RT-A (our own signals)");
+  if (!names.length) throw new Stop("REFUSED: " + listed.join(", ") + " is not asked (left out of the paste form; RT-A stands in)", 1);
 
   for (const n of names) {   // before any page is loaded
     const v = all[n] && all[n].humanCheck;

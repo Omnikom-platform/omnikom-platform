@@ -18,7 +18,9 @@
 //                                       them as before. A reply about another place or one that ignored the layout is never counted as "not listed".
 //                                       Older files in captures/ai/ (answers to other questions) stop the count; --retire-old moves them, unchanged, to
 //                                       captures/ai-retired/.
-// Engines: chatgpt, perplexity, gemini (owner, 2026-11-22: copilot is a wrapper for GPT and is out; an old copilot capture is still read by the old reader, never asked again). Exit 0 = done, 1 = REFUSED (a rule above), 2 = usage, 3 = BLOCKED (something is missing).
+// Engines: chatgpt, gemini (owner, 2026-11-22: copilot is a wrapper for GPT and is out; an old copilot capture is still read by the old reader, never asked again). Perplexity is
+// REFUSED by clip, box, save and blocked (its terms bar a manual process too, owner's pick M332); count writes one gap line for it in research/ai-oneshot.json, stand-in RT-A.
+// Exit 0 = done, 1 = REFUSED (a rule above), 2 = usage, 3 = BLOCKED (something is missing).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -30,7 +32,12 @@ import { relatedOf } from "./lib-related.mjs";
 
 class Refused extends Error {}
 const here = path.dirname(fileURLToPath(import.meta.url));
-const ENGINES = ["chatgpt", "perplexity", "gemini"];
+const ENGINES = ["chatgpt", "gemini"];
+// Perplexity left the paste form (owner's pick M332; head of operations' ruling: its terms bar a manual process too). It is a gap with our own signals standing in (RT-A:
+// AI crawler access, Search Console AI-feature traffic, assistant visits in our sites' logs). A reply of it already on file stays where it is and is never counted.
+const OUT = { perplexity: 'its terms bar a manual process too: "or engage in any manual process to do the same" (head-of-operations/drafts/audit-router/sources/perplexity-terms.txt:97)' };
+const GAPS = Object.entries(OUT).map(([engine, reason]) => ({ engine, status: "gap", reason, standIn: "RT-A" }));
+const refuseOut = (engine) => { if (Object.hasOwn(OUT, engine)) throw new Refused(`${engine} is not asked by hand or by script: ${OUT[engine]}`); };
 const CLASSES = ["listed", "not listed", "no list", "layout not followed", "not reached", "other place"];
 const MARK = "---PROMPT---";
 const STATES = { AL: "alabama", AK: "alaska", AZ: "arizona", AR: "arkansas", CA: "california", CO: "colorado", CT: "connecticut", DE: "delaware", FL: "florida", GA: "georgia", HI: "hawaii", ID: "idaho", IL: "illinois", IN: "indiana", IA: "iowa", KS: "kansas", KY: "kentucky", LA: "louisiana", ME: "maine", MD: "maryland", MA: "massachusetts", MI: "michigan", MN: "minnesota", MS: "mississippi", MO: "missouri", MT: "montana", NE: "nebraska", NV: "nevada", NH: "new hampshire", NJ: "new jersey", NM: "new mexico", NY: "new york", NC: "north carolina", ND: "north dakota", OH: "ohio", OK: "oklahoma", OR: "oregon", PA: "pennsylvania", RI: "rhode island", SC: "south carolina", SD: "south dakota", TN: "tennessee", TX: "texas", UT: "utah", VT: "vermont", VA: "virginia", WA: "washington", WV: "west virginia", WI: "wisconsin", WY: "wyoming", DC: "district of columbia" };
@@ -136,6 +143,7 @@ function input(a) {
 
 function turn(ctx, engine, nRaw) {
   const f = F(ctx), n = Number(nRaw), lock = J(f.lock);
+  refuseOut(engine);
   if (!ENGINES.includes(engine)) throw new Usage(`the assistant is one of ${ENGINES.join(", ")}`);
   if (n !== 1 && n !== 2) throw new Usage("the message is 1 (the prompt) or 2 (the follow-up)");
   if (!lock) throw new Blocked("the prompt is not locked | unblocks: node ai-oneshot.mjs lock <url> --by \"<who read both texts>\"");
@@ -183,6 +191,7 @@ function save(ctx, a, engine, nRaw) {
 
 function blocked(ctx, a, engine) {
   const f = F(ctx), reason = a.get("reason"), lock = J(f.lock);
+  refuseOut(engine);
   if (!ENGINES.includes(engine)) throw new Usage(`the assistant is one of ${ENGINES.join(", ")}`);
   if (!reason) throw new Usage("blocked needs --reason \"<what stopped it>\"");
   if (!lock) throw new Blocked("the prompt is not locked | unblocks: node ai-oneshot.mjs lock <url> --by \"<who read both texts>\"");
@@ -351,10 +360,10 @@ function count(ctx, a) {
   const top = (m) => [...m].map(([name, v]) => ({ name, count: v.count, engines: v.engines.size })).sort((x, y) => y.count - x.count || String(x.name).localeCompare(String(y.name)));
   const read = engines.filter((e) => e.status === "read"), askedOn = read.map((e) => String(e.capturedAt).slice(0, 10)).sort()[0] || null;
   for (const e of read) for (const h of new Set(e.sites.flatMap((s) => s.rows.flatMap((r) => r.urls.map(hostOf).filter(Boolean))))) bump(siteHosts, h, e.engine);
-  W(f.out, { step: "ai-oneshot", status: "ok", generatedAt: iso(), promptHash: lock.promptHash, askedOn, questions: N, engines, instead: top(instead), sources: top(hosts), sites: top(siteHosts), ownSiteNamed: !!dom(b.domain) && hosts.has(dom(b.domain)), note: "one reply from each assistant: a business left out of one reply can be in the next; no number here is a rate" });
+  W(f.out, { step: "ai-oneshot", status: "ok", generatedAt: iso(), promptHash: lock.promptHash, askedOn, questions: N, engines: [...engines, ...GAPS], instead: top(instead), sources: top(hosts), sites: top(siteHosts), ownSiteNamed: !!dom(b.domain) && hosts.has(dom(b.domain)), note: "one reply from each assistant: a business left out of one reply can be in the next; no number here is a rate" });
   const line = (e) => (e.status !== "read" ? `${e.engine}: ${e.status}${e.reason ? ` (${e.reason})` : ""}`
     : `${e.engine}: the business is listed in ${e.listed} of ${e.counted} counted questions${e.questions.filter((q) => q.rank).map((q) => ` (${q.id} rank ${q.rank})`).join("")}; of ${N} asked: ${Object.entries(e.classes).map(([k, v]) => `${v} ${k}`).join(", ")}${e.placeStated ? "" : "; the place it answered for is not stated"}${e.byName ? `; by name: ${e.byName.layout === "read" ? `knows it ${e.byName.known || "?"}, phone ${e.byName.phone}, website ${e.byName.website}` : "layout not followed"}` : "; no follow-up on file"}`);
-  return `OK ai-oneshot count: asked once on ${askedOn || "(no reply)"}, prompt ${lock.promptHash.slice(0, 8)}${old.length ? `; ${old.length} older file(s) moved to captures/ai-retired` : ""}\n  ${[...engines.map(line), ...notes].join("\n  ")}\n  -> ${f.out}\n  next: node import-ai.mjs <url> --cwd <skill> reads captures/ai/ as before`;
+  return `OK ai-oneshot count: asked once on ${askedOn || "(no reply)"}, prompt ${lock.promptHash.slice(0, 8)}${old.length ? `; ${old.length} older file(s) moved to captures/ai-retired` : ""}\n  ${[...engines.map(line), ...GAPS.map(line), ...notes].join("\n  ")}\n  -> ${f.out}\n  next: node import-ai.mjs <url> --cwd <skill> reads captures/ai/ as before`;
 }
 
 // ---------------------------------------------------------------- command line
