@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1099,
+    "sources": 1100,
     "unowned": 0
   },
   "files": [
@@ -324,6 +324,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/launch.mjs","owner":"seo-and-audits","exports":["ACCESS","ALLOWED_MANUAL","ITEMS","blockValidity","checkLiveHeaders","evaluate","evaluateAll","isLocalHost","main","robotsAllows"],"tests":["apps/dashboard/tests/media.spec.ts","factory/test/mutate.mjs","factory/test/run.mjs","tools/audit/test/run.mjs","tools/golive/search-gate.test.mjs","tools/golive/site-manifest.test.mjs"],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-aria-roles.mjs","owner":"seo-and-audits","exports":["ANY","checkRole","parseAttrs","roleViolations","rolesFor","startTags","stripNonMarkup"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-ask-pace.mjs","owner":"seo-and-audits","exports":["FOCUS_MODES","PACE_KEYS","PaceError","checkPace","focusOf","io","pause","pieces","readingSeconds","wordCount"],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-ask-test-groups.mjs","owner":"seo-and-audits","exports":["CASE_GROUP","GROUPS","NEEDS","closure","groupsFor","parseGroups"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-browser-profile.mjs","owner":"seo-and-audits","exports":["chromeTime","keepLocalState","seedProfile","spawnBrowser"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-captures.mjs","owner":"seo-and-audits","exports":["cli","count","daysSince","host","isHttp","nonEmpty","round","runImporter","toDate","toNum"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/lib-driver-ledger.mjs","owner":"seo-and-audits","exports":["KINDS","RESULTS","WHY","hostForm","ledgerFile","lineOf","record"],"tests":[],"feature":""},
