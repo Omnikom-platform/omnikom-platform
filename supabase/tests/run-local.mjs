@@ -1071,10 +1071,23 @@ const MUTANTS = [
   ["alert54: another business's login is mailed", 'where m.workspace_id = ws and m.team_row_id', 'where m.team_row_id'],   // T54g
   ['alert54: an address listed twice is queued twice', '      and not exists (select 1 from unnest(tos) x where lower(btrim(x)) = a) then', '      and true then'],   // T54f
   ['alert54: a bad address is queued', "    if a ~ '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$' and length(a) <= 254", '    if a is not null'],   // T54e
-  ['alert54: the address is not lower-cased', 'select lower(btrim(u.email)) into a', 'select btrim(u.email) into a'],   // T54a
+  ['alert54: the address is not lower-cased', 'in select lower(btrim(u.email)) from', 'in select btrim(u.email) from'],   // T54a
   ['alert54: a retry before the send raises on the agent row', "values (p_lead, 'new-lead', a) on conflict do nothing;", "values (p_lead, 'new-lead', a);"],   // T54a
   ['alert54: an address over 254 characters is queued', "    if a ~ '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$' and length(a) <= 254", "    if a ~ '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$'"],   // T54e
   ['alert54: the agent is mailed only beside a listed address', '  if assignee and owner is not null then', '  if assignee and owner is not null and cardinality(tos) > 0 then'],   // T54i
+  // ---- D8b (migration 55): every login of the team profile is mailed; team alerts have their own daily limit; tests T55. Run only these: --only "alert55" ----
+  ['alert55: only the lowest login of the team row is mailed', 'order by m.user_id loop', 'order by m.user_id limit 1 loop'],   // T55a
+  ['alert55: the same address of two logins is queued twice', "values (p_lead, 'new-lead', a) on conflict do nothing;", "values (p_lead, 'new-lead', a);"],   // T55b
+  ['alert55: a login that is skipped ends the list', "        if found then n := n + 1; end if;\n      end if;\n    end loop;", "        if found then n := n + 1; end if;\n      else exit;\n      end if;\n    end loop;"],   // T55c, T55d
+  ['alert55: a team alert counts toward the client cap', "count(*) filter (where m.workspace_id = p_workspace and (m.template is distinct from 'new-lead' or m.channel <> 'email'))", 'count(*) filter (where m.workspace_id = p_workspace)'],   // T55f
+  ['alert55: a team alert is told from other mail by nothing', "  team := p_channel = 'email' and p_template = 'new-lead';", '  team := false;'],   // T55f, T55g
+  ['alert55: a team alert is held by the workspace cap, not its own limit', '  if team then', '  if false then'],   // T55g
+  ['alert55: the team limit is not enforced', 'if cap_ws is not null and sent_team >= cap_ws then', 'if false then'],   // T55g
+  ['alert55: the team limit is one above the cap', 'sent_team >= cap_ws then', 'sent_team >= cap_ws + 1 then'],   // T55g
+  ['alert55: the team limit is one below the cap', 'sent_team >= cap_ws then', 'sent_team >= cap_ws - 1 then'],   // T55g
+  ['alert55: the team count is of every business', "count(*) filter (where m.workspace_id = p_workspace and m.template = 'new-lead')", "count(*) filter (where m.template = 'new-lead')"],   // T55e, T55g
+  ['alert55: an SMS named new-lead escapes the SMS cap', "(m.template is distinct from 'new-lead' or m.channel <> 'email'))", "m.template is distinct from 'new-lead')"],   // T55h
+  ["alert55: a held team alert is not kept for the next day", "why := 'daily cap (team alerts)'", "why := 'team alerts'"],   // T55g
 ];
 
 // 5-PORT mutants: [name, 'lib' = lib/cluster-port.mjs | 'harness' = this file, text to find, text to put instead]

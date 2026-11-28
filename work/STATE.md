@@ -37,7 +37,7 @@ state: `docs/product/1-product.md`. How we work: `docs/departments/README.md`. G
 
 ## Migrations
 - An unlanded migration takes the next free number above every file in the tree and lands in number order (staging applies
-  in file-name order); no number is promised ahead. In the tree: through 54 (no 51).
+  in file-name order); no number is promised ahead. In the tree: through 55 (no 51).
 
 ## BLOCKED and UNPROVEN
 - E21 on staging: the webhook exists, a real bounce through it is UNPROVEN. E9's new path: the token is set, a real publish is UNPROVEN.

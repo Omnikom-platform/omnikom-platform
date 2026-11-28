@@ -571,9 +571,9 @@ select service.lead_sms_stop(test.id('leadS'), '{"reply":"STOP"}');
 select test.expect_error(format($q$select * from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', %L, null, 'sms', 'booking-reminder', '+15555550101', null, '2026-11-02 18:00+00', 'rem-2')$q$, test.id('leadS')), 'M-STOP');
 update platform_limits set value = 1 where key = 'email_per_day_workspace';
 do $$ declare r record; begin
-  select * into r from service.record_message('bbbbbbbb-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000b', 'email', 'new-lead', 'owner-b@test', null, '2026-11-02 19:30+00');
+  select * into r from service.record_message('bbbbbbbb-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000b', 'email', 'owner-notice', 'owner-b@test', null, '2026-11-02 19:30+00');   -- not 'new-lead': a team alert has its own limit (T55)
   assert r.state = 'queued', 'B is not blocked by A''s messages (per-workspace cap)';
-  select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000a', 'email', 'new-lead', 'owner-a@test', null, '2026-11-02 19:30+00');
+  select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000a', 'email', 'owner-notice', 'owner-a@test', null, '2026-11-02 19:30+00');
   assert r.state = 'blocked' and r.reason = 'daily cap (workspace)', 'A hit its own daily cap';
 end $$;
 update platform_limits set value = 40 where key = 'email_per_day_workspace';
@@ -3484,7 +3484,7 @@ insert into public.workspace_limits (workspace_id, key, value, note) values ('aa
 do $$ begin
   assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('t35_2')) = 2, 'T35e lead two is queued';
   assert (select count(*) from service.outbox_claim(10)) = 0, 'T35e a capped claim returns no row';
-  assert (select count(*) from public.messages where lead_id = test.id('t35_2') and template = 'new-lead' and state = 'blocked' and error = 'daily cap (workspace)') = 2, 'T35e both messages are blocked by the workspace''s daily cap';
+  assert (select count(*) from public.messages where lead_id = test.id('t35_2') and template = 'new-lead' and state = 'blocked' and error like 'daily cap%') = 2, 'T35e both messages are blocked by a daily cap (cap 0; which one, T55g says)';
   assert (select count(*) from public.mail_outbox where lead_id = test.id('t35_2') and message_id is not null and next_at = date_trunc('day', now()) + interval '1 day') = 2, 'T35e both rows wait for the next day';
 end $$;
 delete from public.workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'email_per_day_workspace';
@@ -4361,6 +4361,117 @@ do $$ begin
 end $$;
 drop function test.d8_lead(text, uuid);
 update public.sites set lead_alert_to = (select lead_alert_to from test.t54_site), alert_assignee = (select alert_assignee from test.t54_site) where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+
+-- ===== T55 D8b (migration 55): every login of the team profile gets the new-lead alert; team alerts have their own daily limit =====
+-- service.queue_lead_alert queues one row per distinct valid address of every login linked to the lead's owner team row (not only the lowest user id).
+-- service.record_message does not count a new-lead alert (the business's own team) toward the workspace's daily email cap: it counts them apart, per
+-- workspace, and stops them at the same number ('daily cap (team alerts)'); the client-facing email still stops at the cap. Checked on a day 30 days
+-- ahead, so no earlier message of this file is in the count. Superuser; the end of the block puts back site A's alert list, tick and email limit.
+-- Mutants "alert55: ..." in run-local.mjs.
+reset role;
+select test.act_as(null);
+create table test.t55_site as select lead_alert_to, alert_assignee from public.sites where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+create table test.t55_limit as select * from public.workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'email_per_day_workspace';
+delete from public.mail_outbox;
+insert into public.workspaces (id, slug, name, industry) values ('aaaaaaaa-0000-0000-0000-0000000000d8', 'test-d8b-other', 'D8B Other', 'real-estate-agent');
+create function test.t55_pn() returns timestamptz language sql as $$ select date_trunc('day', now()) + interval '30 days' + interval '1 hour' $$;
+create function test.d8b_lead(p_name text, p_owner uuid) returns uuid language sql as $$
+  insert into public.leads (workspace_id, site_id, form, page_path, name, email, consent_text, owner_team_row) values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-00000000517e', 'contact', '/', p_name, lower(replace(p_name, ' ', '-')) || '@test', 'I agree', p_owner) returning id $$;
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000d8b01', 'D8B-One@Example.Test'), ('00000000-0000-0000-0000-0000000d8b02', 'd8b-two@example.test'),
+  ('00000000-0000-0000-0000-0000000d8b03', 'D8B-Same@Example.Test'), ('00000000-0000-0000-0000-0000000d8b04', 'd8b-same@example.test'),
+  ('00000000-0000-0000-0000-0000000d8b05', 'no-at-sign-d8b'), ('00000000-0000-0000-0000-0000000d8b06', 'd8b-good@example.test');
+insert into test.ids select 'd8b_pair', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"D8B Pair","slug":"d8b-pair"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
+insert into test.ids select 'd8b_same', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"D8B Same","slug":"d8b-same"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
+insert into test.ids select 'd8b_mix', service.seed_version('aaaaaaaa-0000-0000-0000-000000000000', 'team', '{"name":"D8B Mix","slug":"d8b-mix"}', '00000000-0000-0000-0000-00000000005f', 'plan sitemap sha256 abc123');
+insert into members (workspace_id, user_id, role, team_row_id) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8b01', 'member', test.id('d8b_pair')), ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8b02', 'member', test.id('d8b_pair')),
+  ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8b03', 'member', test.id('d8b_same')), ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8b04', 'member', test.id('d8b_same')),
+  ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8b05', 'member', test.id('d8b_mix')), ('aaaaaaaa-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000d8b06', 'member', test.id('d8b_mix'));
+update public.sites set lead_alert_to = array['d8b-boss@example.test'], alert_assignee = true where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+-- (a) two logins on one team row: both are mailed, with the business: three rows
+insert into test.ids select 'd8b_la', test.d8b_lead('D8B Lead A', test.id('d8b_pair'));
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8b_la')) = 3, 'T55a two logins on the team row and the business make three rows';
+  assert (select array_agg(to_text order by to_text) from public.mail_outbox where lead_id = test.id('d8b_la')) = array['d8b-boss@example.test', 'd8b-one@example.test', 'd8b-two@example.test'], 'T55a the rows are the business and both logins (lower-cased)';
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8b_la')) = 0 and (select count(*) from public.mail_outbox where lead_id = test.id('d8b_la')) = 3, 'T55a a retry adds nothing';
+end $$;
+-- (b) two logins with the same address (in other capitals): one row for it
+insert into test.ids select 'd8b_lb', test.d8b_lead('D8B Lead B', test.id('d8b_same'));
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8b_lb')) = 2, 'T55b the same address of two logins is queued once';
+  assert (select array_agg(to_text order by to_text) from public.mail_outbox where lead_id = test.id('d8b_lb')) = array['d8b-boss@example.test', 'd8b-same@example.test'], 'T55b the rows are the business and the one address';
+end $$;
+-- (c) one login with a bad address beside a good one: the good one is mailed, nothing is raised
+insert into test.ids select 'd8b_lc', test.d8b_lead('D8B Lead C', test.id('d8b_mix'));
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8b_lc')) = 2, 'T55c a bad address is skipped, the good login and the business are queued';
+  assert (select array_agg(to_text order by to_text) from public.mail_outbox where lead_id = test.id('d8b_lc')) = array['d8b-boss@example.test', 'd8b-good@example.test'], 'T55c the rows are the business and the good login';
+end $$;
+-- (d) a login's address already listed (in capitals): the other login is mailed, the listed one once
+update public.sites set lead_alert_to = array['D8B-ONE@example.test'] where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+insert into test.ids select 'd8b_ld', test.d8b_lead('D8B Lead D', test.id('d8b_pair'));
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8b_ld')) = 2, 'T55d a listed address counts once beside the other login';
+  assert (select array_agg(to_text order by to_text) from public.mail_outbox where lead_id = test.id('d8b_ld')) = array['D8B-ONE@example.test', 'd8b-two@example.test'], 'T55d the rows are the listed address and the other login';
+end $$;
+update public.sites set lead_alert_to = array['d8b-boss@example.test'] where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
+delete from public.mail_outbox;
+-- (e) the daily limits, on a day with no message yet. A's email cap is 3. The team alerts of another business (its own, active) that day must not count for A.
+-- (workspace B is deleted by T32 by now, which blocks its mail, so the other business is made here.)
+insert into public.workspace_limits (workspace_id, key, value, note) values ('aaaaaaaa-0000-0000-0000-000000000000', 'email_per_day_workspace', 3, 'T55')
+  on conflict (workspace_id, key) do update set value = excluded.value;
+do $$ declare r record; i int; begin
+  for i in 1..3 loop
+    select * into r from service.record_message('aaaaaaaa-0000-0000-0000-0000000000d8', null, null, 'email', 'new-lead', 'd8b-o' || i || '@example.test', null, test.t55_pn());
+    assert r.state = 'queued', 'T55e a team alert of the other business is queued: ' || r.state || ' ' || coalesce(r.reason, '');
+  end loop;
+  for i in 1..2 loop
+    select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', null, null, 'email', 't55-client', 'd8b-c' || i || '@example.test', null, test.t55_pn());
+    assert r.state = 'queued', 'T55e client mail ' || i || ' of A is queued';
+  end loop;
+end $$;
+-- the lead of d8b_same: two team alerts are recorded (2 of A's 3 team alerts)
+insert into test.ids select 'd8b_l1', test.d8b_lead('D8B Lead One', test.id('d8b_same'));
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8b_l1')) = 2, 'T55e lead one queues two rows';
+  create temp table t55_one on commit drop as select * from service.outbox_claim(1000, test.t55_pn());
+  assert (select count(*) from t55_one where lead_id = test.id('d8b_l1')) = 2, 'T55e both team alerts are claimed';
+  assert (select count(*) from public.messages where lead_id = test.id('d8b_l1') and template = 'new-lead' and state = 'queued') = 2, 'T55e both team alerts are recorded as queued';
+end $$;
+-- the team alerts did not use the cap: the third client mail goes, the fourth stops
+do $$ declare r record; begin
+  select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', null, null, 'email', 't55-client', 'd8b-c3@example.test', null, test.t55_pn());
+  assert r.state = 'queued', 'T55f the third client mail goes although two team alerts were sent that day: ' || r.state || ' ' || coalesce(r.reason, '');
+  select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', null, null, 'email', 't55-client', 'd8b-c4@example.test', null, test.t55_pn());
+  assert r.state = 'blocked' and r.reason = 'daily cap (workspace)', 'T55f the fourth client mail stops at the cap: ' || r.state || ' ' || coalesce(r.reason, '');
+end $$;
+-- A is at its cap, and still alerts its team up to the team limit (3 in all: one more goes, the next is held and recorded)
+insert into test.ids select 'd8b_l2', test.d8b_lead('D8B Lead Two', test.id('d8b_mix'));
+do $$ begin
+  assert service.queue_lead_alert('aaaaaaaa-0000-0000-0000-00000000517e', test.id('d8b_l2')) = 2, 'T55g lead two queues two rows';
+  create temp table t55_two on commit drop as select * from service.outbox_claim(1000, test.t55_pn());
+  assert (select count(*) from t55_two where lead_id = test.id('d8b_l2')) = 1, 'T55g one team alert more goes out although the workspace is at its cap';
+  assert (select count(*) from public.messages where lead_id = test.id('d8b_l2') and template = 'new-lead' and state = 'queued') = 1, 'T55g that alert is recorded as queued';
+  assert (select count(*) from public.messages where lead_id = test.id('d8b_l2') and template = 'new-lead' and state = 'blocked' and error = 'daily cap (team alerts)') = 1, 'T55g the next one is recorded as blocked by the team limit';
+  assert (select count(*) from public.mail_outbox o join public.messages m on m.id = o.message_id where o.lead_id = test.id('d8b_l2') and m.state = 'blocked' and o.next_at = date_trunc('day', test.t55_pn()) + interval '1 day') = 1, 'T55g the held alert waits for the next day';
+end $$;
+-- (h) the exemption is for the team's EMAIL alert only: an SMS with the template 'new-lead' still counts toward the workspace's SMS cap (found in review)
+insert into public.workspace_limits (workspace_id, key, value, note) values ('aaaaaaaa-0000-0000-0000-000000000000', 'sms_per_day_workspace', 2, 'T55h');
+do $$ declare r record; i int; begin
+  for i in 1..2 loop
+    select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000a', 'sms', 'new-lead', '+1555555020' || i, null, test.t55_pn() + interval '17 hours');   -- 10:00 Los Angeles
+    assert r.state = 'queued', 'T55h SMS ' || i || ' is queued: ' || r.state || ' ' || coalesce(r.reason, '');
+  end loop;
+  select * into r from service.record_message('aaaaaaaa-0000-0000-0000-000000000000', null, '00000000-0000-0000-0000-00000000000a', 'sms', 'new-lead', '+15555550203', null, test.t55_pn() + interval '17 hours');
+  assert r.state = 'blocked' and r.reason = 'daily cap (workspace)', 'T55h the third SMS stops at the SMS cap although its template is new-lead: ' || r.state || ' ' || coalesce(r.reason, '');
+end $$;
+delete from public.workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'sms_per_day_workspace';
+drop function test.d8b_lead(text, uuid);
+drop function test.t55_pn();
+delete from public.workspace_limits where workspace_id = 'aaaaaaaa-0000-0000-0000-000000000000' and key = 'email_per_day_workspace';
+insert into public.workspace_limits select * from test.t55_limit;
+update public.sites set lead_alert_to = (select lead_alert_to from test.t55_site), alert_assignee = (select alert_assignee from test.t55_site) where id = 'aaaaaaaa-0000-0000-0000-00000000517e';
 
 select 'ALL TENANCY TESTS PASSED' as result;
 rollback;
