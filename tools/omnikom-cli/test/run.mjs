@@ -60,6 +60,17 @@ async function units() {
   // ---- E5-SIG: the model of capture-lead (harness.mjs makeFunctionModel) loads the function's own key cache with Node, which strips the types and runs no other TypeScript
   const keyCache = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'site-keys.ts')).href).then(m => { const c = new m.SiteKeyCache(1000, 2, () => 0); c.put(UUID_X.toUpperCase(), [{ id: 'k', secret: 's' }]); return JSON.stringify(c.get(UUID_X)); }, e => `not loaded: ${e.code || e.message}`);
   check('site keys: Node loads site-keys.ts as it is, and the cache gives back what was put', keyCache === '[{"id":"k","secret":"s"}]', keyCache);
+  // E5-SIG (R4): verify's wait is the function's KEY_CACHE_MS + 500 ms: 10.5 s against staging (a real fetch), under 1 s for the harness model, which holds keys for its own short time
+  const { keyWaitMs } = await import(pathToFileURL(join(CLI_ROOT, 'commands', 'verify.mjs')).href);
+  const stagingMs = await keyWaitMs(globalThis.fetch), modelMs = await keyWaitMs({ keyCacheMs: 400 });
+  check('verify: the wait for the held keys is 10500 ms against staging (KEY_CACHE_MS + 500) and 900 ms for a model that holds them 400 ms', stagingMs === 10_500 && modelMs === 900 && modelMs < 1000, `staging ${stagingMs}, model ${modelMs}`);
+  // The mutation runner runs a COPY of the CLI from a temp folder (test/mutate.mjs makeCopy): a path from verify.mjs up to the repository would not exist there, and the whole CLI would not load (every mutant "caught", the baseline red).
+  { const cp = mkdtempSync(join(tmpdir(), 'omnikom-cli-loadcopy-'));
+    try {
+      cpSync(CLI_ROOT, cp, { recursive: true });
+      const r = spawnSync(process.execPath, [join(cp, 'omnikom.mjs'), '--help'], { env: { ...process.env, OMNIKOM_REPO_ROOT: REPO_ROOT }, encoding: 'utf8', timeout: 60000 });
+      check('verify.mjs: a copy of the CLI in a temp folder still loads (the mutants run copies; the repository is reached through OMNIKOM_REPO_ROOT, not a relative path)', r.status === 0 && /"ok": true/.test(r.stdout), `exit ${r.status} ${String(r.stderr).split('\n').find(l => /Error/.test(l)) || ''}`.slice(0, 300));
+    } finally { rmSync(cp, { recursive: true, force: true }); } }
 
   // ---- rule 1: redaction
   const S = rand();
@@ -1508,7 +1519,11 @@ commit;`;
     // ---- verify --only lead, against the model and against a broken model
     const sigs = [];   // the signature of every capture-lead post of this run, in order
     const spied = (u, i) => { if (/capture-lead/.test(String(u))) sigs.push(i.headers['x-site-signature']); return model(u, i); };
-    r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: spied });
+    spied.keyCacheMs = model.keyCacheMs;   // a wrapper hides the model's own short cache time, and verify would then wait the staging 10.5 s
+    const delays = [], realSetTimeout = globalThis.setTimeout;   // the longest wait verify asks for: the model's own 900 ms, never the staging 10.5 s (R4: no wasted CI minutes)
+    globalThis.setTimeout = (fn, ms, ...a) => { delays.push(ms); return realSetTimeout(fn, ms, ...a); };
+    try { r = await run(['verify', ...T, '--only', 'lead'], sendEnv, { fetch: spied }); } finally { globalThis.setTimeout = realSetTimeout; }
+    check('verify: against a wrapped function model the key wait is the model\'s 900 ms, not the staging 10.5 s', delays.includes(900) && Math.max(...delays) < 10_000, `delays ${[...new Set(delays)].sort((a, b) => a - b).join(',')}`);
     check('verify: the retry of the same key is signed at another second than the first post (a true replay would prove the claim, not the key)', sigs.length >= 2 && Boolean(sigs[0]) && sigs[0] !== sigs[1], `first ${String(sigs[0]).slice(0, 24)} retry ${String(sigs[1]).slice(0, 24)}`);
     check('verify --only lead: every check PASSes against the function model',r.exit === 0 && r.json.data.failed === 0 && r.json.data.checks.length === 17 && /^PASS /.test(r.stderr), r.all.slice(0, 600));
     check('verify: the ledger checks of migration 7 are in the suite and PASS (refused signatures, suspended, consent once, retry adds none)', ['a refused signature that needs the key is recorded once, one that cannot verify costs no database work', 'the paused refusal is recorded once in security_events as suspended', 'an accepted lead has exactly one consent_ledger row', 'a retry adds no consent_ledger row'].every(n => r.json.data.checks.some(c => c.name === n && c.pass)) && /deltas=0,0,0,1/.test(r.stderr), r.stderr.slice(0, 900));

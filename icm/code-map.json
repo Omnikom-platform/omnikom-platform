@@ -1,7 +1,7 @@
 {
   "version": 1,
   "counts": {
-    "sources": 1097,
+    "sources": 1099,
     "unowned": 0
   },
   "files": [
@@ -960,7 +960,7 @@
     {"path":"tools/omnikom-cli/commands/tools.mjs","owner":"cli-and-testing","exports":["toolsGroup"],"tests":["tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/commands/truth.mjs","owner":"cli-and-testing","exports":["truth","truthText"],"tests":["tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/truth.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/commands/usage.mjs","owner":"cli-and-testing","exports":["MARGIN","STALE_MIN","WINDOW_MIN","fitWeights","meterRate","usageGroup"],"tests":["tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/usage.mjs"],"feature":""},
-    {"path":"tools/omnikom-cli/commands/verify.mjs","owner":"cli-and-testing","exports":["WALLS_WAITING","verify"],"tests":["tools/omnikom-cli/test/mutate.mjs"],"feature":""},
+    {"path":"tools/omnikom-cli/commands/verify.mjs","owner":"cli-and-testing","exports":["WALLS_WAITING","keyWaitMs","verify"],"tests":["tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/lib/args.mjs","owner":"cli-and-testing","exports":["RETIRED","SLUG","SWITCHES","isUuid","need","needUuid","parseArgs"],"tests":["tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs","tools/omnikom-cli/test/skill-check.mjs","tools/omnikom-cli/test/wrap.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/lib/browser.mjs","owner":"cli-and-testing","exports":["BROWSER_LOCK_WAIT_MS","DEVTOOLS_WAIT_MS","browserLockPath","findBrowser","launchBrowser","seedProfile"],"tests":["tools/design-engine/tests/test-design-engine.mjs","tools/omnikom-cli/test/harness.mjs","tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/journey.mjs","tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/toolkit.mjs","tools/proc-guard/test/run.mjs"],"feature":""},
     {"path":"tools/omnikom-cli/lib/checkout.mjs","owner":"cli-and-testing","exports":["GATES_ROOT","checkRoot","commonDirOf","removeCheckout","treeOf","withTreeCheckout"],"tests":["tools/omnikom-cli/test/impact-stamp-hooks.mjs","tools/omnikom-cli/test/mutate.mjs"],"feature":""},
@@ -1069,7 +1069,7 @@
     {"path":"tools/site-backup/test-loaders.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"tools/site-backup/test-urls.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"tools/site-backup/test-verify-gates.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
-    {"path":"tools/site-backup/verify.mjs","owner":"platform-build","exports":[],"tests":["tools/omnikom-cli/test/mutate.mjs"],"feature":""},
+    {"path":"tools/site-backup/verify.mjs","owner":"platform-build","exports":[],"tests":["tools/omnikom-cli/test/mutate.mjs","tools/omnikom-cli/test/run.mjs"],"feature":""},
     {"path":"tools/site-backup/view.mjs","owner":"platform-build","exports":[],"tests":[],"feature":""},
     {"path":"tools/site-sign/deploy-signed.mjs","owner":"cli-and-testing","exports":["deploy","probe","upload"],"tests":["tools/site-sign/deploy-signed.test.mjs"],"feature":""},
     {"path":"tools/site-sign/deploy-signed.test.mjs","owner":"cli-and-testing","exports":[],"tests":[],"feature":""},

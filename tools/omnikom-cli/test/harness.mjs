@@ -166,10 +166,10 @@ export async function cli(argv, env, deps = {}) {
 // accepted call (private.record_consent again); with `pausedAs500` a paused site answers 500, as before step 3; with `noClaim` a
 // function takes one signature twice (no claim, as before migration 53); with `lateShape` a header that cannot verify is not refused
 // before the keys are looked at (the function before E6, with the key cache of E5 in it): each is a broken function that `verify` must catch.
-export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIdem = false, doubleAlert = false, noSecurityLog = false, doubleConsent = false, pausedAs500 = false, noClaim = false, lateShape = false }) {
+export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIdem = false, doubleAlert = false, noSecurityLog = false, doubleConsent = false, pausedAs500 = false, noClaim = false, lateShape = false, keyCacheMs = 400 }) {
   const { verify } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'signature.ts')).href);
-  const { SiteKeyCache, KEY_CACHE_MS, KEY_CACHE_SITES } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'site-keys.ts')).href);
-  const cache = new SiteKeyCache(KEY_CACHE_MS, KEY_CACHE_SITES);   // E5-SIG: the function's own cache class, one per model (as one function instance)
+  const { SiteKeyCache, KEY_CACHE_SITES } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'site-keys.ts')).href);
+  const cache = new SiteKeyCache(keyCacheMs, KEY_CACHE_SITES);   // E5-SIG: the function's own cache class, one per model (as one function instance)
   const sql = makeSql({ url: dbUrl });
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const lit = v => (v === null || v === undefined ? 'null' : `'${String(v).replace(/'/g, "''")}'`);
@@ -232,6 +232,7 @@ export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIde
     return reply(202, { ok: true });
   }
   model.calls = calls;
+  model.keyCacheMs = keyCacheMs;   // verify waits this long (plus 500 ms) for the held keys to run out, as it waits KEY_CACHE_MS + 500 ms against staging
   return model;
 }
 
