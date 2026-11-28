@@ -164,8 +164,9 @@ export async function cli(argv, env, deps = {}) {
 // or suspended workspace answers 409, a quota 429, and the consent ledger row is written by service.capture_lead itself (never by
 // the model). With `noSecurityLog` a refusal is not recorded; with `doubleConsent` a second consent row is written for every
 // accepted call (private.record_consent again); with `pausedAs500` a paused site answers 500, as before step 3; with `noClaim` a
-// function takes one signature twice (no claim, as before migration 53): each is a broken function that `verify` must catch.
-export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIdem = false, doubleAlert = false, noSecurityLog = false, doubleConsent = false, pausedAs500 = false, noClaim = false }) {
+// function takes one signature twice (no claim, as before migration 53); with `lateShape` a header that cannot verify is not refused
+// before the keys are looked at (the function before E6, with the key cache of E5 in it): each is a broken function that `verify` must catch.
+export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIdem = false, doubleAlert = false, noSecurityLog = false, doubleConsent = false, pausedAs500 = false, noClaim = false, lateShape = false }) {
   const { verify } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'signature.ts')).href);
   const { SiteKeyCache, KEY_CACHE_MS, KEY_CACHE_SITES } = await import(pathToFileURL(join(REPO_ROOT, 'supabase', 'functions', '_shared', 'site-keys.ts')).href);
   const cache = new SiteKeyCache(KEY_CACHE_MS, KEY_CACHE_SITES);   // E5-SIG: the function's own cache class, one per model (as one function instance)
@@ -192,7 +193,7 @@ export async function makeFunctionModel({ makeSql, dbUrl, naive = false, dropIde
     if (!UUID.test(site)) return reply(404, { problems: [{ code: 'SITE' }] });
     // as the function (signatureLooksValid in capture-lead/index.ts): a header that cannot verify is refused before the database is asked, no event
     const shape = /^t=(\d{1,12}),v1=[0-9a-f]{64}$/.exec(String((init.headers || {})['x-site-signature'] || '').trim());
-    if (!naive && !(shape && Math.abs(Math.floor(Date.now() / 1000) - Number(shape[1])) <= 300)) return reply(401, { problems: [{ code: 'SIGNATURE' }] });
+    if (!naive && !lateShape && !(shape && Math.abs(Math.floor(Date.now() / 1000) - Number(shape[1])) <= 300)) return reply(401, { problems: [{ code: 'SIGNATURE' }] });
     const body = init.body || '';
     const path = u.pathname.replace(/^\/functions\/v1/, '') + u.search;
     const event = (kind, code) => { if (!noSecurityLog) sql.exec(`select service.record_security_event(${lit(kind)}, ${lit(code)}, null, ${lit(site)}::uuid, null, null, ${lit(JSON.stringify({ path: u.pathname }))}::jsonb);`); };
