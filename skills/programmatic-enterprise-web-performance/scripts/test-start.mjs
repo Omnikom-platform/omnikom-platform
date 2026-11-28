@@ -8,7 +8,7 @@ import fs from "node:fs";
 import { isMain } from "./lib-main.mjs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const A = process.argv.slice(2);
@@ -698,6 +698,43 @@ async function runScenariosInner(sdir, only, results) {
     const dirB = path.join(cwd, "empty-biz");
     r = real(["build", dirB, "--stage", "intake"]);
     check("F: real intake.mjs on a folder with no facts stops with the question list from intake-facts.json (exit 3)", r.code === 3 && /NEEDS-INPUT stage=intake: \d+ question\(s\)/.test(r.out) && /QUESTIONS-JSON/.test(r.out), `${r.code} ${r.out.slice(-600)}`);
+    // START-EXIT: the last lines of a stop reach a reader that is late. A pipe holds about 64 KB; on Linux text still queued in the process
+    // when it calls process.exit() is dropped (GitHub run 46088437267: the stop of this very check came back cut in the middle of a question).
+    // The pad (--import, test side only: no switch in the product code) makes intake print thousands of SHORT lines (each its own write) first and
+    // again right before every process.exit(), so start echoes them line by line and the queue is full when intake and start end.
+    {
+      const padFile = path.join(root, "pad-intake.mjs");
+      w(padFile, [
+        'import path from "node:path";',
+        'if (path.basename(process.argv[1] || "") === "intake.mjs") {',
+        '  const burst = (tag) => { for (let i = 0; i < 3000; i++) process.stdout.write(tag + " " + String(i).padStart(5, "0") + " " + "x".repeat(40) + "\\n"); };',
+        '  burst("PAD");',
+        '  const ex = process.exit; process.exit = (c) => { burst("PAD-EXIT"); process.stdout.write("PAD-EXIT-LAST\\n"); return ex.call(process, c); };',
+        '}',
+      ].join("\n") + "\n");
+      const padEnv = { ...process.env, NODE_OPTIONS: `${process.env.NODE_OPTIONS || ""} --import ${pathToFileURL(padFile).href}`.trim() };
+      const piped = (name, args, env, lateMs) => new Promise((resolve) => {
+        const cw = path.join(root, name); fs.mkdirSync(cw, { recursive: true });
+        const c = spawn(node, [path.join(sdir, "start.mjs"), ...args(cw), "--cwd", cw, "--today", TODAY, "--go"], { cwd: cw, env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+        const chunks = []; let hung = false;
+        const timer = setTimeout(() => { hung = true; try { c.kill("SIGKILL"); } catch {} }, 60000);
+        const late = new Promise((r) => setTimeout(() => { c.stdout.on("data", (d) => chunks.push(d)); c.stderr.on("data", (d) => chunks.push(d)); r(); }, lateMs));
+        const closed = new Promise((r) => c.on("close", r));
+        Promise.all([late, closed]).then(async ([, code]) => { clearTimeout(timer); await new Promise((r) => setTimeout(r, 300)); const out = Buffer.concat(chunks).toString("utf8").split(cw).join("<CWD>"); resolve({ name, code: hung ? 124 : code, hung, out, bytes: Buffer.byteLength(out), cw }); });
+      });
+      const lastLine = (s) => s.trim().split("\n").pop();
+      const intakeArgs = (cw) => ["build", path.join(cw, "empty-biz"), "--stage", "intake"];
+      const [ia, ib] = await Promise.all([piped("exit-a", intakeArgs, padEnv, 0), piped("exit-b", intakeArgs, padEnv, 1500)]);
+      const facts = rj(path.join(ib.cw, "empty-biz", ".pewp", "intake-facts.json")); const qs = facts.questions || [];
+      const lastQ = qs.length ? `${qs.length}. [${qs[qs.length - 1].id}] (` : "no questions";
+      const logTail = (() => { try { return lastLine(fs.readFileSync(path.join(ib.cw, "empty-biz", ".pewp", "start", "intake.log"), "utf8")); } catch (e) { return String(e.message); } })();
+      check("F: start's intake stop read by a LATE pipe reader (300 KB first): exit 3, the last question and the QUESTIONS-JSON line are there, the byte count equals the run with a prompt reader", !ia.hung && !ib.hung && ia.code === 3 && ib.code === 3 && ib.out.includes(lastQ) && /^QUESTIONS-JSON /.test(lastLine(ib.out)) && ib.bytes === ia.bytes && ia.bytes > 300000, `hung ${ia.hung}/${ib.hung} code ${ia.code}/${ib.code} bytes prompt ${ia.bytes} late ${ib.bytes} last: ${lastLine(ib.out).slice(0, 160)}`);
+      check("F: intake.mjs's own last lines (written right before its process.exit(3), thousands of short writes) reach start through the pipe: start/intake.log ends with PAD-EXIT-LAST and holds the BLOCKED line", logTail === "PAD-EXIT-LAST" && ia.out.includes("    | BLOCKED: intake needs the owner's answers") && ia.out.includes("    | PAD-EXIT 02999 "), `log last line: ${logTail.slice(0, 160)}`);
+      const nSteps = 3000; const PL = path.join(root, "bad-pipeline.json"); w(PL, JSON.stringify({ version: 1, name: "bad", what: "bad", conventions: {}, vars: {}, steps: Array.from({ length: nSteps }, (_, i) => ({ id: `s${i}` })) }));
+      const dieArgs = () => ["audit-live", URL1, "--pipeline", PL];
+      const [da, db] = await Promise.all([piped("die-a", dieArgs, process.env, 0), piped("die-b", dieArgs, process.env, 1500)]);
+      check("F: start's die() with a 64 KB+ message read by a LATE pipe reader: exit 2, the last problem of the list is there, the byte count equals the run with a prompt reader", !da.hung && !db.hung && da.code === 2 && db.code === 2 && db.out.includes(`s${nSteps - 1}`) && db.bytes === da.bytes && da.bytes > 70000, `hung ${da.hung}/${db.hung} code ${da.code}/${db.code} bytes prompt ${da.bytes} late ${db.bytes} last: ${lastLine(db.out).slice(0, 160)}`);
+    }
     const URLM = "https://fixture.test/";
     r = real(["measure", URLM, "--stage", "measure-init", "--property", "sc-domain:fixture.test"]);
     const mcfg = path.join(cwd, "site-checks", "fixture.test", ".pewp", "measure");
@@ -755,6 +792,9 @@ const MUTANTS = [
   // overhaul (scenario G)
   { name: "G13: external stages run without the owner's plan ack", file: "start.mjs", from: "if (s.external && !planAckOf()) {", to: "if (false) {", sc: "G", expect: [/^G: --go without the plan ack runs doctor/] },
   { name: "G13: --yes is not recorded as the plan ack", file: "start.mjs", from: "if (go && flag(\"--yes\") && !planAckOf()) persist(", to: "if (false) persist(", sc: "G", expect: [/^G: --go --yes passes the plan-ok stop/] },
+  { name: "START-EXIT: start.mjs leaves stdout non-blocking (finish() exits with output still queued)", file: "start.mjs", from: "process.stdout._handle?.setBlocking?.(true);", to: "void 0;", sc: "F", linuxOnly: true, expect: [/^F: start's intake stop read by a LATE pipe reader/] },
+  { name: "START-EXIT: start.mjs leaves stderr non-blocking (die() exits with output still queued)", file: "start.mjs", from: "process.stderr._handle?.setBlocking?.(true);", to: "void 0;", sc: "F", linuxOnly: true, expect: [/^F: start's die\(\) with a 64 KB\+ message/] },
+  { name: "START-EXIT: intake.mjs leaves stdout non-blocking (process.exit(3) with lines still queued)", file: "intake.mjs", from: "process.stdout._handle?.setBlocking?.(true);", to: "void 0;", sc: "F", linuxOnly: true, expect: [/^F: intake\.mjs's own last lines/] },
   { name: "G14: no run file is written", file: "start.mjs", from: "const finish = (code) => { writeRunFiles(code); process.exit(code); };", to: "const finish = (code) => { process.exit(code); };", sc: "G", expect: [/^G: a run file is written even for the plan-only start/] },
   { name: "a forced stage starts before the approval it depends on", file: "start.mjs", from: "if (missing.length) { setRun(\"needs-approval\", s.name, missing.join(\", \"));", to: "if (false) { setRun(\"needs-approval\", s.name, missing.join(\", \"));", sc: "G", expect: [/^G: --stage seeds-propose before the competitor list is approved is refused/] },
   { name: "the seeds approval is not an input of research (unapproved seeds would be researched)", file: "start.mjs", from: "inputs: () => [\"business.json\", \"approved/seeds.json\", \"approved/competitors.json\", \"captures/serp\", \"captures/ai\"] });", to: "inputs: () => [\"business.json\", \"approved/competitors.json\", \"captures/serp\", \"captures/ai\"] });", sc: "G", expect: [/^G: after the re-approval research is stale and runs again/] },
@@ -787,6 +827,7 @@ if (isMain(import.meta.url)) { // lib-main.mjs: real paths (started through a ju
   if (!failed && !A.includes("--no-mutants")) {
     console.log("\nWatched-fail mutants (each must turn the named assertions red; the unmutated tree is green above):");
     for (const mu of MUTANTS.filter((m) => !opt("--mutant") || m.name.includes(opt("--mutant")))) {
+      if (mu.linuxOnly && process.platform === "win32") { console.log(`SKIPPED on win32: ${mu.name} (a Windows pipe writes at once; the fault needs Linux)`); continue; }
       ran++;
       const mdir = fs.mkdtempSync(path.join(os.tmpdir(), "pewp-mutant-"));
       const sdir = path.join(mdir, "scripts");

@@ -371,6 +371,7 @@ export async function run(ctx, { answersFile = null, snapshotDir = null, refresh
 // owner-only fields (approve.mjs OWNER_ONLY) that nobody with the owner's stamp answered: said on every run so the next step is not a surprise
 const OWNER_FIELDS = ["kind", "offer", "audience", "goals", "competitors", "brand.constraints", "vocabulary"]; // related (lib-related.mjs) is owner-only too, but only a run that declares one is asked about it
 await runCli(import.meta.url, "node intake.mjs <url | repo path> [--answers FILE] [--snapshot DIR] [--cwd DIR] [--refresh] [--require-vocabulary]", ["refresh", "require-vocabulary"], async (a) => {
+  process.stdout._handle?.setBlocking?.(true); // a pipe on Linux is written without waiting: lines still queued when process.exit(3) runs are dropped
   const ctx = context(a._[0], { cwd: a.get("cwd") || process.cwd() });
   const r = await run(ctx, { answersFile: a.get("answers"), snapshotDir: a.get("snapshot"), refresh: a.has("refresh"), requireVocabulary: a.has("require-vocabulary") });
   if (r.status === "complete") {

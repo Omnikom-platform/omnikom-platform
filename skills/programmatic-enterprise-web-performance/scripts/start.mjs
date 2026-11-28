@@ -65,6 +65,8 @@ const val = (k, d = null) => (A.includes(k) ? A[A.indexOf(k) + 1] : d);
 const vals = (k) => A.flatMap((x, i) => (x === k ? [A[i + 1]] : []));
 const MODES0 = ["audit-live", "audit-repo", "audit", "compare", "research", "refactor", "measure", "migrate", "build", "new", "iterate", "local", "overhaul"]; // the mode names, needed before MODES to tell `--fresh <step>` from a target
 const pos = A.filter((x, i) => !x.startsWith("--") && !VALUE_FLAGS.has(A[i - 1]) && !(A[i - 1] === "--fresh" && /^[a-z][a-z0-9,-]*$/.test(x) && !MODES0.includes(x)));
+process.stdout._handle?.setBlocking?.(true); // a pipe on Linux is written without waiting: text still queued when process.exit() runs is dropped. Windows already blocks (net.Socket sets it for fd 1 and 2)
+process.stderr._handle?.setBlocking?.(true); // same, for die() and the errors
 const die = (msg, code = 2) => { console.error(msg); process.exit(code); };
 // everything printed is kept, so the run file (G14) can hold the first 40 lines of exactly what the main session saw
 const OUTLOG = []; { const _log = console.log; console.log = (...a) => { const s = a.map(String).join(" "); OUTLOG.push(...s.split("\n")); _log(s); }; }
