@@ -37,7 +37,9 @@ async function unseed(ref: string) {
   });
 }
 const revoke = (ref: string) => withSql(async sql => { await sql`update public.api_keys set revoked_at = now() where vault_ref = ${ref}`; });
-const seedAll = async () => { await crmForms(); await seed(SITE_A, WS_A, REF, KEY); await seed(SITE_B, WS_B, REF_B, KEY_B); };
+// the file posts about 30 good leads per workspace; with capture.test.ts that passes the platform's 60 per hour (S-QUOTA, 429), so the test workspaces get a high workspace limit
+const liftCap = (ws: string) => withSql(async sql => { await sql`insert into public.workspace_limits (workspace_id, key, value, note) values (${ws}::uuid, 'leads_per_hour_workspace', 100000, 'E5-SIG test') on conflict (workspace_id, key) do update set value = excluded.value`; });
+const seedAll = async () => { await crmForms(); await liftCap(WS_A); await liftCap(WS_B); await seed(SITE_A, WS_A, REF, KEY); await seed(SITE_B, WS_B, REF_B, KEY_B); };
 
 const doorShut = async <T>(fn: () => Promise<T>): Promise<T> => {
   const old = Deno.env.get('DB_POOLER_URL'); Deno.env.delete('DB_POOLER_URL');
