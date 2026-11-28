@@ -215,7 +215,7 @@ CO.C3	Inbound events from a CRM	receiver, processor	NOT BUILT
 CO.C4	OmniSuite follow-up connection	needs OmniSuite to be an API	NOT BUILT			
 CO.C5	Add-ons wizard and state machine	wizard, functions, screens (parked by `10-expansion.md:63-64`)	HALF			
 CO.M1	Sign-in and invite mail through Resend SMTP	nothing in the repository or on staging since 2026-11-22: the sender `login@notify.omnikom.ai` is named in `supabase/auth-emails/emails.json`, the expected settings, both mail footers and the documents; `supabase/auth-emails/check.mjs` refuses the old sender domain in any running file (`supabase/auth-emails/sender.test.mjs`, 9 checks; its faults in `supabase/auth-emails/mutate.mjs`); staging reads 26 of 26 settings equal (`supabase/check-auth-settings.mjs`). Left for the owner: `notify.omnikom.io` at Resend is retired in the provider's dashboard (owner M180)	BUILT			
-CO.M2	New-lead alert to the business	agent recipient (book D8 `1-product.md:129` says "and the assigned agent" works: it does not by the code); HTML body with brand	HALF		2	
+CO.M2	New-lead alert to the business	HTML body with brand (the assigned agent is mailed since D8, migration 54, tenancy test T54; a real send UNPROVEN)	HALF		2	
 CO.M3	System alerts to the operator	nothing on staging: `ALERTS_TO` is set on the repository and one test alert arrived on 2026-11-22 (GL.E3a). Production's address waits for `PROD_ALERTS_TO` (GL.E3c)	BUILT			
 CO.M4	Bounces and complaints (Resend webhook)	a real bounce through the staging webhook (made 2026-11-20); Auth mail and operator mail bounces suppress nothing (scope limit in `m31`)	HALF			
 CO.M5	A report or document mailed to a client	table of reports, render job, signed download, outbox for non-lead mail, owner click	NOT BUILT		11	
