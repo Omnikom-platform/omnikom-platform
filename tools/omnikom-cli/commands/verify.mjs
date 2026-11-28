@@ -3,14 +3,14 @@
 // It needs the two seeded test sites (omnikom seed test) and their keys (omnikom key mint) in the environment by name,
 // and it cleans up the leads it created. The paused-site check pauses site A for one request and puts its state back.
 //   1 a signed lead is accepted (202)                      2 the same idempotency key twice stores one row, and alerts once
-//   3 an empty consent is refused (400)                    4 B's key on A's site is refused (401)
-//   5 the same signature after 301 s is refused (401)      6 no signature is refused (401)
-//   7 a garbled signature is refused (401)                 8 an unknown site id is refused (401), a malformed one is 404
+//   3 an empty consent is refused (400)                    4 the same signature after 301 s is refused (401)
+//   5 no signature is refused (401)                        6 a garbled signature is refused (401)
+//   7 B's key on A's site is refused (401)                 8 an unknown site id is refused (401), a malformed one is 404
 //   9 a lead to a paused site is refused (409) and not stored   10 GET is refused (405)
 //   11 the same signed post twice stores one row (no idempotency key: only the claim of the signature, migration 53, can make it one)
 // The ledgers migration 7 added are counted before and after (read-only). Security events are counted as sum(n) of security_event_counts
 // (migration 20: one bucket per source and minute, n counts every event of it, the first included; a bucket writes one security_events row):
-// a refused signature that needs the key adds one event (kind bad-signature, the site; one that cannot verify adds none; the keys are held 10 s, so the check waits 10.5 s first), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
+// a refused signature that needs the key adds one event (kind bad-signature, the site; one that cannot verify adds none; the keys are held 10 s, so the check waits 10.5 s first and sends the wrong key last), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
 // row and a retry of the same key adds none. Both ledgers are append-only: a run leaves its rows behind, by design.
 import { Usage, Blocked } from '../lib/errors.mjs';
 import { uuidLit, lit, jsonLit } from '../lib/sql.mjs';
@@ -63,16 +63,14 @@ export async function verify(ctx) {
   L = lead({ consentText: '' });
   r = await post(L);
   add('an empty consent is refused', '400', r.status, r.status === 400 && rows(L.idem) === 0);
-  // E5-SIG: capture-lead keeps a site's keys for 10 s (supabase/functions/_shared/site-keys.ts) and refuses a wrong-key post from memory with no event. The posts above
-  // filled that entry, so wait it out: the next wrong-key post then reaches the database and is recorded once.
+  // E5-SIG: capture-lead keeps a site's keys for 10 s (supabase/functions/_shared/site-keys.ts) and refuses from memory, with no event, a post that none of them verifies.
+  // The posts above filled that entry, so wait it out. The three posts that cannot verify go first, while nothing is held: a function that looked the keys up for one of
+  // them would record it. The wrong key goes last: it reaches the database and is recorded once. (Sent first, it would fill the entry, and the held keys would then refuse
+  // the other three from memory whatever the function does with such a header: the check could not fail.)
   await new Promise(done => setTimeout(done, 10_500));
   const deltas = [];   // security_events (bad-signature, this site) added by each refused signature
   let seen = events('bad-signature');
   const recorded = () => { const now = events('bad-signature'); deltas.push(now - seen); seen = now; };
-  L = lead();
-  r = await post({ ...L, identity: idB, key: keyB });
-  recorded();
-  add("B's key on A's site is refused", '401', r.status, r.status === 401 && rows(L.idem) === 0);
   L = lead();
   r = await post({ ...L, t: ctx.now() - 301 });
   recorded();
@@ -85,7 +83,11 @@ export async function verify(ctx) {
   r = await post({ ...L, headers: { 'x-site-signature': 't=1,v1=00' } });
   recorded();
   add('a garbled signature is refused', '401', r.status, r.status === 401 && rows(L.idem) === 0);
-  add('a refused signature that needs the key is recorded once, one that cannot verify costs no database work', '1 row (1,0,0,0)', deltas.reduce((x, y) => x + y, 0), deltas.join(',') === '1,0,0,0', `deltas=${deltas.join(',')}`);
+  L = lead();
+  r = await post({ ...L, identity: idB, key: keyB });
+  recorded();
+  add("B's key on A's site is refused", '401', r.status, r.status === 401 && rows(L.idem) === 0);
+  add('a refused signature that needs the key is recorded once, one that cannot verify costs no database work', '1 row (0,0,0,1)', deltas.reduce((x, y) => x + y, 0), deltas.join(',') === '0,0,0,1', `deltas=${deltas.join(',')}`);
   L = lead();
   const stranger = ctx.randomUUID();
   r = await post({ ...L, siteId: stranger, t: ctx.now() });
