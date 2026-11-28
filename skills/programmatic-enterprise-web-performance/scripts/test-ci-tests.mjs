@@ -53,8 +53,8 @@ if (args.includes("--mutants")) {
     { id: "ci-yml-shards-differ-timeout",file: "ci.yml",yml: true,from: "shard 2 of 3\n    runs-on: ubuntu-latest\n    timeout-minutes: 40\n",to: "shard 2 of 3\n    runs-on: ubuntu-latest\n    timeout-minutes: 45\n",red: "case 7:" },
     { id: "ci-yml-shards-differ-runner",file: "ci.yml",yml: true,from: "shard 3 of 3\n    runs-on: ubuntu-latest\n",to: "shard 3 of 3\n    runs-on: ubuntu-22.04\n",red: "case 7:" },
     { id: "ci-yml-tests-job-runs-mutants",file: "ci.yml",yml: true,from: "      - name: Search skill tests\n        run: node skills/programmatic-enterprise-web-performance/scripts/ci-tests.mjs\n",to: "      - name: Search skill tests\n        run: node skills/programmatic-enterprise-web-performance/scripts/ci-tests.mjs\n      - name: Search skill mutants\n        run: node skills/programmatic-enterprise-web-performance/scripts/ci-tests.mjs --mutants\n",red: "case 7:" },
-    { id: "ruleset-lacks-a-shard",file: "master-ruleset.json",rs: true,from: "          { \"context\": \"search skill mutants, shard 2 of 3\", \"integration_id\": 15368 },\n",to: "",red: "case 11:" },
-    { id: "ruleset-keeps-old-name",file: "master-ruleset.json",rs: true,from: "          { \"context\": \"search skill (tests)\", \"integration_id\": 15368 },\n",to: "          { \"context\": \"search skill (tests)\", \"integration_id\": 15368 },\n          { \"context\": \"search skill (tests and mutants)\", \"integration_id\": 15368 },\n",red: "case 11:" },
+    { id: "ruleset-gets-search-tests-name",file: "master-ruleset.json",rs: true,from: "          { \"context\": \"platform CLI (unit tests; full suite when the change reaches it)\", \"integration_id\": 15368 },\n",to: "          { \"context\": \"search skill (tests)\", \"integration_id\": 15368 },\n          { \"context\": \"platform CLI (unit tests; full suite when the change reaches it)\", \"integration_id\": 15368 },\n",red: "case 11:" },
+    { id: "ruleset-gets-a-shard-name",file: "master-ruleset.json",rs: true,from: "          { \"context\": \"platform CLI (unit tests; full suite when the change reaches it)\", \"integration_id\": 15368 },\n",to: "          { \"context\": \"search skill mutants, shard 1 of 3\", \"integration_id\": 15368 },\n          { \"context\": \"platform CLI (unit tests; full suite when the change reaches it)\", \"integration_id\": 15368 },\n",red: "case 11:" },
     { id: "empty-list-counted-green", file: "ci-tests.mjs", from: "if (!Array.isArray(list) || list.length === 0) stop(\"STOP: the list is not a non-empty array\");", to: "", red: "case 5:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "citests-mut-"));
@@ -363,15 +363,10 @@ function partition(list, n) {
   const ctx = rs.parameters.required_status_checks.map((c) => c.context);
   const jobs = parseJobs(ciYml);
   const bad = [];
-  for (const j of jobs.filter(runsCiTests)) {
-    const k = ctx.filter((c) => c === j.name).length;
-    if (k !== 1) bad.push("the job name \"" + j.name + "\" (job " + j.id + ") is in the ruleset " + k + " times (once needed)");
-  }
-  for (const n of [TESTS_JOB, SHARD_JOB(1), SHARD_JOB(2), SHARD_JOB(3)]) if (!ctx.includes(n)) bad.push("the ruleset has no context \"" + n + "\"");
-  if (ctx.includes(OLD_JOB)) bad.push("the ruleset still has the old context \"" + OLD_JOB + "\"");
+  for (const c of ctx) if (c.startsWith("search skill")) bad.push("the ruleset holds the context \"" + c + "\" (the live ruleset has none that starts with \"search skill\")");
   if (jobs.some((j) => j.name === OLD_JOB)) bad.push("ci.yml still has a job named \"" + OLD_JOB + "\"");
   return [bad.length === 0, bad.join(" | ")];
-}); check("case 11: every job name of ci.yml that runs ci-tests.mjs is a required check of master-ruleset.json (once), the four names are all there and the old name is gone from both", ok, detail); }
+}); check("case 11: master-ruleset.json mirrors the live GitHub ruleset (9 checks, owner's go needed to change it; omnikom land already requires every job of the run green): no context starts with \"search skill\", and ci.yml has no job with the old name", ok, detail); }
 
 fs.rmSync(tmp, { recursive: true, force: true });
 const passed = results.filter((r) => r.ok).length;

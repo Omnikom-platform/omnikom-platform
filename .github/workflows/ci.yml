@@ -278,7 +278,7 @@ jobs:
 
   # The search skill's mutants, 3 shards in parallel (ci-tests.mjs --mutants --shard i/3: the entry at index x of ci-tests.json goes to shard (x mod 3) + 1).
   # Written out, not a matrix: omnikom ci models no strategy, and land (lib/ghrun.mjs) reads each job by its own name, so every shard is a job that must
-  # be green. test-ci-tests.mjs cases 7 and 11 keep the three copies equal but for the shard number and the four names in master-ruleset.json.
+  # be green. test-ci-tests.mjs cases 7 and 11 keep the three copies equal but for the shard number.
   search-skill-mutants-1:
     name: search skill mutants, shard 1 of 3
     runs-on: ubuntu-latest

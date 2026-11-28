@@ -70,7 +70,7 @@ job runs"); departments remain as the owners of paths and the prefixes of branch
    - **Landing.** The head stacks a slice's or a batch's committed jobs on the newest master in its landing worktree,
      regenerates `icm/` and recounts the book's Counts, checks each job against every file that landed since it was built,
      pushes the top branch alone and runs `omnikom land <branch>` from `code\main`. One landing per slice or batch, product
-     before support work and before a lane: one CI run is 20 jobs and GitHub runs about 20 of ours at a time (the measured
+     before support work and before a lane: one CI run is 25 jobs and GitHub runs about 20 of ours at a time (the measured
      week: `work/49-framework-review/CONTEXT.md`). At a landing the head runs `omnikom truth`, `omnikom map progress` and
      `omnikom map page` and publishes the page with one tool call.
    - A product row moves to WORKS only on proof seen on staging by the head's own run sheet, with its fault watched red;
