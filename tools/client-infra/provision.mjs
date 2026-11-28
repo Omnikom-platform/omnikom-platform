@@ -13,9 +13,14 @@
 import { readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { KEY_CACHE_MS } from '../../supabase/functions/_shared/site-keys.ts';   // the one value: how long a function instance holds a site's keys
 
 export const ENVS = ['preview', 'production'];
 export const HOST_RE = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+// A new key is handed to the site only after every function instance has dropped its held keys (E5b): until then a post signed with
+// it is refused 401, and a refused good post is a lost lead. The wait counts from the key's own mint time (api_keys.created_at, read by
+// db.activeKey as age_ms), so a key minted by `omnikom key mint` or tools/mint-site-key.mjs a moment ago still waits, and an old key does not.
+export const KEY_HANDOVER_WAIT_MS = KEY_CACHE_MS + 2000;
 const PROJECT_RE = /^[a-z0-9][a-z0-9-]{0,56}$/;
 
 export class Refused extends Error {}
@@ -70,6 +75,7 @@ export async function provision(o, d) {
   // 3 the signing key: the newest active site-signing key, minted when there is none
   let key = await d.db.activeKey(site.id);
   let keyValue = null;
+  let waitedForCache = false;
   if (key) log(`ok     signing key ${key.vault_ref} (active)`);
   else if (o.dryRun) would(`mint a signing key for ${site.deploy_target} (Vault secret, api_keys row, sites.signing_key_ref)`, 'psql: vault.create_secret + insert api_keys + update sites');
   else {
@@ -78,6 +84,9 @@ export async function provision(o, d) {
     keyValue = m.value;
     did(`minted signing key ${m.vault_ref} (Vault, api_keys, sites.signing_key_ref; value not shown)`);
   }
+
+  // how long ago the key was minted, by any path (one minted in this run has no age: just now); a key that gives no age is waited for in full
+  const keyAgeMs = key && Number.isFinite(key.age_ms) ? key.age_ms : 0;
 
   // 4 the lead settings on both environments (what factory/worker/pages-function-lead.js reads)
   for (const env of ENVS) {
@@ -89,6 +98,14 @@ export async function provision(o, d) {
     const names = [...plain, ...(secret ? ['SITE_SIGNING_KEY'] : [])];
     if (!names.length) { log(`ok     ${env} settings SITE_ID, PLATFORM_BASE, SITE_SIGNING_KEY, SITE_SIGNING_KEY_REF`); continue; }
     if (o.dryRun) { would(`set ${env} ${names.join(', ')}`, `PATCH /accounts/[account]/pages/projects/${site.deploy_target} deployment_configs.${env}.env_vars`); continue; }
+    if (secret && !waitedForCache) {
+      waitedForCache = true;
+      const waitMs = KEY_HANDOVER_WAIT_MS - keyAgeMs;
+      if (waitMs > 0) {
+        log(`wait   ${Math.ceil(waitMs / 1000)} s: the new key reaches the site only after the keys held in memory have run out`);
+        await d.sleep(waitMs);
+      }
+    }
     if (secret && !keyValue) keyValue = await d.db.readKey(key.vault_ref);
     if (secret && !/^[0-9a-f]{64}$/.test(keyValue || '')) throw new Error(`the Vault secret ${key.vault_ref} is not a 64-hex key`);
     const vars = {};

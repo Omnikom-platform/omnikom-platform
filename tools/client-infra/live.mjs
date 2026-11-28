@@ -61,8 +61,11 @@ export function liveDeps({ log, allowed }) {
       return psql(`select deploy_target from public.sites where lower(domain) = lower(:'d') and id <> :'id'::uuid limit 1;`, { d: domain, id: siteId }) || null;
     },
     async activeKey(siteId) {
-      const t = psql(`select vault_ref from service.active_key('site-signing', :'id'::uuid) where vault_ref is not null limit 1;`, { id: siteId });
-      return t ? { vault_ref: t } : null;
+      // age_ms: milliseconds since the key's api_keys row was made (E5b: the hand-over waits KEY_CACHE_MS + 2 s from there, whoever minted it)
+      const t = psql(`select k.vault_ref, floor(extract(epoch from (now() - a.created_at)) * 1000)::bigint from service.active_key('site-signing', :'id'::uuid) k join public.api_keys a on a.id = k.id where k.vault_ref is not null order by a.created_at desc limit 1;`, { id: siteId });
+      if (!t) return null;
+      const [vault_ref, age] = t.split('|');
+      return { vault_ref, age_ms: Number(age) };
     },
     async readKey(ref) {
       return psql(`select decrypted_secret from vault.decrypted_secrets where name = :'n';`, { n: ref });

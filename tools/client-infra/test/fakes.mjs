@@ -6,7 +6,7 @@ import { randomBytes } from 'node:crypto';
 export function newState() {
   return {
     sites: [], keys: [], vault: {}, projects: {}, secretValues: {}, zones: { 'omnikom.io': [{ id: 'r-apex', type: 'A', name: 'omnikom.io', content: '192.0.2.1', proxied: true }] },
-    writes: [], patchMode: 'merge', nextId: 1,
+    writes: [], clock: 0, handoverAfterMs: [], patchMode: 'merge', nextId: 1,
   };
 }
 
@@ -16,10 +16,10 @@ export function addSite(s, { target = 'test-site-wo35', slug = 'test-wo35', doma
   return site;
 }
 
-export function addKey(s, site, n) {
+export function addKey(s, site, n, ageMs = 3_600_000) {   // minted ageMs before the fake clock's now (an hour: an old key)
   const ref = `site-${site.workspace_slug}-key-${n}`;
   s.vault[ref] = randomBytes(32).toString('hex');
-  s.keys.push({ site_id: site.id, vault_ref: ref, created: s.nextId++, revoked: false });
+  s.keys.push({ site_id: site.id, vault_ref: ref, created: s.nextId++, born: s.clock - ageMs, revoked: false });
   return ref;
 }
 
@@ -31,7 +31,7 @@ export function fakeDeps(s, lines = []) {
   const db = {
     async getSite(t) { const x = s.sites.find((y) => y.deploy_target === t); return x ? clone(x) : null; },
     async domainHolder(d, id) { const x = s.sites.find((y) => y.domain && y.domain.toLowerCase() === d.toLowerCase() && y.id !== id); return x ? x.deploy_target : null; },
-    async activeKey(id) { const k = s.keys.filter((x) => x.site_id === id && !x.revoked).sort((a, b) => b.created - a.created)[0]; return k ? { vault_ref: k.vault_ref } : null; },
+    async activeKey(id) { const k = s.keys.filter((x) => x.site_id === id && !x.revoked).sort((a, b) => b.created - a.created)[0]; return k ? { vault_ref: k.vault_ref, age_ms: s.clock - k.born } : null; },
     async readKey(ref) { return s.vault[ref]; },
     async mintKey(site) {
       w('db.mintKey');
@@ -39,7 +39,7 @@ export function fakeDeps(s, lines = []) {
       const ref = `site-${site.workspace_slug}-key-${(nums.length ? Math.max(...nums) : 0) + 1}`;
       const value = randomBytes(32).toString('hex');
       s.vault[ref] = value;
-      s.keys.push({ site_id: site.id, vault_ref: ref, created: s.nextId++, revoked: false });
+      s.keys.push({ site_id: site.id, vault_ref: ref, created: s.nextId++, born: s.clock, revoked: false });
       return { vault_ref: ref, value };
     },
     async setDomain(id, d) { w('db.setDomain'); const x = s.sites.find((y) => y.id === id); if (x.domain) throw new Error('already set'); x.domain = d; },
@@ -56,6 +56,7 @@ export function fakeDeps(s, lines = []) {
     },
     async setEnvVars(name, env, vars) {
       w(`cf.setEnvVars ${env}`);
+      if (vars.SITE_SIGNING_KEY) s.handoverAfterMs.push(s.clock - [...s.keys].sort((a, b) => b.created - a.created)[0].born);   // time since the newest key was minted, by whatever path
       const p = proj(name);
       const cur = s.patchMode === 'replace' ? {} : p.deployment_configs[env].env_vars;
       for (const [k, v] of Object.entries(vars)) {
@@ -71,5 +72,5 @@ export function fakeDeps(s, lines = []) {
     async dnsRecords(zone, host) { return clone((s.zones[zone] || []).filter((r) => r.name === host)); },
     async createCname(zone, host, target) { w('cf.createCname'); const r = { id: `rec${s.nextId++}-0000`, type: 'CNAME', name: host, content: target, proxied: true }; s.zones[zone].push(r); return clone(r); },
   };
-  return { db, cf, log: (l) => lines.push(l), sleep: async () => {} };
+  return { db, cf, log: (l) => lines.push(l), sleep: async (ms) => { s.clock += ms; } };
 }

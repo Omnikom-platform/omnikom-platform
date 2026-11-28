@@ -9,7 +9,8 @@ import { newState, addSite, addKey, fakeDeps } from './fakes.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LIB = process.env.CLIENT_INFRA_LIB ? resolve(process.env.CLIENT_INFRA_LIB) : join(HERE, '..', 'provision.mjs');
-const { provision, parseArgs, loadAllowed, Refused } = await import(pathToFileURL(LIB).href);
+const { provision, parseArgs, loadAllowed, Refused, KEY_HANDOVER_WAIT_MS } = await import(pathToFileURL(LIB).href);
+import { KEY_CACHE_MS } from '../../../supabase/functions/_shared/site-keys.ts';
 
 const BASE = 'https://staging-ref.supabase.co/functions/v1';
 const HOST = 'wo35-test.omnikom.io';
@@ -37,6 +38,32 @@ t('fresh site: project, key, both environments set; value only in Vault and the 
       && s.secretValues[`test-site-wo35/${e}/SITE_SIGNING_KEY`] === s.vault[ref])
     && !a.text.includes(s.vault[ref]) && /RESULT: changed 4/.test(a.text);
   return [ok, a.err ? a.err.message : a.text];
+});
+
+t('a new key is handed to the site only KEY_CACHE_MS + 2 s after the mint (fake clock, no real wait)', async () => {
+  const s = newState(); addSite(s);
+  const a = await run(s);
+  const ok = !a.err && s.handoverAfterMs.length === 2 && s.handoverAfterMs.every((ms) => ms >= KEY_CACHE_MS + 2000) && KEY_HANDOVER_WAIT_MS === KEY_CACHE_MS + 2000;
+  return [ok, a.err ? a.err.message : `handover after ms: ${s.handoverAfterMs.join(', ')}`];
+});
+
+t('an existing key is handed over at once (no wait)', async () => {
+  const s = newState(); const site = addSite(s); addKey(s, site, 1);
+  const a = await run(s);
+  return [!a.err && s.clock === 0 && !/wait   /.test(a.text), a.err ? a.err.message : a.text];
+});
+
+t('a key minted 3 s ago by another path (key mint) waits only the rest of KEY_CACHE_MS + 2 s', async () => {
+  const s = newState(); const site = addSite(s); addKey(s, site, 1, 3000);
+  const a = await run(s);
+  const ok = !a.err && s.handoverAfterMs.length === 2 && s.handoverAfterMs.every((ms) => ms >= KEY_CACHE_MS + 2000) && s.clock === KEY_CACHE_MS + 2000 - 3000;
+  return [ok, a.err ? a.err.message : `handover after ms: ${s.handoverAfterMs.join(', ')}; clock ${s.clock}`];
+});
+
+t('a key already older than KEY_CACHE_MS + 2 s is handed over at once', async () => {
+  const s = newState(); const site = addSite(s); addKey(s, site, 1, KEY_CACHE_MS + 2000);
+  const a = await run(s);
+  return [!a.err && s.clock === 0 && s.handoverAfterMs.length === 2, a.err ? a.err.message : a.text];
 });
 
 t('second run changes nothing and writes nothing', async () => {

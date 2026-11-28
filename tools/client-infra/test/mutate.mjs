@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, writeFileSync, copyFileSync, rmSync } from '
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = join(HERE, '..', 'provision.mjs');
@@ -21,15 +21,21 @@ const MUTANTS = [
   ['DNS is written without --write-dns', 'else if (!o.writeDns) {', 'else if (false) {'],
   ['an expired ruling still counts', 'today <= h.until', 'true'],
   ['the key is sent as plain text', "vars.SITE_SIGNING_KEY = { type: 'secret_text', value: keyValue }", "vars.SITE_SIGNING_KEY = { type: 'plain_text', value: keyValue }"],
+  ['the new key is handed over at once', 'await d.sleep(waitMs);', 'await d.sleep(0);'],
+  ['a key minted a moment ago by another path is handed over at once', 'const keyAgeMs = key && Number.isFinite(key.age_ms) ? key.age_ms : 0;', 'const keyAgeMs = Infinity;'],
+  ['an old key waits the whole time again', 'const waitMs = KEY_HANDOVER_WAIT_MS - keyAgeMs;', 'const waitMs = KEY_HANDOVER_WAIT_MS;'],
   ['production is accepted', "if (o.target !== 'staging') throw", 'if (false) throw'],
 ];
 
+const REL = "'../../supabase/functions/_shared/site-keys.ts'";
+const ABS = JSON.stringify(pathToFileURL(join(HERE, '..', '..', '..', 'supabase', 'functions', '_shared', 'site-keys.ts')).href);
+const place = (s) => s.split(REL).length === 2 ? s.replace(REL, () => ABS) : (() => { throw new Error('the site-keys import line is not found exactly once in provision.mjs'); })();   // the copy lives in a temp dir
 const dir = mkdtempSync(join(tmpdir(), 'client-infra-mut-'));
 const lib = join(dir, 'provision.mjs');
 const runTests = () => spawnSync(process.execPath, [join(HERE, 'run.mjs')], { encoding: 'utf8', timeout: 120000, env: { ...process.env, CLIENT_INFRA_LIB: lib } });
 let failed = 0;
 try {
-  copyFileSync(SRC, lib);
+  writeFileSync(lib, place(readFileSync(SRC, 'utf8')));
   const base = runTests();
   console.log(`${base.status === 0 ? 'ok  ' : 'FAIL'} baseline: the unbroken copy passes`);
   if (base.status !== 0) {
@@ -39,7 +45,7 @@ try {
   const src = readFileSync(SRC, 'utf8');
   for (const [name, from, to] of MUTANTS) {
     if (src.split(from).length !== 2) { failed++; console.log(`FAIL mutant "${name}": target text not found exactly once`); continue; }
-    writeFileSync(lib, src.replace(from, () => to));
+    writeFileSync(lib, place(src.replace(from, () => to)));
     const r = runTests();
     const red = r.status === 1 && /^FAIL /m.test(r.stdout);
     if (!red) failed++;
