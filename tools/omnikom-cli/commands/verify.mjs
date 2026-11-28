@@ -10,7 +10,7 @@
 //   11 the same signed post twice stores one row (no idempotency key: only the claim of the signature, migration 53, can make it one)
 // The ledgers migration 7 added are counted before and after (read-only). Security events are counted as sum(n) of security_event_counts
 // (migration 20: one bucket per source and minute, n counts every event of it, the first included; a bucket writes one security_events row):
-// a refused signature that needs the key adds one event (kind bad-signature, the site; one that cannot verify adds none), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
+// a refused signature that needs the key adds one event (kind bad-signature, the site; one that cannot verify adds none; the keys are held 10 s, so the check waits 10.5 s first), the paused refusal adds one (kind suspended), an accepted lead has exactly one consent_ledger
 // row and a retry of the same key adds none. Both ledgers are append-only: a run leaves its rows behind, by design.
 import { Usage, Blocked } from '../lib/errors.mjs';
 import { uuidLit, lit, jsonLit } from '../lib/sql.mjs';
@@ -63,6 +63,9 @@ export async function verify(ctx) {
   L = lead({ consentText: '' });
   r = await post(L);
   add('an empty consent is refused', '400', r.status, r.status === 400 && rows(L.idem) === 0);
+  // E5-SIG: capture-lead keeps a site's keys for 10 s (supabase/functions/_shared/site-keys.ts) and refuses a wrong-key post from memory with no event. The posts above
+  // filled that entry, so wait it out: the next wrong-key post then reaches the database and is recorded once.
+  await new Promise(done => setTimeout(done, 10_500));
   const deltas = [];   // security_events (bad-signature, this site) added by each refused signature
   let seen = events('bad-signature');
   const recorded = () => { const now = events('bad-signature'); deltas.push(now - seen); seen = now; };

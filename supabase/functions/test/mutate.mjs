@@ -462,6 +462,17 @@ const MUTANTS = [
   ['SEC-REPLAY: the frame claims a signature before it refuses the body', F + '_shared/runner.ts', "return problem(400, 'BODY', 'Send the request as a JSON object.');", "{ await claimSignature(sql, req.headers.get(o.header ?? 'x-runner-signature')); return problem(400, 'BODY', 'Send the request as a JSON object.'); }", 'replay.test.ts'],
   ['SEC-REPLAY: the signature window is raised past the claim\'s life', F + '_shared/signature.ts', 'const WINDOW_SECONDS = 300;', 'const WINDOW_SECONDS = 600;', 'replay.test.ts'],
   ['SEC-REPLAY: capture-lead claims a signature it refused', F + 'capture-lead/index.ts', "if (!keyId) { await event('bad-signature', 'SIGNATURE');", "if (!keyId) { await claimSignature(sql, header); await event('bad-signature', 'SIGNATURE');", 'capture.test.ts'],
+  // ---- E5-SIG: the key cache of capture-lead; tests sitekey.test.ts. Run only these: --only "E5-SIG" ----
+  ['E5-SIG: a cached refusal is never given', F + 'capture-lead/index.ts', 'if (!any) return problem(401,', 'if (false) return problem(401,', 'sitekey.test.ts'],
+  ['E5-SIG: the cached verify always says yes', F + 'capture-lead/index.ts', "{ if (await verify(header, k.secret, 'POST', pathForSignature(url), body)) { any = true; break; } }", '{ any = true; break; }', 'sitekey.test.ts'],
+  ['E5-SIG: the database read does not fill the cache', F + 'capture-lead/index.ts', "    siteKeys.put(site, keys.map((k: { id: string; secret: string }) => ({ id: k.id, secret: k.secret })));", '', 'sitekey.test.ts'],
+  ['E5-SIG: the site id is case-sensitive', F + '_shared/site-keys.ts', 's.toLowerCase()', 's', 'sitekey.test.ts'],
+  ['E5-SIG: every site shares one entry', F + '_shared/site-keys.ts', '(s: string) => s.toLowerCase();', "(s: string) => 'x';", 'sitekey.test.ts'],
+  ['E5-SIG: an entry never expires', F + '_shared/site-keys.ts', 'if (!(this.now() - e.at < this.ttl)) {', 'if (false) {', 'sitekey.test.ts'],
+  ['E5-SIG: an empty list is stored', F + '_shared/site-keys.ts', 'if (keys.length === 0) return;', '', 'sitekey.test.ts'],
+  ['E5-SIG: the cache has no cap', F + '_shared/site-keys.ts', 'if (this.m.size >= this.max)', 'if (false)', 'sitekey.test.ts'],
+  ['E5-SIG: the keys are held for an hour', F + '_shared/site-keys.ts', 'export const KEY_CACHE_MS = 10_000;', 'export const KEY_CACHE_MS = 3_600_000;', 'sitekey.test.ts'],
+  ['E5-SIG: a refill keeps the old entry', F + '_shared/site-keys.ts', '    this.m.delete(k);\n    if (keys.length === 0) return;', '    if (this.m.has(k)) return;\n    if (keys.length === 0) return;', 'sitekey.test.ts'],
 ];
 
 const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;

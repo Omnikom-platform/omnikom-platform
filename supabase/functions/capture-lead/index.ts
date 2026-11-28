@@ -17,6 +17,7 @@
 import { verify } from '../_shared/signature.ts';
 import { answerProblem, claimSignature, connect, type Sql } from '../_shared/db.ts';
 import { readCapped, serve } from '../_shared/http.ts';
+import { siteKeys } from '../_shared/site-keys.ts';
 
 const MAX_BODY = 16 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -108,6 +109,14 @@ export async function handle(req: Request): Promise<Response> {
   if (!signatureLooksValid(header)) return problem(401, [{ code: 'SIGNATURE', path: '', msg: 'Not accepted.' }]);   // no database work, no event: it cost nothing and says nothing
   const body = await readCapped(req.body, MAX_BODY);   // bytes: reading stops at the chunk that crosses MAX_BODY
   if (body === null) return problem(413, [{ code: 'SIZE', path: '', msg: 'Too large.' }]);
+  // E5-SIG: a post that none of the keys this function read for the site in the last 10 s verifies is refused here, with the answer the database path gives and no
+  // security event. A key that DOES verify is never accepted from memory: the post goes on to the database, which alone says whether that key is still active.
+  const cached = siteKeys.get(site);
+  if (cached) {
+    let any = false;
+    for (const k of cached) { if (await verify(header, k.secret, 'POST', pathForSignature(url), body)) { any = true; break; } }
+    if (!any) return problem(401, [{ code: 'SIGNATURE', path: '', msg: 'Not accepted.' }]);
+  }
   let sql: Sql;   // E6: the transaction pooler (DB_POOLER_URL), each statement stepped down in its own transaction
   try { sql = await connect(); } catch { return problem(500, [{ code: 'CONFIG', path: '', msg: 'Not configured.' }]); }
   // a hash with the site id, never the address itself (Cloudflare's header first; X-Forwarded-For is a fallback for the first test)
@@ -123,6 +132,7 @@ export async function handle(req: Request): Promise<Response> {
   try {
     // the site's live signing keys (never revoked or expired), read from Vault by the registry's name
     const keys = await sql`select id, secret from service.site_signing_secrets(${site}::uuid)`;
+    siteKeys.put(site, keys.map((k: { id: string; secret: string }) => ({ id: k.id, secret: k.secret })));   // every database read refills (or, for no key, empties) the entry
     let keyId: string | null = null;
     for (const k of keys) { if (await verify(header, k.secret, 'POST', pathForSignature(url), body)) { keyId = k.id; break; } }
     if (!keyId) { await event('bad-signature', 'SIGNATURE'); return problem(401, [{ code: 'SIGNATURE', path: '', msg: 'Not accepted.' }]); }
