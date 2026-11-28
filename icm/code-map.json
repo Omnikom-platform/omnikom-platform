@@ -473,7 +473,7 @@
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-read-bing.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-ref.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-refactor.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
-    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-reports.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
+    {"path":"skills/programmatic-enterprise-web-performance/scripts/test-reports.mjs","owner":"seo-and-audits","exports":["baselineForMutants","blockedReason","judgeMutant"],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-reputation-notread.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-research.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
     {"path":"skills/programmatic-enterprise-web-performance/scripts/test-rules.mjs","owner":"seo-and-audits","exports":[],"tests":[],"feature":""},
