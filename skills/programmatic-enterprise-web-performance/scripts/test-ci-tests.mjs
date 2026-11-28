@@ -1,10 +1,12 @@
-// Usage: node test-ci-tests.mjs [--scripts <dir>] [--quiet] [--mutants] [--only <id>]
+// Usage: node test-ci-tests.mjs [--scripts <dir>] [--ci-yml <file>] [--quiet] [--mutants] [--only <id>]
 // Test of ci-tests.mjs (the runner of the skill's tests that GitHub runs, list: ci-tests.json).
 // Every case makes a temporary folder with STUB tests it writes itself and a list, and starts the runner on that folder with
 // --scripts. The real list is only READ (case 6), never run: running it would start this test again, without end.
 // --mutants: watched-fail. Copies the skill, breaks one thing at a time in ci-tests.mjs, runs this test against the copy and
 //   requires the named case to go red (green = the case measures nothing, or the patch never applied; a `from` that occurs
 //   anywhere but once is refused).
+// Case 7 reads .github/workflows/ci.yml (default: the one two folders above the skill; --ci-yml names another) as text: the two steps that run
+// ci-tests.mjs are in one job, that job does not run the audit engine's mutants and has timeout-minutes 60 or more (2026-11-28, CI-SPLIT).
 // Exit 0 = all pass.
 import fs from "node:fs";
 import os from "node:os";
@@ -17,6 +19,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.resolve(args.includes("--scripts") ? args[args.indexOf("--scripts") + 1] : here);
 const quiet = args.includes("--quiet");
 const skill = path.dirname(dir);
+const ciYml = path.resolve(args.includes("--ci-yml") ? args[args.indexOf("--ci-yml") + 1] : path.join(skill, "..", "..", ".github", "workflows", "ci.yml"));
 
 // ---------------------------------------------------------------- mutants
 if (args.includes("--mutants")) {
@@ -26,6 +29,9 @@ if (args.includes("--mutants")) {
     { id: "stops-at-first-red", file: "ci-tests.mjs", from: "if (!green) red.push(e.file);", to: "if (!green) { red.push(e.file); break; }", red: "case 2:" },
     { id: "mutants-words-not-passed", file: "ci-tests.mjs", from: "const words = mutantsMode ? e.mutants : e.plain;", to: "const words = e.plain;", red: "case 3:" },
     { id: "name-pattern-unchecked", file: "ci-tests.mjs", from: "if (typeof e.file !== \"string\" || !NAME.test(e.file)) stop(`STOP: entry ${i + 1} has no file that is a plain test file name`);", to: "", red: "case 5:" },
+    { id: "ci-yml-steps-split", file: "ci.yml", yml: true, from: "      - name: Search skill mutants\n", to: "  other:\n    runs-on: ubuntu-latest\n    timeout-minutes: 60\n    steps:\n      - name: Search skill mutants\n", red: "case 7:" },
+    { id: "ci-yml-audit-mutants-back", file: "ci.yml", yml: true, from: "      - name: Search skill tests\n", to: "      - name: Audit mutants\n        run: node tools/audit/test/mutate.mjs\n      - name: Search skill tests\n", red: "case 7:" },
+    { id: "ci-yml-timeout-40", file: "ci.yml", yml: true, from: "so the search skill has its own job, parallel to audit\n    timeout-minutes: 60\n", to: "so the search skill has its own job, parallel to audit\n    timeout-minutes: 40\n", red: "case 7:" },
     { id: "empty-list-counted-green", file: "ci-tests.mjs", from: "if (!Array.isArray(list) || list.length === 0) stop(\"STOP: the list is not a non-empty array\");", to: "", red: "case 5:" },
   ];
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "citests-mut-"));
@@ -33,11 +39,13 @@ if (args.includes("--mutants")) {
   const runOne = (m) => new Promise((resolve) => {
     const copy = path.join(root, m.id);
     fs.cpSync(skill, copy, { recursive: true, filter: (s) => !/[\\/](runs|site-checks|\.git)([\\/]|$)/.test(s) });
-    const f = path.join(copy, "scripts", m.file); const src = fs.readFileSync(f, "utf8");
+    const f = m.yml ? path.join(copy, "ci.yml") : path.join(copy, "scripts", m.file);
+    if (m.yml) fs.copyFileSync(ciYml, f);
+    const src = fs.readFileSync(f, "utf8");
     const hits = src.split(m.from).length - 1;
     if (hits !== 1) return resolve({ good: false, line: `MUTANT ${m.id}: PATCH DID NOT APPLY (target text found ${hits} times in ${m.file})` });
     fs.writeFileSync(f, src.replace(m.from, () => m.to));
-    const c = spawn(process.execPath, ["--max-old-space-size=256", path.join(copy, "scripts", "test-ci-tests.mjs"), "--scripts", path.join(copy, "scripts"), "--quiet"], { stdio: ["ignore", "pipe", "pipe"] });
+    const c = spawn(process.execPath, ["--max-old-space-size=256", path.join(copy, "scripts", "test-ci-tests.mjs"), "--scripts", path.join(copy, "scripts"), "--ci-yml", m.yml ? f : ciYml, "--quiet"], { stdio: ["ignore", "pipe", "pipe"] });
     let out = ""; c.stdout.on("data", (d) => (out += d)); c.stderr.on("data", (d) => (out += d));
     const t = setTimeout(() => c.kill(), 300000);
     c.on("close", (code) => {
@@ -170,6 +178,33 @@ const two = (plainA, plainB, mutA = ["--mutants"], mutB = ["--mutants"]) => [
   for (const must of ["test-ci-tests.mjs", "test-client-copy.mjs"]) if (!seen.has(must)) bad.push(`${must} is not listed`);
   return [bad.length === 0, bad.join(" | ")];
 }); check("case 6: the real list is valid by the runner's rules, every file exists, and it holds this test and the client copy test", ok, detail); }
+
+{ const [ok, detail] = T(() => {
+  if (!fs.existsSync(ciYml)) return [false, ciYml + " is not there"];
+  // the least parsing that is safe: the jobs are the keys of two spaces under the top-level jobs:, a run line is a line "run: ..." of a step
+  const lines = fs.readFileSync(ciYml, "utf8").split(/\r?\n/);
+  const at = lines.findIndex((l) => /^jobs:\s*$/.test(l));
+  if (at < 0) return [false, "ci.yml has no jobs: key"];
+  const jobs = [];
+  for (let i = at + 1; i < lines.length; i++) {
+    const l = lines[i];
+    if (/^\S/.test(l)) break;
+    const h = /^ {2}([A-Za-z0-9_-]+):\s*(#.*)?$/.exec(l);
+    if (h) { jobs.push({ id: h[1], runs: [], timeout: null }); continue; }
+    const j = jobs[jobs.length - 1]; if (!j) continue;
+    const r = /^\s+(?:- )?run:\s*(.*)$/.exec(l); if (r) j.runs.push(r[1].trim());
+    const t = /^ {4}timeout-minutes:\s*(\d+)\s*(#.*)?$/.exec(l); if (t) j.timeout = Number(t[1]);
+  }
+  const withMutants = jobs.filter((j) => j.runs.some((x) => /ci-tests\.mjs\s+--mutants$/.test(x)));
+  const withPlain = jobs.filter((j) => j.runs.some((x) => /ci-tests\.mjs$/.test(x)));
+  if (withMutants.length !== 1 || withPlain.length !== 1) return [false, `the step that runs ci-tests.mjs --mutants is in ${withMutants.length} jobs and the step that runs ci-tests.mjs in ${withPlain.length} (each must be in exactly one)`];
+  const job = withMutants[0];
+  const bad = [];
+  if (withPlain[0] !== job) bad.push(`ci-tests.mjs runs in job ${withPlain[0].id} and ci-tests.mjs --mutants in job ${job.id}`);
+  if (job.runs.some((x) => x.includes("tools/audit/test/mutate.mjs"))) bad.push(`job ${job.id} also runs tools/audit/test/mutate.mjs`);
+  if (!(job.timeout >= 60)) bad.push(`job ${job.id} has timeout-minutes ${job.timeout}`);
+  return [bad.length === 0, bad.join(" | ")];
+}); check("case 7: ci.yml runs the skill's tests and its mutants in one job, which does not run the audit mutants and has timeout-minutes 60 or more", ok, detail); }
 
 fs.rmSync(tmp, { recursive: true, force: true });
 const passed = results.filter((r) => r.ok).length;
